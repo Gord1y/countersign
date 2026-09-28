@@ -29,7 +29,10 @@ then runs them with `swift test --skip-build`; `scripts/check-lint.sh` runs
 `swift format lint --strict` and rejects code comments; `scripts/check-scripts.sh` runs the four
 test scripts above. A plain `swift build` followed by `swift test` compiles the package twice,
 because `swift test` rebuilds everything with testing enabled; on CI that second compile cost
-about 40 seconds. CI runs the parts as parallel jobs; see [`ci.yml`](#ciyml--ci).
+about 40 seconds. CI runs the parts as parallel jobs; see [`ci.yml`](#ciyml--ci). Last,
+`check.sh` runs `swift scripts/release-index.swift --check` against the repository's own
+`releases/index.json`, which CI checks in its separate `release-index` job; the test script only
+exercises `--check` on fixtures, so without this line a stale index passed locally.
 
 `scripts/build-app.sh` builds the release binary and assembles it into `.build/Countersign.app`,
 ad-hoc signed; see [design/app.md](design/app.md) for the bundle layout and why. It copies the
