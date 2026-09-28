@@ -66,10 +66,12 @@ jobs:
           mkdir -p .build/review
           git log --no-merges --format='%h %s' "$BASE_SHA..HEAD" > .build/review/commits.txt
           git diff "$BASE_SHA...HEAD" > .build/review/changes.diff
-      - uses: anthropics/claude-code-action@756cc22e19660d20e8cc9496b4f242475a7f7790 # v1.0.235
+      - id: claude
+        uses: anthropics/claude-code-action@756cc22e19660d20e8cc9496b4f242475a7f7790 # v1.0.235
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           github_token: ${{ github.token }}
+          track_progress: true
           prompt: |
             Read .build/review/changes.diff and .build/review/commits.txt first. The first is this pull request's diff against its base branch, the second lists its commits. The working tree is the pull request's head commit.
 
@@ -79,7 +81,43 @@ jobs:
             - correctness bugs in the changed code;
             - violations of this repository's rules in CLAUDE.md and .claude/rules/*.md: no comments in Swift sources, scripts or workflows; no force unwrap, try! or as!; ApprovalCore never imports AppKit or SwiftUI; the hook path never writes to stderr and never exits non-zero; commit subjects follow Conventional Commits.
 
-            Post each finding with mcp__github_inline_comment__create_inline_comment on the changed line it concerns, with confirmed set to true. A finding about a commit subject goes on the first changed line of that commit's most relevant file. Be brief. Do not restate or summarize the diff. When there is nothing to report, post nothing.
+            Finish with structured output: `verdict` and `body`.
+            - `verdict` is `REQUEST_CHANGES` when you found at least one verified correctness bug or rule violation, and `APPROVE` when you found none. There is no other verdict.
+            - `body` is Markdown. With findings: one bullet each, `path:line`, one sentence on the defect and one on the fix. Without findings: one line saying there are none, then one line naming the files and commits you read.
+            - Report only what you verified by reading the changed code and the code it touches. Do not praise, do not restate the diff, and never mention anything you could not run.
+            Before you finish, update your progress comment with the same verdict and findings, so it stands on its own.
           claude_args: >-
-            --allowedTools "Read,Glob,Grep,mcp__github_inline_comment__create_inline_comment"
+            --allowedTools "Read,Glob,Grep"
             --disallowedTools "Bash,Edit,Write,MultiEdit,NotebookEdit,WebFetch,WebSearch"
+            --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["APPROVE","REQUEST_CHANGES"]},"body":{"type":"string","minLength":1}},"required":["verdict","body"],"additionalProperties":false}'
+      - name: submit the verdict
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          OUTPUT: ${{ steps.claude.outputs.structured_output }}
+        run: |
+          verdict=$(printf '%s' "$OUTPUT" | jq -r '.verdict // empty')
+          printf '%s' "$OUTPUT" | jq -r '.body // empty' >"$RUNNER_TEMP/review.md"
+          if [ ! -s "$RUNNER_TEMP/review.md" ]; then
+            echo "::error::The review returned no body."
+            exit 1
+          fi
+          case "$verdict" in
+            APPROVE) flag=--approve ;;
+            REQUEST_CHANGES) flag=--request-changes ;;
+            *)
+              echo "::error::The review returned no verdict."
+              exit 1
+              ;;
+          esac
+          head=$(gh api "repos/$GH_REPO/pulls/$NUMBER" --jq .head.sha)
+          gh pr review "$NUMBER" "$flag" --body-file "$RUNNER_TEMP/review.md"
+          state=$(gh api "repos/$GH_REPO/pulls/$NUMBER/reviews" --jq "[.[] | select(.user.login == \"github-actions[bot]\" and .commit_id == \"$head\")] | last | .state // empty")
+          case "$verdict:$state" in
+            APPROVE:APPROVED | REQUEST_CHANGES:CHANGES_REQUESTED) echo "Submitted $state on #$NUMBER at $head." ;;
+            *)
+              echo "::error::GitHub shows no $verdict review on #$NUMBER at $head."
+              exit 1
+              ;;
+          esac

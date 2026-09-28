@@ -144,12 +144,16 @@ the pull request's title followed by ` (#<number>)`, which GitHub appends, and i
 
 Three rulesets enforce this. None has a bypass actor, so they bind the owner too:
 
-- `main`: no deletion, no force push, changes only through a pull request (no approvals needed,
-  merge commit only), and the required checks `gates`, `commits`, `release-index`, `lint` and
-  `title`, each expected from the GitHub Actions app.
+- `main`: no deletion, no force push, changes only through a pull request (one approving review,
+  dismissed when new commits are pushed; merge commit only), and the required checks `gates`,
+  `commits`, `release-index`, `lint` and `title`, each expected from the GitHub Actions app.
 - `staging`: the same, except squash only, and the branch must be up to date with `staging`
   before it merges.
 - `release tags`: a `v*` tag can be created but never moved or deleted.
+
+On the owner's own pull requests the approval comes from the
+[Claude review](#claude-reviewyml--claude-review), since nobody can approve their own; on everyone
+else's, including Dependabot's, it comes from the owner, whom CODEOWNERS asks for it.
 
 Only `staging` requires an up-to-date branch. Each release's merge commit exists only on `main`,
 and `staging`, which takes changes only by squash, can never contain it, so requiring it on `main`
@@ -168,7 +172,9 @@ release pull request.
   until it is added here.
 - Every action must be pinned to a full commit SHA, enforced by the repository setting as well as
   by the rule under [CI](#ci).
-- The workflows' default `GITHUB_TOKEN` is read-only and cannot approve pull requests.
+- The workflows' default `GITHUB_TOKEN` is read-only. GitHub Actions may create and approve pull
+  requests, which the Claude review's verdict step needs; only jobs that declare
+  `pull-requests: write` get that far.
 - Workflows for any outside contributor's fork pull request wait for the maintainer's approval.
 - Dependabot's update jobs run on Actions but bypass these policies, as GitHub documents.
 
@@ -275,9 +281,12 @@ it builds, publishes and why.
 
 ### `claude-review.yml` — Claude review
 
-Claude reviews a pull request for correctness bugs and for breaks of this repository's rules, and
-posts what it finds as inline review comments. Both jobs run on `ubuntu-latest`. There are two ways
-in, and only the repository owner can use either:
+Claude reviews a pull request for correctness bugs and for breaks of this repository's rules. It
+posts a progress comment while it works and ends with a formal review from `github-actions`: an
+approval when it finds nothing, a request for changes when it finds a verified bug or rule
+violation. On the owner's own pull requests that approval is the one the rulesets require (see
+[Branches and rulesets](#branches-and-rulesets)). Both jobs run on `ubuntu-latest`. There are two
+ways in, and only the repository owner can use either:
 
 - **Automatic:** `pull_request` (`opened`, `synchronize`, `reopened`, `ready_for_review`), when the
   pull request is not a draft, its author is the repository owner
@@ -316,14 +325,11 @@ running any workflow before the owner has looked at it.
 - For GitHub, the action gets the workflow's own `github.token` through its `github_token` input
   instead of exchanging an OIDC token for the Claude GitHub App's token, so no job needs
   `id-token: write` and the app does not have to be installed. The token carries only what `review`
-  declares: `contents: read` to check out, `pull-requests: write` to post review comments.
+  declares: `contents: read` to check out, `pull-requests: write` to post the progress comment and
+  submit the review.
 - The action writes that token into the remote URL in the checkout's `.git/config`, where Claude's
   `Read` tool can see it. That is accepted: it is limited to the job's two permissions and expires
   when the job ends.
-- The action sorts inline comments that were not posted with `confirmed: true` through a
-  classification call that needs `ANTHROPIC_API_KEY`. Without that key it posts all of them
-  unclassified, so an OAuth-only setup loses no comment. The prompt asks for `confirmed: true`
-  anyway, which posts each comment at once.
 
 #### What Claude may do
 
@@ -331,18 +337,30 @@ Pull request content, the diff, the commit subjects and the files, is untrusted 
 owner's own pull request can carry text copied from elsewhere, written to steer a model. A review
 needs to read the change, not run it, so the model gets no shell and no way to change the checkout:
 
-- `--allowedTools` grants `Read`, `Glob`, `Grep` and
-  `mcp__github_inline_comment__create_inline_comment`, the action's tool for posting a comment on a
-  line of the pull request. That tool cannot approve or merge.
+- `--allowedTools` grants `Read`, `Glob` and `Grep`. `track_progress: true` puts the action in its
+  tag mode, which adds its own list: `LS`, `mcp__github_comment__update_claude_comment` for the
+  progress comment, three `mcp__github_ci__*` tools that read CI status and job logs, and the git
+  commands `git add`, `git commit`, `git rm` and the action's `git push` wrapper, each as a `Bash`
+  rule. Tag mode also runs Claude with `--permission-mode acceptEdits`, which allows any file edit
+  inside the checkout without asking. None of these tools can approve or merge.
 - `--disallowedTools` removes `Bash`, `Edit`, `Write`, `MultiEdit`, `NotebookEdit`, `WebFetch` and
-  `WebSearch`. Naming `Bash` there is what matters most: the action loads the project settings, and
-  this repository's `.claude/settings.json` allows many shell commands for local agents, among them
-  `swift build`, which runs `Package.swift`. A deny rule overrides an allow rule, so the explicit
-  `Bash` is what leaves the review without a shell.
+  `WebSearch`. It is appended after tag mode's list, and a deny rule overrides every allow rule and
+  the permission mode, so Claude still has no shell and cannot write a file. Naming `Bash` there is
+  what matters most: tag mode's git commands are `Bash` rules, and the action also loads the project
+  settings, where this repository's `.claude/settings.json` allows many shell commands for local
+  agents, among them `swift build`, which runs `Package.swift`. The explicit `Bash` is what leaves
+  the review without a shell, and the explicit file-writing tools are what leave `acceptEdits`
+  nothing to allow.
+- The verdict is structured output, not a file Claude writes. Under `acceptEdits`, a `Write`
+  allowed for one report file cannot be kept to that file: every edit inside the checkout is
+  allowed, `.git/` included, so a review steered by the pull request could plant a hook or rewrite
+  `.git/config` and get its own code run when the action later runs git. Structured output needs
+  no file tool at all.
 - Before Claude starts, the action restores `.claude/`, `CLAUDE.md` and its other Claude
   configuration paths from the base branch (for `/review`, the default branch) and keeps the pull
   request's versions under `.claude-pr/` for reference only. The rules the review applies are
-  therefore `main`'s, not ones the pull request rewrote.
+  therefore the base branch's (for `/review`, the default branch's), not ones the pull request
+  rewrote.
 - Nothing from the pull request is interpolated into a `run:` script or into the prompt. The prompt
   is static, and the only values that pass from the event into a step, the SHAs and the pull request
   number, go through `env:`.
@@ -358,14 +376,38 @@ prompt tells Claude to read both first. `BASE_SHA` comes from `github.event.pull
 for the automatic trigger and from `gate`'s `base-sha` output for `/review`, only ever through
 `env:`. The checkout uses `fetch-depth: 0` so the base commit and the merge base are present.
 
-Comments can only be posted on lines of the diff, so a finding about a commit subject goes on the
-first changed line of that commit's most relevant file.
+#### The verdict
+
+`--json-schema` makes Claude end the run with structured output, which the action exposes as the
+step's `structured_output` output. The schema allows exactly two fields, both required:
+
+- `verdict`: `REQUEST_CHANGES` when Claude found at least one verified correctness bug or rule
+  violation, `APPROVE` when it found none. No other value passes the schema.
+- `body`: the review in Markdown. With findings, one bullet each with its `path:line`, the defect
+  and the fix; without, a line saying there are none and a line naming the files and commits read.
+
+Findings go in that body, not in inline comments. If Claude ends without structured output, the
+action's step fails.
+
+A later step with no model in it submits the verdict. It gets `structured_output` only through
+`env:`, like every other value that reaches a script, takes both fields out with `jq`, reads the
+pull request's head SHA and runs `gh pr review` with `--approve` or `--request-changes` and the
+body. It then lists the pull request's reviews and checks that the latest one by
+`github-actions[bot]` at that head commit is `APPROVED` or `CHANGES_REQUESTED` to match. An empty
+body, an unknown verdict or a review GitHub does not show fails the job.
+
+A failed run, like a request for changes, leaves the owner's pull request without the approval the
+rulesets require. GitHub counts each reviewer's latest review, so the way out is a new run: push a
+fix, since every push runs the review again; comment `/review` on the pull request; or re-run the
+failed job.
 
 #### Repository setup
 
 - The repository secret `CLAUDE_CODE_OAUTH_TOKEN`, created with `claude setup-token`, is the only
   secret this workflow reads.
 - The fork approval setting described above is turned on.
+- "Allow GitHub Actions to create and approve pull requests" is on, because the verdict step
+  approves.
 
 ### `dependabot.yml`
 
