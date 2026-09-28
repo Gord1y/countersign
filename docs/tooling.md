@@ -24,7 +24,7 @@ which removes a builder's landed worktrees and branches; `scripts/test-release-i
 test script; they are checked by running them.
 
 `scripts/check.sh` runs four parts in order, and each also runs on its own:
-`scripts/check-build.sh` runs `swift build`, which compiles every target, the app included;
+`scripts/check-build.sh` runs `swift build`, which compiles every target except the tests;
 `scripts/check-test.sh` runs `swift test`; `scripts/check-lint.sh` runs
 `swift format lint --strict` and rejects code comments; `scripts/check-scripts.sh` runs the four
 test scripts above. CI runs the parts as parallel jobs; see [`ci.yml`](#ciyml--ci). Last,
@@ -33,10 +33,10 @@ test scripts above. CI runs the parts as parallel jobs; see [`ci.yml`](#ciyml--c
 exercises `--check` on fixtures, so without this line a stale index passed locally.
 
 `swift test` compiles everything again with testing enabled rather than reusing `swift build`'s
-output, so the two compiles cannot be merged into one. Measured on CI on 2026-09-28,
-`swift build --build-tests` followed by `swift test --skip-build` took 118 seconds to build, no
-less than `swift build` (41) and `swift test`'s own build (73) together. Running the two as
-separate jobs overlaps them instead.
+output, so the two compiles cannot be merged into one. Measured on CI on 2026-09-28, with each
+time as SwiftPM reported it, `swift build --build-tests` followed by `swift test --skip-build` took
+118 seconds to build, no less than `swift build` (41) and `swift test`'s own build (73)
+together. Running the two as separate jobs overlaps them instead.
 
 `scripts/build-app.sh` builds the release binary and assembles it into `.build/Countersign.app`,
 ad-hoc signed; see [design/app.md](design/app.md) for the bundle layout and why. It copies the
@@ -239,8 +239,10 @@ Triggers: `push` to `main`, `pull_request`, `workflow_dispatch`.
   `scripts/check-build.sh`, `test` runs `scripts/check-test.sh`, and `static` runs
   `scripts/check-lint.sh` and `scripts/check-scripts.sh`. Together they are `scripts/check.sh`,
   the command a contributor runs locally before committing. Run as one job, `check.sh` took
-  3 minutes 38 seconds on 2026-09-28: 38 seconds to build, 73 to rebuild for the tests, 12 to run
-  them and about 90 for lint and the script suites, one after another.
+  3 minutes 38 seconds on 2026-09-28: 41 seconds to build, 73 to rebuild for the tests, 12 to run
+  them and about 90 for lint and the script suites, one after another, each build time as SwiftPM
+  reported it. Split into these three jobs, the whole CI run took 2 minutes 23 seconds, with
+  `test` the longest at 2 minutes 9 seconds.
 - `gates` is the check the rulesets require. It runs on `ubuntu-latest` once `build`, `test` and
   `static` have finished and fails unless all three ended in `success`. It runs even when one of
   them failed (`!cancelled()`), because a required check that is skipped counts as passing.
