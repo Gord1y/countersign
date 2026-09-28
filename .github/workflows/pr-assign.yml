@@ -1,0 +1,35 @@
+name: PR assignee
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+
+permissions: {}
+
+concurrency:
+  group: pr-assign-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  assign:
+    name: assign
+    if: github.event.pull_request.user.type == 'User'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: write
+    steps:
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+          AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          gh api -X POST "repos/$GH_REPO/issues/$NUMBER/assignees" -f "assignees[]=$AUTHOR" >/dev/null
+          if gh api "repos/$GH_REPO/issues/$NUMBER" --jq '.assignees[].login' | grep -qxF "$AUTHOR"; then
+            echo "Assigned $AUTHOR to #$NUMBER."
+          else
+            echo "::warning::GitHub did not assign $AUTHOR to #$NUMBER."
+          fi

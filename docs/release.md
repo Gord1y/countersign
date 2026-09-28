@@ -168,9 +168,9 @@ the workflow's `permissions: {}` default.
 2. Bump `CountersignVersion.current` in `Sources/ApprovalCore/CountersignVersion.swift` to
    `<x.y.z>`.
 3. Open a pull request with both into `staging`, titled `chore: prepare release <x.y.z>`, and
-   squash-merge it once its checks pass.
+   squash-merge it once its checks pass and the Claude review approves.
 4. Open a pull request from `staging` into `main`, titled `chore: release countersign <x.y.z>`,
-   and merge it with a merge commit once its checks pass.
+   and merge it with a merge commit once its checks pass and the Claude review approves.
 5. Tag `main`'s new merge commit and push the tag: `git fetch origin`, then
    `git tag v<x.y.z> origin/main` and `git push origin v<x.y.z>`. A pushed `v*` tag can never be
    moved or deleted, so check `git log -1 origin/main` first.

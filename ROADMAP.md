@@ -48,6 +48,13 @@ not the model behind it.
 
 ### Later
 
+- macOS 13 Ventura. Claude Code, Codex and Antigravity already run there. Countersign needs macOS
+  14 for the Observation framework, a few SwiftUI modifiers and the cooperative activation calls
+  its focus guard uses to hand focus back to your app. Each has an older equivalent, but the guard
+  was designed and measured under macOS 14's activation rules, so it needs testing on a real macOS
+  13 Mac, which GitHub's hosted runners no longer offer. Launch at Login's `SMAppService` already
+  works on 13. macOS 12 would also mean rebuilding Launch at Login on the older login-item APIs,
+  and Claude Code doesn't support it.
 - Windows as a native app, sharing the same design docs and test fixtures, starting with a spike
   on showing a focused panel without activating the app.
 - Linux, both X11 and Wayland.
