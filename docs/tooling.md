@@ -190,6 +190,9 @@ release pull request.
 - CLA Assistant (cla-assistant.io) reads the agreement from a public gist,
   <https://gist.github.com/Gord1y/c6ba6735119a4ab91197b41678108d1a>, which holds a copy of
   [CLA.md](../CLA.md): change both together. Its status on a pull request is not a required check.
+- `.github/CODEOWNERS` names Gord1y for every path, so GitHub requests the maintainer's review on
+  every pull request someone else opens, Dependabot's included. The rulesets do not require a code
+  owner's review: the maintainer's own pull requests are approved by the Claude review.
 
 ## CI
 
@@ -377,6 +380,9 @@ silently. Two entries cover the same ecosystem and directory:
 
 Both entries set `commit-message: prefix: ci`, so every subject starts with `ci: `. Dependabot's
 default `Bump …` fails the commit hook, and with it the required `commits` and `title` checks.
+
+Both entries also assign every Dependabot pull request to Gord1y. Reviewers come from
+`.github/CODEOWNERS` instead of Dependabot's own `reviewers` option, which GitHub is retiring.
 
 Dependabot reads this file from the default branch, so a change to it takes effect once it
 reaches `main`.
