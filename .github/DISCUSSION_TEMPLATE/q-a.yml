@@ -1,0 +1,46 @@
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before asking, run `countersign doctor` and check [troubleshooting](https://github.com/Gord1y/countersign/blob/main/docs/troubleshooting.md) and [known limitations](https://github.com/Gord1y/countersign/blob/main/docs/limitations.md). Found a bug? Open a [bug report](https://github.com/Gord1y/countersign/issues/new?template=bug.yml) instead.
+  - type: textarea
+    id: question
+    attributes:
+      label: Your question
+    validations:
+      required: true
+  - type: dropdown
+    id: host
+    attributes:
+      label: Agent
+      options:
+        - Claude Code
+        - Codex
+        - Cursor
+        - Antigravity
+        - other
+        - not about an agent
+    validations:
+      required: true
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version
+      placeholder: e.g. macOS 15.1
+    validations:
+      required: true
+  - type: input
+    id: countersign-version
+    attributes:
+      label: countersign --version
+      description: If Countersign is installed.
+    validations:
+      required: false
+  - type: textarea
+    id: doctor
+    attributes:
+      label: countersign doctor output
+      description: If available.
+      render: text
+    validations:
+      required: false

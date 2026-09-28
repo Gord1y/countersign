@@ -23,8 +23,8 @@ for what you want to do; each line says when that page is the one to open.
 
 ## Contributing
 
-- [Tooling](tooling.md): read it before changing a script, the commit message check or a CI
-  workflow.
+- [Tooling](tooling.md): read it before changing a script, the commit message check, a CI
+  workflow or a repository setting on GitHub.
 - [Releasing](release.md): read it when you cut a release or change the curl installer.
 - [Screenshots](screenshots.md): read it when a README screenshot needs updating.
 - [Release notes](../releases/README.md): read it when you write a release note.

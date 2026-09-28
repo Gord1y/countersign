@@ -12,6 +12,7 @@
   <a href="https://github.com/Gord1y/countersign/releases"><img src="https://img.shields.io/github/v/release/Gord1y/countersign" alt="Latest release"></a>
   <img src="https://img.shields.io/badge/macOS-14%2B-blue" alt="macOS 14+">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue" alt="License GPL-3.0"></a>
+  <a href="https://cla-assistant.io/Gord1y/countersign"><img src="https://cla-assistant.io/readme/badge/Gord1y/countersign" alt="CLA assistant"></a>
 </p>
 
 <p align="center">
