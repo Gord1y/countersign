@@ -139,14 +139,13 @@ jobs:
               exit 1
               ;;
           esac
-          jq -n --arg commit "$REVIEWED" --arg event "$verdict" --rawfile body "$RUNNER_TEMP/review.md" \
+          posted=$(jq -n --arg commit "$REVIEWED" --arg event "$verdict" --rawfile body "$RUNNER_TEMP/review.md" \
             '{commit_id: $commit, event: $event, body: $body}' |
-            gh api -X POST "repos/$GH_REPO/pulls/$NUMBER/reviews" --input - >/dev/null
-          state=$(gh api "repos/$GH_REPO/pulls/$NUMBER/reviews" --jq "[.[] | select(.user.login == \"github-actions[bot]\" and .commit_id == \"$REVIEWED\")] | last | .state // empty")
-          case "$verdict:$state" in
-            APPROVE:APPROVED | REQUEST_CHANGES:CHANGES_REQUESTED) echo "Submitted $state on #$NUMBER at $REVIEWED." ;;
+            gh api -X POST "repos/$GH_REPO/pulls/$NUMBER/reviews" --input - --jq '"\(.state) \(.commit_id)"')
+          case "$verdict:$posted" in
+            "APPROVE:APPROVED $REVIEWED" | "REQUEST_CHANGES:CHANGES_REQUESTED $REVIEWED") echo "Submitted $posted on #$NUMBER." ;;
             *)
-              echo "::error::GitHub shows no $verdict review on #$NUMBER at $REVIEWED."
+              echo "::error::GitHub recorded '$posted' on #$NUMBER, not $verdict at $REVIEWED."
               exit 1
               ;;
           esac
