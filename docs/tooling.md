@@ -130,6 +130,67 @@ not with the Command Line Tools. The same Command Line Tools with the macOS 26.5
 (`SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk`) build it, and so does Xcode
 26.0.1 (Swift 6.2, macOS 26.0 SDK).
 
+## Repository settings
+
+These GitHub settings live outside the tree, so this section is their record: change a setting
+and this section together.
+
+### Branches and rulesets
+
+`staging` takes every change through a pull request that is squash-merged, and `main` takes
+`staging` through a pull request merged with a merge commit when a release is cut (see
+[release.md](release.md#cutting-a-release)). Rebase merging is off. A squash commit's subject is
+the pull request's title and its body is empty.
+
+Three rulesets enforce this. None has a bypass actor, so they bind the owner too:
+
+- `main`: no deletion, no force push, changes only through a pull request (no approvals needed,
+  merge commit only), and the required checks `gates`, `commits`, `release-index`, `lint` and
+  `title`, each expected from the GitHub Actions app.
+- `staging`: the same, except squash only, and the branch must be up to date with `staging`
+  before it merges.
+- `release tags`: a `v*` tag can be created but never moved or deleted.
+
+Only `staging` requires an up-to-date branch. Each release's merge commit exists only on `main`,
+and `staging`, which takes changes only by squash, can never contain it, so requiring it on `main`
+would block every release after the first. The checks of a `staging` → `main` pull request still
+run on its merge with `main`'s current tip.
+
+Automatic deletion of head branches is off, because it would delete `staging` after every
+release pull request.
+
+### Actions
+
+- Allowed actions are GitHub's own, `anthropics/claude-code-action@*` and `oven-sh/setup-bun@*`.
+  `claude-code-action` is a composite action whose `action.yml` runs `oven-sh/setup-bun`, and an
+  action called from another action must pass the same allow list. If a Dependabot bump makes
+  `claude-code-action` call another action, the review job fails with that action not allowed
+  until it is added here.
+- Every action must be pinned to a full commit SHA, enforced by the repository setting as well as
+  by the rule under [CI](#ci).
+- The workflows' default `GITHUB_TOKEN` is read-only and cannot approve pull requests.
+- Workflows for any outside contributor's fork pull request wait for the maintainer's approval.
+- Dependabot's update jobs run on Actions but bypass these policies, as GitHub documents.
+
+### Security
+
+- Private vulnerability reporting is on; [SECURITY.md](../SECURITY.md) and the issue template's
+  security link send reports there.
+- Dependabot alerts and Dependabot security updates are on, and so are secret scanning and push
+  protection.
+
+### Community
+
+- Discussions are on. Its Q&A category, slug `q-a`, is where the README, the issue template's
+  question link and the app's Ask a Question… go. `.github/DISCUSSION_TEMPLATE` holds the forms
+  for Q&A and Ideas.
+- The wiki and Projects are off: the documentation lives in `docs/` and the plan in
+  [ROADMAP.md](../ROADMAP.md).
+- Sponsorships are on, from `.github/FUNDING.yml`.
+- CLA Assistant (cla-assistant.io) reads the agreement from a public gist,
+  <https://gist.github.com/Gord1y/c6ba6735119a4ab91197b41678108d1a>, which holds a copy of
+  [CLA.md](../CLA.md): change both together. Its status on a pull request is not a required check.
+
 ## CI
 
 Every workflow under `.github/workflows` pins its actions to a full commit SHA (the trailing
