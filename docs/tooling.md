@@ -33,8 +33,9 @@ downloadable release; see [release.md](release.md).
 
 `scripts/git-hooks/commit-msg` is the one rule set. Locally git runs it as a hook; in CI,
 `scripts/check-commits.sh <base> <head>` runs the same file over every non-merge commit in
-`base..head` and prefixes each violation with the commit's short SHA. There is no second copy of the
-rules to drift.
+`base..head` and prefixes each violation with the commit's short SHA, and `pr-title.yml` runs it
+over a pull request's title, which becomes the squash commit's subject. There is no second copy of
+the rules to drift.
 
 Turn the hook on once per clone:
 
@@ -129,6 +130,67 @@ not with the Command Line Tools. The same Command Line Tools with the macOS 26.5
 (`SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk`) build it, and so does Xcode
 26.0.1 (Swift 6.2, macOS 26.0 SDK).
 
+## Repository settings
+
+These GitHub settings live outside the tree, so this section is their record: change a setting
+and this section together.
+
+### Branches and rulesets
+
+`staging` takes every change through a pull request that is squash-merged, and `main` takes
+`staging` through a pull request merged with a merge commit when a release is cut (see
+[release.md](release.md#cutting-a-release)). Rebase merging is off. A squash commit's subject is
+the pull request's title and its body is empty.
+
+Three rulesets enforce this. None has a bypass actor, so they bind the owner too:
+
+- `main`: no deletion, no force push, changes only through a pull request (no approvals needed,
+  merge commit only), and the required checks `gates`, `commits`, `release-index`, `lint` and
+  `title`, each expected from the GitHub Actions app.
+- `staging`: the same, except squash only, and the branch must be up to date with `staging`
+  before it merges.
+- `release tags`: a `v*` tag can be created but never moved or deleted.
+
+Only `staging` requires an up-to-date branch. Each release's merge commit exists only on `main`,
+and `staging`, which takes changes only by squash, can never contain it, so requiring it on `main`
+would block every release after the first. The checks of a `staging` → `main` pull request still
+run on its merge with `main`'s current tip.
+
+Automatic deletion of head branches is off, because it would delete `staging` after every
+release pull request.
+
+### Actions
+
+- Allowed actions are GitHub's own, `anthropics/claude-code-action@*` and `oven-sh/setup-bun@*`.
+  `claude-code-action` is a composite action whose `action.yml` runs `oven-sh/setup-bun`, and an
+  action called from another action must pass the same allow list. If a Dependabot bump makes
+  `claude-code-action` call another action, the review job fails with that action not allowed
+  until it is added here.
+- Every action must be pinned to a full commit SHA, enforced by the repository setting as well as
+  by the rule under [CI](#ci).
+- The workflows' default `GITHUB_TOKEN` is read-only and cannot approve pull requests.
+- Workflows for any outside contributor's fork pull request wait for the maintainer's approval.
+- Dependabot's update jobs run on Actions but bypass these policies, as GitHub documents.
+
+### Security
+
+- Private vulnerability reporting is on; [SECURITY.md](../SECURITY.md) and the issue template's
+  security link send reports there.
+- Dependabot alerts and Dependabot security updates are on, and so are secret scanning and push
+  protection.
+
+### Community
+
+- Discussions are on. Its Q&A category, slug `q-a`, is where the README, the issue template's
+  question link and the app's Ask a Question… go. `.github/DISCUSSION_TEMPLATE` holds the forms
+  for Q&A and Ideas.
+- The wiki and Projects are off: the documentation lives in `docs/` and the plan in
+  [ROADMAP.md](../ROADMAP.md).
+- Sponsorships are on, from `.github/FUNDING.yml`.
+- CLA Assistant (cla-assistant.io) reads the agreement from a public gist,
+  <https://gist.github.com/Gord1y/c6ba6735119a4ab91197b41678108d1a>, which holds a copy of
+  [CLA.md](../CLA.md): change both together. Its status on a pull request is not a required check.
+
 ## CI
 
 Every workflow under `.github/workflows` pins its actions to a full commit SHA (the trailing
@@ -167,6 +229,23 @@ Triggers: `push` to `main`, `pull_request`, `workflow_dispatch`, on `ubuntu-late
 actionlint over `.github/workflows`, fetched with actionlint's own `download-actionlint.bash`
 pinned to a commit SHA, and shellcheck, already installed on the image, over `scripts/*.sh`,
 `scripts/*/*.sh`, `scripts/git-hooks/*` and the root `install.sh`.
+
+### `pr-title.yml` — PR title
+
+Triggers: `pull_request` (`opened`, `edited`, `reopened`, `synchronize`), on `ubuntu-latest`. Its
+one job, `title`, runs `scripts/git-hooks/commit-msg` over the pull request's title.
+
+A pull request lands on `staging` as one squash commit whose subject is its title, and `commits`
+checks only the branch's own commits, which the squash discards. Without `title`, a subject nobody
+checked would land on `staging`, and `commits` would then fail every `staging` → `main` pull
+request after it.
+
+- `edited` re-runs the check when the title is corrected, and `synchronize` gives every new head
+  commit its own result, which a required check needs.
+- The job checks out the base commit (`github.event.pull_request.base.sha`), so the hook that
+  judges the title is the base branch's, not one the pull request rewrote.
+- The title reaches the hook only through `env:`, written to a file under `$RUNNER_TEMP`, never
+  interpolated into the script.
 
 ### `release.yml` — Release
 
@@ -272,7 +351,19 @@ first changed line of that commit's most relevant file.
 ### `dependabot.yml`
 
 Weekly updates for the `github-actions` ecosystem, so a pinned action SHA does not go stale
-silently.
+silently. Two entries cover the same ecosystem and directory:
+
+- Version updates go to `staging` (`target-branch: staging`), like every other change.
+- Security updates always open against the default branch, `main`, and an entry with a
+  `target-branch` does not configure them. The second entry, with no `target-branch`, exists for
+  them alone: its `open-pull-requests-limit: 0` turns off its version updates. Before merging a
+  security update, change its base to `staging` and bring it up to date with "Update branch".
+
+Both entries set `commit-message: prefix: ci`, so every subject starts with `ci: `. Dependabot's
+default `Bump …` fails the commit hook, and with it the required `commits` and `title` checks.
+
+Dependabot reads this file from the default branch, so a change to it takes effect once it
+reaches `main`.
 
 ## Worktree cleanup
 

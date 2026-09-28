@@ -46,6 +46,20 @@ It enforces Conventional Commits (`<type>[(scope)][!]: <subject>`) and rejects a
 line naming an AI tool or a "Generated with" line. Details in
 [docs/tooling.md](docs/tooling.md).
 
+## Branches and pull requests
+
+Open every pull request against `staging`; `main` only moves when a release is cut.
+
+- One task per pull request. It is squash-merged into `staging` as a single commit whose subject
+  is the pull request's title and whose body is empty, so write the title as a Conventional Commit
+  (`<type>[(scope)][!]: <subject>`). The `title` check enforces it.
+- A pull request merges once `gates`, `commits`, `release-index`, `lint` and `title` pass and the
+  branch is up to date with `staging` ("Update branch" on the pull request brings it up to date).
+- For a pull request from a fork, the workflows wait until the maintainer approves them to run.
+- Nobody pushes to `staging` or `main` directly, the maintainer included. At release time a pull
+  request from `staging` into `main` is merged with a merge commit; see
+  [docs/release.md](docs/release.md#cutting-a-release).
+
 ## Working with an AI agent
 
 Claude Code reads [CLAUDE.md](CLAUDE.md) and `.claude/`, including the path-scoped rules under

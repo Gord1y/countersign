@@ -5,7 +5,7 @@ release ships, the curl installer, why nothing is notarized, the release workflo
 cut one. Read it when you cut a release, or when you change the installer, the packaging script or
 the release workflow.
 
-A release is a git tag, `v<x.y.z>`, pushed to `main`. Pushing the tag triggers
+A release is a git tag, `v<x.y.z>`, on a commit of `main`. Pushing the tag triggers
 `.github/workflows/release.yml`, which builds the artifacts below and publishes them as a GitHub
 release.
 
@@ -167,14 +167,18 @@ the workflow's `permissions: {}` default.
 1. Write `releases/release-<x.y.z>.md` with the [release-notes skill](../.claude/skills/release-notes/SKILL.md).
 2. Bump `CountersignVersion.current` in `Sources/ApprovalCore/CountersignVersion.swift` to
    `<x.y.z>`.
-3. Commit both.
-4. Tag the commit `v<x.y.z>` and push the tag: `git tag v<x.y.z>` then `git push origin v<x.y.z>`.
-5. Once `release.yml` has published the release, update the tap formula
+3. Open a pull request with both into `staging`, titled `chore: prepare release <x.y.z>`, and
+   squash-merge it once its checks pass.
+4. Open a pull request from `staging` into `main`, titled `chore: release countersign <x.y.z>`,
+   and merge it with a merge commit once its checks pass.
+5. Tag `main`'s new merge commit and push the tag: `git fetch origin`, then
+   `git tag v<x.y.z> origin/main` and `git push origin v<x.y.z>`. A pushed `v*` tag can never be
+   moved or deleted, so check `git log -1 origin/main` first.
+6. Once `release.yml` has published the release, update the tap formula
    (`Gord1y/homebrew-tap`, formula `countersign`) to point at the new tarball: set `url` to
    `https://github.com/Gord1y/countersign/releases/download/v<x.y.z>/countersign-<x.y.z>-macos.tar.gz`
    and `sha256` to what `curl -fsSL <url> | shasum -a 256` prints for that URL, then commit and push
    the tap. The formula installs this tarball as-is: no bottle, no `brew test-bot` pull request and
    no `brew pr-pull` step.
 
-The pushed tag is what starts the release workflow; pushing the commit to `main` on its own does
-not.
+The pushed tag is what starts the release workflow; merging into `main` on its own does not.
