@@ -34,8 +34,8 @@ downloadable release; see [release.md](release.md).
 `scripts/git-hooks/commit-msg` is the one rule set. Locally git runs it as a hook; in CI,
 `scripts/check-commits.sh <base> <head>` runs the same file over every non-merge commit in
 `base..head` and prefixes each violation with the commit's short SHA, and `pr-title.yml` runs it
-over a pull request's title, which becomes the squash commit's subject. There is no second copy of
-the rules to drift.
+over the subject a pull request's squash commit will get. There is no second copy of the rules to
+drift.
 
 Turn the hook on once per clone:
 
@@ -140,7 +140,7 @@ and this section together.
 `staging` takes every change through a pull request that is squash-merged, and `main` takes
 `staging` through a pull request merged with a merge commit when a release is cut (see
 [release.md](release.md#cutting-a-release)). Rebase merging is off. A squash commit's subject is
-the pull request's title and its body is empty.
+the pull request's title followed by ` (#<number>)`, which GitHub appends, and its body is empty.
 
 Three rulesets enforce this. None has a bypass actor, so they bind the owner too:
 
@@ -233,9 +233,11 @@ pinned to a commit SHA, and shellcheck, already installed on the image, over `sc
 ### `pr-title.yml` — PR title
 
 Triggers: `pull_request` (`opened`, `edited`, `reopened`, `synchronize`), on `ubuntu-latest`. Its
-one job, `title`, runs `scripts/git-hooks/commit-msg` over the pull request's title.
+one job, `title`, runs `scripts/git-hooks/commit-msg` over the subject the squash commit will get:
+the pull request's title followed by ` (#<number>)`, which GitHub appends. Checking the title
+alone would pass a title just under the 100-character limit whose squash subject is over it.
 
-A pull request lands on `staging` as one squash commit whose subject is its title, and `commits`
+A pull request lands on `staging` as one squash commit with that subject, and `commits`
 checks only the branch's own commits, which the squash discards. Without `title`, a subject nobody
 checked would land on `staging`, and `commits` would then fail every `staging` → `main` pull
 request after it.
@@ -244,8 +246,8 @@ request after it.
   commit its own result, which a required check needs.
 - The job checks out the base commit (`github.event.pull_request.base.sha`), so the hook that
   judges the title is the base branch's, not one the pull request rewrote.
-- The title reaches the hook only through `env:`, written to a file under `$RUNNER_TEMP`, never
-  interpolated into the script.
+- The title and the number reach the hook only through `env:`, written to a file under
+  `$RUNNER_TEMP`, never interpolated into the script.
 
 ### `release.yml` — Release
 

@@ -28,6 +28,7 @@ jobs:
           persist-credentials: false
       - env:
           TITLE: ${{ github.event.pull_request.title }}
+          NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          printf '%s\n' "$TITLE" >"$RUNNER_TEMP/pr-title"
+          printf '%s (#%s)\n' "$TITLE" "$NUMBER" >"$RUNNER_TEMP/pr-title"
           scripts/git-hooks/commit-msg "$RUNNER_TEMP/pr-title"
