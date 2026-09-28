@@ -23,16 +23,20 @@ which removes a builder's landed worktrees and branches; `scripts/test-release-i
 `scripts/build-app.sh`, `scripts/package-release.sh` and `scripts/screenshots/render.sh` have no
 test script; they are checked by running them.
 
-`scripts/check.sh` runs three parts in order, and each also runs on its own:
-`scripts/check-build.sh` builds every target and the tests once with `swift build --build-tests`,
-then runs them with `swift test --skip-build`; `scripts/check-lint.sh` runs
+`scripts/check.sh` runs four parts in order, and each also runs on its own:
+`scripts/check-build.sh` runs `swift build`, which compiles every target, the app included;
+`scripts/check-test.sh` runs `swift test`; `scripts/check-lint.sh` runs
 `swift format lint --strict` and rejects code comments; `scripts/check-scripts.sh` runs the four
-test scripts above. A plain `swift build` followed by `swift test` compiles the package twice,
-because `swift test` rebuilds everything with testing enabled; on CI that second compile cost
-about 40 seconds. CI runs the parts as parallel jobs; see [`ci.yml`](#ciyml--ci). Last,
+test scripts above. CI runs the parts as parallel jobs; see [`ci.yml`](#ciyml--ci). Last,
 `check.sh` runs `swift scripts/release-index.swift --check` against the repository's own
 `releases/index.json`, which CI checks in its separate `release-index` job; the test script only
 exercises `--check` on fixtures, so without this line a stale index passed locally.
+
+`swift test` compiles everything again with testing enabled rather than reusing `swift build`'s
+output, so the two compiles cannot be merged into one. Measured on CI on 2026-09-28,
+`swift build --build-tests` followed by `swift test --skip-build` took 118 seconds to build, no
+less than `swift build` (41) and `swift test`'s own build (73) together. Running the two as
+separate jobs overlaps them instead.
 
 `scripts/build-app.sh` builds the release binary and assembles it into `.build/Countersign.app`,
 ad-hoc signed; see [design/app.md](design/app.md) for the bundle layout and why. It copies the
@@ -230,17 +234,17 @@ on a schedule, because a macOS run takes minutes and queues behind other jobs.
 
 Triggers: `push` to `main`, `pull_request`, `workflow_dispatch`.
 
-- `build` and `static` run in parallel on `macos-26`, whose default Xcode ships Swift 6.2, the
-  version this package requires. `build` prints `swift --version` and runs
-  `scripts/check-build.sh`; `static` runs `scripts/check-lint.sh` and `scripts/check-scripts.sh`.
-  Together they are `scripts/check.sh`, the command a contributor runs locally before committing.
-  Run as one job, `check.sh` took 3 minutes 38 seconds on 2026-09-28: 38 seconds to build, 73 to
-  rebuild for the tests, 12 to run them and about 90 for lint and the script suites, one after
-  another.
-- `gates` is the check the rulesets require. It runs on `ubuntu-latest` once `build` and `static`
-  have finished and fails unless both ended in `success`. It runs even when one of them failed
-  (`!cancelled()`), because a required check that is skipped counts as passing. Keeping the name
-  `gates` left the rulesets' required checks unchanged when the job was split.
+- `build`, `test` and `static` run in parallel on `macos-26`, whose default Xcode ships Swift 6.2,
+  the version this package requires. `build` prints `swift --version` and runs
+  `scripts/check-build.sh`, `test` runs `scripts/check-test.sh`, and `static` runs
+  `scripts/check-lint.sh` and `scripts/check-scripts.sh`. Together they are `scripts/check.sh`,
+  the command a contributor runs locally before committing. Run as one job, `check.sh` took
+  3 minutes 38 seconds on 2026-09-28: 38 seconds to build, 73 to rebuild for the tests, 12 to run
+  them and about 90 for lint and the script suites, one after another.
+- `gates` is the check the rulesets require. It runs on `ubuntu-latest` once `build`, `test` and
+  `static` have finished and fails unless all three ended in `success`. It runs even when one of
+  them failed (`!cancelled()`), because a required check that is skipped counts as passing.
+  Keeping the name `gates` left the rulesets' required checks unchanged when the job was split.
 - `commits` runs on `ubuntu-latest` with full history and replays `scripts/check-commits.sh`
   over the commits the event introduces: `base.sha..head.sha` for a pull request, `before..after`
   for a push, skipped when `before` is the all-zeros SHA a branch's first push reports.

@@ -27,6 +27,18 @@ jobs:
       - run: swift --version
       - run: scripts/check-build.sh
 
+  test:
+    name: test
+    runs-on: macos-26
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: scripts/check-test.sh
+
   static:
     name: static
     runs-on: macos-26
@@ -44,6 +56,7 @@ jobs:
     name: gates
     needs:
       - build
+      - test
       - static
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
