@@ -196,11 +196,11 @@ release pull request.
 Every workflow under `.github/workflows` pins its actions to a full commit SHA (the trailing
 `# vX.Y.Z` comment is machine-maintained, not documentation), starts from `permissions: {}` at the
 top of the file and grants each job only the permissions it uses (`contents: read` for a job that
-checks out the repository, plus the pull request access the Claude review needs), sets
-`timeout-minutes` on every job, uses `concurrency` with `cancel-in-progress: true` so a new push
-supersedes a run already in flight, and passes `persist-credentials: false` to every
-`actions/checkout` step. None of them uses `pull_request_target`, and only the Claude review
-touches a secret.
+checks out the repository, plus the pull request access the Claude review and the assignee job
+need), sets `timeout-minutes` on every job, uses `concurrency` with `cancel-in-progress: true` so
+a new push supersedes a run already in flight, and passes `persist-credentials: false` to every
+`actions/checkout` step. Only `pr-assign.yml` uses `pull_request_target`, because it has to write
+to pull requests from forks, and it checks out nothing; only the Claude review touches a secret.
 
 GitHub-hosted runners, macOS included, cost nothing on a public repository. The macOS jobs below
 still run only where they buy something: a push to `main`, a pull request, or a manual run, never
@@ -248,6 +248,20 @@ request after it.
   judges the title is the base branch's, not one the pull request rewrote.
 - The title and the number reach the hook only through `env:`, written to a file under
   `$RUNNER_TEMP`, never interpolated into the script.
+
+### `pr-assign.yml` — PR assignee
+
+Triggers: `pull_request_target` (`opened`, `reopened`), on `ubuntu-latest`. Its one job, `assign`,
+adds the pull request's author as its assignee. Dependabot's pull requests are skipped here and
+assigned by `dependabot.yml` instead.
+
+- A fork's pull request gets a read-only token under `pull_request`, which cannot assign anyone;
+  `pull_request_target` runs with the base repository's token instead. That is the risk this
+  trigger is known for, so the job checks out nothing, runs no code from the pull request, and
+  reads only the pull request's number and its author's login, both through `env:`. Its only
+  permission is `pull-requests: write`.
+- GitHub's add-assignees call succeeds even when it ignores a login it cannot assign, so the job
+  reads the assignees back and warns when the author is not among them.
 
 ### `release.yml` — Release
 
