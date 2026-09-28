@@ -408,10 +408,11 @@ review through the REST reviews API with `commit_id` set to the commit the job c
 same `head.sha` or `gate` output the checkout used. `gh pr review` always reviews the pull request's
 current head, so a push landing while Claude read the old commit would have turned its approval
 into one for code it never read; pinned to the reviewed commit, that approval is stale on arrival
-and, with stale approvals dismissed, counts for nothing. The step then lists the pull request's
-reviews and checks that the latest one by `github-actions[bot]` at that commit is `APPROVED` or
-`CHANGES_REQUESTED` to match. An empty body, an unknown verdict or a review GitHub does not show
-fails the job.
+and, with stale approvals dismissed, counts for nothing. The step then checks the review GitHub
+returns from that call: its state must be `APPROVED` or `CHANGES_REQUESTED` to match, and its
+commit the reviewed one. Reading the response, rather than listing the pull request's reviews,
+means no page limit can hide the review just posted. An empty body, an unknown verdict or a review
+GitHub does not record that way fails the job.
 
 A failed run, like a request for changes, leaves the owner's pull request without the approval the
 rulesets require. GitHub counts each reviewer's latest review, so the way out is a new run: push a
