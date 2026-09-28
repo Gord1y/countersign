@@ -290,7 +290,19 @@ first changed line of that commit's most relevant file.
 ### `dependabot.yml`
 
 Weekly updates for the `github-actions` ecosystem, so a pinned action SHA does not go stale
-silently.
+silently. Two entries cover the same ecosystem and directory:
+
+- Version updates go to `staging` (`target-branch: staging`), like every other change.
+- Security updates always open against the default branch, `main`, and an entry with a
+  `target-branch` does not configure them. The second entry, with no `target-branch`, exists for
+  them alone: its `open-pull-requests-limit: 0` turns off its version updates. Before merging a
+  security update, change its base to `staging` and bring it up to date with "Update branch".
+
+Both entries set `commit-message: prefix: ci`, so every subject starts with `ci: `. Dependabot's
+default `Bump …` fails the commit hook, and with it the required `commits` and `title` checks.
+
+Dependabot reads this file from the default branch, so a change to it takes effect once it
+reaches `main`.
 
 ## Worktree cleanup
 
