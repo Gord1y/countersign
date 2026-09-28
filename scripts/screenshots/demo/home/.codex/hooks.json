@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{EXECUTABLE}} hook --host codex",
+            "timeout": 3600,
+            "statusMessage": "Waiting for the approval panel"
+          }
+        ]
+      }
+    ]
+  }
+}

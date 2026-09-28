@@ -1,0 +1,153 @@
+# What each agent gets
+
+What Countersign does for each agent it supports: which requests get a panel, what each answer
+does in that agent, and where each agent falls short. Read it when you want to know what Approve,
+Deny or "Answer in chat" will actually do for a request from Claude Code, Codex, Cursor or
+Antigravity.
+
+## Answers at a glance
+
+| Answer | Claude Code | Codex | Cursor | Antigravity |
+| --- | --- | --- | --- | --- |
+| **Approve** (<kbd>Return</kbd>) | Runs the call | Runs the call | Runs the command or MCP tool | Asks you once more in its own prompt (see [below](#antigravity)) |
+| **Always allow** (Approve ▾) | Approves, and hands Claude Code the rule to keep | Not offered | Not offered | Not offered |
+| **Deny**, with a reason | Blocks the call | Blocks the call | Blocks it and shows the reason to you and the agent | Blocks it and shows the reason |
+| **Deny & stop** (<kbd>⌘</kbd><kbd>Return</kbd> in the deny step) | Blocks the call and asks Claude Code to interrupt | Not offered | Not offered | Not offered |
+| **Answer in chat** (<kbd>Esc</kbd>, a click outside) | Claude Code shows its own prompt | Codex shows its own prompt | Cursor shows its own approval prompt | Antigravity shows its own approval prompt |
+| Questions and plans | Answered in the panel | Stay in Codex | Stay in Cursor | Stay in Antigravity |
+| No answer at all | Claude Code shows its own prompt | Codex shows its own prompt | Cursor carries on as it would without Countersign | Antigravity carries on with its own permission check |
+
+A deny with an empty reason sends "Denied in the approval panel." The exact output behind every
+cell, and the line each one leaves in the log, are in [design/answers.md](design/answers.md).
+
+## Claude Code
+
+**What gets a panel:** every permission prompt Claude Code would otherwise show you, including its
+questions (`AskUserQuestion`) and plan approval (`ExitPlanMode`).
+
+- **Approve ▾** lists the "Always allow" rules Claude Code itself suggests for this request, such
+  as allowing a command from now on. Each shows the exact rule, such as
+  `Bash(git push origin *)`, and where it is saved: this project on this Mac, this project shared,
+  all projects, or this session. Picking one approves the request and passes that rule back for
+  Claude Code to apply.
+- **Deny & stop** sends the denial and asks Claude Code to interrupt the turn rather than carry
+  on.
+- **Questions** show as tabs with numbered options. Your answers go back to Claude as the answers to
+  its question. Turn on `questionNotes` in the [config file](configuration.md) to add a note under
+  the option you pick, sent back too; it's off by default.
+- **Plans** show as Markdown. Approving sends the plan back with the mode Claude continues in for
+  the session, chosen under **then: …**: Ask before edits, Accept edits or Auto. The menu starts
+  on `modeAfterPlan` from the [config file](configuration.md) (Ask before edits by default), and
+  you can still pick another mode there for a single plan.
+  <kbd>⌫</kbd> or **Keep planning** opens a feedback field; sending it, or leaving it empty, tells
+  Claude "Not approved yet. Keep planning." instead.
+- **Answering in the chat** works as it always did. Countersign notices within about a second and
+  the panel, or the request still waiting in the queue, goes away. Answer during the grace period
+  (`graceSeconds`, off by default) and no panel appears at all.
+- **Non-interactive runs**, such as `claude -p`, get no panel, since nobody is at a chat to answer
+  them. `includeHeadlessSessions` in the [config file](configuration.md) turns that off.
+
+Noticing a chat answer relies on Claude Code internals that aren't documented; if a Claude Code
+release changes them, the panel still works but stays up until you close it. Details are in
+[limitations.md](limitations.md).
+
+### After wiring
+
+Nothing to do. Claude Code picks up a hook edit through its own file watcher; restart it only if a
+request still gets no panel a minute or two after wiring.
+
+## Codex
+
+**What gets a panel:** every permission prompt Codex sends to its hooks: shell commands, MCP tool
+calls, and `apply_patch` edits, shown against the real file like Claude Code's edits.
+
+- Approve and Deny (with a reason) work as for Claude Code. Codex has no "Always allow" rules to
+  offer, no **Deny & stop**, and no hook for its question and plan tools, so those stay in Codex.
+- Codex asks you to trust the hook once in `/hooks`; see "After wiring" below.
+- Countersign can't see a Codex chat, so answering there doesn't close the panel. It goes away when
+  you answer it, or when the Codex process that asked is gone.
+- Codex asks its hooks before it shows its own prompt, so a Codex request waiting in the queue
+  holds its Codex turn until you answer. "Answer in chat" keeps that short. `handoffApps` hands it
+  to Codex's own prompt only when its panel would appear, after the queue and the pause in your
+  typing, so it holds the turn until then too.
+
+### After wiring
+
+Open Codex in a terminal, not the desktop app, run `/hooks` and trust Countersign's hook. It has to
+be the terminal: the desktop app shares the same `~/.codex`, but its own `/hooks` can't write the
+trust record Codex checks. Codex sessions already open pick up the trust as soon as you run
+`/hooks`, without needing a new session, even though Codex doesn't otherwise reload `hooks.json` on
+its own while a session is running. Countersign reads the trust Codex stores, so the step clears
+itself once you've trusted the hook in a terminal. See
+[Codex asks you to trust the hook](setup.md#codex-asks-you-to-trust-the-hook) for the exact wording,
+when **Mark as done** shows up, and why a changed entry (an upgrade, a new install path, a hook
+added before Countersign's) needs trusting again.
+
+## Cursor
+
+**What gets a panel:** shell commands Cursor runs outside its sandbox, for example one that needs
+the network, and every MCP tool call. Commands inside the sandbox and file edits follow Cursor's
+own settings, as they would without Countersign.
+
+- **Approve** runs the command or tool. **Deny** blocks it, shows your reason to you and hands it to
+  the agent. There is no **Deny & stop**, and no questions or plans.
+- **Answer in chat** makes Cursor show its own approval prompt, even for a command it would have run
+  in its sandbox. `handoffApps` does the same.
+- **An hour limit.** Cursor runs a command when its hook times out, so a request still unanswered
+  59 minutes after it arrived goes back to Cursor's own prompt, and the next request takes the
+  screen.
+- **No answer at all**, for example while Countersign is paused, lets Cursor carry on as if
+  Countersign weren't installed, which under auto-run can mean running the command without asking.
+- Countersign can't see a Cursor chat, so answering there doesn't close the panel.
+
+### After wiring
+
+Nothing to do, but worth knowing: only commands Cursor runs outside its sandbox, and MCP tool
+calls, get a panel — the rest follow Cursor's own settings, as above. Cursor reloads `hooks.json` on
+save, so wiring or updating takes effect right away; restart it only if a request still gets no
+panel.
+
+## Antigravity
+
+**What gets a panel:** every command (`run_command`) and every MCP tool call (`call_mcp_tool`), from
+the `agy` CLI, the Antigravity app and the Antigravity IDE. Reading and editing files, searches,
+the browser, and Antigravity's own questions and plans follow Antigravity's own settings.
+
+- **Approve isn't enough yet.** Antigravity ignores an approval from a hook and asks you itself
+  anyway, so you approve twice: in the panel, then in Antigravity. This is Antigravity's bug,
+  [google-antigravity/antigravity-cli#1053](https://github.com/google-antigravity/antigravity-cli/issues/1053).
+  Once it is fixed, Approve will be enough, with nothing to change in Countersign.
+- **Deny** blocks the call and shows your reason, even under `--dangerously-skip-permissions`.
+- **Answer in chat** makes Antigravity show its own approval prompt; `handoffApps` does the same.
+  Under `--dangerously-skip-permissions` expect it to run the call instead.
+- **An hour limit**, as for Cursor: a request still unanswered after 59 minutes goes back to
+  Antigravity's own prompt.
+- **No answer at all** leaves the call to Antigravity's own permission check, which asks you in its
+  default mode.
+- Countersign can't see an Antigravity chat, so answering there doesn't close the panel.
+
+### After wiring
+
+Nothing to do, but worth knowing: after you approve in the panel, Antigravity still asks once more
+in its own prompt until Google fixes
+[google-antigravity/antigravity-cli#1053](https://github.com/google-antigravity/antigravity-cli/issues/1053)
+(see "Approve isn't enough yet" above). Antigravity's own docs don't say whether it reloads
+`hooks.json` on its own, so restart it after wiring or updating if a request still gets no panel.
+
+## When Countersign gives no answer
+
+These are the cases where no panel shows, or a panel goes away without your answer. Unless the
+request comes back later, the agent handles it its own way, as in the last row of the table above.
+
+| When | What you see |
+| --- | --- |
+| Countersign is paused | No panel; one already on screen closes |
+| Quiet time (snooze) | The panel steps aside and the request waits. It comes back when quiet time ends, unless it was answered in Claude Code's chat or the agent stopped waiting meanwhile |
+| The app in front is in `handoffApps` and asked for this request when its panel would appear | No panel; the agent's own prompt |
+| You answered in Claude Code's chat | The panel, or the waiting request, goes away |
+| The agent stopped waiting, or quit | The panel closes |
+| The agent's hook timed out | Whatever was waiting is gone; the agent decides on its own |
+| Anything went wrong inside Countersign | No panel; the agent's own prompt or handling |
+
+A mistake in the config file is not one of them: the setting it affects falls back to its default,
+and the request gets its panel as usual.

@@ -1,0 +1,459 @@
+import AppKit
+import ApprovalCore
+
+@MainActor
+enum MenuBarCompanion {
+  static func run() -> Never {
+    let paths = AppPaths.standard
+    let log = EventLog(file: paths.logFile)
+    log.rotateIfNeeded()
+
+    let instanceLock: ExclusiveFileLock
+    do {
+      guard let acquired = try ExclusiveFileLock.acquire(paths.companionLockFile) else {
+        DistributedNotificationCenter.default().postNotificationName(
+          CompanionController.openSettingsNotification, object: nil, userInfo: nil,
+          deliverImmediately: true)
+        log.write("companion: already running, asked it to open Settings")
+        exit(0)
+      }
+      instanceLock = acquired
+    } catch {
+      log.write("companion: could not open companion.lock: \(error), exiting")
+      exit(0)
+    }
+
+    let application = NSApplication.shared
+    application.setActivationPolicy(.accessory)
+    let controller = CompanionController(paths: paths, log: log, instanceLock: instanceLock)
+    application.delegate = controller
+    withExtendedLifetime(controller) {
+      application.run()
+    }
+    exit(0)
+  }
+}
+
+@MainActor
+private final class CompanionController: NSObject, NSApplicationDelegate, NSMenuDelegate {
+  static let openSettingsNotification = Notification.Name(
+    CompanionLaunch.openSettingsNotificationName)
+  private static let refreshInterval: TimeInterval = 2
+  private static let updateCheckInterval: TimeInterval = 3600
+
+  private let paths: AppPaths
+  private let log: EventLog
+  private let instanceLock: ExclusiveFileLock
+  private let pauseSwitch: PauseSwitch
+  private let quietTime: QuietTime
+  private let stateSwitches: StateSwitches
+  private let queue: TicketQueue
+  private var statusItem: NSStatusItem?
+  private var refreshTimer: Timer?
+  private var updateCheckTimer: Timer?
+  private var shownIcon: CompanionIcon?
+  private var menuActions: [CompanionMenuAction] = []
+  private var isLaunchAtLoginUnavailable = false
+  private var lastConfigLogLines: [String] = []
+  private var updateCheckState: UpdateCheckState?
+  private var manualCheckResult: ManualUpdateCheckResult?
+  private var isUpdateCheckInFlight = false
+  private var settingsWindow: SettingsWindowController?
+  private var pendingQuit: QuitOutcome?
+
+  init(paths: AppPaths, log: EventLog, instanceLock: ExclusiveFileLock) {
+    self.paths = paths
+    self.log = log
+    self.instanceLock = instanceLock
+    pauseSwitch = PauseSwitch(file: paths.pauseFile)
+    quietTime = QuietTime(file: paths.quietFile)
+    stateSwitches = StateSwitches(pauseSwitch: pauseSwitch, quietTime: quietTime)
+    queue = TicketQueue(directory: paths.queueDirectory, lockFile: paths.displayLockFile)
+    updateCheckState = UpdateCheckStateStore.load(file: paths.updateCheckFile)
+    super.init()
+  }
+
+  func applicationDidFinishLaunching(_ notification: Notification) {
+    resumePauseSetAtQuit()
+    let menu = NSMenu()
+    menu.autoenablesItems = false
+    menu.delegate = self
+    let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    item.menu = menu
+    statusItem = item
+    refreshIcon()
+    let timer = Timer(
+      timeInterval: Self.refreshInterval, target: self, selector: #selector(refreshTimerFired),
+      userInfo: nil, repeats: true)
+    RunLoop.main.add(timer, forMode: .common)
+    refreshTimer = timer
+    let updateTimer = Timer(
+      timeInterval: Self.updateCheckInterval, target: self,
+      selector: #selector(updateCheckTimerFired), userInfo: nil, repeats: true)
+    RunLoop.main.add(updateTimer, forMode: .common)
+    updateCheckTimer = updateTimer
+    performScheduledUpdateCheckIfNeeded()
+    DistributedNotificationCenter.default().addObserver(
+      self, selector: #selector(openSettingsRequested(_:)), name: Self.openSettingsNotification,
+      object: nil, suspensionBehavior: .deliverImmediately)
+    let launchEvent = NSAppleEventManager.shared().currentAppleEvent
+    let opensSettings = CompanionLaunch.opensSettings(
+      launchEventID: launchEvent?.eventID,
+      launchedAs: launchEvent?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue)
+    guard opensSettings else {
+      log.write("companion: started at login")
+      return
+    }
+    log.write("companion: started")
+    openSettings()
+  }
+
+  func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool)
+    -> Bool
+  {
+    log.write("companion: reopened, opening settings")
+    openSettings()
+    return false
+  }
+
+  @objc nonisolated private func openSettingsRequested(_ notification: Notification) {
+    Task { @MainActor [weak self] in
+      self?.log.write("companion: another launch asked to open settings")
+      self?.openSettings()
+    }
+  }
+
+  func applicationWillTerminate(_ notification: Notification) {
+    settingsWindow?.model.commitEditing()
+    if let pendingQuit {
+      apply(pendingQuit)
+    }
+    log.write("companion: quit")
+  }
+
+  func menuNeedsUpdate(_ menu: NSMenu) {
+    menu.removeAllItems()
+    menuActions = []
+    for item in CompanionMenu.items(for: currentInput()) {
+      menu.addItem(makeMenuItem(item))
+    }
+    refreshIcon()
+  }
+
+  func menuDidClose(_ menu: NSMenu) {
+    manualCheckResult = nil
+  }
+
+  @objc private func refreshTimerFired() {
+    refreshIcon()
+  }
+
+  @objc private func updateCheckTimerFired() {
+    performScheduledUpdateCheckIfNeeded()
+  }
+
+  @objc private func menuItemChosen(_ sender: NSMenuItem) {
+    guard menuActions.indices.contains(sender.tag) else { return }
+    handle(menuActions[sender.tag])
+    refreshIcon()
+  }
+
+  private func refreshIcon() {
+    let icon = CompanionMenu.icon(
+      isPaused: pauseSwitch.isPaused, quietUntil: quietTime.activeUntil())
+    guard icon != shownIcon, let button = statusItem?.button else { return }
+    button.image = MenuBarIcon.image(for: icon)
+    shownIcon = icon
+  }
+
+  private func currentInput() -> CompanionMenuInput {
+    let configFile = loadConfigFile()
+    return CompanionMenuInput(
+      isPaused: pauseSwitch.isPaused,
+      quietUntil: quietTime.activeUntil(),
+      pendingEntries: queue.waitingEntries(),
+      snoozeMinutes: CompanionMenu.snoozeMinutes(for: configFile),
+      launchAtLogin: launchAtLoginState(),
+      updateAvailable: currentUpdateAvailability(),
+      manualCheckResult: manualCheckResult)
+  }
+
+  private func loadConfigFile() -> ConfigFile {
+    let (configFile, configLogLines) = ConfigFileLoader.load(paths: paths)
+    if configLogLines != lastConfigLogLines {
+      for line in configLogLines {
+        log.write("config: \(line)")
+      }
+      lastConfigLogLines = configLogLines
+    }
+    return configFile
+  }
+
+  private func currentUpdateAvailability() -> UpdateAvailability? {
+    guard case .newerAvailable(let version)? = updateCheckState?.outcome else { return nil }
+    let resolvedExecutablePath =
+      Bundle.main.executableURL?.resolvingSymlinksInPath().path ?? "(unresolved)"
+    return UpdateAvailability(
+      version: version,
+      upgradeCommand: UpdateCommand.upgrade(forResolvedExecutablePath: resolvedExecutablePath),
+      releaseNotesURL: UpdateCommand.releaseNotesURL(version: version))
+  }
+
+  private func performScheduledUpdateCheckIfNeeded() {
+    let configFile = loadConfigFile()
+    guard configFile.checkForUpdates ?? Settings.defaultCheckForUpdates else { return }
+    guard UpdateCheckSchedule.isDue(lastAttempt: updateCheckState?.lastAttempt, now: Date()) else {
+      return
+    }
+    performUpdateCheck(manual: false)
+  }
+
+  private func performUpdateCheck(manual: Bool) {
+    guard !isUpdateCheckInFlight else { return }
+    isUpdateCheckInFlight = true
+    Task { [weak self] in
+      guard let self else { return }
+      let outcome = await UpdateFetcher.fetch(currentVersion: CountersignVersion.current)
+      self.applyUpdateCheckResult(outcome, manual: manual)
+    }
+  }
+
+  private func applyUpdateCheckResult(_ outcome: UpdateCheckOutcome, manual: Bool) {
+    isUpdateCheckInFlight = false
+    let state = UpdateCheckState(lastAttempt: Date(), outcome: outcome)
+    updateCheckState = state
+    do {
+      try UpdateCheckStateStore.save(state, to: paths.updateCheckFile)
+    } catch {
+      log.write("companion: failed to save update-check.json: \(error)")
+    }
+    if case .unknown(let reason) = outcome {
+      log.write("update check: \(reason)")
+    }
+    guard manual else { return }
+    switch outcome {
+    case .newerAvailable:
+      manualCheckResult = nil
+    case .upToDate:
+      manualCheckResult = .upToDate
+    case .unknown:
+      manualCheckResult = .failed
+    }
+    showUpdateCheckAlert(for: outcome)
+  }
+
+  private func showUpdateCheckAlert(for outcome: UpdateCheckOutcome) {
+    let resolvedExecutablePath =
+      Bundle.main.executableURL?.resolvingSymlinksInPath().path ?? "(unresolved)"
+    let upgradeCommand = UpdateCommand.upgrade(forResolvedExecutablePath: resolvedExecutablePath)
+    let releaseNotesURL: URL?
+    if case .newerAvailable(let version) = outcome {
+      releaseNotesURL = UpdateCommand.releaseNotesURL(version: version)
+    } else {
+      releaseNotesURL = nil
+    }
+    let answer = UpdateCheckAnswer.answer(
+      for: outcome, currentVersion: CountersignVersion.current, upgradeCommand: upgradeCommand,
+      releaseNotesURL: releaseNotesURL)
+    switch UpdateCheckAlert.ask(for: answer) {
+    case .copyUpgradeCommand(let command):
+      copyToPasteboard(command)
+    case .openReleaseNotes(let url):
+      openInDefaultApp(url)
+    case .ok, .later, nil:
+      break
+    }
+  }
+
+  private func launchAtLoginState() -> LaunchAtLoginState {
+    guard !isLaunchAtLoginUnavailable else { return .unavailable }
+    return LaunchAtLogin.state
+  }
+
+  private func makeMenuItem(_ item: CompanionMenuItem) -> NSMenuItem {
+    switch item {
+    case .separator:
+      return .separator()
+    case .entry(let entry):
+      let menuItem = NSMenuItem(
+        title: entry.title, action: nil, keyEquivalent: entry.keyEquivalent)
+      menuItem.isEnabled = entry.isEnabled && isAvailableNow(entry.action)
+      menuItem.state = entry.isChecked ? .on : .off
+      if let action = entry.action {
+        menuItem.tag = menuActions.count
+        menuActions.append(action)
+        menuItem.target = self
+        menuItem.action = #selector(menuItemChosen(_:))
+      }
+      if !entry.submenu.isEmpty {
+        let submenu = NSMenu(title: entry.title)
+        submenu.autoenablesItems = false
+        for child in entry.submenu {
+          submenu.addItem(makeMenuItem(child))
+        }
+        menuItem.submenu = submenu
+      }
+      return menuItem
+    }
+  }
+
+  private func isAvailableNow(_ action: CompanionMenuAction?) -> Bool {
+    guard case .showTestPanel = action else { return true }
+    return !TestPanelLauncher.shared.isRunning
+  }
+
+  private func handle(_ action: CompanionMenuAction) {
+    switch action {
+    case .pause:
+      attempt("paused", failure: "failed to pause") { try stateSwitches.pause() }
+    case .resume:
+      attempt("resumed", failure: "failed to resume") { try pauseSwitch.resume() }
+    case .snooze(let minutes):
+      let seconds = TimeInterval(minutes * 60)
+      let until = Date().addingTimeInterval(seconds)
+      attempt(
+        "quiet time until \(TimeOfDayText.describe(until)) (\(DurationText.describe(seconds)))",
+        failure: "failed to set quiet time"
+      ) { try stateSwitches.snooze(until: until) }
+    case .endQuietTime:
+      attempt("quiet time ended", failure: "failed to end quiet time") { try quietTime.clear() }
+    case .openSettings:
+      openSettings()
+    case .showTestPanel(let kind):
+      attempt("started a test panel (\(kind.rawValue))", failure: "failed to start a test panel") {
+        try TestPanelLauncher.shared.launch(kind: kind) { refusal in
+          TestPanelRefusalAlert.show(refusal: refusal)
+        }
+      }
+    case .enableLaunchAtLogin:
+      changeLaunchAtLogin("launch at login registered") { try LaunchAtLogin.register() }
+    case .disableLaunchAtLogin:
+      changeLaunchAtLogin("launch at login unregistered") { try LaunchAtLogin.unregister() }
+    case .approveLaunchAtLogin:
+      LaunchAtLogin.openSystemSettings()
+      log.write("companion: opened Login Items in System Settings")
+    case .openURL(let url):
+      openInDefaultApp(url)
+    case .showTour:
+      openSettings(forceTour: true)
+    case .reportProblem:
+      openReportAProblem()
+    case .checkForUpdatesNow:
+      performUpdateCheck(manual: true)
+    case .copyUpgradeCommand(let command):
+      copyToPasteboard(command)
+    case .quit:
+      quitFromMenu()
+    }
+  }
+
+  private func quitFromMenu() {
+    let behavior = loadConfigFile().quitBehavior ?? Settings.defaultQuitBehavior
+    var decision = QuitQuestion.decision(for: behavior, pause: pauseSwitch.state)
+    if decision == .ask {
+      decision = QuitPrompt.ask()
+    }
+    guard case .quit(let outcome) = decision else { return }
+    pendingQuit = outcome
+    NSApplication.shared.terminate(nil)
+    pendingQuit = nil
+  }
+
+  private func apply(_ outcome: QuitOutcome) {
+    if outcome.keepsExistingPause {
+      log.write("companion: quit without asking, panels were already paused")
+    }
+    if let remembered = outcome.remembers {
+      attempt(
+        "saved quitBehavior \"\(remembered.rawValue)\"", failure: "failed to save quitBehavior"
+      ) { try rememberQuitBehavior(remembered) }
+    }
+    guard outcome.pausesPanels else { return }
+    do {
+      if try stateSwitches.pauseUntilAppOpens() {
+        log.write("companion: paused until Countersign opens")
+      } else {
+        log.write("companion: already paused, the pause stays after Countersign opens")
+      }
+    } catch {
+      log.write("companion: failed to pause: \(error)")
+    }
+  }
+
+  private func rememberQuitBehavior(_ behavior: QuitBehavior) throws {
+    let configFile = paths.configFile
+    let original = try ConfigFileStore.read(configFile)
+    let updated = try ConfigEdit.applying([.quitBehavior(behavior)], to: original)
+    guard updated != original else { return }
+    try FileManager.default.createDirectory(
+      at: configFile.deletingLastPathComponent(), withIntermediateDirectories: true)
+    try ConfigFileStore.write(updated, to: configFile, date: Date(), backingUp: false)
+  }
+
+  private func resumePauseSetAtQuit() {
+    do {
+      guard try pauseSwitch.resumeIfPausedUntilAppOpens() else { return }
+      log.write("companion: resumed the pause set at quit")
+    } catch {
+      log.write("companion: failed to resume the pause set at quit: \(error)")
+    }
+  }
+
+  private func attempt(_ done: String, failure: String, _ body: () throws -> Void) {
+    do {
+      try body()
+      log.write("companion: \(done)")
+    } catch {
+      log.write("companion: \(failure): \(error)")
+    }
+  }
+
+  private func changeLaunchAtLogin(_ done: String, _ change: () throws -> Void) {
+    do {
+      try change()
+      log.write("companion: \(done)")
+    } catch {
+      isLaunchAtLoginUnavailable = true
+      log.write("companion: launch at login unavailable: \(error)")
+    }
+  }
+
+  private func openSettings(forceTour: Bool = false) {
+    if let settingsWindow {
+      settingsWindow.show(forceTour: forceTour)
+      return
+    }
+    SettingsMenu.install()
+    let controller = SettingsWindowController(
+      model: SettingsModel(environment: .current()),
+      onClose: { [weak self] in
+        DispatchQueue.main.async { self?.settingsWindow = nil }
+      })
+    settingsWindow = controller
+    controller.show(forceTour: forceTour)
+    log.write("companion: opened settings")
+  }
+
+  private func openReportAProblem() {
+    guard let url = ReportProblem.url() else {
+      log.write("companion: could not build the bug report URL")
+      return
+    }
+    openInDefaultApp(url)
+  }
+
+  private func openInDefaultApp(_ url: URL) {
+    guard !NSWorkspace.shared.open(url) else { return }
+    log.write("companion: could not open \(url.absoluteString)")
+  }
+
+  private func copyToPasteboard(_ text: String) {
+    let pasteboard = NSPasteboard.general
+    pasteboard.clearContents()
+    guard pasteboard.setString(text, forType: .string) else {
+      log.write("companion: failed to copy upgrade command")
+      return
+    }
+    log.write("companion: copied upgrade command")
+  }
+}

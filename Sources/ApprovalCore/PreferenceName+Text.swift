@@ -1,0 +1,184 @@
+import Foundation
+
+extension PreferenceName {
+  public var title: String {
+    switch self {
+    case .armDelay: return "Arm delay"
+    case .chainedArmDelay: return "Arm delay after an answer"
+    case .idleSeconds: return "Wait for idle"
+    case .graceSeconds: return "Grace period"
+    case .snoozeMinutes: return "Snooze presets"
+    case .handoffApps: return "Hand off when frontmost"
+    case .checkForUpdates: return "Check for updates"
+    case .questionNotes: return "Notes on answers"
+    case .quitBehavior: return "When Countersign quits"
+    case .modeAfterPlan: return "Mode after a plan"
+    case .appearance: return "Appearance"
+    case .accentColor: return "Accent colour"
+    case .editorApp: return "Open with"
+    }
+  }
+
+  public var caption: String {
+    switch self {
+    case .armDelay: return "How long a new panel ignores keys and clicks."
+    case .chainedArmDelay: return "How long the next panel ignores keys and clicks."
+    case .idleSeconds: return "Quiet keyboard and mouse needed before a panel shows."
+    case .graceSeconds: return "Time a request may resolve elsewhere before it queues."
+    case .snoozeMinutes: return "Minutes offered by the Snooze menu, in order."
+    case .handoffApps: return "No panel while the asking app is one of these and in front."
+    case .checkForUpdates: return "Look for a newer Countersign release."
+    case .questionNotes:
+      return "Offer a note under Claude's questions, sent with the option you pick."
+    case .quitBehavior: return "Whether panels keep appearing after you quit the menu-bar app."
+    case .modeAfterPlan: return "What Claude Code switches to when you approve its plan."
+    case .appearance: return "Light or dark for panels and Settings, or follow macOS."
+    case .accentColor: return "The colour of Approve and highlights on panels and in Settings."
+    case .editorApp: return "The app Open in Editor uses for config.json."
+    }
+  }
+
+  public var explanation: String {
+    switch self {
+    case .armDelay:
+      return
+        "How long a new panel ignores keys and clicks after it appears, so a keystroke meant for"
+        + " whatever you were doing a moment ago can't accidentally answer it. Raise it if answers"
+        + " land before you meant to make them; lower it if the panel feels slow to respond. Arm"
+        + " delay after an answer uses its own, usually shorter, delay for a panel shown right"
+        + " after you've just answered the one before it, since you're already looking at the"
+        + " screen."
+    case .chainedArmDelay:
+      return
+        "The same protection as arm delay, but for a panel that appears right after you've just"
+        + " answered the previous one in the queue. It can be much shorter than arm delay, because"
+        + " you're already looking at the panel rather than switching your attention to it from"
+        + " somewhere else. Raise it if the next panel in a chain still catches a stray keystroke;"
+        + " lower it, down to 0, if waiting between chained panels feels slow."
+    case .idleSeconds:
+      return
+        "How long your keyboard, mouse and scrolling must have been quiet before a queued panel is"
+        + " shown, counted from your last input rather than from when the request arrives — so if"
+        + " you've already been away that long, the panel appears right away instead of waiting"
+        + " again. Raise it if panels still appear while you're pausing mid-thought; lower it if"
+        + " you want them to show up sooner. Grace period runs first and separately, giving a"
+        + " request a chance to be answered in the chat before it even joins this queue."
+    case .graceSeconds:
+      return
+        "How long a request waits, starting the moment it arrives, before joining the queue — it's"
+        + " the one wait that always starts at arrival, rather than counting from your last input"
+        + " the way wait for idle does. Set it above 0 if you often answer Claude Code in its own"
+        + " chat and would rather skip the panel entirely when you do; leave it at 0 if you want a"
+        + " panel every time. It only recognises chat answers from Claude Code, so for the other"
+        + " agents it just adds a delay before the panel appears, on top of wait for idle."
+    case .snoozeMinutes:
+      return
+        "The durations offered by the panel's Snooze menu and the menu-bar app's own Snooze"
+        + " submenu, in the order they're listed. Set the presets to the lengths of quiet time you"
+        + " actually use, from 1 to 6 values between 1 and 1440 minutes. It's a single, top-level"
+        + " list: snoozing isn't tied to one agent, so a per-agent override here has no effect on"
+        + " the menu-bar app's own menu."
+    case .handoffApps:
+      return
+        "Bundle IDs of apps where you'd rather answer in that app's own chat than see a panel."
+        + " When a panel is about to appear and the frontmost app is on this list, and it's also the"
+        + " app the request came from, no panel appears at all; the request goes to the agent's own"
+        + " prompt instead. It's checked at that moment, after wait for idle, rather than when the"
+        + " request arrives, so switching to another app before then still gets you a panel, and"
+        + " staying in the asking app means its own prompt comes only after that pause. Add an app"
+        + " once you notice you always end up answering there anyway; a request from any other app"
+        + " still gets a panel as normal."
+    case .checkForUpdates:
+      return
+        "Lets the menu-bar app check once a day for a newer release of Countersign and let you"
+        + " know. Turn it on if you'd like to hear about new versions without checking yourself; it"
+        + " has no effect on approval panels either way. Choosing Check for Updates… in the menu"
+        + " always checks immediately, whether this is on or off."
+    case .questionNotes:
+      return
+        "Adds a \"+ Add a note\" link under a question panel's options, so you can type extra"
+        + " context that's sent back with the option you pick. Turn it on if you often want to"
+        + " explain your choice beyond picking one of the offered options; leave it off to keep"
+        + " question panels to just their options. It only affects question panels, not the plain"
+        + " approval or plan panels."
+    case .quitBehavior:
+      return
+        "What choosing Quit Countersign in the menu-bar app does: ask each time, keep panels"
+        + " appearing after it quits, or quit and pause panels until you open the app again. Change"
+        + " it if you're tired of the quit question, or if you'd rather panels stop the moment you"
+        + " quit rather than keep coming from your agents' hooks. Ticking Don't ask again in that"
+        + " question writes your choice here directly, so this is also where you'd come to make it"
+        + " ask again."
+    case .modeAfterPlan:
+      return
+        "The permission mode Claude Code continues in once you approve a plan on the plan panel."
+        + " Ask before edits keeps asking before each change, Accept edits lets it edit files"
+        + " without asking, and Auto hands the decisions to Claude Code's auto mode. The plan"
+        + " panel's \"then:\" menu starts on this choice, and you can still pick another there"
+        + " for a single plan. Only Claude Code sends plans, so the other agents are unaffected."
+    case .appearance:
+      return
+        "Whether approval panels and this Settings window are light or dark. System follows the"
+        + " appearance chosen in macOS and switches when it does; Light and Dark keep them that way"
+        + " whatever macOS uses. Choose one if you'd like panels to stand out from the rest of your"
+        + " screen, or to match an app that doesn't follow macOS. It changes nothing outside"
+        + " Countersign, and the menu-bar icon follows the menu bar as before."
+    case .accentColor:
+      return
+        "The colour of Approve and the other filled buttons, and of highlights such as a selected"
+        + " option and the arm lock's progress line, on every panel and in this Settings window."
+        + " Pick a preset, or any colour with the colour well after them. Text drawn in the colour"
+        + " is darkened in light appearance, or lightened in dark, until it's easy to read, and a"
+        + " filled button's label is near-black or white, whichever reads better on it. Deny stays"
+        + " red, the mark in a panel's header keeps the app icon's amber, and the menu-bar icon"
+        + " stays monochrome."
+    case .editorApp:
+      return
+        "Which app \"Open in Editor\" opens config.json with, both here and next to an agent's"
+        + " own values. Leave it as the default app if you're happy with whatever macOS opens"
+        + " JSON files with; pick one from the menu if you'd rather it always open in a"
+        + " particular editor, and \"Other…\" if that editor isn't offered."
+    }
+  }
+
+  public var defaultText: String {
+    switch self {
+    case .armDelay: return Self.secondsText(Settings.defaultArmDelay)
+    case .chainedArmDelay: return Self.secondsText(Settings.defaultChainedArmDelay)
+    case .idleSeconds: return Self.secondsText(Settings.defaultIdleSeconds)
+    case .graceSeconds: return Self.secondsText(Settings.defaultGraceSeconds)
+    case .snoozeMinutes: return Self.minutesListText(Settings.defaultSnoozeMinutes)
+    case .handoffApps: return Self.handoffAppsText(Settings.defaultHandoffApps)
+    case .checkForUpdates: return Self.boolText(Settings.defaultCheckForUpdates)
+    case .questionNotes: return Self.boolText(Settings.defaultQuestionNotes)
+    case .quitBehavior: return Settings.defaultQuitBehavior.title
+    case .modeAfterPlan: return Settings.defaultModeAfterPlan.title
+    case .appearance: return Settings.defaultAppearance.title
+    case .accentColor: return AccentPreset.name(of: Settings.defaultAccentColor)
+    case .editorApp: return "Default app"
+    }
+  }
+
+  private static func secondsText(_ value: Double) -> String {
+    "\(PreferenceRules.numberText(value)) second\(value == 1 ? "" : "s")"
+  }
+
+  private static func minutesListText(_ minutes: [Int]) -> String {
+    let words = minutes.map(String.init)
+    let joined: String
+    if words.count > 1, let last = words.last {
+      joined = "\(words.dropLast().joined(separator: ", ")) and \(last)"
+    } else {
+      joined = words.first ?? ""
+    }
+    return "\(joined) minute\(minutes == [1] ? "" : "s")"
+  }
+
+  private static func handoffAppsText(_ apps: [String]) -> String {
+    apps.isEmpty ? "No apps" : apps.joined(separator: ", ")
+  }
+
+  private static func boolText(_ value: Bool) -> String {
+    value ? "On" : "Off"
+  }
+}

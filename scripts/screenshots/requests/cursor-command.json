@@ -1,0 +1,16 @@
+{
+  "conversation_id": "b3a4c5d6-e7f8-4a9b-8c1d-e2f3a4b5c6d7",
+  "generation_id": "f4a5b6c7-d8e9-4f0a-9b1c-d2e3f4a5b6c7",
+  "model": "default",
+  "command": "curl -fsSL https://api.stripe.com/v1/prices -H \"Authorization: Bearer $STRIPE_SECRET_KEY\"",
+  "cwd": "",
+  "sandbox": false,
+  "session_id": "b3a4c5d6-e7f8-4a9b-8c1d-e2f3a4b5c6d7",
+  "hook_event_name": "beforeShellExecution",
+  "cursor_version": "3.21.18",
+  "workspace_roots": [
+    "{{DEMO}}/shop-api"
+  ],
+  "user_email": "dev@example.com",
+  "transcript_path": "/Users/dev/.cursor/projects/Users-dev-Projects-shop-api/agent-transcripts/b3a4c5d6-e7f8-4a9b-8c1d-e2f3a4b5c6d7/b3a4c5d6-e7f8-4a9b-8c1d-e2f3a4b5c6d7.jsonl"
+}

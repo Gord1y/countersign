@@ -1,0 +1,12 @@
+{
+  "session_id": "f5a6b7c8-4d5e-4f60-a123-456789abcdef",
+  "transcript_path": "/Users/dev/.claude/projects/shop-api/f5a6b7c8-4d5e-4f60-a123-456789abcdef.jsonl",
+  "cwd": "/Users/dev/Projects/shop-api",
+  "permission_mode": "default",
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "mcp__postgres__query",
+  "mcp_server": "postgres",
+  "tool_input": {
+    "sql": "SELECT id, email, created_at FROM customers WHERE created_at > now() - interval '7 days' ORDER BY created_at DESC LIMIT 50"
+  }
+}

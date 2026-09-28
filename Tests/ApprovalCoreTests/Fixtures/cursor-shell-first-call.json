@@ -1,0 +1,16 @@
+{
+  "conversation_id": "a7b8c9d0-e1f2-4a3b-c4d5-e6f7a8b9c0d1",
+  "generation_id": "b8c9d0e1-f2a3-4b4c-d5e6-f7a8b9c0d1e2",
+  "model": "default",
+  "command": "git push origin feature/discount-cap",
+  "cwd": "",
+  "sandbox": false,
+  "session_id": "a7b8c9d0-e1f2-4a3b-c4d5-e6f7a8b9c0d1",
+  "hook_event_name": "beforeShellExecution",
+  "cursor_version": "3.21.18",
+  "workspace_roots": [
+    "/Users/dev/Projects/shop-api"
+  ],
+  "user_email": "dev@example.com",
+  "transcript_path": null
+}

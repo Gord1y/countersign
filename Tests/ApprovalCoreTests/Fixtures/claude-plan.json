@@ -1,0 +1,12 @@
+{
+  "session_id": "c8d9e0f1-7081-4293-d456-789abcdef012",
+  "transcript_path": "/Users/dev/.claude/projects/shop-api/c8d9e0f1-7081-4293-d456-789abcdef012.jsonl",
+  "cwd": "/Users/dev/Projects/shop-api",
+  "permission_mode": "plan",
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "ExitPlanMode",
+  "tool_input": {
+    "plan": "# Add discount code support\n\n## Summary\n\nIntroduce a `DiscountCalculator` that applies a percentage discount capped at a maximum rate.\n\n## Steps\n\n- Add `DiscountCalculator.swift` under `Sources/Checkout`\n- Wire it into `CheckoutService` after tax calculation\n- Add a `maximumDiscountRate` constant, defaulting to `0.5`\n\n## Rollout\n\n1. Land the calculator behind a feature flag\n2. Backfill tests for existing discount codes\n3. Enable the flag for 10% of traffic, then 100%\n\nThe core entry point is `applyDiscount(to:code:)`, which returns `total` unchanged when `code` is `nil` or empty:\n\n```swift\nfunc applyDiscount(to total: Decimal, code: String?) -> Decimal {\n  guard let code, !code.isEmpty else { return total }\n  let rate = min(discountRate(for: code), maximumDiscountRate)\n  return max(total * (1 - rate), 0)\n}\n```\n\nNo changes are needed to the **public** checkout API.",
+    "planFilePath": "/Users/dev/Projects/shop-api/.claude/plans/discount-codes.md"
+  }
+}

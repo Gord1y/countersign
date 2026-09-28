@@ -1,0 +1,103 @@
+import Foundation
+import Testing
+
+@testable import ApprovalCore
+
+@Suite struct ConfigSchemaTests {
+  private static var schemaURL: URL {
+    URL(fileURLWithPath: #filePath)
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .deletingLastPathComponent()
+      .appendingPathComponent("schema/config.schema.json")
+  }
+
+  private static func loadSchema() throws -> JSONValue {
+    let data = try Data(contentsOf: schemaURL)
+    return try JSONDecoder().decode(JSONValue.self, from: data)
+  }
+
+  @Test func topLevelPropertiesMatchTheKeysTheParserKnows() throws {
+    let schema = try Self.loadSchema()
+    guard case .object(let properties)? = schema["properties"] else {
+      Issue.record("schema has no top-level \"properties\" object")
+      return
+    }
+    #expect(Set(properties.keys) == ConfigFileParser.topLevelKeys)
+  }
+
+  @Test func hostBlockPropertiesMatchTheKeysTheParserKnows() throws {
+    let schema = try Self.loadSchema()
+    guard case .object(let hostOverrides)? = schema["$defs"]?["hostOverrides"],
+      case .object(let properties)? = hostOverrides["properties"]
+    else {
+      Issue.record("schema has no \"$defs.hostOverrides.properties\" object")
+      return
+    }
+    #expect(Set(properties.keys) == ConfigFileParser.hostKeys)
+  }
+
+  @Test func everyHostReferencesTheHostOverridesDefinition() throws {
+    let schema = try Self.loadSchema()
+    guard case .object(let hosts)? = schema["properties"]?["hosts"],
+      case .object(let hostProperties)? = hosts["properties"]
+    else {
+      Issue.record("schema has no \"properties.hosts.properties\" object")
+      return
+    }
+    #expect(Set(hostProperties.keys) == Set(ApprovalCore.Host.allCases.map(\.rawValue)))
+    for host in ApprovalCore.Host.allCases {
+      #expect(hostProperties[host.rawValue]?["$ref"]?.stringValue == "#/$defs/hostOverrides")
+    }
+  }
+
+  @Test func quitBehaviorListsTheChoicesTheParserKnows() throws {
+    let schema = try Self.loadSchema()
+    guard case .array(let choices)? = schema["properties"]?["quitBehavior"]?["enum"] else {
+      Issue.record("schema has no \"properties.quitBehavior.enum\" array")
+      return
+    }
+    #expect(choices.map(\.stringValue) == QuitBehavior.allCases.map(\.rawValue))
+    #expect(
+      schema["properties"]?["quitBehavior"]?["default"]?.stringValue
+        == Settings.defaultQuitBehavior.rawValue)
+  }
+
+  @Test func modeAfterPlanListsTheChoicesTheParserKnows() throws {
+    let schema = try Self.loadSchema()
+    guard case .array(let choices)? = schema["properties"]?["modeAfterPlan"]?["enum"] else {
+      Issue.record("schema has no \"properties.modeAfterPlan.enum\" array")
+      return
+    }
+    #expect(choices.map(\.stringValue) == PlanApprovalMode.allCases.map(\.rawValue))
+    #expect(
+      schema["properties"]?["modeAfterPlan"]?["default"]?.stringValue
+        == Settings.defaultModeAfterPlan.rawValue)
+  }
+
+  @Test func appearanceAndAccentColorMatchWhatTheParserKnows() throws {
+    let schema = try Self.loadSchema()
+    guard case .array(let choices)? = schema["properties"]?["appearance"]?["enum"] else {
+      Issue.record("schema has no \"properties.appearance.enum\" array")
+      return
+    }
+    #expect(choices.map(\.stringValue) == AppearanceChoice.allCases.map(\.rawValue))
+    #expect(
+      schema["properties"]?["appearance"]?["default"]?.stringValue
+        == Settings.defaultAppearance.rawValue)
+    #expect(
+      schema["properties"]?["accentColor"]?["default"]?.stringValue
+        == Settings.defaultAccentColor.hex)
+  }
+
+  @Test func topLevelAndHostBlocksForbidAdditionalProperties() throws {
+    let schema = try Self.loadSchema()
+    #expect(schema["additionalProperties"]?.boolValue == false)
+    guard case .object(let hosts)? = schema["properties"]?["hosts"] else {
+      Issue.record("schema has no \"properties.hosts\" object")
+      return
+    }
+    #expect(hosts["additionalProperties"]?.boolValue == false)
+    #expect(schema["$defs"]?["hostOverrides"]?["additionalProperties"]?.boolValue == false)
+  }
+}

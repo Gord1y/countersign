@@ -1,0 +1,20 @@
+{
+  "artifactDirectoryPath": "/Users/dev/.gemini/antigravity-cli/brain/e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b",
+  "conversationId": "e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b",
+  "modelName": "gemini-flash",
+  "stepIdx": 6,
+  "toolCall": {
+    "args": {
+      "CommandLine": "npm install stripe@14 --save",
+      "Cwd": "/Users/dev/Projects/shop-api",
+      "WaitMsBeforeAsync": 10000,
+      "toolAction": "Installing the Stripe SDK",
+      "toolSummary": "Install the Stripe SDK"
+    },
+    "name": "run_command"
+  },
+  "transcriptPath": "/Users/dev/.gemini/antigravity-cli/brain/e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b/.system_generated/logs/transcript_full.jsonl",
+  "workspacePaths": [
+    "/Users/dev/Projects/shop-api"
+  ]
+}

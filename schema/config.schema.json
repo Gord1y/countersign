@@ -1,0 +1,182 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/Gord1y/countersign/main/schema/config.schema.json",
+  "title": "Countersign configuration",
+  "description": "Settings for the countersign approval panel, read from $XDG_CONFIG_HOME/countersign/config.json, or ~/.config/countersign/config.json when that variable is unset or empty.",
+  "type": "object",
+  "additionalProperties": false,
+  "$defs": {
+    "hostOverrides": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "armDelay": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3,
+          "default": 0.8,
+          "description": "Seconds the panel ignores input after appearing, for this host; out-of-range values are clamped to 0...3."
+        },
+        "chainedArmDelay": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3,
+          "default": 0.1,
+          "description": "Seconds a panel ignores input when it appears right after the previous panel was answered, for this host; every other panel uses armDelay. Out-of-range values are clamped to 0...3."
+        },
+        "idleSeconds": {
+          "type": "number",
+          "minimum": 0,
+          "default": 5,
+          "description": "Seconds of no keyboard, mouse or held-modifier activity required before a panel is shown, for this host."
+        },
+        "graceSeconds": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0,
+          "description": "Seconds a hook waits for its request to resolve elsewhere before it queues a panel, for this host."
+        },
+        "handoffApps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Bundle identifiers that silently hand a request off, with no panel, when frontmost, for this host."
+        },
+        "snoozeMinutes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 6,
+          "items": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 1440
+          },
+          "default": [1, 5, 15, 30],
+          "description": "Durations, in minutes and in menu order, offered by the panel's Snooze menu, for this host."
+        },
+        "includeHeadlessSessions": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether a non-interactive Claude Code session, such as claude -p, still gets a panel instead of being skipped, for this host; no effect for Codex, Cursor or Antigravity."
+        }
+      }
+    }
+  },
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "A JSON Schema reference for editor validation; ignored by countersign itself."
+    },
+    "armDelay": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 3,
+      "default": 0.8,
+      "description": "Seconds the panel ignores input after appearing; out-of-range values are clamped to 0...3."
+    },
+    "chainedArmDelay": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 3,
+      "default": 0.1,
+      "description": "Seconds a panel ignores input when it appears right after the previous panel was answered; every other panel uses armDelay. Out-of-range values are clamped to 0...3."
+    },
+    "idleSeconds": {
+      "type": "number",
+      "minimum": 0,
+      "default": 5,
+      "description": "Seconds of no keyboard, mouse or held-modifier activity required before a panel is shown."
+    },
+    "graceSeconds": {
+      "type": "number",
+      "minimum": 0,
+      "default": 0,
+      "description": "Seconds a hook waits for its request to resolve elsewhere before it queues a panel."
+    },
+    "handoffApps": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "default": [],
+      "description": "Bundle identifiers that silently hand a request off, with no panel, when frontmost."
+    },
+    "snoozeMinutes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 6,
+      "items": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 1440
+      },
+      "default": [1, 5, 15, 30],
+      "description": "Durations, in minutes and in menu order, offered by the panel's Snooze menu."
+    },
+    "checkForUpdates": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the menu-bar companion checks for a newer release on its own, at most once every 24 hours; top level only."
+    },
+    "quitBehavior": {
+      "type": "string",
+      "enum": ["ask", "keepShowing", "pause"],
+      "default": "ask",
+      "description": "What quitting the menu-bar companion from its menu does: ask each time, quit and keep showing panels, or quit and pause panels until Countersign opens again; top level only."
+    },
+    "modeAfterPlan": {
+      "type": "string",
+      "enum": ["default", "acceptEdits", "auto"],
+      "default": "default",
+      "description": "What Claude Code switches to when you approve its plan."
+    },
+    "includeHeadlessSessions": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether a non-interactive Claude Code session, such as claude -p, still gets a panel instead of being skipped; no effect for Codex, Cursor or Antigravity."
+    },
+    "questionNotes": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the question panel offers a note to attach to the option you pick, sent back as annotations; top level only."
+    },
+    "appearance": {
+      "type": "string",
+      "enum": ["system", "light", "dark"],
+      "default": "system",
+      "description": "Whether panels and the Settings window follow the macOS appearance or stay light or dark; top level only."
+    },
+    "accentColor": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}$",
+      "default": "#E6B04A",
+      "description": "The accent color of Approve and highlights on panels and in the Settings window, as #RRGGBB; text in it is darkened or lightened until it reads at 4.5:1. Top level only."
+    },
+    "editorApp": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Bundle identifier of the app Open in Editor opens config.json with; absent uses the default app macOS would open it with; top level only."
+    },
+    "hosts": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Per-host overrides for Claude Code, Codex, Cursor and Antigravity.",
+      "properties": {
+        "claude": {
+          "$ref": "#/$defs/hostOverrides"
+        },
+        "codex": {
+          "$ref": "#/$defs/hostOverrides"
+        },
+        "cursor": {
+          "$ref": "#/$defs/hostOverrides"
+        },
+        "antigravity": {
+          "$ref": "#/$defs/hostOverrides"
+        }
+      }
+    }
+  }
+}

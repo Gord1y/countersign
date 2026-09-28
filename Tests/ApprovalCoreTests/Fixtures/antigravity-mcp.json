@@ -1,0 +1,27 @@
+{
+  "artifactDirectoryPath": "/Users/dev/.gemini/antigravity-cli/brain/f2a3b4c5-d6e7-4f8a-9b0c-1d2e3f4a5b6c",
+  "conversationId": "f2a3b4c5-d6e7-4f8a-9b0c-1d2e3f4a5b6c",
+  "modelName": "gemini-flash",
+  "stepIdx": 4,
+  "toolCall": {
+    "args": {
+      "Arguments": {
+        "labels": [
+          "bug"
+        ],
+        "owner": "shop-api",
+        "repo": "shop-api",
+        "title": "Discount rate cap is not enforced on legacy codes"
+      },
+      "ServerName": "github",
+      "ToolName": "create_issue",
+      "toolAction": "Creating a GitHub issue",
+      "toolSummary": "File the discount cap bug"
+    },
+    "name": "call_mcp_tool"
+  },
+  "transcriptPath": "/Users/dev/.gemini/antigravity-cli/brain/f2a3b4c5-d6e7-4f8a-9b0c-1d2e3f4a5b6c/.system_generated/logs/transcript_full.jsonl",
+  "workspacePaths": [
+    "/Users/dev/Projects/shop-api"
+  ]
+}

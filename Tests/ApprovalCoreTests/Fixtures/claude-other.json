@@ -1,0 +1,14 @@
+{
+  "session_id": "a6b7c8d9-5e6f-4071-b234-56789abcdef0",
+  "transcript_path": "/Users/dev/.claude/projects/shop-api/a6b7c8d9-5e6f-4071-b234-56789abcdef0.jsonl",
+  "cwd": "/Users/dev/Projects/shop-api",
+  "permission_mode": "default",
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "NotebookEdit",
+  "tool_input": {
+    "notebook_path": "/Users/dev/Projects/shop-api/notebooks/pricing-experiment.ipynb",
+    "cell_id": "3",
+    "new_source": "df['discounted_price'] = df['price'] * (1 - df['discount_rate'])",
+    "edit_mode": "replace"
+  }
+}

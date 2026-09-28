@@ -1,0 +1,18 @@
+{
+  "artifactDirectoryPath": "/Users/dev/.gemini/antigravity-cli/brain/e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b",
+  "conversationId": "e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b",
+  "modelName": "gemini-flash",
+  "stepIdx": 2,
+  "toolCall": {
+    "args": {
+      "AbsolutePath": "/Users/dev/Projects/shop-api/src/pricing/discount.ts",
+      "toolAction": "Viewing the discount rules",
+      "toolSummary": "View discount rules"
+    },
+    "name": "view_file"
+  },
+  "transcriptPath": "/Users/dev/.gemini/antigravity-cli/brain/e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b/.system_generated/logs/transcript_full.jsonl",
+  "workspacePaths": [
+    "/Users/dev/Projects/shop-api"
+  ]
+}

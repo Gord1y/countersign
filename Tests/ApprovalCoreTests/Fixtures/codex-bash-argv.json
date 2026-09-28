@@ -1,0 +1,13 @@
+{
+  "session_id": "e0f1a2b3-92a3-41b5-f678-9abcdef01234",
+  "turn_id": "turn_0192a3b4c5d7",
+  "transcript_path": null,
+  "cwd": "/Users/dev/Projects/shop-api",
+  "hook_event_name": "PermissionRequest",
+  "model": "gpt-5-codex",
+  "permission_mode": "default",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": ["bash", "-lc", "rm -rf build && npm run build"]
+  }
+}

@@ -1,0 +1,59 @@
+{
+  "session_id": "b7c8d9e0-6f70-4182-c345-6789abcdef01",
+  "transcript_path": "/Users/dev/.claude/projects/shop-api/b7c8d9e0-6f70-4182-c345-6789abcdef01.jsonl",
+  "cwd": "/Users/dev/Projects/shop-api",
+  "permission_mode": "default",
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "AskUserQuestion",
+  "tool_input": {
+    "questions": [
+      {
+        "question": "Which storage backend should the session cache use?",
+        "header": "Storage",
+        "options": [
+          {
+            "label": "Redis",
+            "description": "Shared cache, needs a running Redis instance",
+            "preview": "docker compose up redis\nREDIS_URL=redis://localhost:6379\ncache.backend = \"redis\""
+          },
+          {
+            "label": "SQLite",
+            "description": "Local file-backed cache, no extra service",
+            "preview": "DATABASE_URL=file:./cache.db\ncache.backend = \"sqlite\""
+          },
+          {
+            "label": "In-memory",
+            "description": "Fastest, lost on restart"
+          }
+        ],
+        "multiSelect": false
+      },
+      {
+        "question": "Which environments should this deploy to?",
+        "header": "Targets",
+        "options": [
+          { "label": "staging" },
+          { "label": "production-us" },
+          { "label": "production-eu" },
+          { "label": "canary" }
+        ],
+        "multiSelect": true
+      },
+      {
+        "question": "How should the rollout be staged?",
+        "header": "Rollout",
+        "options": [
+          {
+            "label": "All at once",
+            "description": "Ship to every environment in one pass"
+          },
+          {
+            "label": "Canary first",
+            "description": "Hold for 30 minutes on canary before continuing"
+          }
+        ],
+        "multiSelect": false
+      }
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "session_id": "e41b8d27-6a3c-4f95-8e02-b7c1d9a4f356",
+  "transcript_path": "{{DEMO}}/claude/projects/shop-api/e41b8d27-6a3c-4f95-8e02-b7c1d9a4f356.jsonl",
+  "cwd": "{{DEMO}}/shop-api",
+  "permission_mode": "default",
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "git pull --rebase origin main && swift test --filter \"Checkout.*\"",
+    "description": "Rebase onto main and run the checkout tests"
+  },
+  "permission_suggestions": [
+    {
+      "type": "addRules",
+      "rules": [
+        {
+          "toolName": "Bash",
+          "ruleContent": "swift test *"
+        }
+      ],
+      "behavior": "allow",
+      "destination": "localSettings"
+    },
+    {
+      "type": "addDirectories",
+      "directories": [
+        "{{DEMO}}/shop-api"
+      ],
+      "destination": "session"
+    }
+  ]
+}

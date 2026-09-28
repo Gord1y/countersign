@@ -1,0 +1,13 @@
+{
+  "session_id": "f1a2b3c4-a3b4-42c6-a789-abcdef012345",
+  "turn_id": "turn_0192a3b4c5d8",
+  "transcript_path": null,
+  "cwd": "/Users/dev/Projects/shop-api",
+  "hook_event_name": "PermissionRequest",
+  "model": "gpt-5-codex",
+  "permission_mode": "default",
+  "tool_name": "apply_patch",
+  "tool_input": {
+    "command": "*** Begin Patch\n*** Add File: Sources/Checkout/DiscountCalculator.swift\n+import Foundation\n+\n+func applyDiscount(to total: Decimal, code: String?) -> Decimal {\n+  guard let code, !code.isEmpty else { return total }\n+  let rate = min(discountRate(for: code), maximumDiscountRate)\n+  return max(total * (1 - rate), 0)\n+}\n*** Update File: Sources/Checkout/CheckoutService.swift\n*** Move to: Sources/Checkout/CheckoutService.swift\n@@ func total(for order: Order) -> Decimal {\n     let subtotal = order.lineItems.reduce(0) { $0 + $1.price }\n     let tax = taxCalculator.tax(on: subtotal)\n-    return subtotal + tax\n+    let discounted = applyDiscount(to: subtotal + tax, code: order.discountCode)\n+    return discounted\n *** End of File\n*** Delete File: Sources/Checkout/LegacyDiscount.swift\n*** End Patch"
+  }
+}

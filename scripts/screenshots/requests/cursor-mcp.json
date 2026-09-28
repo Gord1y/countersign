@@ -1,0 +1,18 @@
+{
+  "conversation_id": "b3a4c5d6-e7f8-4a9b-8c1d-e2f3a4b5c6d7",
+  "generation_id": "a5b6c7d8-e9f0-4a1b-8c2d-e3f4a5b6c7d8",
+  "model": "default",
+  "tool_name": "search_issues",
+  "tool_input": "{\"query\":\"legacy discount codes\",\"limit\":5}",
+  "mcp_server_name": "linear",
+  "mcp_server_url": "https://mcp.linear.app/sse",
+  "url": "https://mcp.linear.app/sse",
+  "session_id": "b3a4c5d6-e7f8-4a9b-8c1d-e2f3a4b5c6d7",
+  "hook_event_name": "beforeMCPExecution",
+  "cursor_version": "3.21.18",
+  "workspace_roots": [
+    "{{DEMO}}/shop-api"
+  ],
+  "user_email": "dev@example.com",
+  "transcript_path": "/Users/dev/.cursor/projects/Users-dev-Projects-shop-api/agent-transcripts/b3a4c5d6-e7f8-4a9b-8c1d-e2f3a4b5c6d7/b3a4c5d6-e7f8-4a9b-8c1d-e2f3a4b5c6d7.jsonl"
+}

@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "releases": [
+    {
+      "version": "0.1.0",
+      "date": "2026-09-28",
+      "title": "Countersign 0.1.0: one approval panel for Claude Code, Codex, Cursor and Antigravity",
+      "summary": "The first release. Permission prompts from every Claude Code, Codex, Cursor and Antigravity session wait in one queue and appear one at a time in a native panel, only once you pause, with real context for edits and commands. Answer in the chat instead and the panel steps aside; any error leaves the agent's own prompt in charge.",
+      "type": "major",
+      "breaking": false,
+      "highlights": [
+        "One queue for every agent session, shown only once you stop typing",
+        "Edits in their enclosing function with real line numbers; questions and plans in the panel",
+        "Settings and an optional menu-bar app to wire agents, tune panels, pause or snooze"
+      ],
+      "tags": [
+        "claude-code",
+        "codex",
+        "cursor",
+        "antigravity"
+      ],
+      "testedWith": {
+        "claudeCode": "2.1.278",
+        "codex": "0.157.1",
+        "cursor": "3.21.18",
+        "antigravity": "1.2.12"
+      },
+      "notes": "releases/release-0.1.0.md"
+    }
+  ]
+}

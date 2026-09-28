@@ -1,0 +1,16 @@
+{
+  "countersign": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{EXECUTABLE}} hook --host antigravity",
+            "timeout": 3600
+          }
+        ]
+      }
+    ]
+  }
+}

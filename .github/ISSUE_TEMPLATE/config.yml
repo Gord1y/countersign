@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security vulnerability
+    url: https://github.com/Gord1y/countersign/security/advisories/new
+    about: Please report vulnerabilities privately instead of opening a public issue.
+  - name: Ask a question
+    url: https://github.com/Gord1y/countersign/discussions/categories/q-a
+    about: Use Discussions for questions instead of opening a public issue.
+  - name: Contact the developer
+    url: https://www.gord1y.dev/
+    about: Reach the developer directly.

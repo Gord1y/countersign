@@ -1,0 +1,27 @@
+{
+  "session_id": "5e0c7a91-3b2d-4f68-9a14-c2d8e6f01b37",
+  "transcript_path": "{{DEMO}}/claude/projects/shop-api/5e0c7a91-3b2d-4f68-9a14-c2d8e6f01b37.jsonl",
+  "cwd": "{{DEMO}}/shop-api",
+  "permission_mode": "default",
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "Bash",
+  "agent_id": "a7c41e9d2b05f836e",
+  "agent_type": "general-purpose",
+  "tool_input": {
+    "command": "swift test --filter CheckoutServiceTests 2>&1 | tail -n 20",
+    "description": "Run the checkout service tests"
+  },
+  "permission_suggestions": [
+    {
+      "type": "addRules",
+      "rules": [
+        {
+          "toolName": "Bash",
+          "ruleContent": "swift test *"
+        }
+      ],
+      "behavior": "allow",
+      "destination": "localSettings"
+    }
+  ]
+}

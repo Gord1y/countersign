@@ -1,0 +1,67 @@
+{
+  "session_id": "e41b8d27-6a3c-4f95-8e02-b7c1d9a4f356",
+  "transcript_path": "{{DEMO}}/claude/projects/shop-api/e41b8d27-6a3c-4f95-8e02-b7c1d9a4f356.jsonl",
+  "cwd": "{{DEMO}}/shop-api",
+  "permission_mode": "default",
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "AskUserQuestion",
+  "tool_input": {
+    "questions": [
+      {
+        "question": "Where should redeemed discount codes be recorded?",
+        "header": "Storage",
+        "options": [
+          {
+            "label": "Postgres table",
+            "description": "Durable, joins cleanly with orders",
+            "preview": "create table redemptions (\n  code text not null,\n  order_id uuid not null references orders,\n  redeemed_at timestamptz not null default now()\n);"
+          },
+          {
+            "label": "Redis set",
+            "description": "Fast, expires together with the code",
+            "preview": "SADD redemptions:SPRING25 order:8f3c\nEXPIREAT redemptions:SPRING25 1767225599"
+          },
+          {
+            "label": "Order metadata",
+            "description": "No new storage, harder to query later"
+          }
+        ],
+        "multiSelect": false
+      },
+      {
+        "question": "Which currencies should round totals to whole units?",
+        "header": "Currencies",
+        "options": [
+          {
+            "label": "JPY"
+          },
+          {
+            "label": "KRW"
+          },
+          {
+            "label": "HUF"
+          },
+          {
+            "label": "ISK"
+          }
+        ],
+        "multiSelect": true
+      },
+      {
+        "question": "What should checkout do with an expired code?",
+        "header": "Expiry",
+        "options": [
+          {
+            "label": "Reject it",
+            "description": "Show why the code no longer applies"
+          },
+          {
+            "label": "Ignore it",
+            "description": "Continue at full price without a message"
+          }
+        ],
+        "multiSelect": false
+      }
+    ]
+  }
+}

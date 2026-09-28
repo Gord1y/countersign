@@ -1,0 +1,16 @@
+{
+  "session_id": "a2b3c4d5-b4c5-43d7-b89a-bcdef0123456",
+  "turn_id": "turn_0192a3b4c5d9",
+  "transcript_path": null,
+  "cwd": "/Users/dev/Projects/shop-api",
+  "hook_event_name": "PermissionRequest",
+  "model": "gpt-5-codex",
+  "permission_mode": "default",
+  "tool_name": "mcp__github__create_issue",
+  "tool_input": {
+    "owner": "shop-api",
+    "repo": "shop-api",
+    "title": "Discount rate cap is not enforced on legacy codes",
+    "body": "Codes issued before 2025-01 bypass `maximumDiscountRate`."
+  }
+}

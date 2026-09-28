@@ -1,0 +1,12 @@
+{
+  "session_id": "f5a6b7c8-4d5e-4f6a-8b1c-23456789def0",
+  "transcript_path": "/Users/dev/.claude/projects/shop-api/f5a6b7c8-4d5e-4f6a-8b1c-23456789def0.jsonl",
+  "cwd": "/Users/dev/Projects/shop-api",
+  "permission_mode": "default",
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "curl -sf -X POST \"https://deploys.example.com/hooks/notify?service=shop-api&environment=production&build=2026.09.23&region=us-east-1&requestedBy=deploy-bot&retries=3&signature=8oKQyZL3b4_k3y_z87cv24vfJpKpI_GiPM5H_X7iGq_-GoWynBysP6IF9NNYdGEi_MDu4_PehiecbYIffvupnelehYtX88MtwPzld0q2BUsyHyT2rYMDr2GFgnsiVkWVmJVKJXfUMPbLCzoP1gl-JSanivCEtyyv5V9_ol7nLM1Yt4qfnTrCfw03cWGbPLi6serfQwMquQjPg-aNgI5mealNjA29JYZN-TCYjHjOAs37-djGvXMB_XyZag91hfwLNZ9fTjP7XqqNdQ9o-Ni9S4QXw64M21VBECbLsZx8adkV\" -H \"Content-Type: application/json\" -d '{\"status\":\"success\",\"commit\":\"a1b2c3d4\",\"triggeredBy\":\"release-pipeline\"}' && aws s3 cp ./dist/release.tar.gz s3://build-artifacts-prod/releases/shop-api/release.tar.gz --only-show-errors && echo \"deployed $USER at $(date -u +%FT%TZ)\"",
+    "description": "Notify the deploy webhook and upload the release artifact to S3"
+  }
+}

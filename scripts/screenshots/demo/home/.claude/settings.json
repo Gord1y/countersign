@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PermissionRequest": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{EXECUTABLE}} hook --host claude",
+            "timeout": 3600
+          }
+        ]
+      }
+    ]
+  }
+}

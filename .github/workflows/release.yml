@@ -1,0 +1,61 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  release:
+    name: release
+    runs-on: macos-26
+    timeout-minutes: 40
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: derive version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          echo "VERSION=${TAG#v}" >>"$GITHUB_ENV"
+      - name: check the release note
+        run: |
+          test -f "releases/release-$VERSION.md"
+          swift scripts/release-index.swift --check
+      - run: scripts/package-release.sh "$VERSION"
+      - name: create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          note="releases/release-$VERSION.md"
+          title=$(sed -n 's/^title: *//p' "$note" | head -n 1 |
+            sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\\(.*\\)'\$/\\1/")
+          awk 'BEGIN { closed = 0 } /^---$/ { closed++; next } closed >= 2 { print }' "$note" |
+            sed '/./,$!d' >"$RUNNER_TEMP/release-body.md"
+          {
+            cat "$RUNNER_TEMP/release-body.md"
+            echo
+            echo "## Install this version"
+            echo
+            echo '```sh'
+            echo "curl -fsSL https://raw.githubusercontent.com/Gord1y/countersign/main/install.sh | COUNTERSIGN_VERSION=$VERSION sh"
+            echo '```'
+            echo
+            echo "Homebrew installs the latest version only."
+          } >"$RUNNER_TEMP/release-body-full.md"
+          gh release create "v$VERSION" \
+            --title "$title" \
+            --notes-file "$RUNNER_TEMP/release-body-full.md" \
+            ".build/release-artifacts/countersign-$VERSION-macos.tar.gz" \
+            ".build/release-artifacts/countersign-$VERSION-macos.tar.gz.sha256" \
+            ".build/release-artifacts/countersign-macos.tar.gz" \
+            ".build/release-artifacts/countersign-macos.tar.gz.sha256"

@@ -1,0 +1,77 @@
+name: Bug report
+description: Report a problem with Countersign
+labels:
+  - bug
+body:
+  - type: input
+    id: macos-version
+    attributes:
+      label: macOS version
+      placeholder: e.g. macOS 15.1
+    validations:
+      required: true
+  - type: dropdown
+    id: host
+    attributes:
+      label: Host
+      options:
+        - Claude Code
+        - Codex
+        - Cursor
+        - Antigravity
+        - other
+    validations:
+      required: true
+  - type: input
+    id: host-version
+    attributes:
+      label: Host version
+      placeholder: e.g. Claude Code 2.1.278
+    validations:
+      required: true
+  - type: input
+    id: terminal
+    attributes:
+      label: Terminal or editor
+      placeholder: e.g. Terminal.app, iTerm2, VS Code
+    validations:
+      required: true
+  - type: input
+    id: countersign-version
+    attributes:
+      label: countersign --version
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: countersign doctor output
+      description: If available.
+      render: text
+    validations:
+      required: false
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant lines from ~/Library/Logs/Countersign/countersign.log
+      render: text
+    validations:
+      required: false

@@ -1,0 +1,493 @@
+import Foundation
+import Testing
+
+@testable import ApprovalCore
+
+@Suite struct ConfigFileTests {
+  private func parse(_ json: String) -> (file: ConfigFile, logLines: [String]) {
+    ConfigFileParser.parse(Data(json.utf8))
+  }
+
+  @Test func emptyObjectYieldsAllDefaults() {
+    let (file, logLines) = parse("{}")
+    #expect(file == ConfigFile())
+    #expect(logLines.isEmpty)
+  }
+
+  @Test func parsesEveryTopLevelKey() {
+    let (file, logLines) = parse(
+      """
+      {
+        "armDelay": 1.5,
+        "chainedArmDelay": 0.3,
+        "idleSeconds": 10,
+        "graceSeconds": 2,
+        "handoffApps": ["com.apple.Terminal"],
+        "snoozeMinutes": [2, 4, 6],
+        "checkForUpdates": true,
+        "quitBehavior": "pause",
+        "modeAfterPlan": "acceptEdits",
+        "includeHeadlessSessions": true,
+        "questionNotes": true,
+        "appearance": "dark",
+        "accentColor": "#5B9CF6",
+        "editorApp": "com.microsoft.VSCode"
+      }
+      """)
+    #expect(logLines.isEmpty)
+    #expect(file.appearance == .dark)
+    #expect(file.accentColor == AccentPreset.blue.color)
+    #expect(file.armDelay == 1.5)
+    #expect(file.chainedArmDelay == 0.3)
+    #expect(file.idleSeconds == 10)
+    #expect(file.graceSeconds == 2)
+    #expect(file.handoffApps == ["com.apple.Terminal"])
+    #expect(file.snoozeMinutes == [2, 4, 6])
+    #expect(file.checkForUpdates == true)
+    #expect(file.quitBehavior == .pause)
+    #expect(file.modeAfterPlan == .acceptEdits)
+    #expect(file.includeHeadlessSessions == true)
+    #expect(file.questionNotes == true)
+    #expect(file.editorApp == "com.microsoft.VSCode")
+  }
+
+  @Test func editorAppIsRead() {
+    let (file, logLines) = parse(#"{ "editorApp": "com.microsoft.VSCode" }"#)
+    #expect(file.editorApp == "com.microsoft.VSCode")
+    #expect(logLines.isEmpty)
+  }
+
+  @Test func editorAppEmptyFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "editorApp": "" }"#)
+    #expect(file.editorApp == nil)
+    #expect(logLines == ["editorApp: expected a non-empty string, using the default app"])
+  }
+
+  @Test func editorAppWrongTypeFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "editorApp": 3 }"#)
+    #expect(file.editorApp == nil)
+    #expect(logLines == ["editorApp: expected a non-empty string, using the default app"])
+  }
+
+  @Test func readsEveryQuitBehavior() {
+    #expect(parse(#"{ "quitBehavior": "ask" }"#).file.quitBehavior == .ask)
+    #expect(parse(#"{ "quitBehavior": "keepShowing" }"#).file.quitBehavior == .keepShowing)
+    #expect(parse(#"{ "quitBehavior": "pause" }"#).file.quitBehavior == .pause)
+  }
+
+  @Test func quitBehaviorOutsideItsChoicesFallsBackToDefault() {
+    let expected = [
+      #"quitBehavior: expected "ask", "keepShowing" or "pause", using default "ask""#
+    ]
+    let (file, logLines) = parse(#"{ "quitBehavior": "Pause" }"#)
+    #expect(file.quitBehavior == nil)
+    #expect(logLines == expected)
+    let (wrongType, wrongTypeLines) = parse(#"{ "quitBehavior": true }"#)
+    #expect(wrongType.quitBehavior == nil)
+    #expect(wrongTypeLines == expected)
+  }
+
+  @Test func quitBehaviorIsNotAHostKey() {
+    let (file, logLines) = parse(#"{ "hosts": { "codex": { "quitBehavior": "pause" } } }"#)
+    #expect(file.codex == ConfigFile.HostOverrides())
+    #expect(logLines == [#"unknown key "hosts.codex.quitBehavior", ignored"#])
+  }
+
+  @Test func readsEveryModeAfterPlan() {
+    #expect(parse(#"{ "modeAfterPlan": "default" }"#).file.modeAfterPlan == .default)
+    #expect(parse(#"{ "modeAfterPlan": "acceptEdits" }"#).file.modeAfterPlan == .acceptEdits)
+    #expect(parse(#"{ "modeAfterPlan": "auto" }"#).file.modeAfterPlan == .auto)
+  }
+
+  @Test func modeAfterPlanOutsideItsChoicesFallsBackToDefault() {
+    let expected = [
+      #"modeAfterPlan: expected "default", "acceptEdits" or "auto", using default "default""#
+    ]
+    let (file, logLines) = parse(#"{ "modeAfterPlan": "Auto" }"#)
+    #expect(file.modeAfterPlan == nil)
+    #expect(logLines == expected)
+    let (wrongType, wrongTypeLines) = parse(#"{ "modeAfterPlan": true }"#)
+    #expect(wrongType.modeAfterPlan == nil)
+    #expect(wrongTypeLines == expected)
+  }
+
+  @Test func modeAfterPlanIsNotAHostKey() {
+    let (file, logLines) = parse(#"{ "hosts": { "codex": { "modeAfterPlan": "auto" } } }"#)
+    #expect(file.codex == ConfigFile.HostOverrides())
+    #expect(logLines == [#"unknown key "hosts.codex.modeAfterPlan", ignored"#])
+  }
+
+  @Test func readsEveryAppearance() {
+    #expect(parse(#"{ "appearance": "system" }"#).file.appearance == .system)
+    #expect(parse(#"{ "appearance": "light" }"#).file.appearance == .light)
+    #expect(parse(#"{ "appearance": "dark" }"#).file.appearance == .dark)
+  }
+
+  @Test func appearanceOutsideItsChoicesFallsBackToDefault() {
+    let expected = [
+      #"appearance: expected "system", "light" or "dark", using default "system""#
+    ]
+    let (file, logLines) = parse(#"{ "appearance": "Dark" }"#)
+    #expect(file.appearance == nil)
+    #expect(logLines == expected)
+    let (wrongType, wrongTypeLines) = parse(#"{ "appearance": 1 }"#)
+    #expect(wrongType.appearance == nil)
+    #expect(wrongTypeLines == expected)
+  }
+
+  @Test func readsAnAccentColorInEitherCase() {
+    #expect(
+      parse(##"{ "accentColor": "#a78bfa" }"##).file.accentColor == AccentPreset.purple.color)
+    #expect(
+      parse(##"{ "accentColor": "#123456" }"##).file.accentColor
+        == HexColor(red: 0x12, green: 0x34, blue: 0x56))
+  }
+
+  @Test func accentColorThatIsNotHexFallsBackToDefault() {
+    let expected = [##"accentColor: expected "#RRGGBB", using default "#E6B04A""##]
+    for json in [
+      #"{ "accentColor": "blue" }"#, ##"{ "accentColor": "#5B9CF" }"##,
+      #"{ "accentColor": 5 }"#,
+    ] {
+      let (file, logLines) = parse(json)
+      #expect(file.accentColor == nil)
+      #expect(logLines == expected)
+    }
+  }
+
+  @Test func appearanceAndAccentColorAreNotHostKeys() {
+    let (file, logLines) = parse(
+      ##"{ "hosts": { "claude": { "appearance": "dark", "accentColor": "#5B9CF6" } } }"##)
+    #expect(file.claude == ConfigFile.HostOverrides())
+    #expect(
+      Set(logLines) == [
+        #"unknown key "hosts.claude.appearance", ignored"#,
+        #"unknown key "hosts.claude.accentColor", ignored"#,
+      ])
+  }
+
+  @Test func ignoresSchemaKey() {
+    let (file, logLines) = parse(
+      """
+      { "$schema": "https://example.com/schema.json" }
+      """)
+    #expect(file == ConfigFile())
+    #expect(logLines.isEmpty)
+  }
+
+  @Test func armDelayOutOfRangeClampsAndLogs() {
+    let (file, logLines) = parse(#"{ "armDelay": 9 }"#)
+    #expect(file.armDelay == 3)
+    #expect(logLines == ["armDelay: 9 is out of range 0...3, clamped to 3"])
+  }
+
+  @Test func armDelayBelowRangeClampsAndLogs() {
+    let (file, logLines) = parse(#"{ "armDelay": -1 }"#)
+    #expect(file.armDelay == 0)
+    #expect(logLines == ["armDelay: -1 is out of range 0...3, clamped to 0"])
+  }
+
+  @Test func armDelayWrongTypeFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "armDelay": "soon" }"#)
+    #expect(file.armDelay == nil)
+    #expect(logLines == ["armDelay: not a number, using default 0.8"])
+  }
+
+  @Test func chainedArmDelayOutOfRangeClampsAndLogs() {
+    let (file, logLines) = parse(#"{ "chainedArmDelay": 9 }"#)
+    #expect(file.chainedArmDelay == 3)
+    #expect(logLines == ["chainedArmDelay: 9 is out of range 0...3, clamped to 3"])
+  }
+
+  @Test func chainedArmDelayBelowRangeClampsAndLogs() {
+    let (file, logLines) = parse(#"{ "chainedArmDelay": -0.5 }"#)
+    #expect(file.chainedArmDelay == 0)
+    #expect(logLines == ["chainedArmDelay: -0.5 is out of range 0...3, clamped to 0"])
+  }
+
+  @Test func chainedArmDelayWrongTypeFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "chainedArmDelay": "soon" }"#)
+    #expect(file.chainedArmDelay == nil)
+    #expect(logLines == ["chainedArmDelay: not a number, using default 0.1"])
+  }
+
+  @Test func chainedArmDelayZeroIsKept() {
+    let (file, logLines) = parse(#"{ "chainedArmDelay": 0 }"#)
+    #expect(file.chainedArmDelay == 0)
+    #expect(logLines.isEmpty)
+  }
+
+  @Test func aBadChainedArmDelayLeavesTheOtherKeysAlone() {
+    let (file, logLines) = parse(#"{ "chainedArmDelay": true, "armDelay": 1 }"#)
+    #expect(file.chainedArmDelay == nil)
+    #expect(file.armDelay == 1)
+    #expect(logLines == ["chainedArmDelay: not a number, using default 0.1"])
+  }
+
+  @Test func idleSecondsNegativeFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "idleSeconds": -1 }"#)
+    #expect(file.idleSeconds == nil)
+    #expect(logLines == ["idleSeconds: not a non-negative number, using default 5"])
+  }
+
+  @Test func idleSecondsWrongTypeFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "idleSeconds": true }"#)
+    #expect(file.idleSeconds == nil)
+    #expect(logLines == ["idleSeconds: not a non-negative number, using default 5"])
+  }
+
+  @Test func graceSecondsNegativeFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "graceSeconds": -0.5 }"#)
+    #expect(file.graceSeconds == nil)
+    #expect(logLines == ["graceSeconds: not a non-negative number, using default 0"])
+  }
+
+  @Test func handoffAppsWrongTypeFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "handoffApps": "com.apple.Terminal" }"#)
+    #expect(file.handoffApps == nil)
+    #expect(logLines == ["handoffApps: not an array, using default []"])
+  }
+
+  @Test func handoffAppsWithNonStringElementFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "handoffApps": ["ok", 1] }"#)
+    #expect(file.handoffApps == nil)
+    #expect(logLines == ["handoffApps: contains a non-string value, using default []"])
+  }
+
+  @Test func snoozeMinutesWrongTypeFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "snoozeMinutes": "soon" }"#)
+    #expect(file.snoozeMinutes == nil)
+    #expect(logLines == ["snoozeMinutes: expected 1 to 6 integers, using default [1, 5, 15, 30]"])
+  }
+
+  @Test func snoozeMinutesEmptyFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "snoozeMinutes": [] }"#)
+    #expect(file.snoozeMinutes == nil)
+    #expect(logLines == ["snoozeMinutes: expected 1 to 6 integers, using default [1, 5, 15, 30]"])
+  }
+
+  @Test func snoozeMinutesTooManyFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "snoozeMinutes": [1, 2, 3, 4, 5, 6, 7] }"#)
+    #expect(file.snoozeMinutes == nil)
+    #expect(logLines == ["snoozeMinutes: expected 1 to 6 integers, using default [1, 5, 15, 30]"])
+  }
+
+  @Test func snoozeMinutesOutOfRangeElementFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "snoozeMinutes": [1, 1441] }"#)
+    #expect(file.snoozeMinutes == nil)
+    #expect(
+      logLines == ["snoozeMinutes: expected integers from 1 to 1440, using default [1, 5, 15, 30]"]
+    )
+  }
+
+  @Test func snoozeMinutesKeepsGivenOrder() {
+    let (file, logLines) = parse(#"{ "snoozeMinutes": [30, 1, 15] }"#)
+    #expect(file.snoozeMinutes == [30, 1, 15])
+    #expect(logLines.isEmpty)
+  }
+
+  @Test func checkForUpdatesWrongTypeFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "checkForUpdates": "yes" }"#)
+    #expect(file.checkForUpdates == nil)
+    #expect(logLines == ["checkForUpdates: not a boolean, using default false"])
+  }
+
+  @Test func includeHeadlessSessionsWrongTypeFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "includeHeadlessSessions": 1 }"#)
+    #expect(file.includeHeadlessSessions == nil)
+    #expect(logLines == ["includeHeadlessSessions: not a boolean, using default false"])
+  }
+
+  @Test func questionNotesWrongTypeFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "questionNotes": "yes" }"#)
+    #expect(file.questionNotes == nil)
+    #expect(logLines == ["questionNotes: not a boolean, using default false"])
+  }
+
+  @Test func questionNotesTrueIsRead() {
+    let (file, logLines) = parse(#"{ "questionNotes": true }"#)
+    #expect(file.questionNotes == true)
+    #expect(logLines.isEmpty)
+  }
+
+  @Test func unknownTopLevelKeyIsLoggedAndIgnored() {
+    let (file, logLines) = parse(#"{ "bogus": true }"#)
+    #expect(file == ConfigFile())
+    #expect(logLines == ["unknown key \"bogus\", ignored"])
+  }
+
+  @Test func hostsBlockParsesClaudeAndCodex() {
+    let (file, logLines) = parse(
+      """
+      {
+        "hosts": {
+          "claude": { "armDelay": 1, "idleSeconds": 3 },
+          "codex": {
+            "graceSeconds": 2, "handoffApps": ["com.apple.Terminal"], "chainedArmDelay": 0.2
+          }
+        }
+      }
+      """)
+    #expect(logLines.isEmpty)
+    #expect(file.claude?.armDelay == 1)
+    #expect(file.claude?.chainedArmDelay == nil)
+    #expect(file.claude?.idleSeconds == 3)
+    #expect(file.codex?.chainedArmDelay == 0.2)
+    #expect(file.codex?.graceSeconds == 2)
+    #expect(file.codex?.handoffApps == ["com.apple.Terminal"])
+  }
+
+  @Test func hostsBlockParsesCursor() {
+    let (file, logLines) = parse(
+      #"{ "hosts": { "cursor": { "idleSeconds": 2, "handoffApps": ["com.todesktop.230313mzl4w4u92"] } } }"#
+    )
+    #expect(logLines.isEmpty)
+    #expect(file.cursor?.idleSeconds == 2)
+    #expect(file.cursor?.handoffApps == ["com.todesktop.230313mzl4w4u92"])
+    #expect(file.claude == nil)
+    #expect(file.codex == nil)
+    let (typo, typoLines) = parse(#"{ "hosts": { "cursor": { "armDelay": "x", "bogus": 1 } } }"#)
+    #expect(typo.cursor == ConfigFile.HostOverrides())
+    #expect(
+      Set(typoLines)
+        == [
+          "hosts.cursor.armDelay: not a number, using default 0.8",
+          "unknown key \"hosts.cursor.bogus\", ignored",
+        ])
+  }
+
+  @Test func hostsBlockParsesAntigravity() {
+    let (file, logLines) = parse(
+      #"{ "hosts": { "antigravity": { "graceSeconds": 1, "handoffApps": ["com.apple.Terminal"] } } }"#
+    )
+    #expect(logLines.isEmpty)
+    #expect(file.antigravity?.graceSeconds == 1)
+    #expect(file.antigravity?.handoffApps == ["com.apple.Terminal"])
+    #expect(file.cursor == nil)
+    let (typo, typoLines) = parse(
+      #"{ "hosts": { "antigravity": { "idleSeconds": -1, "bogus": 1 }, "gemini": {} } }"#)
+    #expect(typo.antigravity == ConfigFile.HostOverrides())
+    #expect(
+      Set(typoLines)
+        == [
+          "hosts.antigravity.idleSeconds: not a non-negative number, using default 5",
+          "unknown key \"hosts.antigravity.bogus\", ignored",
+          "unknown key \"hosts.gemini\", ignored",
+        ])
+  }
+
+  @Test func picksTheOverridesForEachHost() {
+    let file = ConfigFile(
+      claude: ConfigFile.HostOverrides(idleSeconds: 1),
+      codex: ConfigFile.HostOverrides(idleSeconds: 2),
+      cursor: ConfigFile.HostOverrides(idleSeconds: 3),
+      antigravity: ConfigFile.HostOverrides(idleSeconds: 4))
+    #expect(file.overrides(for: .claude)?.idleSeconds == 1)
+    #expect(file.overrides(for: .codex)?.idleSeconds == 2)
+    #expect(file.overrides(for: .cursor)?.idleSeconds == 3)
+    #expect(file.overrides(for: .antigravity)?.idleSeconds == 4)
+    #expect(ConfigFile().overrides(for: .cursor) == nil)
+    #expect(ConfigFile().overrides(for: .antigravity) == nil)
+  }
+
+  @Test func hostsBlockWrongTypeIsLoggedAndIgnored() {
+    let (file, logLines) = parse(#"{ "hosts": "claude" }"#)
+    #expect(file.claude == nil)
+    #expect(file.codex == nil)
+    #expect(logLines == ["hosts: expected an object, ignored"])
+  }
+
+  @Test func hostBlockWrongTypeIsLoggedAndIgnored() {
+    let (file, logLines) = parse(#"{ "hosts": { "claude": "nope" } }"#)
+    #expect(file.claude == nil)
+    #expect(logLines == ["hosts.claude: expected an object, ignored"])
+  }
+
+  @Test func unknownKeyInHostsIsLoggedAndIgnored() {
+    let (file, logLines) = parse(#"{ "hosts": { "chatgpt": {} } }"#)
+    #expect(file.claude == nil)
+    #expect(file.codex == nil)
+    #expect(logLines == ["unknown key \"hosts.chatgpt\", ignored"])
+  }
+
+  @Test func unknownKeyInsideHostBlockIsLoggedAndIgnored() {
+    let (file, logLines) = parse(#"{ "hosts": { "claude": { "bogus": 1 } } }"#)
+    #expect(file.claude == ConfigFile.HostOverrides())
+    #expect(logLines == ["unknown key \"hosts.claude.bogus\", ignored"])
+  }
+
+  @Test func hostArmDelayOutOfRangeClampsAndLogs() {
+    let (file, logLines) = parse(#"{ "hosts": { "codex": { "armDelay": 9 } } }"#)
+    #expect(file.codex?.armDelay == 3)
+    #expect(logLines == ["hosts.codex.armDelay: 9 is out of range 0...3, clamped to 3"])
+  }
+
+  @Test func hostChainedArmDelayOutOfRangeClampsAndLogs() {
+    let (file, logLines) = parse(#"{ "hosts": { "claude": { "chainedArmDelay": 4 } } }"#)
+    #expect(file.claude?.chainedArmDelay == 3)
+    #expect(logLines == ["hosts.claude.chainedArmDelay: 4 is out of range 0...3, clamped to 3"])
+  }
+
+  @Test func hostChainedArmDelayWrongTypeFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "hosts": { "codex": { "chainedArmDelay": [1] } } }"#)
+    #expect(file.codex?.chainedArmDelay == nil)
+    #expect(logLines == ["hosts.codex.chainedArmDelay: not a number, using default 0.1"])
+  }
+
+  @Test func brokenJSONFallsBackToAllDefaults() {
+    let (file, logLines) = parse("{ not json")
+    #expect(file == ConfigFile())
+    #expect(logLines == ["config.json is not valid JSON, using defaults"])
+  }
+
+  @Test func nonObjectJSONFallsBackToAllDefaults() {
+    let (file, logLines) = parse("[1, 2, 3]")
+    #expect(file == ConfigFile())
+    #expect(logLines == ["config.json does not contain a JSON object, using defaults"])
+  }
+
+  @Test func missingFileIsNormalWithNoLog() {
+    let home = URL(fileURLWithPath: "/tmp/countersign-config-test-\(UUID().uuidString)")
+    let paths = AppPaths(home: home)
+    let (file, logLines) = ConfigFileLoader.load(paths: paths)
+    #expect(file == ConfigFile())
+    #expect(logLines.isEmpty)
+  }
+
+  @Test func loadsFromDiskAtTheXDGPath() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "countersign-config-test-\(UUID().uuidString)")
+    let xdgConfigHome = root.appendingPathComponent("xdg-config")
+    try FileManager.default.createDirectory(
+      at: xdgConfigHome.appendingPathComponent("countersign"), withIntermediateDirectories: true)
+    let configFile = xdgConfigHome.appendingPathComponent("countersign/config.json")
+    try Data(#"{ "armDelay": 1.2 }"#.utf8).write(to: configFile)
+    defer { try? FileManager.default.removeItem(at: root) }
+
+    let paths = AppPaths(
+      home: root.appendingPathComponent("home"), xdgConfigHome: xdgConfigHome.path)
+    let (file, logLines) = ConfigFileLoader.load(paths: paths)
+    #expect(file.armDelay == 1.2)
+    #expect(logLines.isEmpty)
+  }
+
+  @Test func unreadableFileIsLoggedAndFallsBackToDefaults() throws {
+    let root = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "countersign-config-test-\(UUID().uuidString)")
+    let configDirectory = root.appendingPathComponent(".config/countersign")
+    try FileManager.default.createDirectory(at: configDirectory, withIntermediateDirectories: true)
+    let paths = AppPaths(home: root)
+    try Data(#"{ "armDelay": 1 }"#.utf8).write(to: paths.configFile)
+    try FileManager.default.setAttributes(
+      [.posixPermissions: 0o000], ofItemAtPath: paths.configFile.path)
+    defer {
+      try? FileManager.default.setAttributes(
+        [.posixPermissions: 0o644], ofItemAtPath: paths.configFile.path)
+      try? FileManager.default.removeItem(at: root)
+    }
+
+    let (file, logLines) = ConfigFileLoader.load(paths: paths)
+    #expect(file == ConfigFile())
+    #expect(logLines == ["config.json could not be read, using defaults"])
+  }
+}

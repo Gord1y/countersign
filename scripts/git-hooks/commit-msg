@@ -1,0 +1,70 @@
+#!/bin/sh
+set -eu
+
+export LC_ALL=C
+
+if [ "$#" -ne 1 ] || [ ! -r "$1" ]; then
+  echo "usage: commit-msg <message-file>" >&2
+  exit 2
+fi
+
+types='build|chore|ci|docs|feat|fix|perf|refactor|revert|style|test'
+header_pattern='^('"$types"')(\([a-z0-9._/-]+\))?!?: .+'
+max_header_length=100
+ai_names='claude|anthropic|openai|chatgpt|codex|copilot|gemini|cursor|ai'
+ai_coauthor_pattern='^[[:space:]]*co-authored-by:(.*[^[:alnum:]])?('"$ai_names"')([^[:alnum:]]|$)'
+generated_pattern='^[^[:alnum:]]*generated with'
+
+message=$(sed -e '/^# -\{24\} >8 -\{24\}$/,$d' -e '/^#/d' -e 's/[[:space:]]*$//' "$1")
+header=$(printf '%s\n' "$message" | awk 'NF { print; exit }')
+
+status=0
+
+violation() {
+  echo "commit-msg: $1" >&2
+  status=1
+}
+
+each_line_matching() {
+  printf '%s\n' "$message" | grep -iE "$1" || true
+}
+
+if [ -z "$header" ]; then
+  violation "the message is empty"
+else
+  case $header in
+  "Merge "* | "Revert \""*) ;;
+  *)
+    if ! printf '%s\n' "$header" | grep -Eq "$header_pattern"; then
+      violation "header must be <type>[(scope)][!]: <subject>, type one of ${types}: $header"
+    fi
+    length=$(printf '%s' "$header" | tr -d '\200-\277' | wc -c | tr -d ' ')
+    if [ "$length" -gt "$max_header_length" ]; then
+      violation "header is $length characters, the limit is $max_header_length"
+    fi
+    case $header in
+    *.) violation "header must not end with a period" ;;
+    esac
+    ;;
+  esac
+fi
+
+ai_coauthors=$(each_line_matching "$ai_coauthor_pattern")
+if [ -n "$ai_coauthors" ]; then
+  while IFS= read -r line; do
+    violation "remove the AI co-author trailer: $line"
+  done <<EOF
+$ai_coauthors
+EOF
+fi
+
+generated_lines=$(each_line_matching "$generated_pattern")
+if [ -n "$generated_lines" ]; then
+  while IFS= read -r line; do
+    violation "remove the generated-with line: $line"
+  done <<EOF
+$generated_lines
+EOF
+fi
+
+exit "$status"

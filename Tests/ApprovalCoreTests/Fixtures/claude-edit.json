@@ -1,0 +1,21 @@
+{
+  "session_id": "c2d3e4f5-1a2b-4c3d-9e8f-0123456789ab",
+  "transcript_path": "/Users/dev/.claude/projects/shop-api/c2d3e4f5-1a2b-4c3d-9e8f-0123456789ab.jsonl",
+  "cwd": "/Users/dev/Projects/shop-api",
+  "permission_mode": "default",
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "/Users/dev/Projects/shop-api/Sources/Checkout/DiscountCalculator.swift",
+    "old_string": "func applyDiscount(to total: Decimal, code: String?) -> Decimal {\n  guard let code, !code.isEmpty else {\n    return total\n  }\n  let rate = discountRate(for: code)\n  return total * (1 - rate)\n}",
+    "new_string": "func applyDiscount(to total: Decimal, code: String?) -> Decimal {\n  guard let code, !code.isEmpty else {\n    return total\n  }\n  let rate = min(discountRate(for: code), maximumDiscountRate)\n  return max(total * (1 - rate), 0)\n}",
+    "replace_all": false
+  },
+  "permission_suggestions": [
+    {
+      "type": "setMode",
+      "mode": "acceptEdits",
+      "destination": "session"
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "session_id": "e4f5a6b7-3c4d-4e5f-9012-3456789abcde",
+  "transcript_path": "/Users/dev/.claude/projects/shop-api/e4f5a6b7-3c4d-4e5f-9012-3456789abcde.jsonl",
+  "cwd": "/Users/dev/Projects/shop-api",
+  "permission_mode": "default",
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "WebFetch",
+  "tool_input": {
+    "url": "https://developer.stripe.com/docs/webhooks/signatures",
+    "prompt": "Summarize how webhook signature verification works"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "session_id": "e41b8d27-6a3c-4f95-8e02-b7c1d9a4f356",
+  "transcript_path": "{{DEMO}}/claude/projects/shop-api/e41b8d27-6a3c-4f95-8e02-b7c1d9a4f356.jsonl",
+  "cwd": "{{DEMO}}/shop-api",
+  "permission_mode": "plan",
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "ExitPlanMode",
+  "tool_input": {
+    "plan": "# Cap discount codes at 50%\n\n## Summary\n\nStacked promotions can push `applyDiscount(to:code:)` past the order total. Cap every code at `maximumDiscountRate` and never let a total go below zero.\n\n## Steps\n\n- Clamp the rate in `DiscountCalculator.swift` with `min(discountRate(for:), maximumDiscountRate)`\n- Clamp the discounted total at zero\n- Apply the discount after tax in `CheckoutService.total(for:)`\n- Remove `LegacyDiscount`, which has no callers left\n\n## Rollout\n\n1. Ship behind the `discount-cap` flag\n2. Compare capped and uncapped totals for a day of orders\n3. Turn the flag on for everyone\n\n```swift\nlet rate = min(discountRate(for: code), maximumDiscountRate)\nreturn max(total * (1 - rate), 0)\n```\n\nNo change to the **public** checkout API.",
+    "planFilePath": "/Users/dev/Projects/shop-api/.claude/plans/cap-discount-codes.md"
+  }
+}

@@ -1,0 +1,92 @@
+# Roadmap
+
+Ideas Countersign might grow into, grouped by theme. No dates and no promises: within a theme,
+"Next" is closer to being picked up than "Later" or "Watching", not a schedule. Bugs and gaps get
+fixed as they're found, not listed here. Have an idea of your own? Open a [feature
+request](https://github.com/Gord1y/countersign/issues/new/choose).
+
+## More agent hosts
+
+### Next (v0.2)
+
+Hosts whose hook fires only when they're about to show their own approval prompt, the same shape
+Claude Code's `PermissionRequest` already is:
+
+- JetBrains Junie CLI
+- Qwen Code
+- Tencent CodeBuddy Code
+
+### Later
+
+Hosts whose hook fires before every tool call, like Cursor's, so Countersign first needs a rule
+for which calls deserve a panel and which get skipped:
+
+- GitHub Copilot CLI
+- Factory Droid
+- Crush
+- Kiro
+- Cline
+- Amp
+- Augment (Auggie)
+
+### Watching
+
+- OpenCode — moves forward if its `permission.ask` plugin hook gets fixed.
+- Zed — moves forward if its agent gains hooks at all.
+- Z.ai ZCode — it only went open source days ago; watching until its hook contract settles.
+- Devin CLI — moves forward once its permission hook is confirmed against a real payload.
+- Kimi Code — moves forward once its `PermissionRequest` hook can actually decide, not just
+  observe.
+- cursor-agent, Cursor's own CLI — it reads the same `hooks.json` Cursor does, but that hasn't
+  been checked yet.
+
+DeepSeek, Qwen, Kimi, GLM and MiniMax models already work today, because every one of those
+vendors documents running its model through Claude Code, and Countersign hooks into Claude Code,
+not the model behind it.
+
+## Platforms and distribution
+
+### Later
+
+- Windows as a native app, sharing the same design docs and test fixtures, starting with a spike
+  on showing a focused panel without activating the app.
+- Linux, both X11 and Wayland.
+- A WSL bridge, so an agent running inside WSL can still raise a native panel.
+- Developer ID signing and notarization, so Gatekeeper stops warning on a fresh install.
+- A Homebrew cask that installs Countersign.app straight into /Applications, once the app is
+  signed and notarized.
+- winget and Scoop packages, once Countersign runs on Windows.
+
+## Panel and behaviour
+
+### Next
+
+- A waiting-agent notice. Countersign exists so an agent never sits waiting on you for an hour
+  without you knowing, but today it only helps when a hook hands it a decision. When Claude Code,
+  Codex, Cursor or Antigravity stops for something it doesn't send to Countersign, such as a
+  question, a plan, or its own prompt after a request was handed back to the chat, a notice would
+  say "<Agent> is waiting for you · <project>", with a **Go there** button that brings the agent's
+  app forward. You answer in the agent itself.
+
+### Later
+
+- Countersign's own allow and deny rules per project or host, most useful for every-call hosts
+  like Cursor that have no "Always allow" suggestions of their own.
+- Detecting "answered in the host" for Cursor, from its agent transcripts, and for Codex, if it
+  ever gains a session registry.
+- A faster subagent header chain, read straight from Claude Code's `parentAgentId` metadata
+  instead of walking the transcript tree.
+- Decision history in the menu-bar app, and answering pending requests straight from the menu.
+- Touch ID confirmation for risky commands.
+- Editing a command before approving it, on hosts that accept updated input back.
+- Scheduled quiet hours.
+- An optional sound or haptic cue.
+- Approvals from a phone or an Apple Watch.
+
+## Quality
+
+### Later
+
+- A VoiceOver and accessibility pass across the panel and the settings window.
+- Localization through translation catalogs.
+- More multi-display polish.

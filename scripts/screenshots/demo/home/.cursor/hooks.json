@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "hooks": {
+    "beforeShellExecution": [
+      {
+        "command": "{{EXECUTABLE}} hook --host cursor",
+        "timeout": 3600
+      }
+    ],
+    "beforeMCPExecution": [
+      {
+        "command": "{{EXECUTABLE}} hook --host cursor",
+        "timeout": 3600
+      }
+    ]
+  }
+}

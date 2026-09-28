@@ -1,0 +1,230 @@
+# Configuration
+
+Every setting in Countersign's config file: what it does, its default, and when you would change
+it. Read it when you want the panel to wait longer or shorter before it appears, change the snooze
+presets, turn on the update check, choose what quitting the menu-bar app does, make the panels
+light, dark or another color, or set something differently for one agent.
+
+## The file
+
+Countersign reads `$XDG_CONFIG_HOME/countersign/config.json` when `XDG_CONFIG_HOME` is set and not
+empty, and `~/.config/countersign/config.json` otherwise. The file is optional: without it, every
+setting uses its default. For example:
+
+```json
+{
+  "$schema": "https://raw.githubusercontent.com/Gord1y/countersign/main/schema/config.schema.json",
+  "idleSeconds": 8,
+  "graceSeconds": 3,
+  "checkForUpdates": true
+}
+```
+
+Changes apply to the next request; nothing needs restarting. The menu-bar app reads the file when
+you open its menu.
+
+## Settings
+
+`countersign settings`, or **Settings…** in the menu-bar app, opens the Settings window, which
+edits the file's top-level keys directly, plus Launch at Login, which isn't a key at all. Each
+change is saved as soon as you make it: a switch or menu when you pick, a stepper on each click, a
+slider when you let go, and **Snooze presets** or a new **Hand off when frontmost** app when you
+press Return, move to another field or close the window, so there's nothing to save and closing
+never asks. An entry with a mistake shows a red line under it and isn't saved; the file keeps what
+it had.
+
+Changed a setting and want it back the way it was? A row with a changed value shows a small reset
+button beside its control; clicking it removes that key from `config.json`, so the setting follows
+the built-in default again, even if that default later changes. **Panels** and **App** each also
+have a **Restore Defaults** button that resets every changed setting in that group at once, after
+you confirm.
+
+Its settings are in a sidebar with four groups — Agents, App, Panels and Help, the last holding the
+tour, documentation, questions and problem reports, updates, and support links — in that order at
+every window width, plus **Advanced**, opened through a button at the bottom of App. Drag the
+window's edges to resize it: the sidebar's order never changes. It opens again at the size, place
+and group you left it with.
+
+### Agents
+
+Connects your agents — **Wire**, **Update**, **Remove**, and **Show changes** first, for Claude
+Code, Codex, Cursor and Antigravity; see [setup.md](setup.md) for what each writes. It sets no key
+in `config.json` itself; that group edits each agent's own hook file instead. When `hosts.<agent>`
+sets one of the Panels keys below for that agent, its row shows the values in one line, with a
+link to open the file — see "Settings for one agent" under [Advanced](#advanced).
+
+### Panels
+
+How approval panels behave, for every agent unless a key is overridden for one under
+`hosts.<agent>` (see "Settings for one agent" under Advanced):
+
+| Setting | Key | Default |
+| --- | --- | --- |
+| Wait for idle | `idleSeconds` | `5` |
+| Grace period | `graceSeconds` | `0` |
+| Arm delay | `armDelay` | `0.8` |
+| Arm delay after an answer | `chainedArmDelay` | `0.1` |
+| Hand off when frontmost | `handoffApps` | `[]` |
+| Snooze presets | `snoozeMinutes` | `[1, 5, 15, 30]` |
+| Notes on answers | `questionNotes` | `false` |
+| Mode after a plan | `modeAfterPlan` | `"default"` |
+
+All of these except **Notes on answers** and **Mode after a plan** live at the top level of
+`config.json` and can also be set per agent, under `hosts.<agent>`. `questionNotes` and
+`modeAfterPlan` are top-level only, like the App group's keys below.
+
+- **Wait for idle** (`idleSeconds`): how long since your last keyboard, mouse or scroll input a
+  panel needs before it appears — counted from that last input, not from when the request
+  arrives, so if you've already been away that long the panel appears at once. Any number
+  `>= 0`. Raise it if panels still appear while you pause mid-thought; lower it if you want them
+  sooner.
+- **Grace period** (`graceSeconds`): how long a request waits for you to answer it in the chat
+  before it joins the queue. Any number `>= 0`. Set it to a few seconds if you often answer Claude
+  Code in the chat right away — a request you answer there during the grace period never gets a
+  panel at all. Only Claude Code's chat answers are noticed, so for the other agents it only
+  delays the panel.
+- **Arm delay** (`armDelay`): how long a new panel ignores keys and clicks, so a keystroke meant
+  for something else can't answer it. `0` to `3`. Raise it if keys you meant for another app still
+  land in the panel; lower it if the pause before a panel accepts input feels slow.
+- **Arm delay after an answer** (`chainedArmDelay`): the same, for a panel that appears right after
+  you answered the previous one. `0` to `3`. It is separate from `armDelay` and never falls back to
+  it: you are already looking at the panel when the next one appears, so it can be short.
+- **Hand off when frontmost** (`handoffApps`): bundle IDs of apps where you'd rather answer in the
+  chat. When a panel is about to appear and the app in front is on this list and is also the app
+  the request came from, no panel appears; the request goes to the agent's own prompt, where you
+  are already looking. This is checked at that moment, after **Wait for idle**, not when the
+  request arrives: switch to another app before then and you get a panel; stay in the asking app
+  and its own prompt comes only after that pause (Codex shows "Waiting for the approval panel"
+  meanwhile). A request from any other app still gets a panel. Cursor and Antigravity show their
+  own approval prompt in this case.
+- **Snooze presets** (`snoozeMinutes`): the durations the Snooze menus offer, in order. 1 to 6
+  whole numbers, each `1` to `1440`. Set the presets you actually use. The menu-bar app's own
+  Snooze menu isn't tied to one agent, so it always uses the top-level value, even when an agent's
+  `hosts` block sets its own.
+- **Notes on answers** (`questionNotes`): off by default, so a question panel shows only its
+  options. Turn it on if you want a way to add context to the option you pick; it shows a **+ Add
+  a note** link under a question's options, and the note you type comes back to Claude in the
+  answer's `annotations`.
+- **Mode after a plan** (`modeAfterPlan`): the permission mode Claude Code continues in once you
+  approve a plan, `"default"` (Ask before edits) unless you change it. `"acceptEdits"` lets it
+  edit files without asking; `"auto"` hands the decisions to Claude Code's auto mode. The plan
+  panel's **then: …** menu starts on this choice, and you can still pick another there for a
+  single plan. Only Claude Code sends plans, so the other agents are unaffected.
+
+#### Try your settings
+
+Choose **Show a Test Panel** in the menu-bar app, click **Command**, **Question** or **Plan**
+under **Show a test panel** in Settings' **Panels**, or run `countersign test-panel` (add
+`question` or `plan` for those kinds), to see a panel for a harmless sample request with your
+current settings: the arm delay, the Snooze presets, `questionNotes`, the App group's appearance
+and accent colour, and the idle wait if you switch away and it steps aside. It shows right away,
+without the grace period or the idle wait. Only one test panel shows at a time, and a real request
+always comes first: while a panel is on screen or a request is waiting for one, the test panel
+doesn't show and says why, and a request that arrives while it is up closes it. Nothing you choose
+in it reaches an agent. It reads the file when it starts, so save your changes first, and it uses
+Claude Code's settings, `hosts.claude` included. More in
+[menu-bar-app.md](menu-bar-app.md#test-panel).
+
+### App
+
+What the menu-bar app does, and how panels and the Settings window look:
+
+| Setting | Key | Default |
+| --- | --- | --- |
+| Launch at login | none | off |
+| Check for updates | `checkForUpdates` | `false` |
+| When Countersign quits | `quitBehavior` | `"ask"` |
+| Appearance | `appearance` | `"system"` |
+| Accent colour | `accentColor` | `"#E6B04A"` (Amber) |
+
+- **Launch at login**: registers Countersign as a macOS login item, so it starts automatically when
+  you log in. macOS keeps this, not `config.json`. More in
+  [menu-bar-app.md](menu-bar-app.md#launch-at-login).
+- **Check for updates** (`checkForUpdates`): turn it on to be told about new releases; what the
+  check contacts is in [menu-bar-app.md](menu-bar-app.md#check-for-updates). **Check for
+  Updates…** in the menu works whether it is on or off.
+- **When Countersign quits** (`quitBehavior`): `"ask"` shows a question each time you choose **Quit
+  Countersign** in the menu-bar app. `"keepShowing"` quits without asking and panels keep
+  appearing; `"pause"` quits without asking and pauses panels until you open the app again.
+  Ticking **Don't ask again** in the question writes your answer here. See
+  [menu-bar-app.md](menu-bar-app.md#quit).
+- **Appearance** (`appearance`): `"system"` follows the light or dark appearance chosen in macOS;
+  `"light"` and `"dark"` keep every panel and the Settings window that way whatever macOS uses.
+- **Accent colour** (`accentColor`): the color of Approve and the other filled buttons, and of
+  highlights such as a selected option, on every panel and in the Settings window. Settings offers
+  Amber, Blue, Green, Purple, Pink and Graphite, and a color well for any other; the file takes any
+  `"#RRGGBB"`. Text drawn in the color is darkened in light appearance, or lightened in dark, until
+  it is easy to read, and a filled button's label is near-black or white, whichever reads better.
+  Deny stays red, the mark in a panel's header keeps the app icon's amber, and the menu-bar icon
+  stays monochrome.
+
+### Advanced
+
+Shows the config file's path, **Open in Editor** (creates the file with the `$schema` line when
+it's missing), **Copy Path**, the schema's URL as a link, and what only the file can set.
+
+- **Open with** (`editorApp`, default: the default app): which app **Open in Editor** opens
+  `config.json` with, on this row and on an agent's own "Open in Editor" link. Absent, it's
+  whatever macOS opens JSON files with. Pick one from the menu, or **Other…** for an app the menu
+  doesn't offer; if the chosen app is later uninstalled, Countersign opens the file with the
+  default app instead and says so.
+
+The menu-bar app started from the Finder or at login doesn't see variables set in your shell
+profile. If you set `XDG_CONFIG_HOME` only there, its Settings window edits
+`~/.config/countersign/config.json` while hooks started from that shell read the other file; run
+`countersign settings` from that shell instead.
+
+#### What only the file can set
+
+- **`includeHeadlessSessions`** (default `false`): show panels for non-interactive Claude Code
+  runs too. By default a non-interactive run, such as `claude -p`, gets no panel, because nobody
+  is at a chat to answer it; it gets Claude Code's own handling instead. Set it to `true` to see
+  panels for those runs as well. It has no effect for Codex, Cursor or Antigravity. It can be set
+  at the top level or per agent, under `hosts.<agent>`, like the Panels keys above.
+- **`hosts.claude`, `hosts.codex`, `hosts.cursor`, `hosts.antigravity`**: per-agent values; see
+  "Settings for one agent" below.
+
+#### Settings for one agent
+
+Every key except `checkForUpdates`, `questionNotes`, `quitBehavior`, `modeAfterPlan`, `appearance`,
+`accentColor` and `editorApp` can also be set for one agent, under
+`hosts.claude`, `hosts.codex`, `hosts.cursor` or `hosts.antigravity`:
+
+```json
+{
+  "idleSeconds": 5,
+  "hosts": {
+    "codex": { "idleSeconds": 2 }
+  }
+}
+```
+
+For a request from an agent, its `hosts` value wins over the top-level one, which wins over the
+default. This file is the only place settings live: the hook command takes nothing but
+`--host <agent>`. The menu-bar app's Snooze menu isn't tied to one agent, so it always uses the
+top-level `snoozeMinutes`.
+
+#### Mistakes in the file
+
+A mistake never stops a panel and never answers anything; Countersign falls back and carries on:
+
+- A file that can't be read or isn't a valid JSON object: every setting uses its default.
+- A key with the wrong type or a value outside its range: that key uses its default, and every
+  other key is read as usual. `armDelay` and `chainedArmDelay` are the exception: a number outside
+  `0` to `3` is moved to the nearest end instead.
+- An unknown key: ignored.
+
+Each mistake is written to the log, `~/Library/Logs/Countersign/countersign.log`, on a line starting
+with `config: `, and `countersign doctor` lists them as `warn` lines.
+
+#### JSON Schema
+
+[`schema/config.schema.json`](../schema/config.schema.json) describes every key. Point the file's
+`$schema` at `https://raw.githubusercontent.com/Gord1y/countersign/main/schema/config.schema.json`,
+as in the example above, and an editor that understands JSON Schema completes and checks keys as
+you type. `$schema` itself is ignored by Countersign; it only lets your editor validate the file.
+
+#### Ask your coding agent
+
+Advanced also has a prompt you can copy into a coding agent, naming the file's path and its
+schema, if you'd rather ask one to make a change than edit the file yourself.
