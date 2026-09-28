@@ -33,8 +33,9 @@ downloadable release; see [release.md](release.md).
 
 `scripts/git-hooks/commit-msg` is the one rule set. Locally git runs it as a hook; in CI,
 `scripts/check-commits.sh <base> <head>` runs the same file over every non-merge commit in
-`base..head` and prefixes each violation with the commit's short SHA. There is no second copy of the
-rules to drift.
+`base..head` and prefixes each violation with the commit's short SHA, and `pr-title.yml` runs it
+over a pull request's title, which becomes the squash commit's subject. There is no second copy of
+the rules to drift.
 
 Turn the hook on once per clone:
 
@@ -167,6 +168,23 @@ Triggers: `push` to `main`, `pull_request`, `workflow_dispatch`, on `ubuntu-late
 actionlint over `.github/workflows`, fetched with actionlint's own `download-actionlint.bash`
 pinned to a commit SHA, and shellcheck, already installed on the image, over `scripts/*.sh`,
 `scripts/*/*.sh`, `scripts/git-hooks/*` and the root `install.sh`.
+
+### `pr-title.yml` — PR title
+
+Triggers: `pull_request` (`opened`, `edited`, `reopened`, `synchronize`), on `ubuntu-latest`. Its
+one job, `title`, runs `scripts/git-hooks/commit-msg` over the pull request's title.
+
+A pull request lands on `staging` as one squash commit whose subject is its title, and `commits`
+checks only the branch's own commits, which the squash discards. Without `title`, a subject nobody
+checked would land on `staging`, and `commits` would then fail every `staging` → `main` pull
+request after it.
+
+- `edited` re-runs the check when the title is corrected, and `synchronize` gives every new head
+  commit its own result, which a required check needs.
+- The job checks out the base commit (`github.event.pull_request.base.sha`), so the hook that
+  judges the title is the base branch's, not one the pull request rewrote.
+- The title reaches the hook only through `env:`, written to a file under `$RUNNER_TEMP`, never
+  interpolated into the script.
 
 ### `release.yml` — Release
 
