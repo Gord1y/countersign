@@ -23,6 +23,14 @@ which removes a builder's landed worktrees and branches; `scripts/test-release-i
 `scripts/build-app.sh`, `scripts/package-release.sh` and `scripts/screenshots/render.sh` have no
 test script; they are checked by running them.
 
+`scripts/check.sh` runs three parts in order, and each also runs on its own:
+`scripts/check-build.sh` builds every target and the tests once with `swift build --build-tests`,
+then runs them with `swift test --skip-build`; `scripts/check-lint.sh` runs
+`swift format lint --strict` and rejects code comments; `scripts/check-scripts.sh` runs the four
+test scripts above. A plain `swift build` followed by `swift test` compiles the package twice,
+because `swift test` rebuilds everything with testing enabled; on CI that second compile cost
+about 40 seconds. CI runs the parts as parallel jobs; see [`ci.yml`](#ciyml--ci).
+
 `scripts/build-app.sh` builds the release binary and assembles it into `.build/Countersign.app`,
 ad-hoc signed; see [design/app.md](design/app.md) for the bundle layout and why. It copies the
 committed `scripts/app/AppIcon.icns` into the bundle as it is, since no script generates the icon;
@@ -219,9 +227,17 @@ on a schedule, because a macOS run takes minutes and queues behind other jobs.
 
 Triggers: `push` to `main`, `pull_request`, `workflow_dispatch`.
 
-- `gates` runs on `macos-26`, whose default Xcode ships Swift 6.2, the version this package
-  requires. It prints `swift --version` and then runs `scripts/check.sh`, the same command a
-  contributor runs locally before committing.
+- `build` and `static` run in parallel on `macos-26`, whose default Xcode ships Swift 6.2, the
+  version this package requires. `build` prints `swift --version` and runs
+  `scripts/check-build.sh`; `static` runs `scripts/check-lint.sh` and `scripts/check-scripts.sh`.
+  Together they are `scripts/check.sh`, the command a contributor runs locally before committing.
+  Run as one job, `check.sh` took 3 minutes 38 seconds on 2026-09-28: 38 seconds to build, 73 to
+  rebuild for the tests, 12 to run them and about 90 for lint and the script suites, one after
+  another.
+- `gates` is the check the rulesets require. It runs on `ubuntu-latest` once `build` and `static`
+  have finished and fails unless both ended in `success`. It runs even when one of them failed
+  (`!cancelled()`), because a required check that is skipped counts as passing. Keeping the name
+  `gates` left the rulesets' required checks unchanged when the job was split.
 - `commits` runs on `ubuntu-latest` with full history and replays `scripts/check-commits.sh`
   over the commits the event introduces: `base.sha..head.sha` for a pull request, `before..after`
   for a push, skipped when `before` is the all-zeros SHA a branch's first push reports.

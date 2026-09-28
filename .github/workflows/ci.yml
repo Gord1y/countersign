@@ -14,8 +14,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  gates:
-    name: gates
+  build:
+    name: build
     runs-on: macos-26
     timeout-minutes: 30
     permissions:
@@ -25,7 +25,41 @@ jobs:
         with:
           persist-credentials: false
       - run: swift --version
-      - run: scripts/check.sh
+      - run: scripts/check-build.sh
+
+  static:
+    name: static
+    runs-on: macos-26
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - run: scripts/check-lint.sh
+      - run: scripts/check-scripts.sh
+
+  gates:
+    name: gates
+    needs:
+      - build
+      - static
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions: {}
+    steps:
+      - env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          for result in $RESULTS; do
+            if [ "$result" != success ]; then
+              echo "::error::A gate job ended with '$result'."
+              exit 1
+            fi
+          done
+          echo "All gate jobs passed."
 
   commits:
     name: commits
