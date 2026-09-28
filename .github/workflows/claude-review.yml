@@ -124,6 +124,7 @@ jobs:
           GH_REPO: ${{ github.repository }}
           NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
           OUTPUT: ${{ steps.claude.outputs.structured_output }}
+          REVIEWED: ${{ github.event.pull_request.head.sha || needs.gate.outputs.head-sha }}
         run: |
           verdict=$(printf '%s' "$OUTPUT" | jq -r '.verdict // empty')
           printf '%s' "$OUTPUT" | jq -r '.body // empty' >"$RUNNER_TEMP/review.md"
@@ -132,20 +133,20 @@ jobs:
             exit 1
           fi
           case "$verdict" in
-            APPROVE) flag=--approve ;;
-            REQUEST_CHANGES) flag=--request-changes ;;
+            APPROVE | REQUEST_CHANGES) ;;
             *)
               echo "::error::The review returned no verdict."
               exit 1
               ;;
           esac
-          head=$(gh api "repos/$GH_REPO/pulls/$NUMBER" --jq .head.sha)
-          gh pr review "$NUMBER" "$flag" --body-file "$RUNNER_TEMP/review.md"
-          state=$(gh api "repos/$GH_REPO/pulls/$NUMBER/reviews" --jq "[.[] | select(.user.login == \"github-actions[bot]\" and .commit_id == \"$head\")] | last | .state // empty")
+          jq -n --arg commit "$REVIEWED" --arg event "$verdict" --rawfile body "$RUNNER_TEMP/review.md" \
+            '{commit_id: $commit, event: $event, body: $body}' |
+            gh api -X POST "repos/$GH_REPO/pulls/$NUMBER/reviews" --input - >/dev/null
+          state=$(gh api "repos/$GH_REPO/pulls/$NUMBER/reviews" --jq "[.[] | select(.user.login == \"github-actions[bot]\" and .commit_id == \"$REVIEWED\")] | last | .state // empty")
           case "$verdict:$state" in
-            APPROVE:APPROVED | REQUEST_CHANGES:CHANGES_REQUESTED) echo "Submitted $state on #$NUMBER at $head." ;;
+            APPROVE:APPROVED | REQUEST_CHANGES:CHANGES_REQUESTED) echo "Submitted $state on #$NUMBER at $REVIEWED." ;;
             *)
-              echo "::error::GitHub shows no $verdict review on #$NUMBER at $head."
+              echo "::error::GitHub shows no $verdict review on #$NUMBER at $REVIEWED."
               exit 1
               ;;
           esac

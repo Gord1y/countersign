@@ -403,11 +403,15 @@ release index), so the review never repeats them. Findings go in the body, not i
 comments. If Claude ends without structured output, the action's step fails.
 
 A later step with no model in it submits the verdict. It gets `structured_output` only through
-`env:`, like every other value that reaches a script, takes both fields out with `jq`, reads the
-pull request's head SHA and runs `gh pr review` with `--approve` or `--request-changes` and the
-body. It then lists the pull request's reviews and checks that the latest one by
-`github-actions[bot]` at that head commit is `APPROVED` or `CHANGES_REQUESTED` to match. An empty
-body, an unknown verdict or a review GitHub does not show fails the job.
+`env:`, like every other value that reaches a script, takes both fields out with `jq`, and posts the
+review through the REST reviews API with `commit_id` set to the commit the job checked out, the
+same `head.sha` or `gate` output the checkout used. `gh pr review` always reviews the pull request's
+current head, so a push landing while Claude read the old commit would have turned its approval
+into one for code it never read; pinned to the reviewed commit, that approval is stale on arrival
+and, with stale approvals dismissed, counts for nothing. The step then lists the pull request's
+reviews and checks that the latest one by `github-actions[bot]` at that commit is `APPROVED` or
+`CHANGES_REQUESTED` to match. An empty body, an unknown verdict or a review GitHub does not show
+fails the job.
 
 A failed run, like a request for changes, leaves the owner's pull request without the approval the
 rulesets require. GitHub counts each reviewer's latest review, so the way out is a new run: push a
