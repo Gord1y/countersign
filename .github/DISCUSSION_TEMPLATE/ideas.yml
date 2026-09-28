@@ -1,0 +1,25 @@
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ideas is for proposals still taking shape. For a concrete, scoped change, open a [feature request](https://github.com/Gord1y/countersign/issues/new?template=feature.yml) instead.
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What are you trying to do, and what gets in the way today?
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What could Countersign do about it?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+    validations:
+      required: false
