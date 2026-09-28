@@ -282,11 +282,11 @@ it builds, publishes and why.
 ### `claude-review.yml` — Claude review
 
 Claude reviews a pull request for correctness bugs and for breaks of this repository's rules. It
-posts a progress comment while it works and ends with a formal review from `github-actions`: an
-approval when it finds nothing, a request for changes when it finds a verified bug or rule
-violation. On the owner's own pull requests that approval is the one the rulesets require (see
-[Branches and rulesets](#branches-and-rulesets)). Both jobs run on `ubuntu-latest`. There are two
-ways in, and only the repository owner can use either:
+posts a progress comment while it works and ends with a formal review from `github-actions`: a
+request for changes when it finds a verified Blocker, an approval otherwise, with every finding
+graded in its body. On the owner's own pull requests that approval is the one the rulesets
+require (see [Branches and rulesets](#branches-and-rulesets)). Both jobs run on `ubuntu-latest`.
+There are two ways in, and only the repository owner can use either:
 
 - **Automatic:** `pull_request` (`opened`, `synchronize`, `reopened`, `ready_for_review`), when the
   pull request is not a draft, its author is the repository owner
@@ -358,9 +358,13 @@ needs to read the change, not run it, so the model gets no shell and no way to c
   no file tool at all.
 - Before Claude starts, the action restores `.claude/`, `CLAUDE.md` and its other Claude
   configuration paths from the base branch (for `/review`, the default branch) and keeps the pull
-  request's versions under `.claude-pr/` for reference only. The rules the review applies are
-  therefore the base branch's (for `/review`, the default branch's), not ones the pull request
-  rewrote.
+  request's versions under `.claude-pr/`. The prompt says so, and the review judges by the base
+  branch's rules (for `/review`, the default branch's), with one exception: when the pull request
+  itself changes a rule, the rest of the pull request is judged by the new version and the rule
+  change is listed as a Minor finding, so it is visible. Only the owner's pull requests are
+  reviewed, and such a change has to be in the diff the owner wrote; judging by the base rule alone
+  would block every pull request that adds a rule together with the change that needs it, since
+  nobody else can approve the owner's pull requests.
 - Nothing from the pull request is interpolated into a `run:` script or into the prompt. The prompt
   is static, and the only values that pass from the event into a step, the SHAs and the pull request
   number, go through `env:`.
@@ -381,13 +385,22 @@ for the automatic trigger and from `gate`'s `base-sha` output for `/review`, onl
 `--json-schema` makes Claude end the run with structured output, which the action exposes as the
 step's `structured_output` output. The schema allows exactly two fields, both required:
 
-- `verdict`: `REQUEST_CHANGES` when Claude found at least one verified correctness bug or rule
-  violation, `APPROVE` when it found none. No other value passes the schema.
-- `body`: the review in Markdown. With findings, one bullet each with its `path:line`, the defect
-  and the fix; without, a line saying there are none and a line naming the files and commits read.
+- `verdict`: `REQUEST_CHANGES` only when Claude found at least one verified 🔴 Blocker, `APPROVE`
+  otherwise. No other value passes the schema.
+- `body`: the review in Markdown, in fixed sections: Verdict, Impact, Issues (one line counting
+  each severity), Findings, Missing tests, Nits, Verification questions and Read (the files and
+  commits it read).
 
-Findings go in that body, not in inline comments. If Claude ends without structured output, the
-action's step fails.
+The prompt grades every finding. 🔴 Blocker is a verified break of the safety contract or a hard
+rule: an approval the person never gave, the `hook` path writing to stderr or exiting non-zero, a
+crash on a primary path, a hook or config file lost, a secret reachable by someone else, or a
+breach of `CLAUDE.md`'s hard rules. 🟠 Major is a bug a person will hit, 🟡 Minor an edge case, a
+missing `ApprovalCore` test or docs that now contradict the code, 🔵 Nit a small convention point.
+Only a Blocker blocks: a wrong block costs the owner a new review run, while a Major finding is
+listed in an approving review and fixed in a follow-up. The prompt also names what other checks
+already enforce (comments, formatting, commit subjects and titles, workflow and shell lint, the
+release index), so the review never repeats them. Findings go in the body, not in inline
+comments. If Claude ends without structured output, the action's step fails.
 
 A later step with no model in it submits the verdict. It gets `structured_output` only through
 `env:`, like every other value that reaches a script, takes both fields out with `jq`, reads the
