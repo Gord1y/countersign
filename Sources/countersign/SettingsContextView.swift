@@ -1,3 +1,4 @@
+import AppKit
 import ApprovalCore
 import SwiftUI
 
@@ -44,10 +45,8 @@ struct ContextSection: View {
           }
           SettingsDivider()
           ContextHandoffFileRow(model: model)
-          ForEach(contextNoteNames, id: \.self) { name in
-            SettingsDivider()
-            ContextNoteRow(name: name, model: model)
-          }
+          SettingsDivider()
+          ContextNotesRow(model: model)
           SettingsDivider()
           PreferenceRow(
             .contextMenuBarMeter, model: model, problem: model.writeErrors[.contextMenuBarMeter]
@@ -69,30 +68,27 @@ struct ContextSection: View {
   }
 }
 
-private let contextNoteNames: [PreferenceName] = [
-  .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteCompact,
-  .contextNoteHandoff,
-]
-
-struct ContextChangeDetail: View {
+private struct ContextHookPromptPresenter: ViewModifier {
   let model: SettingsModel
-  let change: ContextHookChange
+  let origin: ContextHookChangeOrigin
 
-  var body: some View {
-    VStack(alignment: .leading, spacing: 8) {
-      if let failure = change.preview.failures.first {
-        InlineMessage(failure, tone: .problem)
-      } else {
-        SetupDiffView(text: change.preview.text)
-      }
-      HStack(spacing: 8) {
-        Button(change.confirmTitle) { model.confirmContextChange() }
-          .buttonStyle(PrimaryButtonStyle())
-          .disabled(!change.canApply)
-        Button("Cancel") { model.cancelContextChange() }
-          .buttonStyle(SecondaryButtonStyle())
-      }
+  func body(content: Content) -> some View {
+    content.onChange(of: model.contextChange(for: origin) != nil) { _, isPending in
+      guard isPending, let change = model.contextChange(for: origin) else { return }
+      ContextHookPrompt.present(
+        change: change, path: model.contextHookFileText ?? "Claude Code's settings",
+        on: NSApp.keyWindow,
+        onConfirm: { model.confirmContextChange() },
+        onCancel: { model.cancelContextChange() })
     }
+  }
+}
+
+extension View {
+  fileprivate func presentsContextHookPrompt(
+    model: SettingsModel, origin: ContextHookChangeOrigin
+  ) -> some View {
+    modifier(ContextHookPromptPresenter(model: model, origin: origin))
   }
 }
 
@@ -114,11 +110,8 @@ struct ContextToggleRow: View {
           set: { model.requestContextCheckpoints($0) })
       )
       .disabled(!model.claudeIsInstalled)
-    } detail: {
-      if let change = model.contextChange(for: .toggle) {
-        ContextChangeDetail(model: model, change: change)
-      }
     }
+    .presentsContextHookPrompt(model: model, origin: .toggle)
   }
 
   private var caption: String {
@@ -144,18 +137,12 @@ private struct ContextHookRow: View {
             .disabled(model.contextChange != nil)
         }
       }
-    } detail: {
-      if let change = model.contextChange(for: .hookStatus) {
-        ContextChangeDetail(model: model, change: change)
-      }
     }
+    .presentsContextHookPrompt(model: model, origin: .hookStatus)
   }
 
   private var caption: String {
-    let file = model.claudeLocation.map {
-      HomePath.abbreviating($0.file.path, relativeTo: model.environment.home)
-    }
-    return "Countersign's UserPromptSubmit entry in \(file ?? "Claude Code's settings")."
+    "Countersign's UserPromptSubmit entry in \(model.contextHookFileText ?? "Claude Code's settings")."
   }
 
   private var offersUpdate: Bool {
@@ -344,43 +331,19 @@ private struct ContextHandoffFileRow: View {
   }
 }
 
-private struct ContextNoteRow: View {
-  static let placeholders =
-    " Use {tokens} and {handoffFile} for the context size and the handoff file."
-  static let editorHeight: CGFloat = 92
+private struct ContextNotesRow: View {
+  static let title = "Notes"
+  static let caption = "What Countersign sends Claude at each checkpoint and after your choice."
+  static let button = "Edit Notes…"
 
-  let name: PreferenceName
   let model: SettingsModel
 
-  @FocusState private var isFocused: Bool
-
   var body: some View {
-    PreferenceRow(
-      name, model: model, problem: model.contextProblem(name), captionSuffix: Self.placeholders
-    ) {
-      EmptyView()
-    } detail: {
-      TextEditor(
-        text: Binding(
-          get: { model.contextText(for: name) }, set: { model.setContextText($0, for: name) })
-      )
-      .font(PanelTypography.body)
-      .scrollContentBackground(.hidden)
-      .padding(6)
-      .frame(height: Self.editorHeight)
-      .background(
-        RoundedRectangle(cornerRadius: 6, style: .continuous)
-          .fill(Color.primary.opacity(0.05))
-      )
-      .overlay(
-        RoundedRectangle(cornerRadius: 6, style: .continuous)
-          .stroke(Color.primary.opacity(0.12), lineWidth: 1)
-      )
-      .focused($isFocused)
-      .onChange(of: isFocused) { _, focused in
-        if !focused { model.commitContextText(name) }
+    PreferenceRow(Self.title, caption: Self.caption) {
+      Button(Self.button) {
+        ContextNotesSheet.present(model: model, on: NSApp.keyWindow)
       }
-      .onDisappear { model.commitContextText(name) }
+      .buttonStyle(SecondaryButtonStyle())
     }
   }
 }

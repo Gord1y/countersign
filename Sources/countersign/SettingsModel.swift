@@ -597,9 +597,48 @@ final class SettingsModel {
   }
 
   static let editableContextTexts: [PreferenceName] = [
-    .contextStandardThresholds, .contextMillionThresholds, .contextHandoffFile, .contextNoteSoft,
-    .contextNoteStatus, .contextNoteInsist, .contextNoteCompact, .contextNoteHandoff,
+    .contextStandardThresholds, .contextMillionThresholds, .contextHandoffFile,
   ]
+
+  static let contextNoteNames: [PreferenceName] = [
+    .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteCompact,
+    .contextNoteHandoff,
+  ]
+
+  var contextHookFileText: String? {
+    claudeLocation.map { HomePath.abbreviating($0.file.path, relativeTo: environment.home) }
+  }
+
+  func saveContextNotes(_ drafts: [PreferenceName: String]) -> Bool {
+    var edits: [(name: PreferenceName, edit: PreferenceEdit)] = []
+    var allValid = true
+    for name in Self.contextNoteNames {
+      guard let text = drafts[name], text != contextText(for: name) else { continue }
+      switch contextEdit(for: name, text: text) {
+      case .success(let edit):
+        contextErrors[name] = nil
+        edits.append((name, edit))
+      case .failure(let error):
+        contextErrors[name] = error.description
+        allValid = false
+      }
+    }
+    guard allValid else { return false }
+    var allWritten = true
+    for entry in edits {
+      if !write(entry.edit) {
+        allWritten = false
+      }
+    }
+    return allWritten
+  }
+
+  func clearContextNoteErrors() {
+    for name in Self.contextNoteNames {
+      contextErrors[name] = nil
+      writeErrors[name] = nil
+    }
+  }
 
   func requestContextCheckpoints(_ enable: Bool) {
     guard enable != contextCheckpointsEnabled else { return }
@@ -625,6 +664,9 @@ final class SettingsModel {
   }
 
   func cancelContextChange() {
+    if let change = contextChange, let line = change.preview.failures.first {
+      contextHookFailure = ContextHookFailure(origin: change.origin, message: line)
+    }
     contextChange = nil
   }
 

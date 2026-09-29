@@ -451,9 +451,15 @@ on a preference beyond committing the text fields as the table says.
 
 The Panels tab ends with the switch "Context checkpoints (Claude Code)", showing the file's
 `contextCheckpoints.enabled`. It is the one Panels row that changes a host file, so flipping it
-writes nothing: it opens the row's detail with the diff `ContextHookRun.preview` gives for Claude
-Code's `settings.json`, in the same monospaced card as the Agents rows, and two buttons, "Turn On"
-or "Turn Off" (primary) and "Cancel". The primary button applies the hook change through
+writes nothing: it opens a confirmation popup (`ContextHookPrompt`, an `NSAlert` sheet on the
+Settings window like `RestoreDefaultsPrompt`; the model's `contextChange` is what the row presents,
+and confirm and cancel stay model calls). The popup asks "Turn on context checkpoints?" or "Turn
+off context checkpoints?" ("Update Countersign's Claude Code hook?" from the hook row), says
+"Countersign changes <path> and keeps a backup.", and shows the diff `ContextHookRun.preview` gives
+for Claude Code's `settings.json` in a selectable monospaced scroll view about 12 lines tall, with
+two buttons, "Turn On" or "Turn Off" (primary) and "Cancel". A preview with failures shows the
+failure lines and only "OK"; dismissing it changes nothing and leaves the failure as the row's red
+line. The primary button applies the hook change through
 `ContextHookRun.apply` (a backup of the file, like every hook-file write), and only then the
 config and state change: on, it writes `contextCheckpoints.enabled: true`; off, it removes the
 `UserPromptSubmit` entry, deletes the files in `AppPaths.contextCheckpointsDirectory`
@@ -468,9 +474,9 @@ The Context tab appears in the sidebar only while the feature is on. The stored 
 to Agents when it is off (`SettingsPane(storedValue:showsContext:)`), and turning the feature off,
 here or in the file, while Context is showing selects Panels. Its rows, in order: the hook status
 (Wired, Not wired or Needs an update, from `ContextHookRun.status`, with "Update" for the last two,
-which shows the diff first exactly like the switch and never touches the config), Checkpoint
-style, the 200K and 1M ladders, the per-model ladders, Start over below, Handoff file, the five
-notes, Context in the menu bar, a button that shows a context test panel, and Restore Defaults.
+which shows the same popup as the switch and never touches the config), Checkpoint
+style, the 200K and 1M ladders, the per-model ladders, Start over below, Handoff file, Notes (one
+row with an "Edit Notes…" button), Context in the menu bar, a button that shows a context test panel, and Restore Defaults.
 
 Write rules follow the table above. The two ladder fields take three ascending whole numbers of
 thousands, 1 to 2000 (`PreferenceRules.contextLadder`), checked on each keystroke, and are written
@@ -478,11 +484,21 @@ on Return, blur or disappearance; an invalid value shows "Enter three ascending 
 thousands of tokens" and is never written. The per-model list adds a pair (prefix, ladder) on Add
 or Return in either field, like Hand off when frontmost, and removes one with its button. Start
 over below is a slider from 10 % to 95 % in steps of 5, written when the drag ends. The handoff
-file and the notes are written on blur or disappearance (Return only for the file; a note's Return
-is a new line); empty shows "Enter a file path" or "Enter the note", and a note is at most 4000
-characters, the limit the config parser enforces. The notes' captions name the `{tokens}` and
-`{handoffFile}` placeholders. `commitEditing()` commits every pending Context field, so leaving
-the window or showing a test panel never drops one.
+file is written on blur, Return or disappearance; empty shows "Enter a file path".
+`commitEditing()` commits every pending ladder and handoff file field, so leaving the window or
+showing a test panel never drops one.
+
+The notes are edited in a sheet (`ContextNotesSheet`, a SwiftUI view in an `NSHostingController`
+presented with `beginSheet`, the way the tour is), about 560 by 620, titled "Context notes", whose
+caption names the `{tokens}` and `{handoffFile}` placeholders. It shows the five notes in order,
+each with its caption, an editor about five lines tall and a "Restore Default" button enabled only
+while the text differs from the default. The pending texts live in the sheet's own state, not in
+`contextTexts`, and nothing is written on blur, so `commitEditing()` no longer touches the notes.
+"Cancel" (Esc) discards every edit. "Save" (Return, the default button) checks all five with
+`PreferenceRules.contextNote` first (empty shows "Enter the note", and a note is at most 4000
+characters, the limit the config parser enforces), and writes the changed ones only when every
+note is valid; otherwise the sheet stays open with the red line under the offending note, and a
+failed write keeps it open too. The Context pane's Restore Defaults still resets the notes.
 
 `contextCheckpointsEnabled` is in no pane's Restore Defaults and has no reset arrow: restoring
 defaults must not unwire a hook file or delete state. The Context tab's Restore Defaults covers
