@@ -41,7 +41,97 @@ public enum ContextUsageReader {
     return reading(fromLines: tailLines(from: wholeData, startedMidFile: false))
   }
 
-  static func reading(fromLines lines: [Substring]) -> ContextReading? {
+  public static func read(
+    transcriptURL: URL, identity cached: ContextModelIdentity?, chunkBytes: Int = tailBytes
+  ) -> (reading: ContextReading, identity: ContextModelIdentity)? {
+    guard let handle = try? FileHandle(forReadingFrom: transcriptURL) else { return nil }
+    defer { try? handle.close() }
+    guard let size = try? handle.seekToEnd(), size > 0 else { return nil }
+
+    let usableCache = cached.flatMap { $0.scannedThrough <= size ? $0 : nil }
+    let startOffset = size > UInt64(tailBytes) ? size - UInt64(tailBytes) : 0
+    guard (try? handle.seek(toOffset: startOffset)) != nil,
+      let tailData = try? handle.readToEnd()
+    else { return nil }
+
+    let lines = tailLines(from: tailData, startedMidFile: startOffset > 0)
+    if reading(fromLines: lines) != nil {
+      var resolvedModelID = latestIdentityModelID(in: lines)
+      if resolvedModelID == nil {
+        let scanEnd =
+          tailData.firstIndex(of: newline).map {
+            startOffset + UInt64(tailData.distance(from: tailData.startIndex, to: $0)) + 1
+          } ?? size
+        resolvedModelID =
+          scanBackwards(
+            handle: handle, from: scanEnd, downTo: usableCache?.scannedThrough ?? 0,
+            chunkBytes: max(chunkBytes, 1)) ?? usableCache?.modelID
+      }
+      guard let resolved = reading(fromLines: lines, identityFallback: resolvedModelID) else {
+        return nil
+      }
+      return (resolved, ContextModelIdentity(modelID: resolvedModelID, scannedThrough: size))
+    }
+    guard startOffset > 0 else { return nil }
+
+    guard (try? handle.seek(toOffset: 0)) != nil, let wholeData = try? handle.readToEnd() else {
+      return nil
+    }
+    let wholeLines = tailLines(from: wholeData, startedMidFile: false)
+    let wholeModelID = latestIdentityModelID(in: wholeLines) ?? usableCache?.modelID
+    guard let wholeReading = reading(fromLines: wholeLines, identityFallback: wholeModelID) else {
+      return nil
+    }
+    return (wholeReading, ContextModelIdentity(modelID: wholeModelID, scannedThrough: size))
+  }
+
+  private static let newline = UInt8(ascii: "\n")
+
+  private static func latestIdentityModelID(in lines: [Substring]) -> String? {
+    for line in lines.reversed() {
+      guard let row = decodeRow(line), row["type"]?.stringValue == "attachment",
+        let modelID = modelIdentity(of: row)
+      else { continue }
+      return modelID
+    }
+    return nil
+  }
+
+  private static func scanBackwards(
+    handle: FileHandle, from scanEnd: UInt64, downTo floor: UInt64, chunkBytes: Int
+  ) -> String? {
+    var end = scanEnd
+    var fragment = Data()
+    while end > floor {
+      let start = end - floor >= UInt64(chunkBytes) ? end - UInt64(chunkBytes) : floor
+      guard (try? handle.seek(toOffset: start)) != nil,
+        let chunk = try? handle.read(upToCount: Int(end - start))
+      else { return nil }
+      var data = chunk
+      data.append(fragment)
+      var completeData = data
+      if start > floor {
+        guard let firstNewline = data.firstIndex(of: newline) else {
+          fragment = data
+          end = start
+          continue
+        }
+        fragment = Data(data[data.startIndex..<firstNewline])
+        completeData = Data(data[data.index(after: firstNewline)...])
+      }
+      let lines = String(decoding: completeData, as: UTF8.self).split(
+        separator: "\n", omittingEmptySubsequences: true)
+      if let modelID = latestIdentityModelID(in: lines) {
+        return modelID
+      }
+      end = start
+    }
+    return nil
+  }
+
+  static func reading(fromLines lines: [Substring], identityFallback: String? = nil)
+    -> ContextReading?
+  {
     var identityModelID: String?
     var compactionID: String?
     var sawBoundary = false
@@ -73,7 +163,7 @@ public enum ContextUsageReader {
     }
 
     let tokens: Int
-    var modelID = identityModelID
+    var modelID = identityModelID ?? identityFallback
     if sawBoundary, boundaryFollowsUsage, let postTokens = boundaryPostTokens {
       tokens = postTokens
     } else if let usage {

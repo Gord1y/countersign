@@ -24,12 +24,28 @@ import Testing
     state.lastTokens = 135_000
     state.compactionID = "c1"
     state.modelID = "claude-opus-5-5[1m]"
+    state.modelIdentity = ContextModelIdentity(
+      modelID: "claude-opus-5-5[1m]", scannedThrough: 812_345)
     state.muted = true
     state.transcriptPath = "/tmp/t.jsonl"
     state.project = "demo"
     state.pendingProcessID = 4242
     try store.save(state, sessionID: sessionID)
     #expect(store.load(sessionID: sessionID) == state)
+  }
+
+  @Test func stateWithoutOrWithBadModelIdentityLoadsWithNil() throws {
+    let directory = try makeDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = ContextCheckpointStore(directory: directory)
+    let file = directory.appendingPathComponent("\(sessionID).json")
+    try Data(#"{"peakTokens":5,"updatedAt":"2027-01-15T08:00:00Z"}"#.utf8).write(to: file)
+    #expect(store.load(sessionID: sessionID)?.peakTokens == 5)
+    #expect(store.load(sessionID: sessionID)?.modelIdentity == nil)
+    try Data(#"{"peakTokens":6,"modelIdentity":"oops","updatedAt":"2027-01-15T08:00:00Z"}"#.utf8)
+      .write(to: file)
+    #expect(store.load(sessionID: sessionID)?.peakTokens == 6)
+    #expect(store.load(sessionID: sessionID)?.modelIdentity == nil)
   }
 
   @Test func corruptFileLoadsAsNilAndOldFileLoadsWithFreshValues() throws {

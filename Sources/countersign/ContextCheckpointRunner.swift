@@ -32,19 +32,20 @@ enum ContextCheckpointRunner {
       exit(0)
     }
 
-    guard let transcriptPath = checkpointInput.transcriptPath,
-      let reading = ContextUsageReader.read(transcriptURL: URL(fileURLWithPath: transcriptPath))
-    else {
-      log.write("context: no reading")
-      exit(0)
-    }
-
     let sessionID = checkpointInput.sessionID
     guard ContextCheckpointStore.isValidSessionID(sessionID) else {
       log.write("context: unusable session id")
       exit(0)
     }
     let store = ContextCheckpointStore(directory: paths.contextCheckpointsDirectory)
+    guard let transcriptPath = checkpointInput.transcriptPath,
+      let (reading, modelIdentity) = ContextUsageReader.read(
+        transcriptURL: URL(fileURLWithPath: transcriptPath),
+        identity: store.load(sessionID: sessionID)?.modelIdentity)
+    else {
+      log.write("context: no reading")
+      exit(0)
+    }
     let now = Date()
     store.prune(olderThan: stateRetention, now: now)
     let lockedPlan: ContextCheckpointPlan?
@@ -55,6 +56,7 @@ enum ContextCheckpointRunner {
           reading: reading, previous: previous, settings: checkpointSettings,
           transcriptPath: transcriptPath,
           project: ApprovalRequest.projectName(cwd: checkpointInput.cwd), now: now)
+        plan.state.modelIdentity = modelIdentity
         if case .panel = plan.decision {
           plan.state.pendingProcessID = getpid()
         }

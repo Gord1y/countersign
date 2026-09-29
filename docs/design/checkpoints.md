@@ -34,6 +34,25 @@ carry `message.model` without the suffix, so it is only a fallback for the name 
 the window size. Since a session can hold more than 200K tokens only with the 1M window, a size
 above 200,000 also counts as a 1M window when no identity says so.
 
+Claude Code writes that identity row at session start and on a model switch only, so in a long
+session it is older than the last 512 KiB and the tail cannot see it. Reading only the tail then
+misjudges a 1M session as a 200K one: the assistant rows carry no `[1m]` marker, so a live 1M
+session reached the `status` level at 142K. The hook path therefore uses
+`ContextUsageReader.read(transcriptURL:identity:)`. When the tail holds no identity row, it scans
+backwards from the start of the tail in chunks of the tail size, down to the offset the previous
+scan already covered, and stops at the first identity row. A line cut by a chunk boundary is
+joined with its other half, and the line cut by the start of the tail is included whole, so no
+identity row is dropped or half-parsed. Malformed lines are skipped.
+
+The result, a `ContextModelIdentity` holding the latest `modelId` and the file size the scan
+covered, is cached in the session's checkpoint state as `modelIdentity`. The next prompt scans
+only the bytes appended since, and when nothing new is found it keeps the cached model. A cache
+whose `scannedThrough` is larger than the file means the file was replaced and is ignored. The
+cache is read without the lock before the transcript is scanned: a stale value only costs a longer
+scan, and the fresh identity is written back inside the existing lock. The watcher polling every
+250 ms and the menu-bar meter keep the tail-only `read(transcriptURL:)`, because they need tokens
+and must never start scanning a whole transcript on every tick.
+
 The transcript is written asynchronously, so a reading can lag the session by one turn. Treat a
 reading as an estimate that is at most one turn old, never as the exact state.
 

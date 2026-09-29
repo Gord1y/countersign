@@ -7,6 +7,7 @@ public struct ContextCheckpointState: Sendable, Codable, Equatable {
   public var lastTokens: Int
   public var compactionID: String?
   public var modelID: String?
+  public var modelIdentity: ContextModelIdentity?
   public var muted: Bool
   public var transcriptPath: String?
   public var project: String?
@@ -15,15 +16,15 @@ public struct ContextCheckpointState: Sendable, Codable, Equatable {
 
   public static func fresh(now: Date) -> ContextCheckpointState {
     ContextCheckpointState(
-      fired: [], peakTokens: 0, lastTokens: 0, compactionID: nil, modelID: nil, muted: false,
-      transcriptPath: nil, project: nil, pendingProcessID: nil, updatedAt: now)
+      fired: [], peakTokens: 0, lastTokens: 0, compactionID: nil, modelID: nil, modelIdentity: nil,
+      muted: false, transcriptPath: nil, project: nil, pendingProcessID: nil, updatedAt: now)
   }
 }
 
 extension ContextCheckpointState {
   private enum CodingKeys: String, CodingKey {
-    case fired, peakTokens, lastTokens, compactionID, modelID, muted, transcriptPath, project
-    case pendingProcessID, updatedAt
+    case fired, peakTokens, lastTokens, compactionID, modelID, modelIdentity, muted
+    case transcriptPath, project, pendingProcessID, updatedAt
   }
 
   public init(from decoder: Decoder) throws {
@@ -37,6 +38,8 @@ extension ContextCheckpointState {
         ?? fresh.lastTokens,
       compactionID: try container.decodeIfPresent(String.self, forKey: .compactionID),
       modelID: try container.decodeIfPresent(String.self, forKey: .modelID),
+      modelIdentity: try? container.decodeIfPresent(
+        ContextModelIdentity.self, forKey: .modelIdentity),
       muted: try container.decodeIfPresent(Bool.self, forKey: .muted) ?? fresh.muted,
       transcriptPath: try container.decodeIfPresent(String.self, forKey: .transcriptPath),
       project: try container.decodeIfPresent(String.self, forKey: .project),
