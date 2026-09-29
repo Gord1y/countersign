@@ -120,3 +120,56 @@ abandons the panel, with no output, for the first of three reasons it sees:
 The transcript is looked at at most once every 2 seconds, and only when its size changed since the
 last look; an unreadable transcript keeps the watch going. Once a reason is found, `poll` keeps
 returning it.
+
+## The hook path
+
+`HookRunner.run` hands a Claude Code input whose `hook_event_name` is `UserPromptSubmit` to
+`ContextCheckpointRunner.run`, right after the pause check and before the `PermissionRequest`
+parse. Every stop below exits 0 with empty stdout and one log line; nothing goes to stderr.
+
+1. The input does not parse: `context: unparseable input`.
+2. `contextCheckpoints.enabled` is false: `context: off`.
+3. `HeadlessSessionGate` skips the session, exactly as for a permission request (see "Skipping
+   non-interactive sessions" in [resolution.md](resolution.md)):
+   `context: skipped, non-interactive session (kind=<kind>)`.
+4. No `transcript_path`, or `ContextUsageReader` finds no reading: `context: no reading`.
+5. The session id is one the store rejects: `context: unusable session id`. Otherwise state files
+   older than 30 days are pruned, and under the session's lock the state is loaded (or starts
+   fresh), planned, given `pendingProcessID` = this hook's pid when the plan is a panel, and saved.
+   A lock not won within about a second logs `context: state busy`; a failed save logs
+   `context: state not saved: <error>`.
+6. The reading is logged: `context: <tokens> tokens, <level> fired` or `context: <tokens> tokens`.
+7. Nothing fired: exit. In `silent` mode the note goes out as `additionalContext` and
+   `outcome: context note (silent, <level>)` is logged. In `panel` mode the checkpoint goes to
+   `HookRunner.showPanel` in `PanelRunMode.checkpoint`.
+
+**Pause consumes nothing.** The pause check and the headless gate both run before the state file
+is touched, so no level is marked fired: a paused Countersign was switched off on purpose, and a
+level spent while it was off would be a checkpoint the person never saw. The level fires on the
+first prompt after resume, if the session is still past it. Once the plan is saved, the level is
+consumed: a panel that is later dismissed, paused away or abandoned does not give it back.
+
+**No clock.** The hook entry is async, so the hook may wait on its panel as long as it takes;
+nothing times it out and the prompt is never held. A checkpoint therefore has no grace period and
+no timeout hand-back, and it never hands off to the asking app (`handoffApps`), since Claude Code
+has no prompt of its own for it. It honours quiet time and the idle gate like any request.
+
+**Approvals first.** An approval holds up an agent; a checkpoint holds up nothing. So a checkpoint
+never takes the display while an approval ticket waits: before writing its ticket it polls every
+250 ms until `TicketQueue.approvalCount(excluding: nil)` is 0, logging `waiting for approvals`
+once and checking the abandon reasons on every poll (`resolved while waiting for approvals:
+<reason>`). An approval that arrives later waits behind the checkpoint, as the queue is FIFO (see
+"Checkpoint tickets" in [queue.md](queue.md)).
+
+**Abandoning.** In place of `ResolutionWatcher`, the abandon reasons are `ContextCheckpointWatcher`
+(its baseline is the compaction id of the reading that fired) and the pause switch. They are
+logged with the same `resolved …: <reason>` lines as any request, with `parentExited`,
+`superseded`, `compacted` or `paused` as the reason.
+
+**Choices.** `sessionIdle` is true when the session's registry entry has `status` `idle` at the
+moment the panel is built; a panel prepared in warm standby reads it then. A choice logs
+`context choice: <choice>` (`continueWorking`, `compactAfterStep`, `handOff`, `notThisSession`);
+`notThisSession` then sets `muted` in the session's state under its lock, logging
+`context: mute not saved: <reason>` when that fails. The outcome is written like a permission
+panel's answer, and `outcome: context <choice>` is logged, or `outcome: context dismissed` when the
+panel closed with no choice (Esc or a click outside). Logs name the choice, never the note text.

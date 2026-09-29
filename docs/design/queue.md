@@ -319,6 +319,19 @@ most of it the probe's 5 ms lease poll. The window work on screen, AppKit's laun
 timing and the time a prepared panel saves on screen have not been measured, since builders never
 put a window on screen.
 
+## Checkpoint tickets
+
+A context checkpoint (see "The hook path" in [checkpoints.md](checkpoints.md)) queues like a
+request, with no grace period and no timeout hand-back, and it writes its ticket only once no
+approval is queued: before `enqueue` it polls every 250 ms, checking its abandon reasons each time,
+until `approvalCount(excluding: nil)` is 0. That count leaves out test panels and checkpoints
+(`TicketSummary.isContextCheckpoint`), so checkpoints from several sessions queue behind one
+another and chain through warm standby as usual, but a checkpoint is never next in line behind an
+approval when it is written, and so never chains after an approval's answer in place of the
+idle gate. An approval that arrives after the checkpoint's ticket waits behind it, FIFO like any
+other ticket. Only an approval written in the same instant as the last check can slip ahead; the
+checkpoint then waits its turn behind it.
+
 ## Test panels
 
 `countersign test-panel` (see "The test panel" in [panel.md](panel.md)) writes a ticket and holds

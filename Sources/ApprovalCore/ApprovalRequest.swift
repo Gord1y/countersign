@@ -92,6 +92,10 @@ public struct ApprovalRequest: Sendable, Equatable {
   }
 
   public var projectName: String {
+    Self.projectName(cwd: cwd)
+  }
+
+  public static func projectName(cwd: String) -> String {
     let lastComponent = (cwd as NSString).lastPathComponent
     return lastComponent.isEmpty ? cwd : lastComponent
   }

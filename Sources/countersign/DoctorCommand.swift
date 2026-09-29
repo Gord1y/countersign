@@ -30,7 +30,7 @@ enum DoctorCommand {
     }
 
     let configExists = FileManager.default.fileExists(atPath: paths.configFile.path)
-    let (_, configLogLines) = ConfigFileLoader.load(paths: paths)
+    let (configFile, configLogLines) = ConfigFileLoader.load(paths: paths)
 
     let queue = TicketQueue(directory: paths.queueDirectory, lockFile: paths.displayLockFile)
     let liveTicketCount = queue.liveTickets().count
@@ -61,6 +61,8 @@ enum DoctorCommand {
       hookExecutables: hosts.flatMap { $0.executableChecks.keys },
       runningExecutable: Bundle.main.executableURL?.resolvingSymlinksInPath().path, home: home)
     input.installVersionMismatch = InstallCopiesCheck.versionMismatch(home: home)
+    input.contextCheckpointsEnabled =
+      Settings.resolve(file: configFile, host: .claude).contextCheckpoints.enabled
     input.codexHookTrustRecord = CodexHookTrustRecordStore.load(file: paths.codexHookTrustFile)
     input.codexConfigFile = readFileState(
       CodexHookTrust.configFile(

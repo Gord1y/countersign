@@ -400,7 +400,9 @@ request that arrived while the asking app was in front exited at once, and a per
 switched to another app never got a panel for it, because nothing was left waiting. The cost of
 deciding later falls on the person who stays in the asking app: its own prompt comes only after
 the grace period, the queue and this idle pause, not at once, and Codex shows "Waiting for the
-approval panel" in the meantime. A test panel never hands off (see "The test panel").
+approval panel" in the meantime. A test panel never hands off (see "The test panel"), and neither
+does a context checkpoint, which Claude Code has no prompt of its own for (see "The hook path" in
+[checkpoints.md](checkpoints.md)).
 
 ## Quiet time
 

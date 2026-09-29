@@ -30,6 +30,11 @@ enum HookRunner {
       exit(0)
     }
 
+    if options.host == .claude, ClaudeAdapter.eventName(of: input) == ContextHookSetup.eventName {
+      ContextCheckpointRunner.run(
+        input: input, settings: settings, paths: paths, log: log, startedAt: startedAt)
+    }
+
     let request: ApprovalRequest
     do {
       request = try options.host.parse(input)
@@ -76,7 +81,8 @@ enum HookRunner {
 
   static func showPanel(
     for request: ApprovalRequest, mode: PanelRunMode, settings: Settings, paths: AppPaths,
-    log: EventLog, startedAt: ContinuousClock.Instant, hostApp: HostApp?
+    log: EventLog, startedAt: ContinuousClock.Instant, hostApp: HostApp?,
+    checkpoint: ContextCheckpointSession? = nil
   ) -> Never {
     let clock = ContinuousClock()
     let host = request.host
@@ -89,6 +95,9 @@ enum HookRunner {
     func abandonReason() -> String? {
       if let reason = watcher?.poll() {
         return reason.rawValue
+      }
+      if let reason = checkpoint?.abandonReason() {
+        return reason
       }
       if mode.honorsPause, pauseSwitch.isPaused {
         return "paused"
@@ -115,6 +124,9 @@ enum HookRunner {
     }
 
     let queue = TicketQueue(directory: paths.queueDirectory, lockFile: paths.displayLockFile)
+    if mode.waitsForApprovalsFirst {
+      waitUntilNoApprovalIsQueued(queue: queue, log: log, abandonReason: abandonReason)
+    }
     let ticket: Ticket
     do {
       ticket = try queue.enqueue(
@@ -157,7 +169,8 @@ enum HookRunner {
       app: app, request: request, mode: mode, queue: queue, ticket: ticket, lease: lease,
       log: log, activityGate: activityGate, quietTime: quietTime, settings: settings,
       waitingEntries: initialWaitingEntries, sessionsDirectory: paths.claudeSessionsDirectory,
-      hostApp: hostApp, abandonReason: abandonReason, handBackIsDue: handBackIsDue)
+      hostApp: hostApp, checkpoint: checkpoint, abandonReason: abandonReason,
+      handBackIsDue: handBackIsDue)
     let timer = Timer(
       timeInterval: 0.25, target: displayWatch, selector: #selector(DisplayWatch.tick),
       userInfo: nil, repeats: true)
@@ -165,6 +178,23 @@ enum HookRunner {
 
     app.run()
     exit(0)
+  }
+
+  private static func waitUntilNoApprovalIsQueued(
+    queue: TicketQueue, log: EventLog, abandonReason: () -> String?
+  ) {
+    var hasLoggedWait = false
+    while queue.approvalCount(excluding: nil) > 0 {
+      if !hasLoggedWait {
+        hasLoggedWait = true
+        log.write("waiting for approvals")
+      }
+      if let reason = abandonReason() {
+        log.write("resolved while waiting for approvals: \(reason)")
+        exit(0)
+      }
+      Thread.sleep(forTimeInterval: 0.25)
+    }
   }
 
   static func writeReply(_ outcome: ApprovalOutcome, host: ApprovalCore.Host) {
@@ -232,6 +262,8 @@ private final class DisplayWatch: NSObject {
   private let handBackIsDue: () -> Bool
   private let sessionsDirectory: URL
   private let hostApp: HostApp?
+  private let checkpoint: ContextCheckpointSession?
+  private var checkpointChoice: ContextCheckpointChoice?
   private var lease: DisplayLease?
   private var state: State
   private var lastWaitingEntries: [WaitingEntry]
@@ -249,8 +281,8 @@ private final class DisplayWatch: NSObject {
     app: PanelApplication, request: ApprovalRequest, mode: PanelRunMode, queue: TicketQueue,
     ticket: Ticket, lease: DisplayLease?, log: EventLog, activityGate: ActivityGate,
     quietTime: QuietTime, settings: Settings, waitingEntries: [WaitingEntry],
-    sessionsDirectory: URL, hostApp: HostApp?, abandonReason: @escaping () -> String?,
-    handBackIsDue: @escaping () -> Bool
+    sessionsDirectory: URL, hostApp: HostApp?, checkpoint: ContextCheckpointSession?,
+    abandonReason: @escaping () -> String?, handBackIsDue: @escaping () -> Bool
   ) {
     self.app = app
     self.request = request
@@ -266,6 +298,7 @@ private final class DisplayWatch: NSObject {
     self.lastWaitingEntries = waitingEntries
     self.sessionsDirectory = sessionsDirectory
     self.hostApp = hostApp
+    self.checkpoint = checkpoint
     self.abandonReason = abandonReason
     self.handBackIsDue = handBackIsDue
     self.state = lease == nil ? .queued : .waitingForIdle
@@ -349,7 +382,18 @@ private final class DisplayWatch: NSObject {
       handoffBackdrop: handoffBackdrop, afterHandoff: afterHandoff,
       onFinish: { [weak self] outcome in self?.finish(outcome) },
       onSnooze: { [weak self] seconds in self?.handleSnooze(seconds) },
-      onStepAside: { [weak self] reason in self?.handleStepAside(reason) })
+      onStepAside: { [weak self] reason in self?.handleStepAside(reason) },
+      sessionIdle: checkpoint?.isIdle() ?? false,
+      onCheckpointChoice: checkpoint == nil
+        ? nil : { [weak self] choice in self?.handleCheckpointChoice(choice) })
+  }
+
+  private func handleCheckpointChoice(_ choice: ContextCheckpointChoice) {
+    checkpointChoice = choice
+    log.write("context choice: \(choice.rawValue)")
+    if choice == .notThisSession {
+      checkpoint?.mute()
+    }
   }
 
   private func showAfterIdle() {
@@ -408,7 +452,7 @@ private final class DisplayWatch: NSObject {
   }
 
   private func handOffIfAskingAppIsFrontmost() {
-    guard !mode.isTest else { return }
+    guard !mode.isTest, mode.usesHandoffApps else { return }
     let frontmostApp = NSWorkspace.shared.frontmostApplication
     guard let frontmostBundleID = frontmostApp?.bundleIdentifier,
       HandoffCheck.shouldHandOff(
@@ -465,9 +509,12 @@ private final class DisplayWatch: NSObject {
 
   private func finish(_ outcome: ApprovalOutcome) {
     switch mode {
-    case .hook, .checkpoint:
+    case .hook:
       HookRunner.writeReply(outcome, host: host)
       log.write("outcome: \(HookRunner.describe(outcome))")
+    case .checkpoint:
+      HookRunner.writeReply(outcome, host: host)
+      log.write("outcome: context \(checkpointChoice?.rawValue ?? "dismissed")")
     case .test(let kind):
       log.write(TestPanelLog.outcome(outcome, kind: kind))
     }

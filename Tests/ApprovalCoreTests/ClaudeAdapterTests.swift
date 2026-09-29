@@ -238,6 +238,11 @@ import Testing
     #expect(request.projectName == "")
   }
 
+  @Test func projectNameFromCWDIsTheLastPathComponent() {
+    #expect(ApprovalRequest.projectName(cwd: "/Users/dev/shop-api") == "shop-api")
+    #expect(ApprovalRequest.projectName(cwd: "") == "")
+  }
+
   @Test func throwsWhenNotAnObject() {
     #expect(throws: AdapterError.self) {
       _ = try ClaudeAdapter.parse(Data("[]".utf8))
