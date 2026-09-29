@@ -119,9 +119,14 @@ public enum HostWiring {
         parts.append("adds the entry under \(update.missingEvents.joined(separator: " and "))")
       }
       if parts.isEmpty {
-        parts.append(
-          host == .codex
-            ? "refreshes the entry's timeout and status message" : "refreshes the entry's timeout")
+        switch host {
+        case .codex:
+          parts.append("refreshes the entry's timeout and status message")
+        case .claude:
+          parts.append("refreshes the timeout and async settings of Countersign's entries")
+        case .cursor, .antigravity:
+          parts.append("refreshes the entry's timeout")
+        }
       }
       let sentence = parts.joined(separator: "; ")
       return sentence.prefix(1).uppercased() + sentence.dropFirst()

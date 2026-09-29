@@ -187,7 +187,9 @@ private func status(
       HostWiring.detail(for: arguments, host: .codex)
         == "Runs hook --host claude rather than hook --host codex")
     let fields = HostWiringStatus.needsUpdate(HostWiringUpdate(otherExecutablePaths: []))
-    #expect(HostWiring.detail(for: fields, host: .claude) == "Refreshes the entry's timeout")
+    #expect(
+      HostWiring.detail(for: fields, host: .claude)
+        == "Refreshes the timeout and async settings of Countersign's entries")
     #expect(
       HostWiring.detail(for: fields, host: .codex)
         == "Refreshes the entry's timeout and status message")

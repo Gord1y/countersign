@@ -104,6 +104,31 @@ struct EditorOpenFailure {
   let message: String
 }
 
+enum ContextHookChangeOrigin: Equatable {
+  case toggle
+  case hookStatus
+}
+
+struct ContextHookChange {
+  let origin: ContextHookChangeOrigin
+  let enable: Bool
+  let preview: SetupPreview
+
+  var canApply: Bool {
+    preview.failures.isEmpty
+  }
+
+  var confirmTitle: String {
+    guard origin == .toggle else { return "Update" }
+    return enable ? "Turn On" : "Turn Off"
+  }
+}
+
+struct ContextHookFailure {
+  let origin: ContextHookChangeOrigin
+  let message: String
+}
+
 @MainActor
 @Observable
 final class SettingsModel {
@@ -140,6 +165,13 @@ final class SettingsModel {
   private(set) var configProblem: String?
   private(set) var editorOpenFailure: EditorOpenFailure?
   private(set) var testPanelError: String?
+  private(set) var contextChange: ContextHookChange?
+  private(set) var contextHookFailure: ContextHookFailure?
+  private(set) var contextHookStatus = ContextHookStatus.notWired
+  private(set) var contextTexts: [PreferenceName: String] = [:]
+  private(set) var contextErrors: [PreferenceName: String] = [:]
+  private(set) var newContextModelPrefix = ""
+  private(set) var newContextModelLadder = ""
   private(set) var copied: SettingsCopyTarget?
   private(set) var customAccentColor: HexColor?
   private(set) var updateCheckPhase = SettingsUpdateCheckPhase.idle
@@ -200,6 +232,45 @@ final class SettingsModel {
   var appearance: AppearanceChoice { preferences.appearance }
   var accentColor: HexColor { customAccentColor ?? preferences.accentColor }
   var editorApp: String? { preferences.editorApp }
+
+  var contextCheckpoints: ContextCheckpointSettings { preferences.contextCheckpoints }
+  var contextCheckpointsEnabled: Bool { contextCheckpoints.enabled }
+
+  var claudeLocation: HookConfigLocation? {
+    environment.locations.first { $0.host == .claude }
+  }
+
+  var claudeIsInstalled: Bool {
+    claudeLocation.map { DoctorCommand.isInstalled($0) } ?? false
+  }
+
+  var contextToggleProblem: String? {
+    contextHookProblem(for: .toggle) ?? writeErrors[.contextCheckpointsEnabled]
+  }
+
+  var contextModelProblem: String? {
+    contextErrors[.contextModelThresholds] ?? writeErrors[.contextModelThresholds]
+  }
+
+  var contextModelThresholds: [(prefix: String, ladder: [Int])] {
+    contextCheckpoints.modelThresholds.keys.sorted().map {
+      ($0, contextCheckpoints.modelThresholds[$0] ?? [])
+    }
+  }
+
+  func contextHookProblem(for origin: ContextHookChangeOrigin) -> String? {
+    guard let contextHookFailure, contextHookFailure.origin == origin else { return nil }
+    return contextHookFailure.message
+  }
+
+  func contextChange(for origin: ContextHookChangeOrigin) -> ContextHookChange? {
+    guard let contextChange, contextChange.origin == origin else { return nil }
+    return contextChange
+  }
+
+  func contextProblem(_ name: PreferenceName) -> String? {
+    contextErrors[name] ?? writeErrors[name]
+  }
 
   var snoozeProblem: String? {
     snoozeError ?? writeErrors[.snoozeMinutes]
@@ -290,6 +361,15 @@ final class SettingsModel {
     installVersionMismatch = InstallCopiesCheck.versionMismatch(
       home: environment.home, root: environment.installRoot,
       probesVersions: environment.probesInstallVersions)
+    contextHookStatus = currentContextHookStatus()
+  }
+
+  private static let unresolvedExecutable = "the countersign executable could not be resolved"
+
+  private func currentContextHookStatus() -> ContextHookStatus {
+    guard let location = claudeLocation else { return .notWired }
+    guard let stablePath else { return .unusable(Self.unresolvedExecutable) }
+    return ContextHookRun.status(file: location.file, executablePath: stablePath)
   }
 
   func toggleCopies() {
@@ -378,6 +458,9 @@ final class SettingsModel {
       })
     if launchAtLoginAvailable {
       launchAtLogin = LaunchAtLogin.state
+    }
+    if selectedPane == .context, !contextCheckpointsEnabled {
+      select(.panels)
     }
   }
 
@@ -507,6 +590,172 @@ final class SettingsModel {
     commitSnoozeMinutes()
     commitNewHandoffApp()
     commitCustomAccentColor()
+    for name in Self.editableContextTexts {
+      commitContextText(name)
+    }
+    commitNewContextModel()
+  }
+
+  static let editableContextTexts: [PreferenceName] = [
+    .contextStandardThresholds, .contextMillionThresholds, .contextHandoffFile, .contextNoteSoft,
+    .contextNoteStatus, .contextNoteInsist, .contextNoteCompact, .contextNoteHandoff,
+  ]
+
+  func requestContextCheckpoints(_ enable: Bool) {
+    guard enable != contextCheckpointsEnabled else { return }
+    requestContextHookChange(origin: .toggle, enable: enable)
+  }
+
+  func requestContextHookUpdate() {
+    requestContextHookChange(origin: .hookStatus, enable: true)
+  }
+
+  private func requestContextHookChange(origin: ContextHookChangeOrigin, enable: Bool) {
+    guard let location = claudeLocation else { return }
+    contextHookFailure = nil
+    if enable, stablePath == nil {
+      contextChange = nil
+      contextHookFailure = ContextHookFailure(origin: origin, message: Self.unresolvedExecutable)
+      return
+    }
+    contextChange = ContextHookChange(
+      origin: origin, enable: enable,
+      preview: ContextHookRun.preview(
+        file: location.file, executablePath: stablePath ?? "", enable: enable))
+  }
+
+  func cancelContextChange() {
+    contextChange = nil
+  }
+
+  func confirmContextChange() {
+    guard let change = contextChange, change.canApply, let location = claudeLocation else {
+      return
+    }
+    contextChange = nil
+    if let line = ContextHookRun.apply(
+      file: location.file, executablePath: stablePath ?? "", enable: change.enable, now: now())
+    {
+      contextHookFailure = ContextHookFailure(origin: change.origin, message: line)
+      refreshHosts()
+      return
+    }
+    contextHookFailure = nil
+    if change.origin == .toggle {
+      if !change.enable {
+        ContextCheckpointStore(directory: environment.paths.contextCheckpointsDirectory)
+          .removeAll()
+      }
+      write(.contextCheckpointsEnabled(change.enable))
+    }
+    refreshHosts()
+  }
+
+  func contextText(for name: PreferenceName) -> String {
+    if let pending = contextTexts[name] { return pending }
+    let values = contextCheckpoints
+    switch name {
+    case .contextStandardThresholds:
+      return PreferenceRules.contextLadderText(values.standardThresholds)
+    case .contextMillionThresholds:
+      return PreferenceRules.contextLadderText(values.millionThresholds)
+    case .contextHandoffFile: return values.handoffFile
+    case .contextNoteSoft: return values.notes.soft
+    case .contextNoteStatus: return values.notes.status
+    case .contextNoteInsist: return values.notes.insist
+    case .contextNoteCompact: return values.notes.compact
+    case .contextNoteHandoff: return values.notes.handoff
+    default: return ""
+    }
+  }
+
+  func setContextText(_ text: String, for name: PreferenceName) {
+    contextTexts[name] = text
+    switch contextEdit(for: name, text: text) {
+    case .success: contextErrors[name] = nil
+    case .failure(let error): contextErrors[name] = error.description
+    }
+  }
+
+  func commitContextText(_ name: PreferenceName) {
+    guard let text = contextTexts[name] else { return }
+    switch contextEdit(for: name, text: text) {
+    case .success(let edit):
+      contextErrors[name] = nil
+      if write(edit) {
+        contextTexts[name] = nil
+      }
+    case .failure(let error):
+      contextErrors[name] = error.description
+    }
+  }
+
+  private func contextEdit(for name: PreferenceName, text: String) -> Result<
+    PreferenceEdit, ContextTextError
+  > {
+    switch name {
+    case .contextStandardThresholds:
+      return PreferenceRules.contextLadder(fromThousands: text).map {
+        PreferenceEdit.contextStandardThresholds($0)
+      }
+    case .contextMillionThresholds:
+      return PreferenceRules.contextLadder(fromThousands: text).map {
+        PreferenceEdit.contextMillionThresholds($0)
+      }
+    case .contextHandoffFile:
+      return PreferenceRules.contextHandoffFile(text).map { PreferenceEdit.contextHandoffFile($0) }
+    default:
+      return PreferenceRules.contextNote(text).map { PreferenceEdit.contextNote(name, $0) }
+    }
+  }
+
+  func setContextMode(_ mode: ContextCheckpointMode) {
+    write(.contextMode(mode))
+  }
+
+  func setContextRearmBelow(_ ratio: Double) {
+    write(.contextRearmBelow(ratio))
+  }
+
+  func setContextMenuBarMeter(_ enabled: Bool) {
+    write(.contextMenuBarMeter(enabled))
+  }
+
+  func setNewContextModelPrefix(_ text: String) {
+    newContextModelPrefix = text
+    contextErrors[.contextModelThresholds] = nil
+  }
+
+  func setNewContextModelLadder(_ text: String) {
+    newContextModelLadder = text
+    contextErrors[.contextModelThresholds] = nil
+  }
+
+  func addContextModel() {
+    switch (
+      PreferenceRules.contextModelPrefix(newContextModelPrefix),
+      PreferenceRules.contextLadder(fromThousands: newContextModelLadder)
+    ) {
+    case (.failure(let error), _), (_, .failure(let error)):
+      contextErrors[.contextModelThresholds] = error.description
+    case (.success(let prefix), .success(let ladder)):
+      contextErrors[.contextModelThresholds] = nil
+      if write(.setContextModelThresholds(prefix: prefix, ladder: ladder)) {
+        newContextModelPrefix = ""
+        newContextModelLadder = ""
+      }
+    }
+  }
+
+  func commitNewContextModel() {
+    guard !newContextModelPrefix.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+      !newContextModelLadder.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else { return }
+    addContextModel()
+  }
+
+  func removeContextModel(_ prefix: String) {
+    write(.removeContextModelThresholds(prefix: prefix))
   }
 
   func isChanged(_ name: PreferenceName) -> Bool {
@@ -547,6 +796,14 @@ final class SettingsModel {
     }
     if names.contains(.accentColor) {
       discardCustomAccentColor()
+    }
+    for name in names {
+      contextTexts[name] = nil
+      contextErrors[name] = nil
+    }
+    if names.contains(.contextModelThresholds) {
+      newContextModelPrefix = ""
+      newContextModelLadder = ""
     }
   }
 

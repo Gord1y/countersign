@@ -191,7 +191,7 @@ extension PreferenceName {
     case .contextModelThresholds:
       return
         "A checkpoint ladder for every model whose ID starts with a prefix you give, such as"
-        + " claude-opus-4. It wins over both the 200K and the 1M ladders for those models. Use it"
+        + " claude-opus-5. It wins over both the 200K and the 1M ladders for those models. Use it"
         + " when one model needs earlier or later checkpoints than the rest; remove it to fall"
         + " back to the window ladders."
     case .contextRearmBelow:

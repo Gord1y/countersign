@@ -14,7 +14,7 @@ enum SnapshotCommand {
     + "       countersign snapshot --settings"
     + " [--home <dir>] [--show-changes claude|codex|cursor|antigravity] [--show-copies]"
     + " [--status active|paused|paused-until-open|quiet] [--size <width>x<height>]"
-    + " [--tab agents|panels|app|help|advanced] [--restore-prompt panels|app]"
+    + " [--tab agents|panels|app|context|help|advanced] [--restore-prompt panels|app]"
     + " [--explanation <preferenceName>] [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --quit-prompt [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --update-answer up-to-date|available|failed"

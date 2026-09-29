@@ -447,6 +447,47 @@ macOS rather than writing a config value, the status row's Pause, Resume and End
 panel buttons and "Open in Editor" act at once too, each on its own file, a process or macOS, never
 on a preference beyond committing the text fields as the table says.
 
+### Context checkpoints
+
+The Panels tab ends with the switch "Context checkpoints (Claude Code)", showing the file's
+`contextCheckpoints.enabled`. It is the one Panels row that changes a host file, so flipping it
+writes nothing: it opens the row's detail with the diff `ContextHookRun.preview` gives for Claude
+Code's `settings.json`, in the same monospaced card as the Agents rows, and two buttons, "Turn On"
+or "Turn Off" (primary) and "Cancel". The primary button applies the hook change through
+`ContextHookRun.apply` (a backup of the file, like every hook-file write), and only then the
+config and state change: on, it writes `contextCheckpoints.enabled: true`; off, it removes the
+`UserPromptSubmit` entry, deletes the files in `AppPaths.contextCheckpointsDirectory`
+(`ContextCheckpointStore.removeAll()`) and writes `enabled: false`. Everything else in
+`contextCheckpoints` is kept, so turning it on again finds the thresholds and notes as they were.
+A failure in the hook step shows one red line on the row and changes nothing else. The order
+matters: the config never says "on" while the hook is missing because of a failed write. If Claude
+Code's directory is missing the switch is disabled and the caption reads "Claude Code isn't
+installed."
+
+The Context tab appears in the sidebar only while the feature is on. The stored pane falls back
+to Agents when it is off (`SettingsPane(storedValue:showsContext:)`), and turning the feature off,
+here or in the file, while Context is showing selects Panels. Its rows, in order: the hook status
+(Wired, Not wired or Needs an update, from `ContextHookRun.status`, with "Update" for the last two,
+which shows the diff first exactly like the switch and never touches the config), Checkpoint
+style, the 200K and 1M ladders, the per-model ladders, Start over below, Handoff file, the five
+notes, Context in the menu bar, a button that shows a context test panel, and Restore Defaults.
+
+Write rules follow the table above. The two ladder fields take three ascending whole numbers of
+thousands, 1 to 2000 (`PreferenceRules.contextLadder`), checked on each keystroke, and are written
+on Return, blur or disappearance; an invalid value shows "Enter three ascending numbers of
+thousands of tokens" and is never written. The per-model list adds a pair (prefix, ladder) on Add
+or Return in either field, like Hand off when frontmost, and removes one with its button. Start
+over below is a slider from 10 % to 95 % in steps of 5, written when the drag ends. The handoff
+file and the notes are written on blur or disappearance (Return only for the file; a note's Return
+is a new line); empty shows "Enter a file path" or "Enter the note", and a note is at most 4000
+characters, the limit the config parser enforces. The notes' captions name the `{tokens}` and
+`{handoffFile}` placeholders. `commitEditing()` commits every pending Context field, so leaving
+the window or showing a test panel never drops one.
+
+`contextCheckpointsEnabled` is in no pane's Restore Defaults and has no reset arrow: restoring
+defaults must not unwire a hook file or delete state. The Context tab's Restore Defaults covers
+its own rows only.
+
 ### Resetting to defaults
 
 Every Panels and App row backed by a `PreferenceName` can be reset on its own, and so can

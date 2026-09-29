@@ -64,7 +64,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
       styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
     super.init()
     model.select(
-      SettingsPane(storedValue: UserDefaults.standard.string(forKey: Self.paneDefaultsKey)))
+      SettingsPane(
+        storedValue: UserDefaults.standard.string(forKey: Self.paneDefaultsKey),
+        showsContext: model.contextCheckpointsEnabled))
     model.rememberPane = { pane in
       UserDefaults.standard.set(pane.rawValue, forKey: Self.paneDefaultsKey)
     }

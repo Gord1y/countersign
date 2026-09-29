@@ -102,7 +102,8 @@ struct SettingsSidebar: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 2) {
-      ForEach(SettingsPane.sidebar, id: \.self) { pane in
+      ForEach(SettingsPane.sidebar(showsContext: model.contextCheckpointsEnabled), id: \.self) {
+        pane in
         SettingsSidebarRow(pane: pane, isSelected: isSelected(pane)) {
           model.select(pane)
         }
@@ -174,7 +175,7 @@ struct SettingsPaneView: View {
     case .agents: AgentsSection(model: model)
     case .panels: PanelsSection(model: model)
     case .app: AppSection(model: model)
-    case .context: EmptyView()
+    case .context: ContextSection(model: model)
     case .help: HelpSection(model: model)
     case .advanced: AdvancedSection(model: model)
     }

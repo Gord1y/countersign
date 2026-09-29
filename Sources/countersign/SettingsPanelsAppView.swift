@@ -75,6 +75,8 @@ struct PanelsSection: View {
             .labelsHidden()
             .fixedSize()
           }
+          SettingsDivider()
+          ContextToggleRow(model: model)
         }
         .disabled(model.configProblem != nil)
         SettingsDivider()
@@ -215,7 +217,7 @@ private struct AccentSwatch: View {
   }
 }
 
-private struct ConfigProblemMessage: View {
+struct ConfigProblemMessage: View {
   let model: SettingsModel
 
   var body: some View {
@@ -270,11 +272,11 @@ struct PreferenceRow<Control: View, Detail: View>: View {
   }
 
   init(
-    _ name: PreferenceName, model: SettingsModel, problem: String?,
+    _ name: PreferenceName, model: SettingsModel, problem: String?, captionSuffix: String = "",
     @ViewBuilder control: () -> Control, @ViewBuilder detail: () -> Detail
   ) {
     self.title = name.title
-    self.caption = name.caption
+    self.caption = name.caption + captionSuffix
     self.problem = problem
     self.control = control()
     self.detail = detail()
@@ -422,7 +424,7 @@ private struct RestoreDefaultsButton: View {
   }
 }
 
-private struct RestoreDefaultsRow: View {
+struct RestoreDefaultsRow: View {
   let pane: SettingsPane
   let model: SettingsModel
 
@@ -451,7 +453,7 @@ private struct AppFooterRow: View {
   }
 }
 
-private struct SettingsSwitch: View {
+struct SettingsSwitch: View {
   let title: String
   let isOn: Binding<Bool>
 
@@ -468,7 +470,7 @@ private struct SettingsSwitch: View {
   }
 }
 
-private struct ValueText: View {
+struct ValueText: View {
   let text: String
 
   init(_ text: String) {
