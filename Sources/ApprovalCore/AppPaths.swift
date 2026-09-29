@@ -47,6 +47,10 @@ public struct AppPaths: Sendable, Equatable {
     supportDirectory.appendingPathComponent("queue")
   }
 
+  public var contextCheckpointsDirectory: URL {
+    supportDirectory.appendingPathComponent("context")
+  }
+
   public var displayLockFile: URL {
     queueDirectory.appendingPathComponent("display.lock")
   }

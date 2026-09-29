@@ -36,3 +36,44 @@ above 200,000 also counts as a 1M window when no identity says so.
 
 The transcript is written asynchronously, so a reading can lag the session by one turn. Treat a
 reading as an estimate that is at most one turn old, never as the exact state.
+
+## Levels and re-arming
+
+A checkpoint ladder has three levels, `soft`, `status` and `insist`, each tied to a token count.
+A ladder is exactly three ascending positive token counts.
+
+Defaults:
+
+| Window | soft | status | insist |
+| --- | --- | --- | --- |
+| Standard (200K) | 100,000 | 130,000 | 160,000 |
+| 1M | 200,000 | 300,000 | 400,000 |
+
+The 200K window gets its own ladder because Claude Code auto-compacts before a 200K session
+reaches the first step of the 1M ladder (200,000), so that ladder would never fire there.
+
+A `modelThresholds` entry maps a model-id prefix to a ladder. The longest matching prefix wins,
+and it beats both defaults. Model ids may carry a `[1m]` suffix (`claude-opus-5-5[1m]`), and a
+prefix may include it, so one model can have a different ladder with and without the suffix.
+
+Each level fires at most once per session. When a reading jumps over several thresholds, only the
+highest crossed level fires, and the lower levels count as fired too, so a later reading never
+replays them.
+
+A session re-arms (fired levels cleared, peak reset to the current tokens) in two cases:
+
+- the reading carries a compaction id that differs from the stored one, because a compaction
+  shrinks the context and the ladder starts over;
+- the tokens fall below `rearmBelow` times the peak (default 0.6), which catches a `/clear` or a
+  compaction whose id was not seen.
+
+"Not this session" mutes the session. A muted session never fires again, even after a re-arm.
+
+State is one small JSON file per session, `<session id>.json`, in
+`~/Library/Application Support/Countersign/context/`. Session ids may contain only
+`A-Z`, `a-z`, `0-9` and `-`; any other id is rejected, so an id can never escape the folder.
+Writes go to a temporary file in the same folder and are renamed into place. A missing, unreadable
+or undecodable file means "no state"; a key missing from an older file decodes as its fresh
+value. Concurrent hooks for one session serialise on `<session id>.lock` (a non-blocking `flock`,
+retried for about a second, after which the hook does nothing). Files untouched for 30 days are
+pruned.

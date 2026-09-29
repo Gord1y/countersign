@@ -14,6 +14,10 @@ import Testing
     #expect(paths.claudeSessionsDirectory.path == "/Users/dev/.claude/sessions")
     #expect(paths.queueDirectory.path == "/Users/dev/Library/Application Support/Countersign/queue")
     #expect(
+      paths.contextCheckpointsDirectory.path
+        == "/Users/dev/Library/Application Support/Countersign/context"
+    )
+    #expect(
       paths.displayLockFile.path
         == "/Users/dev/Library/Application Support/Countersign/queue/display.lock"
     )

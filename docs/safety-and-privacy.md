@@ -55,6 +55,7 @@ None of this leaves your Mac, and none of it is written to the log.
 | App bundle (curl installer) | `~/Applications/Countersign.app` |
 | Config file | `~/.config/countersign/config.json` (or `$XDG_CONFIG_HOME/countersign/config.json`) |
 | Queue and display lock | `~/Library/Application Support/Countersign/queue/` |
+| Context checkpoint state, one small file per Claude Code session | ~/Library/Application Support/Countersign/context/ |
 | Pause switch | `~/Library/Application Support/Countersign/paused` |
 | Quiet time | `~/Library/Application Support/Countersign/quiet-until` |
 | Menu-bar app lock | `~/Library/Application Support/Countersign/companion.lock` |
