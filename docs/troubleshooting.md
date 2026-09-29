@@ -90,8 +90,8 @@ Go through these in order:
    Code). `countersign test-panel context` shows a checkpoint panel with your settings, whatever
    the session.
 2. **Is the hook wired?** `countersign doctor` reports it on its `claude context` line; if it is
-   not `ok`, turn the feature off and on in Settings, which writes the entry again (see
-   [setup.md](setup.md)).
+   not `ok`, open Settings ▸ Context: the Claude Code hook row says Not wired or Needs an update,
+   and Update shows the change before it writes the entry again (see [setup.md](setup.md)).
 3. **Paused or in quiet time?** Both hold checkpoints back, as they do any panel; see
    [No panel appears](#no-panel-appears).
 4. **A headless session?** Non-interactive runs such as `claude -p` get no panel.
