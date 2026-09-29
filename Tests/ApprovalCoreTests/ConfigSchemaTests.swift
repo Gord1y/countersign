@@ -37,6 +37,28 @@ import Testing
     #expect(Set(properties.keys) == ConfigFileParser.hostKeys)
   }
 
+  @Test func contextCheckpointPropertiesMatchTheKeysTheParserKnows() throws {
+    let schema = try Self.loadSchema()
+    guard case .object(let definition)? = schema["$defs"]?["contextCheckpoints"],
+      case .object(let properties)? = definition["properties"]
+    else {
+      Issue.record("schema has no \"$defs.contextCheckpoints.properties\" object")
+      return
+    }
+    #expect(Set(properties.keys) == ConfigFileParser.contextCheckpointKeys)
+    #expect(
+      properties["hosts"]?["properties"]?["claude"]?["$ref"]?.stringValue
+        == "#/$defs/contextCheckpointValues")
+    guard
+      case .object(let hostProperties)? = schema["$defs"]?["contextCheckpointValues"]?["properties"]
+    else {
+      Issue.record("schema has no \"$defs.contextCheckpointValues.properties\" object")
+      return
+    }
+    #expect(
+      Set(hostProperties.keys) == ConfigFileParser.contextCheckpointKeys.subtracting(["hosts"]))
+  }
+
   @Test func everyHostReferencesTheHostOverridesDefinition() throws {
     let schema = try Self.loadSchema()
     guard case .object(let hosts)? = schema["properties"]?["hosts"],

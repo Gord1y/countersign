@@ -224,6 +224,32 @@ with `config: `, and `countersign doctor` lists them as `warn` lines.
 as in the example above, and an editor that understands JSON Schema completes and checks keys as
 you type. `$schema` itself is ignored by Countersign; it only lets your editor validate the file.
 
+## Context checkpoints (Claude Code)
+
+Off by default, and for Claude Code only. When on, Countersign watches how large a Claude Code
+session's context has grown and adds a note asking it to wrap up, compact or hand off. The
+`contextCheckpoints` object takes these keys, all optional and all edited in the file only:
+
+- `enabled`: `true` or `false`. Default `false`.
+- `mode`: `"panel"` asks you in a panel, `"silent"` only adds the note. Default `"panel"`.
+- `thresholds`: the three checkpoints, in tokens, by context window. `200k` defaults to
+  `[100000, 130000, 160000]` and `1m` to `[200000, 300000, 400000]`. Each is exactly three whole
+  numbers of 1 or more, strictly ascending.
+- `modelThresholds`: an object from a model identifier, as Claude Code reports it, to a ladder of
+  three ascending whole numbers. It wins over `thresholds`. A bad entry is dropped.
+- `rearmBelow`: a number from `0.1` to `0.95`. Default `0.6`. A checkpoint fires again only once
+  the context has fallen below this fraction of its size, for example after `/compact`.
+- `handoffFile`: a non-empty path. Default `"notes/handoff.md"`.
+- `notes`: the text of `soft`, `status`, `insist`, `compact` and `handoff`, each 1 to 4000
+  characters. Two placeholders work in every note: `{tokens}` becomes the context size (`212K`, or
+  `1.3M` from 999,500 tokens up) and `{handoffFile}` becomes `handoffFile`.
+- `menuBarMeter`: `true` or `false`. Default `false`.
+- `hosts.claude`: any of the keys above except `hosts`, winning over the top-level value, note by
+  note. `hosts.codex`, `hosts.cursor` and `hosts.antigravity` are ignored with a log line.
+
+A key with a mistake uses its default and the rest of the block is read as usual, like every other
+key on this page.
+
 #### Ask your coding agent
 
 Advanced also has a prompt you can copy into a coding agent, naming the file's path and its

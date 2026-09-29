@@ -47,6 +47,8 @@ public struct ConfigFile: Sendable, Equatable {
   public var codex: HostOverrides?
   public var cursor: HostOverrides?
   public var antigravity: HostOverrides?
+  public var contextCheckpoints: ContextCheckpointFileValues?
+  public var contextCheckpointsClaude: ContextCheckpointFileValues?
 
   public init(
     armDelay: Double? = nil,
@@ -66,7 +68,9 @@ public struct ConfigFile: Sendable, Equatable {
     claude: HostOverrides? = nil,
     codex: HostOverrides? = nil,
     cursor: HostOverrides? = nil,
-    antigravity: HostOverrides? = nil
+    antigravity: HostOverrides? = nil,
+    contextCheckpoints: ContextCheckpointFileValues? = nil,
+    contextCheckpointsClaude: ContextCheckpointFileValues? = nil
   ) {
     self.armDelay = armDelay
     self.chainedArmDelay = chainedArmDelay
@@ -86,6 +90,8 @@ public struct ConfigFile: Sendable, Equatable {
     self.codex = codex
     self.cursor = cursor
     self.antigravity = antigravity
+    self.contextCheckpoints = contextCheckpoints
+    self.contextCheckpointsClaude = contextCheckpointsClaude
   }
 
   public func overrides(for host: Host) -> HostOverrides? {
@@ -115,8 +121,12 @@ public enum ConfigFileParser {
     "armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds", "handoffApps",
     "snoozeMinutes", "checkForUpdates", "quitBehavior", "modeAfterPlan",
     "includeHeadlessSessions", "questionNotes", "editorApp", "hosts",
-    "appearance", "accentColor",
+    "appearance", "accentColor", "contextCheckpoints",
     "$schema",
+  ]
+  static let contextCheckpointKeys: Set<String> = [
+    "enabled", "mode", "thresholds", "modelThresholds", "rearmBelow", "handoffFile", "notes",
+    "menuBarMeter", "hosts",
   ]
   static let hostKeys: Set<String> = [
     "armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds", "handoffApps",
@@ -195,7 +205,197 @@ public enum ConfigFileParser {
       }
     }
 
+    if let checkpointsValue = root["contextCheckpoints"] {
+      let path = "contextCheckpoints"
+      switch checkpointsValue {
+      case .object(let object):
+        file.contextCheckpoints = readContextCheckpointValues(
+          object, path: path, allowsHosts: true, logLines: &logLines)
+        file.contextCheckpointsClaude = readContextCheckpointHosts(
+          object["hosts"], path: "\(path).hosts", logLines: &logLines)
+      default:
+        logLines.append("\(path): expected an object, ignored")
+      }
+    }
+
     return (file, logLines)
+  }
+
+  private static func readContextCheckpointHosts(
+    _ value: JSONValue?, path: String, logLines: inout [String]
+  ) -> ContextCheckpointFileValues? {
+    guard let value else { return nil }
+    guard case .object(let hostsObject) = value else {
+      logLines.append("\(path): expected an object, ignored")
+      return nil
+    }
+    for key in hostsObject.keys where Host(rawValue: key) == nil {
+      logLines.append("unknown key \"\(path).\(key)\", ignored")
+    }
+    for host in Host.allCases where host != .claude && hostsObject[host.rawValue] != nil {
+      logLines.append(
+        "\(path).\(host.rawValue): context checkpoints support only Claude Code, ignored")
+    }
+    guard let claudeValue = hostsObject["claude"] else { return nil }
+    guard case .object(let claudeObject) = claudeValue else {
+      logLines.append("\(path).claude: expected an object, ignored")
+      return nil
+    }
+    return readContextCheckpointValues(
+      claudeObject, path: "\(path).claude", allowsHosts: false, logLines: &logLines)
+  }
+
+  private static func readContextCheckpointValues(
+    _ object: [String: JSONValue], path: String, allowsHosts: Bool, logLines: inout [String]
+  ) -> ContextCheckpointFileValues {
+    for key in object.keys.sorted() {
+      let known = contextCheckpointKeys.contains(key) && (allowsHosts || key != "hosts")
+      if !known {
+        logLines.append("unknown key \"\(path).\(key)\", ignored")
+      }
+    }
+    var values = ContextCheckpointFileValues()
+    values.enabled = readBool(
+      object["enabled"], path: "\(path).enabled", defaultValue: false, logLines: &logLines)
+    values.mode = readContextCheckpointMode(
+      object["mode"], path: "\(path).mode", logLines: &logLines)
+    if let thresholdsValue = object["thresholds"] {
+      let thresholdsPath = "\(path).thresholds"
+      if case .object(let thresholds) = thresholdsValue {
+        for key in thresholds.keys.sorted() where key != "200k" && key != "1m" {
+          logLines.append("unknown key \"\(thresholdsPath).\(key)\", ignored")
+        }
+        values.standardThresholds = readThresholdLadder(
+          thresholds["200k"], path: "\(thresholdsPath).200k",
+          defaultValue: ContextCheckpointSettings.defaultStandardThresholds, logLines: &logLines)
+        values.millionThresholds = readThresholdLadder(
+          thresholds["1m"], path: "\(thresholdsPath).1m",
+          defaultValue: ContextCheckpointSettings.defaultMillionThresholds, logLines: &logLines)
+      } else {
+        logLines.append("\(thresholdsPath): expected an object, ignored")
+      }
+    }
+    values.modelThresholds = readModelThresholds(
+      object["modelThresholds"], path: "\(path).modelThresholds", logLines: &logLines)
+    values.rearmBelow = readRearmBelow(
+      object["rearmBelow"], path: "\(path).rearmBelow", logLines: &logLines)
+    values.handoffFile = readHandoffFile(
+      object["handoffFile"], path: "\(path).handoffFile", logLines: &logLines)
+    values.notes = readContextCheckpointNotes(
+      object["notes"], path: "\(path).notes", logLines: &logLines)
+    values.menuBarMeter = readBool(
+      object["menuBarMeter"], path: "\(path).menuBarMeter", defaultValue: false,
+      logLines: &logLines)
+    return values
+  }
+
+  private static func readContextCheckpointMode(
+    _ value: JSONValue?, path: String, logLines: inout [String]
+  ) -> ContextCheckpointMode? {
+    guard let value else { return nil }
+    guard let mode = value.stringValue.flatMap(ContextCheckpointMode.init(rawValue:)) else {
+      logLines.append(
+        "\(path): expected \"panel\" or \"silent\", using default"
+          + " \"\(ContextCheckpointSettings.defaultMode.rawValue)\"")
+      return nil
+    }
+    return mode
+  }
+
+  private static func ascendingLadder(_ value: JSONValue) -> [Int]? {
+    guard case .array(let array) = value, array.count == 3 else { return nil }
+    var ladder: [Int] = []
+    for element in array {
+      guard let tokens = integerValue(element), tokens >= 1 else { return nil }
+      if let previous = ladder.last, tokens <= previous { return nil }
+      ladder.append(tokens)
+    }
+    return ladder
+  }
+
+  private static func readThresholdLadder(
+    _ value: JSONValue?, path: String, defaultValue: [Int], logLines: inout [String]
+  ) -> [Int]? {
+    guard let value else { return nil }
+    guard let ladder = ascendingLadder(value) else {
+      logLines.append(
+        "\(path): expected 3 ascending whole numbers of tokens, using default \(defaultValue)")
+      return nil
+    }
+    return ladder
+  }
+
+  private static func readModelThresholds(
+    _ value: JSONValue?, path: String, logLines: inout [String]
+  ) -> [String: [Int]]? {
+    guard let value else { return nil }
+    guard case .object(let object) = value else {
+      logLines.append("\(path): expected an object, ignored")
+      return nil
+    }
+    var ladders: [String: [Int]] = [:]
+    for key in object.keys.sorted() {
+      guard !key.isEmpty, let value = object[key], let ladder = ascendingLadder(value) else {
+        logLines.append(
+          "\(path).\(key): expected 3 ascending whole numbers of tokens, ignored")
+        continue
+      }
+      ladders[key] = ladder
+    }
+    return ladders
+  }
+
+  private static func readRearmBelow(
+    _ value: JSONValue?, path: String, logLines: inout [String]
+  ) -> Double? {
+    guard let value else { return nil }
+    guard let number = numberValue(value),
+      ContextCheckpointSettings.rearmBelowRange.contains(number)
+    else {
+      logLines.append(
+        "\(path): expected a number from 0.1 to 0.95, using default"
+          + " \(formatNumber(ContextCheckpointSettings.defaultRearmBelow))")
+      return nil
+    }
+    return number
+  }
+
+  private static func readHandoffFile(
+    _ value: JSONValue?, path: String, logLines: inout [String]
+  ) -> String? {
+    guard let value else { return nil }
+    guard let string = value.stringValue, !string.isEmpty else {
+      logLines.append(
+        "\(path): expected a non-empty string, using default"
+          + " \"\(ContextCheckpointSettings.defaultHandoffFile)\"")
+      return nil
+    }
+    return string
+  }
+
+  private static func readContextCheckpointNotes(
+    _ value: JSONValue?, path: String, logLines: inout [String]
+  ) -> [String: String] {
+    guard let value else { return [:] }
+    guard case .object(let object) = value else {
+      logLines.append("\(path): expected an object, ignored")
+      return [:]
+    }
+    var notes: [String: String] = [:]
+    for key in object.keys.sorted() {
+      guard ContextCheckpointNotes.names.contains(key) else {
+        logLines.append("unknown key \"\(path).\(key)\", ignored")
+        continue
+      }
+      guard let text = object[key]?.stringValue, !text.isEmpty,
+        text.count <= ContextCheckpointNotes.maximumLength
+      else {
+        logLines.append("\(path).\(key): expected text of 1 to 4000 characters, using the default")
+        continue
+      }
+      notes[key] = text
+    }
+    return notes
   }
 
   private static func readHostOverrides(

@@ -70,6 +70,12 @@ can differ from a hook's `XDG_CONFIG_HOME` (see "Settings…" in [app.md](app.md
   "A question submitted" in [answers.md](answers.md)). No per-host override, since a question's
   shape doesn't depend on which agent asked it, only on whether the person wants the extra field at
   all.
+- **`contextCheckpoints`** is parsed into `ContextCheckpointFileValues` (top level, and the
+  `hosts.claude` block inside it) and resolved into `ContextCheckpointSettings` on
+  `Settings.contextCheckpoints`, used by the hook's checkpoint path. The per-host override exists
+  only for `claude`: the feature reads Claude Code's transcript, so any other host resolves to the
+  disabled default, and `hosts.codex|cursor|antigravity` inside the block are logged and ignored.
+  Notes resolve one by one (host, then top level, then the built-in text).
 
 ## Precedence
 

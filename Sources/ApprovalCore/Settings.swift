@@ -12,6 +12,7 @@ public struct Settings: Sendable, Equatable {
   public var questionNotes: Bool
   public var appearance: AppearanceChoice
   public var accentColor: HexColor
+  public var contextCheckpoints: ContextCheckpointSettings
 
   public init(
     armDelay: Double,
@@ -26,7 +27,8 @@ public struct Settings: Sendable, Equatable {
     includeHeadlessSessions: Bool,
     questionNotes: Bool,
     appearance: AppearanceChoice,
-    accentColor: HexColor
+    accentColor: HexColor,
+    contextCheckpoints: ContextCheckpointSettings = .default
   ) {
     self.armDelay = armDelay
     self.chainedArmDelay = chainedArmDelay
@@ -41,6 +43,7 @@ public struct Settings: Sendable, Equatable {
     self.questionNotes = questionNotes
     self.appearance = appearance
     self.accentColor = accentColor
+    self.contextCheckpoints = contextCheckpoints
   }
 
   public static let armDelayRange: ClosedRange<Double> = 0...3
@@ -90,6 +93,8 @@ public struct Settings: Sendable, Equatable {
       includeHeadlessSessions: includeHeadlessSessions,
       questionNotes: questionNotes,
       appearance: appearance,
-      accentColor: accentColor)
+      accentColor: accentColor,
+      contextCheckpoints: ContextCheckpointSettings.resolve(
+        top: file.contextCheckpoints, host: file.contextCheckpointsClaude, for: host))
   }
 }

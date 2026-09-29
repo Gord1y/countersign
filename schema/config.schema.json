@@ -6,6 +6,152 @@
   "type": "object",
   "additionalProperties": false,
   "$defs": {
+    "tokenLadder": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "description": "Three strictly ascending token counts: the soft, status and insist checkpoints."
+    },
+    "contextCheckpointValues": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether Countersign adds context checkpoint notes to a Claude Code session as its context grows."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["panel", "silent"],
+          "default": "panel",
+          "description": "Whether a checkpoint asks you in a panel or only adds its note silently."
+        },
+        "thresholds": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Token counts of the three checkpoints, by context window size.",
+          "properties": {
+            "200k": {
+              "$ref": "#/$defs/tokenLadder",
+              "default": [100000, 130000, 160000],
+              "description": "Checkpoints for a 200K-token context window."
+            },
+            "1m": {
+              "$ref": "#/$defs/tokenLadder",
+              "default": [200000, 300000, 400000],
+              "description": "Checkpoints for a 1M-token context window."
+            }
+          }
+        },
+        "modelThresholds": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/tokenLadder"
+          },
+          "description": "Checkpoints for one model, keyed by its model identifier exactly as Claude Code reports it; they win over thresholds."
+        },
+        "rearmBelow": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 0.95,
+          "default": 0.6,
+          "description": "Fraction of a checkpoint's token count the context must fall below, for example after /compact, before that checkpoint can fire again."
+        },
+        "handoffFile": {
+          "type": "string",
+          "minLength": 1,
+          "default": "notes/handoff.md",
+          "description": "Path the handoff notes ask Claude to write, substituted for {handoffFile}."
+        },
+        "notes": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Text of each note; {tokens} becomes the context size, such as 212K, and {handoffFile} the handoff path.",
+          "properties": {
+            "soft": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "description": "The note sent at the first checkpoint."
+            },
+            "status": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "description": "The note sent at the second checkpoint."
+            },
+            "insist": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "description": "The note sent at the third checkpoint."
+            },
+            "compact": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "description": "The note sent when you choose to compact."
+            },
+            "handoff": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "description": "The note sent when you choose to hand off."
+            }
+          }
+        },
+        "menuBarMeter": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the menu-bar companion shows the context size of the active Claude Code session."
+        }
+      }
+    },
+    "contextCheckpoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/enabled"
+        },
+        "mode": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/mode"
+        },
+        "thresholds": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/thresholds"
+        },
+        "modelThresholds": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/modelThresholds"
+        },
+        "rearmBelow": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/rearmBelow"
+        },
+        "handoffFile": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/handoffFile"
+        },
+        "notes": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/notes"
+        },
+        "menuBarMeter": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/menuBarMeter"
+        },
+        "hosts": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Per-host overrides; context checkpoints support only Claude Code.",
+          "properties": {
+            "claude": {
+              "$ref": "#/$defs/contextCheckpointValues"
+            }
+          }
+        }
+      }
+    },
     "hostOverrides": {
       "type": "object",
       "additionalProperties": false,
@@ -158,6 +304,10 @@
       "type": "string",
       "minLength": 1,
       "description": "Bundle identifier of the app Open in Editor opens config.json with; absent uses the default app macOS would open it with; top level only."
+    },
+    "contextCheckpoints": {
+      "$ref": "#/$defs/contextCheckpoints",
+      "description": "Optional notes that ask Claude Code to wrap up, compact or hand off as its context grows; off by default, Claude Code only."
     },
     "hosts": {
       "type": "object",
