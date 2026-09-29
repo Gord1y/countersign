@@ -60,12 +60,10 @@ import Testing
   }
 
   @Test func namesTheTopLevelKeysOnlyTheFileSets() {
-    #expect(
-      PreferenceOverrides.fileOnlyTopLevelKeys == ["contextCheckpoints", "includeHeadlessSessions"])
+    #expect(PreferenceOverrides.fileOnlyTopLevelKeys == ["includeHeadlessSessions"])
     #expect(
       PreferenceOverrides.fileOnlyNote
-        == "Only the file can set values for one agent, under hosts, and contextCheckpoints, includeHeadlessSessions."
-    )
+        == "Only the file can set values for one agent, under hosts, and includeHeadlessSessions.")
   }
 
   @Test func fileOnlyNoteListsEveryKeyOrNone() {

@@ -665,6 +665,16 @@ command-line tool are on different versions (see setup.md): the same warning `In
 its advice with a Copy button and the command that updates the older half in a code card. It is
 checked in the same refresh as the copies.
 
+The context rows edit the top-level `contextCheckpoints` block by key path: every `PreferenceName`
+has a `keyPath` (`[rawValue]` for the flat keys, such as `["contextCheckpoints", "thresholds",
+"200k"]` for the 200K ladder), and `ConfigEdit` finds or creates each object on the way down and
+sets or removes only the leaf, in the file's own style, so every other byte stays. A reset removes
+the leaf member only; an object left empty stays as `{}`. The window never edits
+`contextCheckpoints.hosts`, the same rule it follows for the top-level `hosts`, so
+`contextCheckpoints` no longer counts among the keys only the file can set. The switch that turns
+`contextCheckpointsEnabled` on wires a hook, so it belongs to no pane's `preferenceNames` and
+Restore Defaults never flips it.
+
 ## Why snapshot never reads the file
 
 `countersign snapshot` renders `PanelModel`/`PanelRootView` directly, with no `PanelController`

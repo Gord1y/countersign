@@ -17,6 +17,97 @@ import Testing
     #expect(!PreferenceReset.isChanged(.handoffApps, in: ConfigFile(handoffApps: [])))
   }
 
+  @Test func detectsAChangedContextLadderNoteAndModelMap() {
+    func file(_ values: ContextCheckpointFileValues) -> ConfigFile {
+      ConfigFile(contextCheckpoints: values)
+    }
+    #expect(
+      PreferenceReset.isChanged(
+        .contextStandardThresholds,
+        in: file(ContextCheckpointFileValues(standardThresholds: [90_000, 120_000, 150_000]))))
+    #expect(
+      !PreferenceReset.isChanged(
+        .contextStandardThresholds,
+        in: file(ContextCheckpointFileValues(standardThresholds: [100_000, 130_000, 160_000]))))
+    #expect(!PreferenceReset.isChanged(.contextStandardThresholds, in: ConfigFile()))
+    #expect(
+      PreferenceReset.isChanged(
+        .contextNoteSoft, in: file(ContextCheckpointFileValues(notes: ["soft": "mine"]))))
+    #expect(
+      !PreferenceReset.isChanged(
+        .contextNoteSoft,
+        in: file(ContextCheckpointFileValues(notes: ["soft": ContextCheckpointNotes.default.soft])))
+    )
+    #expect(
+      !PreferenceReset.isChanged(
+        .contextNoteStatus, in: file(ContextCheckpointFileValues(notes: ["soft": "mine"]))))
+    #expect(
+      PreferenceReset.isChanged(
+        .contextModelThresholds,
+        in: file(ContextCheckpointFileValues(modelThresholds: ["claude-opus": [1, 2, 3]]))))
+    #expect(
+      !PreferenceReset.isChanged(
+        .contextModelThresholds, in: file(ContextCheckpointFileValues(modelThresholds: [:]))))
+    #expect(
+      PreferenceReset.isChanged(
+        .contextCheckpointsEnabled, in: file(ContextCheckpointFileValues(enabled: true))))
+    #expect(
+      !PreferenceReset.isChanged(
+        .contextCheckpointsEnabled, in: file(ContextCheckpointFileValues(enabled: false))))
+    #expect(
+      PreferenceReset.isChanged(
+        .contextMode, in: file(ContextCheckpointFileValues(mode: .silent))))
+    #expect(
+      !PreferenceReset.isChanged(
+        .contextMode, in: file(ContextCheckpointFileValues(mode: .panel))))
+    #expect(
+      PreferenceReset.isChanged(
+        .contextRearmBelow, in: file(ContextCheckpointFileValues(rearmBelow: 0.5))))
+    #expect(
+      !PreferenceReset.isChanged(
+        .contextRearmBelow, in: file(ContextCheckpointFileValues(rearmBelow: 0.6))))
+    #expect(
+      PreferenceReset.isChanged(
+        .contextHandoffFile, in: file(ContextCheckpointFileValues(handoffFile: "h.md"))))
+    #expect(
+      PreferenceReset.isChanged(
+        .contextMenuBarMeter, in: file(ContextCheckpointFileValues(menuBarMeter: true))))
+    #expect(
+      PreferenceReset.isChanged(
+        .contextMillionThresholds,
+        in: file(ContextCheckpointFileValues(millionThresholds: [1, 2, 3]))))
+  }
+
+  @Test func neverCountsAContextNameAsSetForOneAgent() {
+    let file = ConfigFile(claude: ConfigFile.HostOverrides(armDelay: 1))
+    #expect(!PreferenceReset.hasHostValues(for: SettingsPane.context.preferenceNames, in: file))
+  }
+
+  @Test func writesContextValueTextSamples() {
+    var values = PreferenceValues()
+    #expect(PreferenceReset.valueText(.contextCheckpointsEnabled, in: values) == "Off")
+    #expect(PreferenceReset.valueText(.contextMode, in: values) == "Panel")
+    #expect(PreferenceReset.valueText(.contextStandardThresholds, in: values) == "100K, 130K, 160K")
+    #expect(PreferenceReset.valueText(.contextMillionThresholds, in: values) == "200K, 300K, 400K")
+    #expect(PreferenceReset.valueText(.contextModelThresholds, in: values) == "none")
+    #expect(PreferenceReset.valueText(.contextRearmBelow, in: values) == "60%")
+    #expect(PreferenceReset.valueText(.contextHandoffFile, in: values) == "notes/handoff.md")
+    #expect(PreferenceReset.valueText(.contextNoteSoft, in: values) == "Default")
+    #expect(PreferenceReset.valueText(.contextMenuBarMeter, in: values) == "Off")
+    values = values.applying(.contextCheckpointsEnabled(true)).applying(.contextMode(.silent))
+    values = values.applying(.contextNote(.contextNoteSoft, "mine"))
+    values = values.applying(.setContextModelThresholds(prefix: "a", ladder: [1]))
+    #expect(PreferenceReset.valueText(.contextModelThresholds, in: values) == "1 model")
+    values = values.applying(.setContextModelThresholds(prefix: "b", ladder: [1]))
+    #expect(PreferenceReset.valueText(.contextModelThresholds, in: values) == "2 models")
+    #expect(PreferenceReset.valueText(.contextCheckpointsEnabled, in: values) == "On")
+    #expect(PreferenceReset.valueText(.contextMode, in: values) == "Silent")
+    #expect(PreferenceReset.valueText(.contextNoteSoft, in: values) == "Custom")
+    #expect(
+      PreferenceReset.line(for: .contextMode, current: values)
+        == "Checkpoint style: Silent → Panel")
+  }
+
   @Test func detectsAChangedBoolAndQuitBehavior() {
     #expect(PreferenceReset.isChanged(.checkForUpdates, in: ConfigFile(checkForUpdates: true)))
     #expect(!PreferenceReset.isChanged(.checkForUpdates, in: ConfigFile(checkForUpdates: false)))

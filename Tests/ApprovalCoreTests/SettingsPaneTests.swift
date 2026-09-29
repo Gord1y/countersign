@@ -3,12 +3,36 @@ import Testing
 @testable import ApprovalCore
 
 @Suite struct SettingsPaneTests {
-  @Test func listsTheFiveGroupsInOrder() {
-    #expect(SettingsPane.allCases == [.agents, .panels, .app, .help, .advanced])
+  @Test func listsTheSixGroupsInOrder() {
+    #expect(SettingsPane.allCases == [.agents, .panels, .app, .context, .help, .advanced])
     #expect(
-      SettingsPane.allCases.map(\.rawValue) == ["agents", "panels", "app", "help", "advanced"])
+      SettingsPane.allCases.map(\.rawValue) == [
+        "agents", "panels", "app", "context", "help", "advanced",
+      ])
     #expect(
-      SettingsPane.allCases.map(\.title) == ["Agents", "Panels", "App", "Help", "Advanced"])
+      SettingsPane.allCases.map(\.title) == [
+        "Agents", "Panels", "App", "Context", "Help", "Advanced",
+      ])
+  }
+
+  @Test func saysWhatTheContextGroupChanges() {
+    #expect(
+      SettingsPane.context.subtitle
+        == "Context checkpoints for Claude Code sessions. Saved to config.json as soon as you"
+        + " change them.")
+  }
+
+  @Test func showsTheContextGroupOnlyWhenAsked() {
+    #expect(SettingsPane.sidebar(showsContext: true) == [.agents, .app, .panels, .context, .help])
+    #expect(SettingsPane.sidebar(showsContext: false) == [.agents, .app, .panels, .help])
+    #expect(SettingsPane.sidebar == SettingsPane.sidebar(showsContext: false))
+  }
+
+  @Test func fallsBackToAgentsForAStoredContextGroupWhenHidden() {
+    #expect(SettingsPane(storedValue: "context", showsContext: true) == .context)
+    #expect(SettingsPane(storedValue: "context", showsContext: false) == .agents)
+    #expect(SettingsPane(storedValue: "panels", showsContext: false) == .panels)
+    #expect(SettingsPane(storedValue: nil, showsContext: true) == .agents)
   }
 
   @Test func saysWhatEachGroupChangesAndWhereItIsKept() {
@@ -63,7 +87,16 @@ import Testing
     #expect(SettingsPane.help.preferenceNames.isEmpty)
     #expect(SettingsPane.advanced.preferenceNames == [])
     #expect(
-      Set(SettingsPane.panels.preferenceNames + SettingsPane.app.preferenceNames)
-        == Set(PreferenceName.allCases).subtracting([.editorApp]))
+      SettingsPane.context.preferenceNames == [
+        .contextMode, .contextStandardThresholds, .contextMillionThresholds,
+        .contextModelThresholds, .contextRearmBelow, .contextHandoffFile, .contextNoteSoft,
+        .contextNoteStatus, .contextNoteInsist, .contextNoteCompact, .contextNoteHandoff,
+        .contextMenuBarMeter,
+      ])
+    #expect(
+      Set(
+        SettingsPane.panels.preferenceNames + SettingsPane.app.preferenceNames
+          + SettingsPane.context.preferenceNames)
+        == Set(PreferenceName.allCases).subtracting([.editorApp, .contextCheckpointsEnabled]))
   }
 }

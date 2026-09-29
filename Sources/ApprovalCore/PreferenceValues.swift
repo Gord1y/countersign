@@ -1,5 +1,22 @@
 import Foundation
 
+extension ContextCheckpointNotes {
+  func text(for name: PreferenceName) -> String? {
+    name.noteName.flatMap { text(named: $0) }
+  }
+
+  mutating func set(_ text: String, named name: PreferenceName) {
+    switch name {
+    case .contextNoteSoft: soft = text
+    case .contextNoteStatus: status = text
+    case .contextNoteInsist: insist = text
+    case .contextNoteCompact: compact = text
+    case .contextNoteHandoff: handoff = text
+    default: break
+    }
+  }
+}
+
 public struct PreferenceValues: Sendable, Equatable {
   public var armDelay: Double
   public var chainedArmDelay: Double
@@ -14,6 +31,7 @@ public struct PreferenceValues: Sendable, Equatable {
   public var appearance: AppearanceChoice
   public var accentColor: HexColor
   public var editorApp: String?
+  public var contextCheckpoints: ContextCheckpointSettings
 
   public init(
     armDelay: Double = Settings.defaultArmDelay,
@@ -28,7 +46,8 @@ public struct PreferenceValues: Sendable, Equatable {
     questionNotes: Bool = Settings.defaultQuestionNotes,
     appearance: AppearanceChoice = Settings.defaultAppearance,
     accentColor: HexColor = Settings.defaultAccentColor,
-    editorApp: String? = nil
+    editorApp: String? = nil,
+    contextCheckpoints: ContextCheckpointSettings = .default
   ) {
     self.armDelay = armDelay
     self.chainedArmDelay = chainedArmDelay
@@ -43,6 +62,7 @@ public struct PreferenceValues: Sendable, Equatable {
     self.appearance = appearance
     self.accentColor = accentColor
     self.editorApp = editorApp
+    self.contextCheckpoints = contextCheckpoints
   }
 
   public init(file: ConfigFile) {
@@ -59,7 +79,9 @@ public struct PreferenceValues: Sendable, Equatable {
       questionNotes: file.questionNotes ?? Settings.defaultQuestionNotes,
       appearance: file.appearance ?? Settings.defaultAppearance,
       accentColor: file.accentColor ?? Settings.defaultAccentColor,
-      editorApp: file.editorApp)
+      editorApp: file.editorApp,
+      contextCheckpoints: ContextCheckpointSettings.resolve(
+        top: file.contextCheckpoints, host: nil, for: .claude))
   }
 
   public func applying(_ edit: PreferenceEdit) -> PreferenceValues {
@@ -95,6 +117,26 @@ public struct PreferenceValues: Sendable, Equatable {
       values.handoffApps.removeAll { $0 == bundleID }
     case .editorApp(let bundleID):
       values.editorApp = bundleID
+    case .contextCheckpointsEnabled(let enabled):
+      values.contextCheckpoints.enabled = enabled
+    case .contextMode(let mode):
+      values.contextCheckpoints.mode = mode
+    case .contextStandardThresholds(let ladder):
+      values.contextCheckpoints.standardThresholds = ladder
+    case .contextMillionThresholds(let ladder):
+      values.contextCheckpoints.millionThresholds = ladder
+    case .setContextModelThresholds(let prefix, let ladder):
+      values.contextCheckpoints.modelThresholds[prefix] = ladder
+    case .removeContextModelThresholds(let prefix):
+      values.contextCheckpoints.modelThresholds[prefix] = nil
+    case .contextRearmBelow(let ratio):
+      values.contextCheckpoints.rearmBelow = ratio
+    case .contextHandoffFile(let file):
+      values.contextCheckpoints.handoffFile = file
+    case .contextNote(let name, let text):
+      values.contextCheckpoints.notes.set(text, named: name)
+    case .contextMenuBarMeter(let enabled):
+      values.contextCheckpoints.menuBarMeter = enabled
     case .reset(let name):
       values = values.applyingDefault(of: name)
     }
@@ -117,6 +159,26 @@ public struct PreferenceValues: Sendable, Equatable {
     case .appearance: values.appearance = Settings.defaultAppearance
     case .accentColor: values.accentColor = Settings.defaultAccentColor
     case .editorApp: values.editorApp = nil
+    case .contextCheckpointsEnabled:
+      values.contextCheckpoints.enabled = ContextCheckpointSettings.default.enabled
+    case .contextMode: values.contextCheckpoints.mode = ContextCheckpointSettings.defaultMode
+    case .contextStandardThresholds:
+      values.contextCheckpoints.standardThresholds =
+        ContextCheckpointSettings.defaultStandardThresholds
+    case .contextMillionThresholds:
+      values.contextCheckpoints.millionThresholds =
+        ContextCheckpointSettings.defaultMillionThresholds
+    case .contextModelThresholds: values.contextCheckpoints.modelThresholds = [:]
+    case .contextRearmBelow:
+      values.contextCheckpoints.rearmBelow = ContextCheckpointSettings.defaultRearmBelow
+    case .contextHandoffFile:
+      values.contextCheckpoints.handoffFile = ContextCheckpointSettings.defaultHandoffFile
+    case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteCompact,
+      .contextNoteHandoff:
+      values.contextCheckpoints.notes.set(
+        ContextCheckpointNotes.default.text(for: name) ?? "", named: name)
+    case .contextMenuBarMeter:
+      values.contextCheckpoints.menuBarMeter = ContextCheckpointSettings.default.menuBarMeter
     }
     return values
   }

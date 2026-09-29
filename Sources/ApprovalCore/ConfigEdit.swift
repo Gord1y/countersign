@@ -14,6 +14,48 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
   case appearance
   case accentColor
   case editorApp
+  case contextCheckpointsEnabled
+  case contextMode
+  case contextStandardThresholds
+  case contextMillionThresholds
+  case contextModelThresholds
+  case contextRearmBelow
+  case contextHandoffFile
+  case contextNoteSoft
+  case contextNoteStatus
+  case contextNoteInsist
+  case contextNoteCompact
+  case contextNoteHandoff
+  case contextMenuBarMeter
+
+  public var keyPath: [String] {
+    switch self {
+    case .contextCheckpointsEnabled: return ["contextCheckpoints", "enabled"]
+    case .contextMode: return ["contextCheckpoints", "mode"]
+    case .contextStandardThresholds: return ["contextCheckpoints", "thresholds", "200k"]
+    case .contextMillionThresholds: return ["contextCheckpoints", "thresholds", "1m"]
+    case .contextModelThresholds: return ["contextCheckpoints", "modelThresholds"]
+    case .contextRearmBelow: return ["contextCheckpoints", "rearmBelow"]
+    case .contextHandoffFile: return ["contextCheckpoints", "handoffFile"]
+    case .contextNoteSoft: return ["contextCheckpoints", "notes", "soft"]
+    case .contextNoteStatus: return ["contextCheckpoints", "notes", "status"]
+    case .contextNoteInsist: return ["contextCheckpoints", "notes", "insist"]
+    case .contextNoteCompact: return ["contextCheckpoints", "notes", "compact"]
+    case .contextNoteHandoff: return ["contextCheckpoints", "notes", "handoff"]
+    case .contextMenuBarMeter: return ["contextCheckpoints", "menuBarMeter"]
+    default: return [rawValue]
+    }
+  }
+
+  public var noteName: String? {
+    switch self {
+    case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteCompact,
+      .contextNoteHandoff:
+      return keyPath.last
+    default:
+      return nil
+    }
+  }
 }
 
 public enum PreferenceEdit: Sendable, Equatable {
@@ -31,6 +73,16 @@ public enum PreferenceEdit: Sendable, Equatable {
   case addHandoffApp(String)
   case removeHandoffApp(String)
   case editorApp(String)
+  case contextCheckpointsEnabled(Bool)
+  case contextMode(ContextCheckpointMode)
+  case contextStandardThresholds([Int])
+  case contextMillionThresholds([Int])
+  case setContextModelThresholds(prefix: String, ladder: [Int])
+  case removeContextModelThresholds(prefix: String)
+  case contextRearmBelow(Double)
+  case contextHandoffFile(String)
+  case contextNote(PreferenceName, String)
+  case contextMenuBarMeter(Bool)
   case reset(PreferenceName)
 
   public var key: PreferenceName {
@@ -48,6 +100,16 @@ public enum PreferenceEdit: Sendable, Equatable {
     case .accentColor: return .accentColor
     case .addHandoffApp, .removeHandoffApp: return .handoffApps
     case .editorApp: return .editorApp
+    case .contextCheckpointsEnabled: return .contextCheckpointsEnabled
+    case .contextMode: return .contextMode
+    case .contextStandardThresholds: return .contextStandardThresholds
+    case .contextMillionThresholds: return .contextMillionThresholds
+    case .setContextModelThresholds, .removeContextModelThresholds:
+      return .contextModelThresholds
+    case .contextRearmBelow: return .contextRearmBelow
+    case .contextHandoffFile: return .contextHandoffFile
+    case .contextNote(let name, _): return name
+    case .contextMenuBarMeter: return .contextMenuBarMeter
     case .reset(let name): return name
     }
   }
@@ -86,7 +148,8 @@ public enum ConfigEdit {
   private static func apply(_ edit: PreferenceEdit, to document: inout JSONSourceDocument)
     throws
   {
-    let key = edit.key.rawValue
+    let path = edit.key.keyPath
+    let key = path.first ?? edit.key.rawValue
     switch edit {
     case .armDelay(let value), .chainedArmDelay(let value), .idleSeconds(let value),
       .graceSeconds(let value):
@@ -123,28 +186,84 @@ public enum ConfigEdit {
       try remove(bundleID, key: key, in: &document)
     case .editorApp(let bundleID):
       try set(key, to: .string(bundleID), in: &document) { $0.stringValue == bundleID }
+    case .contextCheckpointsEnabled(let enabled), .contextMenuBarMeter(let enabled):
+      try set(path, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
+    case .contextMode(let mode):
+      try set(path, to: .string(mode.rawValue), in: &document) {
+        $0.stringValue == mode.rawValue
+      }
+    case .contextStandardThresholds(let ladder), .contextMillionThresholds(let ladder):
+      try set(path, to: .array(ladder.map(JSONFragment.integer)), in: &document) {
+        $0.elements?.map(\.numberValue) == ladder.map { Double($0) }
+      }
+    case .setContextModelThresholds(let prefix, let ladder):
+      try set(path + [prefix], to: .array(ladder.map(JSONFragment.integer)), in: &document) {
+        $0.elements?.map(\.numberValue) == ladder.map { Double($0) }
+      }
+    case .removeContextModelThresholds(let prefix):
+      try removeMember(path + [prefix], in: &document)
+    case .contextRearmBelow(let ratio):
+      try set(path, to: .number(spelling(ratio)), in: &document) { $0.numberValue == ratio }
+    case .contextHandoffFile(let file):
+      try set(path, to: .string(file), in: &document) { $0.stringValue == file }
+    case .contextNote(let name, let text):
+      guard name.noteName != nil else { return }
+      try set(path, to: .string(text), in: &document) { $0.stringValue == text }
     case .reset:
-      try removeTopLevelMember(key, in: &document)
+      try removeMember(path, in: &document)
     }
   }
 
-  private static func removeTopLevelMember(_ key: String, in document: inout JSONSourceDocument)
+  private static func removeMember(_ path: [String], in document: inout JSONSourceDocument)
     throws
   {
-    guard let index = document.root.memberIndex(named: key) else { return }
-    try document.removeMember(at: index, from: document.root)
+    var parent = document.root
+    for key in path.dropLast() {
+      guard let child = parent.member(named: key)?.value, child.members != nil else { return }
+      parent = child
+    }
+    guard let leaf = path.last, let index = parent.memberIndex(named: leaf) else { return }
+    try document.removeMember(at: index, from: parent)
   }
 
   private static func set(
     _ key: String, to fragment: JSONFragment, in document: inout JSONSourceDocument,
     holds: (JSONSpanNode) -> Bool
   ) throws {
-    guard let existing = document.root.member(named: key) else {
-      try document.appendMember(JSONFragmentMember(key: key, value: fragment), to: document.root)
+    try set([key], to: fragment, in: &document, holds: holds)
+  }
+
+  private static func set(
+    _ path: [String], to fragment: JSONFragment, in document: inout JSONSourceDocument,
+    holds: (JSONSpanNode) -> Bool
+  ) throws {
+    var parent = document.root
+    for (depth, key) in path.dropLast().enumerated() {
+      guard let existing = parent.member(named: key) else {
+        let missing = nested(Array(path.dropFirst(depth + 1)), around: fragment)
+        try document.appendMember(JSONFragmentMember(key: key, value: missing), to: parent)
+        return
+      }
+      guard existing.value.members != nil else {
+        let replacement = nested(Array(path.dropFirst(depth + 1)), around: fragment)
+        try document.replaceValue(existing.value, with: replacement)
+        return
+      }
+      parent = existing.value
+    }
+    guard let leaf = path.last else { return }
+    guard let existing = parent.member(named: leaf) else {
+      try document.appendMember(JSONFragmentMember(key: leaf, value: fragment), to: parent)
       return
     }
     guard !holds(existing.value) else { return }
     try document.replaceValue(existing.value, with: fragment)
+  }
+
+  private static func nested(_ path: [String], around fragment: JSONFragment) -> JSONFragment {
+    path.reversed().reduce(fragment) { inner, key in
+      .object([JSONFragmentMember(key: key, value: inner)])
+    }
   }
 
   private static func add(_ bundleID: String, key: String, in document: inout JSONSourceDocument)

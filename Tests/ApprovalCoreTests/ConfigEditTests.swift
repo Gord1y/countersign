@@ -316,13 +316,121 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
 
   @Test func eachPreferenceNameIsATopLevelKeyOfTheFile() {
     #expect(
-      PreferenceName.allCases.map(\.rawValue) == [
+      PreferenceName.allCases.prefix(13).map(\.rawValue) == [
         "armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds", "snoozeMinutes",
         "handoffApps", "checkForUpdates", "questionNotes", "quitBehavior", "modeAfterPlan",
         "appearance", "accentColor", "editorApp",
       ])
     #expect(
-      Set(PreferenceName.allCases.map(\.rawValue)).isSubset(of: ConfigFileParser.topLevelKeys))
+      PreferenceName.allCases.prefix(13).allSatisfy { $0.keyPath == [$0.rawValue] })
+    #expect(
+      Set(PreferenceName.allCases.compactMap(\.keyPath.first)).isSubset(
+        of: ConfigFileParser.topLevelKeys))
+  }
+
+  @Test func namesTheKeyPathOfEveryContextRow() {
+    #expect(
+      PreferenceName.allCases.suffix(13).map { $0.keyPath.joined(separator: ".") } == [
+        "contextCheckpoints.enabled", "contextCheckpoints.mode",
+        "contextCheckpoints.thresholds.200k", "contextCheckpoints.thresholds.1m",
+        "contextCheckpoints.modelThresholds", "contextCheckpoints.rearmBelow",
+        "contextCheckpoints.handoffFile", "contextCheckpoints.notes.soft",
+        "contextCheckpoints.notes.status", "contextCheckpoints.notes.insist",
+        "contextCheckpoints.notes.compact", "contextCheckpoints.notes.handoff",
+        "contextCheckpoints.menuBarMeter",
+      ])
+  }
+
+  @Test func enablingCreatesTheBlockInTheFilesStyle() throws {
+    #expect(
+      try editing(nil, .contextCheckpointsEnabled(true))
+        == "{\n  \"$schema\": \"\(schema)\",\n  \"contextCheckpoints\": {\n    \"enabled\": true\n  }\n}\n"
+    )
+    #expect(
+      try editing("{\n\t\"armDelay\": 1\n}\n", .contextCheckpointsEnabled(true))
+        == "{\n\t\"armDelay\": 1,\n\t\"contextCheckpoints\": {\n\t\t\"enabled\": true\n\t}\n}\n")
+  }
+
+  @Test func settingTheMillionLadderCreatesThresholdsInAnExistingBlock() throws {
+    let config = "{\n  \"contextCheckpoints\": {\n    \"enabled\": true\n  }\n}\n"
+    #expect(
+      try editing(config, .contextMillionThresholds([250_000, 350_000, 450_000]))
+        == "{\n  \"contextCheckpoints\": {\n    \"enabled\": true,\n    \"thresholds\": {\n"
+        + "      \"1m\": [\n        250000,\n        350000,\n        450000\n      ]\n    }\n  }\n}\n"
+    )
+  }
+
+  @Test func keepsALadderThatAlreadyHoldsTheChoice() throws {
+    let config =
+      "{\"contextCheckpoints\": {\"thresholds\": {\"200k\": [100000.0, 130000, 160000]}}}"
+    #expect(try editing(config, .contextStandardThresholds([100_000, 130_000, 160_000])) == config)
+  }
+
+  @Test func aNoteEditKeepsItsSiblings() throws {
+    let config =
+      "{\n  \"contextCheckpoints\": {\n    \"notes\": {\n      \"soft\": \"a\",\n      \"status\": \"b\"\n    }\n  }\n}\n"
+    #expect(
+      try editing(config, .contextNote(.contextNoteStatus, "c"))
+        == "{\n  \"contextCheckpoints\": {\n    \"notes\": {\n      \"soft\": \"a\",\n      \"status\": \"c\"\n    }\n  }\n}\n"
+    )
+    #expect(
+      try editing(config, .contextNote(.contextNoteInsist, "d"))
+        == "{\n  \"contextCheckpoints\": {\n    \"notes\": {\n      \"soft\": \"a\",\n      \"status\": \"b\",\n      \"insist\": \"d\"\n    }\n  }\n}\n"
+    )
+  }
+
+  @Test func ignoresANoteEditForAnyOtherName() throws {
+    let config = "{\n  \"armDelay\": 1\n}\n"
+    #expect(try editing(config, .contextNote(.armDelay, "x")) == config)
+  }
+
+  @Test func removingAModelLadderReturnsTheBytesBeforeTheSet() throws {
+    let config =
+      "{\n  \"contextCheckpoints\": {\n    \"modelThresholds\": {\n      \"claude-opus\": [\n        1,\n        2,\n        3\n      ]\n    }\n  }\n}\n"
+    let withPrefix = try editing(
+      config, .setContextModelThresholds(prefix: "claude-sonnet", ladder: [10, 20, 30]))
+    #expect(withPrefix != config)
+    #expect(withPrefix.contains("\"claude-sonnet\""))
+    #expect(
+      try editing(withPrefix, .removeContextModelThresholds(prefix: "claude-sonnet")) == config)
+  }
+
+  @Test func resettingTheModeRemovesOnlyTheMode() throws {
+    let config =
+      "{\n  \"contextCheckpoints\": {\n    \"enabled\": true,\n    \"mode\": \"silent\",\n    \"rearmBelow\": 0.5\n  }\n}\n"
+    #expect(
+      try editing(config, .reset(.contextMode))
+        == "{\n  \"contextCheckpoints\": {\n    \"enabled\": true,\n    \"rearmBelow\": 0.5\n  }\n}\n"
+    )
+  }
+
+  @Test func resettingTheOnlyMemberLeavesAnEmptyObject() throws {
+    let config = "{\n  \"contextCheckpoints\": {\n    \"mode\": \"silent\"\n  }\n}\n"
+    let result = try editing(config, .reset(.contextMode))
+    let parsed = ConfigFileParser.parse(Data(result.utf8)).file
+    #expect(parsed.contextCheckpoints != nil)
+    #expect(parsed.contextCheckpoints?.mode == nil)
+    #expect(try editing("{}", .reset(.contextMode)) == "{}")
+    #expect(
+      try editing("{\"contextCheckpoints\": 3}", .reset(.contextMode))
+        == "{\"contextCheckpoints\": 3}")
+  }
+
+  @Test func neverTouchesTheContextCheckpointHosts() throws {
+    let hosts = "\"hosts\": {\n      \"claude\": {\n        \"mode\": \"silent\"\n      }\n    }"
+    let config = "{\n  \"contextCheckpoints\": {\n    \(hosts)\n  }\n}\n"
+    let result = try editing(
+      config, .contextMode(.silent), .contextRearmBelow(0.5), .reset(.contextMode),
+      .contextNote(.contextNoteSoft, "x"))
+    #expect(result.contains(hosts))
+    let untouched = try editing(config, .reset(.contextMode))
+    #expect(untouched == config)
+  }
+
+  @Test func replacesAContextBlockOfTheWrongType() throws {
+    #expect(
+      try editing("{\n  \"contextCheckpoints\": 3\n}\n", .contextMode(.silent))
+        == "{\n  \"contextCheckpoints\": {\n    \"mode\": \"silent\"\n  }\n}\n")
   }
 
   @Test func spellsNumbersLikeTheEditor() {

@@ -4,6 +4,58 @@ import Testing
 @testable import ApprovalCore
 
 @Suite struct PreferenceValuesTests {
+  @Test func appliesEveryContextEdit() {
+    var values = PreferenceValues()
+    values = values.applying(.contextCheckpointsEnabled(true))
+    values = values.applying(.contextMode(.silent))
+    values = values.applying(.contextStandardThresholds([1, 2, 3]))
+    values = values.applying(.contextMillionThresholds([4, 5, 6]))
+    values = values.applying(.setContextModelThresholds(prefix: "claude-opus", ladder: [7, 8, 9]))
+    values = values.applying(.setContextModelThresholds(prefix: "claude-haiku", ladder: [1]))
+    values = values.applying(.removeContextModelThresholds(prefix: "claude-haiku"))
+    values = values.applying(.contextRearmBelow(0.5))
+    values = values.applying(.contextHandoffFile("h.md"))
+    values = values.applying(.contextNote(.contextNoteSoft, "a"))
+    values = values.applying(.contextNote(.contextNoteStatus, "b"))
+    values = values.applying(.contextNote(.contextNoteInsist, "c"))
+    values = values.applying(.contextNote(.contextNoteCompact, "d"))
+    values = values.applying(.contextNote(.contextNoteHandoff, "e"))
+    values = values.applying(.contextMenuBarMeter(true))
+    #expect(
+      values.contextCheckpoints
+        == ContextCheckpointSettings(
+          enabled: true, mode: .silent, standardThresholds: [1, 2, 3],
+          millionThresholds: [4, 5, 6], modelThresholds: ["claude-opus": [7, 8, 9]],
+          rearmBelow: 0.5, handoffFile: "h.md",
+          notes: ContextCheckpointNotes(
+            soft: "a", status: "b", insist: "c", compact: "d", handoff: "e"),
+          menuBarMeter: true))
+  }
+
+  @Test func resetsEveryContextNameToItsDefault() {
+    var values = PreferenceValues()
+    values = values.applying(.contextMode(.silent))
+    values = values.applying(.contextNote(.contextNoteSoft, "a"))
+    values = values.applying(.setContextModelThresholds(prefix: "x", ladder: [1]))
+    values = values.applying(.contextMenuBarMeter(true))
+    for name in PreferenceName.allCases {
+      values = values.applying(.reset(name))
+    }
+    #expect(values == PreferenceValues())
+  }
+
+  @Test func readsTheTopLevelContextBlockFromTheFile() {
+    let file = ConfigFile(
+      contextCheckpoints: ContextCheckpointFileValues(
+        enabled: true, mode: .silent, notes: ["soft": "a"]))
+    let settings = PreferenceValues(file: file).contextCheckpoints
+    #expect(settings.enabled)
+    #expect(settings.mode == .silent)
+    #expect(settings.notes.soft == "a")
+    #expect(settings.notes.status == ContextCheckpointNotes.default.status)
+    #expect(PreferenceValues(file: ConfigFile()).contextCheckpoints == .default)
+  }
+
   @Test func startsFromTheBuiltInDefaults() {
     let values = PreferenceValues()
     #expect(values.armDelay == Settings.defaultArmDelay)

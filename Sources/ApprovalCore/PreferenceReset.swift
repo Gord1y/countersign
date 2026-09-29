@@ -32,6 +32,35 @@ public enum PreferenceReset {
       return changed(file.accentColor, from: Settings.defaultAccentColor)
     case .editorApp:
       return file.editorApp != nil
+    case .contextCheckpointsEnabled:
+      return changed(
+        file.contextCheckpoints?.enabled, from: ContextCheckpointSettings.default.enabled)
+    case .contextMode:
+      return changed(file.contextCheckpoints?.mode, from: ContextCheckpointSettings.defaultMode)
+    case .contextStandardThresholds:
+      return changed(
+        file.contextCheckpoints?.standardThresholds,
+        from: ContextCheckpointSettings.defaultStandardThresholds)
+    case .contextMillionThresholds:
+      return changed(
+        file.contextCheckpoints?.millionThresholds,
+        from: ContextCheckpointSettings.defaultMillionThresholds)
+    case .contextModelThresholds:
+      return !(file.contextCheckpoints?.modelThresholds ?? [:]).isEmpty
+    case .contextRearmBelow:
+      return changed(
+        file.contextCheckpoints?.rearmBelow, from: ContextCheckpointSettings.defaultRearmBelow)
+    case .contextHandoffFile:
+      return changed(
+        file.contextCheckpoints?.handoffFile, from: ContextCheckpointSettings.defaultHandoffFile)
+    case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteCompact,
+      .contextNoteHandoff:
+      return changed(
+        name.noteName.flatMap { file.contextCheckpoints?.notes[$0] },
+        from: ContextCheckpointNotes.default.text(for: name) ?? "")
+    case .contextMenuBarMeter:
+      return changed(
+        file.contextCheckpoints?.menuBarMeter, from: ContextCheckpointSettings.default.menuBarMeter)
     }
   }
 
@@ -76,7 +105,33 @@ public enum PreferenceReset {
     case .appearance: return values.appearance.title
     case .accentColor: return AccentPreset.name(of: values.accentColor)
     case .editorApp: return values.editorApp ?? PreferenceName.editorApp.defaultText
+    case .contextCheckpointsEnabled: return values.contextCheckpoints.enabled ? "On" : "Off"
+    case .contextMode: return values.contextCheckpoints.mode.rawValue.capitalized
+    case .contextStandardThresholds: return ladderText(values.contextCheckpoints.standardThresholds)
+    case .contextMillionThresholds: return ladderText(values.contextCheckpoints.millionThresholds)
+    case .contextModelThresholds:
+      return modelsCountText(values.contextCheckpoints.modelThresholds.count)
+    case .contextRearmBelow: return percentText(values.contextCheckpoints.rearmBelow)
+    case .contextHandoffFile: return values.contextCheckpoints.handoffFile
+    case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteCompact,
+      .contextNoteHandoff:
+      let text = values.contextCheckpoints.notes.text(for: name)
+      return text == ContextCheckpointNotes.default.text(for: name) ? "Default" : "Custom"
+    case .contextMenuBarMeter: return values.contextCheckpoints.menuBarMeter ? "On" : "Off"
     }
+  }
+
+  static func ladderText(_ ladder: [Int]) -> String {
+    ladder.map(ContextCheckpointNotes.tokenText).joined(separator: ", ")
+  }
+
+  static func percentText(_ ratio: Double) -> String {
+    "\(Int((ratio * 100).rounded()))%"
+  }
+
+  private static func modelsCountText(_ count: Int) -> String {
+    guard count > 0 else { return "none" }
+    return "\(count) model\(count == 1 ? "" : "s")"
   }
 
   private static func handoffAppsCountText(_ count: Int) -> String {
@@ -95,7 +150,10 @@ public enum PreferenceReset {
     case .snoozeMinutes: return overrides.snoozeMinutes != nil
     case .handoffApps: return overrides.handoffApps != nil
     case .checkForUpdates, .questionNotes, .quitBehavior, .modeAfterPlan, .appearance,
-      .accentColor, .editorApp:
+      .accentColor, .editorApp, .contextCheckpointsEnabled, .contextMode,
+      .contextStandardThresholds, .contextMillionThresholds, .contextModelThresholds,
+      .contextRearmBelow, .contextHandoffFile, .contextNoteSoft, .contextNoteStatus,
+      .contextNoteInsist, .contextNoteCompact, .contextNoteHandoff, .contextMenuBarMeter:
       return false
     }
   }

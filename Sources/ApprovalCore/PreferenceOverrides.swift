@@ -2,7 +2,7 @@ import Foundation
 
 public enum PreferenceOverrides {
   public static let fileOnlyTopLevelKeys: [String] = ConfigFileParser.topLevelKeys
-    .subtracting(PreferenceName.allCases.map(\.rawValue))
+    .subtracting(PreferenceName.allCases.compactMap(\.keyPath.first))
     .subtracting(["hosts", "$schema"])
     .sorted()
 
