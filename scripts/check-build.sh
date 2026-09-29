@@ -1,4 +1,4 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-swift build
+scripts/run-quietly.sh build swift build
