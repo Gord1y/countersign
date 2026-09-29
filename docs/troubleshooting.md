@@ -82,6 +82,25 @@ request starts with a `start host=… tool=… project=…` line and ends with w
 `resolved during grace: registry` or `outcome: allow`; a paused Countersign logs just `paused`. If
 the agent asks and nothing at all is logged, the agent never ran the hook: check its wiring.
 
+## No context checkpoint appears
+
+Go through these in order:
+
+1. **Is the feature on?** It is off by default: Settings ▸ Panels ▸ Context checkpoints (Claude
+   Code). `countersign test-panel context` shows a checkpoint panel with your settings, whatever
+   the session.
+2. **Is the hook wired?** `countersign doctor` reports it on its `claude context` line; if it is
+   not `ok`, turn the feature off and on in Settings, which writes the entry again (see
+   [setup.md](setup.md)).
+3. **Paused or in quiet time?** Both hold checkpoints back, as they do any panel; see
+   [No panel appears](#no-panel-appears).
+4. **A headless session?** Non-interactive runs such as `claude -p` get no panel.
+5. **Below the first checkpoint?** Nothing fires until the context passes it: 100K tokens on a
+   200K window, 200K on a 1M window, or your own thresholds.
+6. **Already muted?** **Not this session** mutes the session; a new session starts unmuted.
+
+A reading can lag one turn, so a checkpoint may show one prompt after the size was crossed.
+
 ## A panel went away on its own
 
 That is expected when:

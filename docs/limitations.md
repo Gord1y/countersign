@@ -16,6 +16,13 @@ for something specific, or when it behaves differently from what you expected an
   release changes them, the panel still works; it just stays up until you close it.
 - Two prompts pending in the same Claude session share one status, so if you answer one in the
   chat, the other's panel only notices once its tool finishes.
+- Context checkpoints are Claude Code only; Codex, Cursor and Antigravity have none.
+- A context reading can lag one turn, because Claude Code writes the transcript asynchronously,
+  and it is an estimate from the token counts in that transcript: a nudge, not a meter.
+- The panel cannot run `/compact` or `/clear`. It steers Claude with a note, and Claude's reply
+  tells you what to run.
+- A checkpoint prints no line in the terminal: Claude Code never shows the messages of a hook that
+  runs in the background.
 
 ## Codex
 

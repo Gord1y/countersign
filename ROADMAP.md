@@ -83,6 +83,8 @@ not the model behind it.
   ever gains a session registry.
 - A faster subagent header chain, read straight from Claude Code's `parentAgentId` metadata
   instead of walking the transcript tree.
+- Context checkpoints for Codex, Cursor and Antigravity, once they expose a transcript with token
+  counts.
 - Decision history in the menu-bar app, and answering pending requests straight from the menu.
 - Touch ID confirmation for risky commands.
 - Editing a command before approving it, on hosts that accept updated input back.

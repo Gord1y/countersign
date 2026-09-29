@@ -8,8 +8,8 @@ for what you want to do; each line says when that page is the one to open.
 - [Connect your agents](setup.md): read it when you install Countersign, add another agent, or
   want to know what setup wrote to your files and how to undo it.
 - [Configuration](configuration.md): read it when you want to change how long the panel waits,
-  the snooze presets, the update check, or a setting for one agent, or try your settings on a test
-  panel.
+  the snooze presets, the update check, context checkpoints, or a setting for one agent, or try
+  your settings on a test panel.
 - [What each agent gets](agents.md): read it to know what Approve, Deny or "Answer in chat" does
   in Claude Code, Codex, Cursor or Antigravity, and which requests get a panel.
 - [The menu-bar app](menu-bar-app.md): read it when you want pause, snooze, Settings and a test

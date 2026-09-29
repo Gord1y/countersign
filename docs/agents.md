@@ -51,6 +51,24 @@ Noticing a chat answer relies on Claude Code internals that aren't documented; i
 release changes them, the panel still works but stays up until you close it. Details are in
 [limitations.md](limitations.md).
 
+### Context checkpoints
+
+Off by default; turn it on in Settings ▸ Panels ▸ Context checkpoints (Claude Code). Countersign
+reads the session's transcript on each prompt, estimates the context size, and at three
+checkpoints shows a panel, or in silent mode adds a note without one. Thresholds, silent mode and
+the rest are in [configuration.md](configuration.md#context-checkpoints-claude-code); how the size
+is measured is in [design/checkpoints.md](design/checkpoints.md).
+
+- **Continue** sends nothing. Esc or a click outside does the same.
+- **Not this session** sends nothing and mutes the session: no further checkpoint until it ends.
+- **Compact after this step** sends Claude a note to finish its current step and suggest
+  compacting. Countersign cannot run `/compact` itself, so Claude's reply tells you what to run.
+- **Hand off & start fresh** sends Claude a note to write a handoff and suggest starting a fresh
+  session; Claude's reply tells you what to run.
+
+The prompt never waits for a checkpoint: the hook runs in the background, and the note reaches
+Claude at its next request, or with your next message when Claude is idle.
+
 ### After wiring
 
 Nothing to do. Claude Code picks up a hook edit through its own file watcher; restart it only if a

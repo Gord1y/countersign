@@ -131,6 +131,9 @@ writes and sends: [Safety and privacy](docs/safety-and-privacy.md).
   continues in.
 - **Snooze.** Quiet for a preset duration. Requests answered in their chats meanwhile drop out, the
   rest come back one at a time.
+- **Context checkpoints (optional, Claude Code).** Turn it on and Countersign asks, at three
+  context sizes, whether to compact or hand off before your session gets too long, without ever
+  making a prompt wait. Off by default; see [Context checkpoints](docs/configuration.md#context-checkpoints-claude-code).
 - **Fails safe.** Any error, timeout or crash means "no decision": the agent falls back to its own
   prompt, and Cursor and Antigravity carry on as they would without Countersign.
 - **Cursor too.** Shell commands Cursor runs outside its sandbox, and every MCP tool call, get the
@@ -178,7 +181,7 @@ it steps aside, swallowing that one key, until your next pause. ⌘ shortcuts su
 | `countersign pause` / `resume` | Turn the panel off and on. While paused, every prompt goes to its chat |
 | `countersign snooze 15m` | Quiet time for all prompts. Accepts `90s`, `15m`, `1h` or plain minutes |
 | `countersign snooze off` | End quiet time early |
-| `countersign test-panel` | Shows a test panel with your settings; add `question` or `plan` for those. Nothing reaches an agent |
+| `countersign test-panel` | Shows a test panel with your settings; add `question`, `plan` or `context` for those. Nothing reaches an agent |
 | `countersign --version` | Prints the installed version |
 | `countersign help` | Lists every command, with the help and support links |
 
