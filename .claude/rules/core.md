@@ -23,7 +23,8 @@ paths:
   [resolution](../../docs/design/resolution.md), [panel](../../docs/design/panel.md),
   [answers](../../docs/design/answers.md), [setup](../../docs/design/setup.md),
   [settings](../../docs/design/settings.md), [doctor](../../docs/design/doctor.md),
-  [app](../../docs/design/app.md) — user-facing pages in `docs/<topic>.md` —
+  [app](../../docs/design/app.md),
+  [checkpoints](../../docs/design/checkpoints.md) — user-facing pages in `docs/<topic>.md` —
   [setup](../../docs/setup.md), [configuration](../../docs/configuration.md),
   [agents](../../docs/agents.md), [menu-bar-app](../../docs/menu-bar-app.md),
   [troubleshooting](../../docs/troubleshooting.md), [limitations](../../docs/limitations.md),
