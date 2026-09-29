@@ -116,4 +116,16 @@ import Testing
     #expect(store.withLock(sessionID: sessionID, attempts: 1) { 2 } == 2)
     #expect(store.withLock(sessionID: "../x") { 3 } == nil)
   }
+
+  @Test func sessionIDsIgnoresLockFilesAndInvalidNames() throws {
+    let directory = try makeDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = ContextCheckpointStore(directory: directory)
+    try store.save(ContextCheckpointState.fresh(now: now), sessionID: "b-2")
+    try store.save(ContextCheckpointState.fresh(now: now), sessionID: "a1")
+    try Data().write(to: directory.appendingPathComponent("c3.lock"))
+    try Data("{}".utf8).write(to: directory.appendingPathComponent("bad name.json"))
+    try Data("{}".utf8).write(to: directory.appendingPathComponent("under_score.json"))
+    #expect(store.sessionIDs() == ["a1", "b-2"])
+  }
 }

@@ -105,6 +105,7 @@ public struct CompanionMenuInput: Sendable, Equatable {
   public var version: String
   public var updateAvailable: UpdateAvailability?
   public var manualCheckResult: ManualUpdateCheckResult?
+  public var contextRows: [ContextMeterRow]
 
   public init(
     isPaused: Bool,
@@ -116,8 +117,10 @@ public struct CompanionMenuInput: Sendable, Equatable {
     buyMeACoffeeURL: URL? = CompanionMenu.buyMeACoffeeURL,
     version: String = CountersignVersion.current,
     updateAvailable: UpdateAvailability? = nil,
-    manualCheckResult: ManualUpdateCheckResult? = nil
+    manualCheckResult: ManualUpdateCheckResult? = nil,
+    contextRows: [ContextMeterRow] = []
   ) {
+    self.contextRows = contextRows
     self.isPaused = isPaused
     self.quietUntil = quietUntil
     self.pendingEntries = pendingEntries
@@ -153,6 +156,11 @@ public enum CompanionMenu {
     var items: [CompanionMenuItem] = [
       .entry(CompanionMenuEntry(title: statusTitle(input, timeZone: timeZone), isEnabled: false)),
       .entry(pendingEntry(input.pendingEntries)),
+    ]
+    if !input.contextRows.isEmpty {
+      items.append(.entry(contextEntry(input.contextRows)))
+    }
+    items += [
       .separator,
       .entry(pauseEntry(isPaused: input.isPaused)),
       .entry(
@@ -211,6 +219,12 @@ public enum CompanionMenu {
       return CompanionMenuEntry(
         title: "\(entries.count) requests pending", submenu: pendingRows(entries))
     }
+  }
+
+  private static func contextEntry(_ rows: [ContextMeterRow]) -> CompanionMenuEntry {
+    CompanionMenuEntry(
+      title: "Context in live sessions",
+      submenu: rows.map { .entry(CompanionMenuEntry(title: $0.title, isEnabled: false)) })
   }
 
   private static func pendingRows(_ entries: [WaitingEntry]) -> [CompanionMenuItem] {

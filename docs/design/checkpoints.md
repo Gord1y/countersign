@@ -77,3 +77,16 @@ or undecodable file means "no state"; a key missing from an older file decodes a
 value. Concurrent hooks for one session serialise on `<session id>.lock` (a non-blocking `flock`,
 retried for about a second, after which the hook does nothing). Files untouched for 30 days are
 pruned.
+
+## The menu-bar meter
+
+`ContextMeter.rows` builds the menu's "Context in live sessions" list from the per-session state
+files the hook keeps. A session counts only while it is live: the Claude Code session registry
+(`~/.claude/sessions/*.json`) has an entry with its id and that entry's `pid` is a running process.
+Files outlive their process, so anything unknown, such as a missing entry or pid, means "not live".
+
+Each live session is read fresh from its stored `transcriptPath` with `ContextUsageReader`, because
+the stored `lastTokens` is only as new as the last prompt. If the transcript cannot be read, the
+row falls back to `lastTokens`. The row title is `<project> · <size> tokens`, with `Claude Code`
+when no project was stored. Rows are sorted by tokens, largest first, capped at eight. The read
+happens only when the menu opens; nothing polls, and the icon timer never reads transcripts.

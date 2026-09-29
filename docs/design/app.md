@@ -222,6 +222,12 @@ action, and `ApprovalCoreTests` covers it. `CompanionController` in `MenuBarComp
 renders those items into `NSMenuItem`s, with `autoenablesItems` off so the model's enabled state
 is the one shown, and performs the chosen `CompanionMenuAction`.
 
+`CompanionMenuInput.contextRows` carries the context meter: `currentInput()` fills it when the menu
+opens, only if context checkpoints and `menuBarMeter` are on for Claude Code, and `items` turns a
+non-empty list into a "Context in live sessions" submenu of disabled rows right after the pending
+entry. Nothing refreshes it while the menu is closed, and the icon's 2 s timer never touches
+transcripts. See [checkpoints.md](checkpoints.md#the-menu-bar-meter).
+
 | Item | What it does | File |
 | --- | --- | --- |
 | "Countersign is on", "Paused" or "Quiet until 14:05" | Disabled status line; paused wins over quiet time. The time is local, `HH:mm`, from `TimeOfDayText`, the same formatter `countersign status` uses | reads `paused`, `quiet-until` |

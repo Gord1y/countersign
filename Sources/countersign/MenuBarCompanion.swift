@@ -168,6 +168,15 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
 
   private func currentInput() -> CompanionMenuInput {
     let configFile = loadConfigFile()
+    let checkpointSettings = Settings.resolve(file: configFile, host: .claude).contextCheckpoints
+    let contextRows =
+      checkpointSettings.enabled && checkpointSettings.menuBarMeter
+      ? ContextMeter.rows(
+        store: ContextCheckpointStore(directory: paths.contextCheckpointsDirectory),
+        isLive: {
+          ContextMeter.isLive(sessionID: $0, sessionsDirectory: paths.claudeSessionsDirectory)
+        })
+      : []
     return CompanionMenuInput(
       isPaused: pauseSwitch.isPaused,
       quietUntil: quietTime.activeUntil(),
@@ -175,7 +184,8 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
       snoozeMinutes: CompanionMenu.snoozeMinutes(for: configFile),
       launchAtLogin: launchAtLoginState(),
       updateAvailable: currentUpdateAvailability(),
-      manualCheckResult: manualCheckResult)
+      manualCheckResult: manualCheckResult,
+      contextRows: contextRows)
   }
 
   private func loadConfigFile() -> ConfigFile {

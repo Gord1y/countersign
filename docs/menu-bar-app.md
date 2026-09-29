@@ -51,6 +51,12 @@ panel shows up in the icon within two seconds.
   Time (until …)** entry that ends it early.
 - The menu lists the requests waiting for a panel, oldest first, by agent, project and tool. The
   list is for reading only; each request is answered in its own panel.
+- **Context in live sessions** appears right below it, only when context checkpoints and the
+  menu-bar meter are both on and at least one Claude Code session is running. Its submenu has one
+  read-only line per session, such as `shop-api · 212K tokens`, largest first, up to eight. Sessions
+  whose Claude Code process has ended are left out. Countersign reads each session's transcript
+  when you open the menu, not in the background; if a transcript cannot be read, the size from that
+  session's last prompt is shown.
 
 ## Settings
 

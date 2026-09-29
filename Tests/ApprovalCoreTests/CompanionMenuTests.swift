@@ -47,6 +47,27 @@ import Testing
 
   private static let quietUntil = Date(timeIntervalSince1970: 14 * 3600 + 5 * 60 + 59)
 
+  @Test func contextEntryAppearsAfterPendingWithDisabledRowsOnlyWhenRowsExist() throws {
+    let rows = [
+      ContextMeterRow(
+        sessionID: "a", project: "shop-api", tokens: 212_000, title: "shop-api · 212K tokens"),
+      ContextMeterRow(
+        sessionID: "b", project: "web", tokens: 90_000, title: "web · 90K tokens"),
+    ]
+    var withRows = input()
+    withRows.contextRows = rows
+    let entry = try entry(2, of: withRows)
+    #expect(entry.title == "Context in live sessions")
+    #expect(entry.isEnabled)
+    #expect(
+      entry.submenu == [
+        .entry(CompanionMenuEntry(title: "shop-api · 212K tokens", isEnabled: false)),
+        .entry(CompanionMenuEntry(title: "web · 90K tokens", isEnabled: false)),
+      ])
+    #expect(
+      !entries(input()).contains { $0.title == "Context in live sessions" })
+  }
+
   @Test func activeMenuListsEveryItemInOrder() throws {
     let sponsor = try #require(CompanionMenu.sponsorURL)
     let documentation = try #require(CompanionMenu.documentationURL)

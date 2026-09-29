@@ -71,6 +71,16 @@ public struct ContextCheckpointStore: Sendable {
     return try? decoder.decode(ContextCheckpointState.self, from: data)
   }
 
+  public func sessionIDs() -> [String] {
+    let contents =
+      (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil))
+      ?? []
+    return contents.filter { $0.pathExtension == "json" }
+      .map { $0.deletingPathExtension().lastPathComponent }
+      .filter { Self.isValidSessionID($0) }
+      .sorted()
+  }
+
   public func save(_ state: ContextCheckpointState, sessionID: String) throws {
     guard Self.isValidSessionID(sessionID) else {
       throw POSIXError(.EINVAL)
