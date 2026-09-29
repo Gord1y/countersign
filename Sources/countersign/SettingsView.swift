@@ -5,7 +5,8 @@ import SwiftUI
 enum SettingsMetrics {
   static let padding: CGFloat = 24
   static let sectionSpacing: CGFloat = 28
-  static let headerSpacing: CGFloat = 16
+  static let headerVerticalPadding: CGFloat = 12
+  static let contentTopInset: CGFloat = 16
   static let rowPadding: CGFloat = 14
   static let glyphWidth: CGFloat = 18
   static let cornerRadius: CGFloat = 10
@@ -74,7 +75,8 @@ struct SettingsHeader: View {
   let model: SettingsModel
 
   var body: some View {
-    VStack(spacing: SettingsMetrics.headerSpacing) {
+    let controls = model.headerControls
+    VStack(alignment: .leading, spacing: 6) {
       HStack(spacing: 8) {
         CountersignMark()
           .frame(width: 20, height: 20)
@@ -85,15 +87,152 @@ struct SettingsHeader: View {
           .foregroundStyle(.secondary)
           .textSelection(.enabled)
         Spacer(minLength: 12)
+        if let caption = controls.caption() {
+          Text(caption.text)
+            .font(PanelTypography.caption)
+            .foregroundStyle(caption.tint.color)
+            .lineLimit(1)
+        }
+        HeaderPauseButton(model: model, controls: controls)
+        HeaderSnoozeButton(model: model, controls: controls)
         Button("Close") { model.requestClose?() }
           .buttonStyle(SecondaryButtonStyle())
       }
-      StatusRow(model: model)
+      if let error = model.statusError {
+        InlineMessage(error, tone: .problem)
+      }
     }
     .padding(.horizontal, SettingsMetrics.padding)
-    .padding(.top, SettingsMetrics.padding)
-    .padding(.bottom, SettingsMetrics.sectionSpacing)
+    .padding(.vertical, SettingsMetrics.headerVerticalPadding)
     .frame(maxWidth: .infinity)
+    .background(Color(nsColor: .windowBackgroundColor))
+    .overlay(alignment: .bottom) {
+      Rectangle()
+        .fill(Color.primary.opacity(0.12))
+        .frame(height: 1)
+    }
+    .zIndex(1)
+  }
+}
+
+extension HeaderControlTint {
+  fileprivate var color: Color {
+    switch self {
+    case .secondary: return .secondary
+    case .yellow: return Color(nsColor: .systemYellow)
+    case .blue: return Color(nsColor: .systemBlue)
+    }
+  }
+}
+
+private struct HeaderIconButton: View {
+  let symbol: String
+  let tint: HeaderControlTint
+  let help: String
+  let action: () -> Void
+
+  var body: some View {
+    Button(action: action) {
+      Image(systemName: symbol)
+        .font(.system(size: 13, weight: .medium))
+        .foregroundStyle(tint.color)
+        .frame(width: 28, height: 28)
+        .background(
+          RoundedRectangle(cornerRadius: 7, style: .continuous)
+            .fill(Color.primary.opacity(0.06))
+        )
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .help(help)
+    .accessibilityLabel(help)
+  }
+}
+
+private struct HeaderPauseButton: View {
+  let model: SettingsModel
+  let controls: SettingsHeaderControls
+
+  var body: some View {
+    HeaderIconButton(
+      symbol: "pause.fill", tint: controls.pauseTint, help: controls.pauseHelp
+    ) {
+      model.togglePause()
+    }
+  }
+}
+
+private struct HeaderSnoozeButton: View {
+  let model: SettingsModel
+  let controls: SettingsHeaderControls
+
+  @State private var isPresented = false
+
+  var body: some View {
+    HeaderIconButton(
+      symbol: "moon.zzz", tint: controls.snoozeTint, help: controls.snoozeHelp
+    ) {
+      isPresented = true
+    }
+    .disabled(!controls.snoozeIsEnabled)
+    .opacity(controls.snoozeIsEnabled ? 1 : 0.4)
+    .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+      SnoozePopoverView(model: model, controls: controls) { isPresented = false }
+    }
+  }
+}
+
+private struct SnoozePopoverView: View {
+  let model: SettingsModel
+  let controls: SettingsHeaderControls
+  let dismiss: () -> Void
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 2) {
+      if let heading = controls.quietHeading() {
+        Text(heading)
+          .font(.system(size: 13, weight: .semibold))
+          .padding(.horizontal, 8)
+          .padding(.bottom, 4)
+        SnoozePopoverRow(title: "End now") {
+          model.endQuietTime()
+          dismiss()
+        }
+      } else {
+        ForEach(Array(model.snoozeChoices.enumerated()), id: \.offset) { index, minutes in
+          SnoozePopoverRow(title: SnoozeTitle.describe(minutes: minutes, isFirst: index == 0)) {
+            model.snooze(minutes: minutes)
+            dismiss()
+          }
+        }
+      }
+    }
+    .padding(8)
+    .frame(minWidth: 180, alignment: .leading)
+  }
+}
+
+private struct SnoozePopoverRow: View {
+  let title: String
+  let action: () -> Void
+
+  @State private var isHovered = false
+
+  var body: some View {
+    Button(action: action) {
+      Text(title)
+        .font(.system(size: 13))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(
+          RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .fill(Color.primary.opacity(isHovered ? 0.1 : 0))
+        )
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .onHover { isHovered = $0 }
   }
 }
 
@@ -110,6 +249,7 @@ struct SettingsSidebar: View {
       }
       Spacer(minLength: 0)
     }
+    .padding(.top, SettingsMetrics.contentTopInset)
   }
 
   private func isSelected(_ pane: SettingsPane) -> Bool {
@@ -161,6 +301,7 @@ struct SettingsContent: View {
 
   var body: some View {
     SettingsPaneView(pane: model.selectedPane, model: model)
+      .padding(.top, SettingsMetrics.contentTopInset)
       .padding(.bottom, SettingsMetrics.padding)
       .frame(maxWidth: .infinity, alignment: .leading)
   }
@@ -288,60 +429,6 @@ struct InlineMessage: View {
     case .problem: return color
     case .warning: return .primary
     case .note, .done: return .secondary
-    }
-  }
-}
-
-struct StatusRow: View {
-  let model: SettingsModel
-
-  var body: some View {
-    SettingsGroup {
-      VStack(alignment: .leading, spacing: 8) {
-        HStack(alignment: .center, spacing: 10) {
-          Image(systemName: model.status.icon.symbolName)
-            .font(.system(size: 15))
-            .foregroundStyle(glyphColor)
-            .frame(width: SettingsMetrics.glyphWidth)
-            .accessibilityLabel(model.status.icon.accessibilityLabel)
-          VStack(alignment: .leading, spacing: 2) {
-            Text(model.status.title())
-              .font(.system(size: 13, weight: .semibold))
-            Text(model.status.detail)
-              .font(PanelTypography.secondary)
-              .foregroundStyle(.secondary)
-              .fixedSize(horizontal: false, vertical: true)
-          }
-          Spacer(minLength: 12)
-          actionButton
-        }
-        if let error = model.statusError {
-          InlineMessage(error, tone: .problem)
-            .padding(.leading, SettingsMetrics.glyphWidth + 10)
-        }
-      }
-      .padding(SettingsMetrics.rowPadding)
-    }
-  }
-
-  @ViewBuilder
-  private var actionButton: some View {
-    let action = model.status.action
-    switch action {
-    case .pause:
-      Button(action.title) { model.performStatusAction() }
-        .buttonStyle(SecondaryButtonStyle())
-    case .resume, .endQuietTime:
-      Button(action.title) { model.performStatusAction() }
-        .buttonStyle(PrimaryButtonStyle())
-    }
-  }
-
-  private var glyphColor: Color {
-    switch model.status {
-    case .active: return Color(nsColor: .systemGreen)
-    case .paused, .pausedUntilAppOpens: return Color(nsColor: .systemOrange)
-    case .quiet: return Color(nsColor: .systemIndigo)
     }
   }
 }

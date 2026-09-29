@@ -626,8 +626,7 @@ color".
 accent by `ApprovalCore.AccentPalette`:
 
 - `accent`, the chosen color itself (`fill`), fills: `PrimaryButtonStyle`'s default fill (Approve,
-  Submit, the plan's Approve, the Settings window's Wire and Update, and the status row's Resume and
-  End now) and the Approve split button's `chevron.down` segment.
+  Submit, the plan's Approve, and the Settings window's Wire and Update) and the Approve split button's `chevron.down` segment.
 - `onAccent` (`label`), the label and glyph on an accent fill, including the `⏎` hint (`KeyHint`
   placement `.onAccent`, at 80%): `#1D1B18` or white, whichever has the higher contrast ratio with
   the fill. On amber `#1D1B18` has about 8.7:1 and white about 2:1, too low to read; on each of the
@@ -678,8 +677,7 @@ follows macOS again. Everything inside, `accentText` and every system color incl
 against that appearance. The handoff backdrop draws only a black dimming layer, the same in either
 appearance, so it is left alone.
 
-Deny stays red (`DestructiveButtonStyle`) whatever the accent. Every other filled button, the
-Settings window's status row's Resume and End now included, uses `PrimaryButtonStyle`'s accent
+Deny stays red (`DestructiveButtonStyle`) whatever the accent. Every other filled button uses `PrimaryButtonStyle`'s accent
 fill: none of them takes the system accent, which is no agent's color either. The menu-bar icon is
 a monochrome template image and takes neither the accent nor the appearance choice.
 
@@ -1637,8 +1635,8 @@ without its app shows "version unknown" too. The running binary is never one of 
 copies, so the kept copy is the one a demo hook entry names, or none. `--show-copies` opens the
 notice's "Show copies" as a click would, when there is a notice.
 
-The status row never reads the real pause switch or quiet-time file, which have no variable to
-redirect them: it shows "Countersign is on" unless `--status` picks paused, paused until
+The header's pause and snooze controls never read the real pause switch or quiet-time file, which
+have no variable to redirect them: they show the active state (no caption) unless `--status` picks paused, paused until
 Countersign opens (the pause the companion's quit question sets, see "Quit" in [app.md](app.md)),
 or quiet time ending 15 minutes after the snapshot is taken.
 `--tab` picks the group the sidebar shows — `agents`, `panels`, `app`, `help` or `advanced` —

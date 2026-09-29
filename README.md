@@ -102,7 +102,7 @@ writes and sends: [Safety and privacy](docs/safety-and-privacy.md).
       <b>Antigravity too.</b> Commands and MCP tool calls, same panel (see <a href="docs/limitations.md">Limitations</a>).
     </td>
     <td>
-      <img width="100%" src="docs/images/tile-settings.jpg" alt="The Settings window with all four hosts wired and the status row showing Countersign is on"><br>
+      <img width="100%" src="docs/images/tile-settings.jpg" alt="The Settings window with all four hosts wired"><br>
       <b>Settings, no terminal needed.</b> Wire, update or remove hooks, tune panels, see the status.
     </td>
   </tr>
@@ -145,8 +145,8 @@ writes and sends: [Safety and privacy](docs/safety-and-privacy.md).
   Settings, a test panel to try your settings on, Launch at Login, the update check and Help.
   Quitting it asks whether to keep showing panels or pause them until you reopen it. Approvals work
   the same without it.
-- **Settings without the terminal.** One resizable window shows whether Countersign is on, paused
-  or quiet, with a sidebar for Agents, App, Panels and Help, plus Advanced behind a button in App: wire,
+- **Settings without the terminal.** One resizable window has Pause and Snooze buttons in its
+  header and shows when Countersign is paused or quiet, with a sidebar for Agents, App, Panels and Help, plus Advanced behind a button in App: wire,
   update or remove each agent's hooks, tune panels and try them on a test panel. Every hook change
   shows its diff first, and every other change is saved as soon as you make it; any setting that's
   been changed can be reset to its default, alone or as a group.

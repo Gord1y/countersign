@@ -2,7 +2,7 @@
 
 How the config file is found, parsed and applied, and how the settings window reads and writes it:
 where each key is consumed, the precedence function, why one bad key never spoils the rest, the
-window's size, status row, its five groups and how they are laid out, when each change is written,
+window's size, header controls, its five groups and how they are laid out, when each change is written,
 and why `snapshot` ignores the file. Read it before changing `Settings`, `ConfigFileParser`,
 `PreferenceRules`, `PreferenceValues`, `PreferenceOverrides`, `SettingsPane`, the settings window,
 or the schema. Every key, from a user's side, is in [../configuration.md](../configuration.md).
@@ -123,7 +123,7 @@ other diagnostics, with no prefix, since stderr there is nothing but diagnostics
 
 `countersign settings`, plain `countersign setup` and the menu-bar companion's "Settings…" open the
 same window. Its Agents group and how the window runs are in "The window" in [setup.md](setup.md);
-this section covers its size, its groups and their layout, the status row, the Panels and App
+this section covers its size, its groups and their layout, the header's status controls, the Panels and App
 controls, when each change is written, Advanced, and the notice about a second copy at the top of
 Agents.
 
@@ -161,8 +161,8 @@ setting the name cannot bring back a frame that was just rejected.
 
 ### Groups and layout
 
-The status row (see "Status" below) sits at the top, outside every group: it is the state
-Countersign is in right now, not a setting. Below it, a sidebar lists Agents, App, Panels and Help,
+The header's pause and snooze controls (see "Status" below) sit at the top, outside every group:
+they are the state Countersign is in right now, not a setting. Below the header, a sidebar lists Agents, App, Panels and Help,
 in that order, at every window width (`SettingsPane.sidebar`; `ApprovalCore.SettingsPane` also holds
 each group's title and subtitle). The selected item is highlighted; the content area to its right
 shows that one group, scrolled to its top, with only its subtitle above it, not its title again,
@@ -227,34 +227,50 @@ sitting flush against it.
 
 ### Header
 
-The header sits above the status row, full width, and never scrolls away: a 20 pt `CountersignMark`
-(the same size as the panel's own header mark), "Countersign" in semibold, the version in a smaller,
-secondary, selectable caption (`CountersignVersion.current`, `.textSelection(.enabled)` so it can be
-copied into a bug report), and the **Close** button at the trailing edge. Close asks
-`NSWindow.performClose(nil)`, so it takes the same path as ⌘W and the window's own close button, and
-the window closes at once; it is not the default button, since Return belongs to the text fields.
-There is no footer any more: Close sits in the header instead, next to the mark and version.
+The header sits above the sidebar and the scroll view, full width, and never scrolls away: a 20 pt
+`CountersignMark` (the same size as the panel's own header mark), "Countersign" in semibold, the
+version in a smaller, secondary, selectable caption (`CountersignVersion.current`,
+`.textSelection(.enabled)` so it can be copied into a bug report), then at the trailing edge a
+caption naming an active state, a **Pause** icon, a **Snooze** icon and the **Close** button. Close
+asks `NSWindow.performClose(nil)`, so it takes the same path as ⌘W and the window's own close
+button, and the window closes at once; it is not the default button, since Return belongs to the
+text fields. There is no footer: Close sits in the header.
+
+The header is slim (12 pt above and below) and has the window background with a 1 px separator
+along its bottom edge. The sidebar and the scroll view start right at that line, and the scroll
+content keeps its own `SettingsMetrics.contentTopInset` so the first row is not glued to it:
+content scrolls up to the line and disappears there, so the settings read as scrolling under the
+header.
 
 ### Status
 
-The first row says whether Countersign is answering right now, with the companion menu's own
-wording and icon (`ApprovalCore.CountersignStatus`, which `CompanionMenu` uses for its status line
-too), read from the same pause switch and quiet-time files as `countersign status`:
+There is no longer a status card above the groups: a card that mostly said "Countersign is on"
+spent a full row of height on the state that needs no attention, and the header now carries the
+same controls in icon form. The state is the companion menu's own (`ApprovalCore.CountersignStatus`,
+which `CompanionMenu` uses for its status line too), read from the same pause switch and quiet-time
+files as `countersign status`. What each control shows and does comes from
+`ApprovalCore.SettingsHeaderControls`, which the tests cover:
 
-| Row | Button | The button |
-| --- | --- | --- |
-| "Countersign is on" | **Pause** | `PauseSwitch.pause()`, exactly `countersign pause` |
-| "Paused" | **Resume** | `PauseSwitch.resume()`, exactly `countersign resume` |
-| "Paused until Countersign opens" | **Resume** | the same `PauseSwitch.resume()` |
-| "Quiet until 14:05" | **End now** | `QuietTime.clear()`, exactly `countersign snooze off` |
+| State | Caption | Pause icon | Snooze icon |
+| --- | --- | --- | --- |
+| Active | none | secondary; click pauses (`StateSwitches.pause()`, exactly `countersign pause`) | secondary; click opens the popover of presets |
+| "Paused" | "Paused" in yellow | yellow; click resumes (`PauseSwitch.resume()`, exactly `countersign resume`) | disabled |
+| "Paused until Countersign opens" | the same words in yellow | as Paused | disabled |
+| Quiet until 14:05 | "Until 14:05" in blue | secondary; click pauses, which ends quiet time first | blue; the popover reads "Quiet until 14:05" and **End now** (`QuietTime.clear()`, exactly `countersign snooze off`) |
+
+The Snooze popover, opened beside the icon like the info buttons' popovers, lists the menu bar's
+presets (`CompanionMenu.snoozeMinutes`, titled by `SnoozeTitle`) and each starts quiet time through
+`StateSwitches.snooze(until:)`, exactly as the menu does. The Pause icon is its own control rather
+than the old status action because the old action turned into End now during quiet time, and a
+user who wants to pause during quiet time would have ended it instead.
 
 "Paused until Countersign opens" is the pause the menu-bar companion's quit question can leave
-behind, which ends when the companion starts again (see "Quit" in [app.md](app.md)); the row reads
-it through `PauseSwitch.state`. The companion's own window never shows it, since the companion
+behind, which ends when the companion starts again (see "Quit" in [app.md](app.md)); the header
+reads it through `PauseSwitch.state`. The companion's own window never shows it, since the companion
 ends that pause as it starts, but `countersign settings` run while the companion is closed does.
 Paused wins over quiet time, as in the menu; after Resume, a quiet time still running shows next.
-The button acts at once, like every control in the window. A failed write shows one red line under
-the row. The files change from other processes
+The controls act at once, like every control in the window. A failed write shows one red line under
+the header row. The files change from other processes
 (`countersign pause`, a panel's Snooze menu, the companion), so a repeating 2 s `Timer` in `.common`
 mode reads them again while the window is open, the same interval as the companion's icon, and the
 window reads them when it becomes key too.
@@ -443,7 +459,7 @@ top of an edit made elsewhere instead of undoing it.
 
 The agent rows' Wire, Update and Remove (each shows its diff first under "Show changes"; see
 "Agents" in [setup.md](setup.md)), the Launch at login switch, which registers a login item with
-macOS rather than writing a config value, the status row's Pause, Resume and End now, the test
+macOS rather than writing a config value, the header's Pause, Resume, Snooze and End now, the test
 panel buttons and "Open in Editor" act at once too, each on its own file, a process or macOS, never
 on a preference beyond committing the text fields as the table says.
 

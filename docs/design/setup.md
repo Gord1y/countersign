@@ -248,12 +248,12 @@ the hosts, resolves the executable and answers the question from the terminal or
 ## The window
 
 Plain `countersign setup` and `countersign settings` open one titled, closable, resizable window,
-"Countersign", with its header (the mark, version and Close) and status row fixed at the top, the
+"Countersign", with its header (the mark, version, Pause, Snooze and Close) fixed at the top, the
 sidebar fixed on the left, and only the selected group's content in a scroll view; a page taller
 than the window, or a diff disclosed later, scrolls while everything above and beside it stays in
 place. Its size and where the frame is remembered are in "Window size" in [settings.md](settings.md),
 its header in "Header" there, its groups, Agents, App, Panels and Help in a sidebar plus Advanced
-behind a button at the bottom of App, in "Groups and layout" there, next to the status row, the
+behind a button at the bottom of App, in "Groups and layout" there, next to the header's status controls, the
 Panels, App and Advanced groups, and when each preference is written; this section covers the
 Agents group and how the window runs.
 

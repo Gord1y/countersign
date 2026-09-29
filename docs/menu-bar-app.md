@@ -61,7 +61,7 @@ panel shows up in the icon within two seconds.
 ## Settings
 
 **Settings…** (<kbd>⌘</kbd><kbd>,</kbd> while the menu is open) opens the Settings window. Under
-the line that says whether Countersign is on, its five groups are **Agents**, where you
+the header, which holds Pause and Snooze buttons and shows when Countersign is paused or quiet, its five groups are **Agents**, where you
 [connect your agents](setup.md), **Panels**, for how panels behave, **App**, for what this app
 does, **Help**, for guides, updates and ways to support Countersign, and **Advanced**, for where
 the [config file](configuration.md) is. Closing the window leaves the app running.

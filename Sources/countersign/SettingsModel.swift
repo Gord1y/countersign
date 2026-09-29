@@ -302,20 +302,46 @@ final class SettingsModel {
     status = current
   }
 
-  func performStatusAction() {
+  var headerControls: SettingsHeaderControls {
+    SettingsHeaderControls(status: status)
+  }
+
+  var snoozeChoices: [Int] {
+    CompanionMenu.snoozeMinutes(for: configFileContents)
+  }
+
+  func togglePause() {
+    let controls = headerControls
     let paths = environment.paths
-    do {
-      switch status.action {
-      case .pause:
-        try StateSwitches(
-          pauseSwitch: PauseSwitch(file: paths.pauseFile),
-          quietTime: QuietTime(file: paths.quietFile)
-        ).pause()
-      case .resume:
+    changeStatus {
+      if controls.isPaused {
         try PauseSwitch(file: paths.pauseFile).resume()
-      case .endQuietTime:
-        try QuietTime(file: paths.quietFile).clear()
+      } else {
+        try stateSwitches(paths).pause()
       }
+    }
+  }
+
+  func snooze(minutes: Int) {
+    let paths = environment.paths
+    let until = now().addingTimeInterval(TimeInterval(minutes * 60))
+    changeStatus { try stateSwitches(paths).snooze(until: until) }
+  }
+
+  func endQuietTime() {
+    let paths = environment.paths
+    changeStatus { try QuietTime(file: paths.quietFile).clear() }
+  }
+
+  private func stateSwitches(_ paths: AppPaths) -> StateSwitches {
+    StateSwitches(
+      pauseSwitch: PauseSwitch(file: paths.pauseFile),
+      quietTime: QuietTime(file: paths.quietFile))
+  }
+
+  private func changeStatus(_ change: () throws -> Void) {
+    do {
+      try change()
       statusError = nil
     } catch {
       statusError = SetupRun.describe(error)

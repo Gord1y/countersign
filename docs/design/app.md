@@ -263,7 +263,7 @@ no decision, and a panel on screen steps aside on its next tick when quiet time 
 time" in [panel.md](panel.md)).
 
 `ApprovalCore.StateSwitches` is the one place that keeps pause and quiet time consistent: pausing,
-from the menu, `countersign pause`, the Settings status card or the quit question's "Pause until I
+from the menu, `countersign pause`, the Settings header's Pause button or the quit question's "Pause until I
 reopen", always clears quiet time first, and snoozing while paused is refused
 (`SnoozeRefusal.paused`) rather than silently queued. A pause already sends every request to its
 agent's own chat, so a snooze underneath it would only resurface later as a surprise once the pause
@@ -496,7 +496,7 @@ left as it is. Reading the content and removing the file are two steps, so a `co
 landing in the microseconds between them would be removed with the marked pause.
 
 `countersign status` (`state: paused until Countersign opens`), the `doctor` report's `state` line
-and the Settings window's status row ("Paused until Countersign opens") name a marked pause, through
+and the Settings window's header ("Paused until Countersign opens") name a marked pause, through
 `PauseState.description` and `CountersignStatus.pausedUntilAppOpens`. The menu's status line and
 icon only see a plain pause, since the companion ends a marked one as it starts.
 

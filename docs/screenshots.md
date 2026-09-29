@@ -100,8 +100,8 @@ binary doing the rendering, resolved past the `.build/debug` symlink exactly as
 `Bundle.main.executableURL?.resolvingSymlinksInPath()` resolves it at runtime — a mismatched
 resolution makes every host read as needing an update instead of wired.
 
-That substitution is what makes every host row read "Wired" and the status row read "Countersign is
-on": `HostWiring.status` compares each file against what installing again would produce, byte for
+That substitution is what makes every host row read "Wired" and the header show no pause or quiet
+caption: `HostWiring.status` compares each file against what installing again would produce, byte for
 byte, and a hook entry already pointing at the exact path the rendering binary resolves to compares
 equal. **The settings render must never pass `--show-changes`, and every demo host must stay wired.**
 `resolvedExecutable` and the `stablePath` derived from it name the binary taking the snapshot, not
@@ -114,7 +114,7 @@ the `--home` directory, and `--home` does not touch them: a host that needed an 
 The README's settings image is a crop of the dark settings render, not the full window. The render
 shows the Agents group, selected in the sidebar, at the window's default size, so neither the
 config path nor the "Ask your coding agent" prompt, both in Advanced, appear in a shared image; the
-crop stops just below the Agents group's card, so the image is the header, the status row, the
+crop stops just below the Agents group's card, so the image is the header, the
 sidebar and the Agents group, with nothing half-shown below the card. `render.sh` writes the full
 render as `<out-dir>/settings-<appearance>.png` and the crop as
 `<out-dir>/settings-<appearance>-readme.png`, made by
