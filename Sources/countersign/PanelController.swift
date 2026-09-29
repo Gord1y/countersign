@@ -38,6 +38,7 @@ final class PanelModel {
   let questionNotes: Bool
   let modeAfterPlan: PlanApprovalMode
   let isTestPanel: Bool
+  let sessionIdle: Bool
   let dropdown: PanelDropdownState
   private(set) var hasStartedArming = false
   private(set) var isArmed = false
@@ -45,6 +46,7 @@ final class PanelModel {
   private var hasSnoozed = false
   var onFinish: ((ApprovalOutcome) -> Void)?
   var onSnooze: ((TimeInterval) -> Void)?
+  var onCheckpointChoice: ((ContextCheckpointChoice) -> Void)?
   var keyHandler: PanelKeyHandler?
   var onPreferredHeightChange: ((CGFloat) -> Void)?
 
@@ -55,9 +57,11 @@ final class PanelModel {
     modeAfterPlan: PlanApprovalMode = Settings.defaultModeAfterPlan,
     chatTrackingDrift: ChatTrackingDrift? = nil,
     isTestPanel: Bool = false,
+    sessionIdle: Bool = false,
     openDropdownOnAppear: PanelDropdownID? = nil
   ) {
     self.request = request
+    self.sessionIdle = sessionIdle
     self.waitingEntries = waitingEntries
     self.armDuration = armDuration
     self.snoozeMinutes = snoozeMinutes
@@ -87,6 +91,12 @@ final class PanelModel {
     guard isArmed, !hasFinished else { return }
     hasFinished = true
     onFinish?(outcome)
+  }
+
+  func chooseCheckpoint(_ choice: ContextCheckpointChoice, prompt: ContextCheckpointPrompt) {
+    guard isArmed, !hasFinished else { return }
+    onCheckpointChoice?(choice)
+    finish(choice.outcome(for: prompt))
   }
 
   func snooze(_ seconds: TimeInterval) {
@@ -139,7 +149,9 @@ final class PanelController {
     afterHandoff: Bool = false,
     onFinish: @escaping @MainActor (ApprovalOutcome) -> Void,
     onSnooze: (@MainActor (TimeInterval) -> Void)? = nil,
-    onStepAside: (@MainActor (StepAsideReason) -> Void)? = nil
+    onStepAside: (@MainActor (StepAsideReason) -> Void)? = nil,
+    sessionIdle: Bool = false,
+    onCheckpointChoice: ((ContextCheckpointChoice) -> Void)? = nil
   ) {
     let targetScreen = handoffBackdrop?.targetScreen ?? Self.resolveTargetScreen()
     let maxHeight = Self.maxContentHeight(screen: targetScreen)
@@ -150,7 +162,7 @@ final class PanelController {
     let model = PanelModel(
       request: request, waitingEntries: waitingEntries, armDuration: clampedArmDuration,
       snoozeMinutes: snoozeMinutes, questionNotes: questionNotes, modeAfterPlan: modeAfterPlan,
-      chatTrackingDrift: chatTrackingDrift, isTestPanel: isTestPanel)
+      chatTrackingDrift: chatTrackingDrift, isTestPanel: isTestPanel, sessionIdle: sessionIdle)
     CountersignPalette.use(accentColor)
     let panel = ApprovalPanel()
     panel.appearance = appearance.windowAppearance
@@ -172,6 +184,7 @@ final class PanelController {
       onFinish(outcome)
     }
     model.onSnooze = onSnooze
+    model.onCheckpointChoice = onCheckpointChoice
     panel.onEscape = { [weak model] in
       model?.finish(.noDecision)
     }

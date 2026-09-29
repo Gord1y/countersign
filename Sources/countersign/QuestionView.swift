@@ -8,7 +8,7 @@ private struct QuestionContentWidthPreferenceKey: PreferenceKey {
   }
 }
 
-private struct QuestionCardBackground: ViewModifier {
+struct QuestionCardBackground: ViewModifier {
   let selected: Bool
   let isHovering: Bool
 
@@ -31,7 +31,7 @@ private struct QuestionCardBackground: ViewModifier {
   }
 }
 
-private struct OptionCard<Content: View>: View {
+struct OptionCard<Content: View>: View {
   let selected: Bool
   let action: () -> Void
   let content: Content

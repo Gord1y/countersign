@@ -453,7 +453,7 @@ allowed to show a panel, never whether a hook keeps watching for its own resolut
 
 ## The test panel
 
-`countersign test-panel [command|question|plan]` (`command` when no kind is given) shows a real
+`countersign test-panel [command|question|plan|context]` (`command` when no kind is given) shows a real
 panel for a built-in sample request, so a person can see what their settings do and try the keys
 without any agent asking for anything. The menu-bar companion's "Show a Test Panel" starts it with
 `command` as a process of its own (see "Show a Test Panel" in [app.md](app.md)). It is an
@@ -473,6 +473,10 @@ panel shows exactly what a real request of that shape shows:
   and a multi-select one.
 - **plan**: `ExitPlanMode` with a short Markdown plan and `permission_mode` `plan`, as a real plan
   arrives.
+- **context**: not a `PermissionRequest`. `TestPanelSample.request(for:settings:)` builds the
+  context checkpoint request directly (see "The context checkpoint panel"). The Panels tab offers
+  only `TestPanelKind.panelsTabKinds` (command, question, plan); `context` is reached from the CLI
+  and from snapshots.
 
 Each payload uses only key paths the matching captured fixture has, `claude-bash.json`,
 `claude-questions.json` and `claude-plan.json`, which `TestPanelTests` checks path by path, so no
@@ -1175,6 +1179,50 @@ each:
 | First draw | 267–287 ms | 16–17 ms |
 | 50 scroll steps, layout and draw each | 10,171–10,572 ms | 611–623 ms |
 | Mean scroll step | 203–211 ms | 12.2–12.5 ms |
+
+## The context checkpoint panel
+
+`ContextCheckpointView` shows a `ContextCheckpointPrompt`: the session's context has crossed a
+rung of the configured ladder and the person picks what Claude should do about it. It lives in the
+same `PanelScaffold` as the other views, with the question view's option cards (`OptionCard`).
+
+**Layout.** The headline is `Context ~<tokenText> tokens`. Under it the ladder reads `Soft`,
+`Status` and `Insist` with each rung's threshold from `prompt.ladder`; the rung that fired is drawn
+in the accent and the other two are secondary, so the person sees how far along the ladder the
+session is. One line per level says why the panel appeared. When `PanelModel.sessionIdle` is true a
+caption adds that Claude is idle and the choice reaches it with the next message: a note added to
+an idle session is only delivered when the person types again, and the panel says so instead of
+implying an immediate reaction. Four cards follow, numbered 1 to 4 (Continue, Compact after this
+step, Hand off & start fresh, Not this session), each with a one-line description. The footer is one
+primary button titled with the highlighted choice.
+
+**Keys.** 1 to 4 and ↑/↓ move the highlight; Return and ⌘Return perform the highlighted choice
+(⌘Return has no menu here, so it does what Return does); Esc and a click outside answer "no
+decision", which is Continue. Delete is not used. Digits move the highlight rather than performing
+the choice, so a mistyped digit is never an answer; a click on a card performs it. The arm lock
+applies as for every panel: `chooseCheckpoint` is guarded the way `finish` is.
+
+**The highlight rule.** The starting highlight is `ContextCheckpointChoice.highlighted(for:)`:
+Compact after this step for the soft and status levels, Hand off & start fresh for insist. The
+highlighted card is what Return does, so the default follows how urgent the level is.
+
+**Why choices go through `chooseCheckpoint`.** Not this session must mute the session, yet its
+outcome is `.noDecision`, the same as Continue and Esc; the outcome alone cannot tell them apart.
+The view therefore never calls `finish` for a choice: it calls `PanelModel.chooseCheckpoint(_:prompt:)`,
+which reports the choice through `onCheckpointChoice` and then finishes with
+`choice.outcome(for: prompt)`. The runtime uses the callback to persist the mute. Esc and click
+outside call `finish(.noDecision)` directly and are never a mute.
+
+**What the panel cannot do.** It cannot run /compact or /clear; those are the person's commands. It
+steers Claude with a note, and Claude's reply tells the person what to run.
+
+**Test panel and snapshots.** `countersign test-panel context` shows the sample: a soft checkpoint
+at the first million-window threshold plus 12,345 tokens, on the configured 1M ladder, with the
+configured handoff file and notes. `countersign snapshot --test-panel context` builds the same
+sample from the defaults, never the config file, and `--checkpoint-level soft|status|insist` picks
+the level (tokens are that level's million-window threshold plus 12,345, and the highlight follows
+the level). A context test panel logs `test panel: chose a context note` when a note was chosen and
+`test panel: continued` for no decision.
 
 ## Size limits
 

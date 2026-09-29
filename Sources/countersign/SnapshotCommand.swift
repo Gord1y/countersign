@@ -7,9 +7,10 @@ enum SnapshotCommand {
     "usage: countersign snapshot <request.json> --host claude|codex|cursor|antigravity"
     + " [--waiting N] [--appearance light|dark] [--accent #RRGGBB] [--unarmed] [--question-notes]"
     + " [--open-menu approve|snooze|mode] -o <out.png>\n"
-    + "       countersign snapshot --test-panel command|question|plan"
+    + "       countersign snapshot --test-panel command|question|plan|context"
     + " [--waiting N] [--appearance light|dark] [--accent #RRGGBB] [--unarmed] [--question-notes]"
-    + " [--open-menu approve|snooze|mode] -o <out.png>\n"
+    + " [--open-menu approve|snooze|mode] [--checkpoint-level soft|status|insist]"
+    + " -o <out.png>\n"
     + "       countersign snapshot --settings"
     + " [--home <dir>] [--show-changes claude|codex|cursor|antigravity] [--show-copies]"
     + " [--status active|paused|paused-until-open|quiet] [--size <width>x<height>]"
@@ -51,7 +52,7 @@ enum SnapshotCommand {
     }
     guard let options = parse(arguments) else { CommandLineOutput.fail(usage) }
 
-    let request = loadRequest(options.source)
+    let request = loadRequest(options.source, checkpointLevel: options.checkpointLevel)
     let isTestPanel = options.source.isTestPanel
 
     NSApplication.shared.setActivationPolicy(.prohibited)
@@ -101,7 +102,9 @@ enum SnapshotCommand {
     write(png, to: options.outputPath)
   }
 
-  private static func loadRequest(_ source: RequestSource) -> ApprovalRequest {
+  private static func loadRequest(_ source: RequestSource, checkpointLevel: ContextLevel?)
+    -> ApprovalRequest
+  {
     switch source {
     case .file(let path, let host):
       let data: Data
@@ -116,6 +119,9 @@ enum SnapshotCommand {
         CommandLineOutput.fail("error: could not parse \(path) as a \(host.displayName) request")
       }
     case .testPanel(let kind):
+      if kind == .context, let checkpointLevel {
+        return TestPanelSample.contextRequest(level: checkpointLevel, settings: .default)
+      }
       do {
         return try TestPanelSample.request(for: kind)
       } catch {
@@ -483,6 +489,16 @@ enum SnapshotCommand {
     let isArmed: Bool
     let questionNotes: Bool
     let openMenu: PanelDropdownID?
+    let checkpointLevel: ContextLevel?
+  }
+
+  private static func contextLevel(named name: String) -> ContextLevel? {
+    switch name {
+    case "soft": return .soft
+    case "status": return .status
+    case "insist": return .insist
+    default: return nil
+    }
   }
 
   private static func parse(_ arguments: [String]) -> Options? {
@@ -496,6 +512,7 @@ enum SnapshotCommand {
     var isArmed = true
     var questionNotes = Settings.defaultQuestionNotes
     var openMenu: PanelDropdownID?
+    var checkpointLevel: ContextLevel?
     var index = arguments.startIndex
 
     while index < arguments.count {
@@ -539,6 +556,11 @@ enum SnapshotCommand {
         guard index < arguments.count, let menu = PanelDropdownID(rawValue: arguments[index])
         else { return nil }
         openMenu = menu
+      case "--checkpoint-level":
+        index += 1
+        guard index < arguments.count, let level = contextLevel(named: arguments[index])
+        else { return nil }
+        checkpointLevel = level
       case "-o":
         index += 1
         guard index < arguments.count else { return nil }
@@ -562,7 +584,7 @@ enum SnapshotCommand {
     return Options(
       source: source, outputPath: outputPath, waitingCount: waitingCount,
       appearance: appearance, accentColor: accentColor, isArmed: isArmed,
-      questionNotes: questionNotes, openMenu: openMenu)
+      questionNotes: questionNotes, openMenu: openMenu, checkpointLevel: checkpointLevel)
   }
 
   private enum SnapshotStatus: String {

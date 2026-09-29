@@ -18,7 +18,7 @@ public enum CommandLineHelp {
         "snooze <time>|off", "Quiet time for every prompt: 90s, 15m, 1h or minutes; off ends it"),
       entry(
         "test-panel [kind]",
-        "Show a test panel (command, question or plan); nothing reaches an agent"
+        "Show a test panel (command, question, plan or context); nothing is sent"
       ),
       entry("help", "Show this help"),
       entry("--version", "Print the installed version"),

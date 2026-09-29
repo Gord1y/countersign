@@ -615,7 +615,7 @@ private struct TestPanelRow: View {
       EmptyView()
     } detail: {
       HStack(spacing: 8) {
-        ForEach(TestPanelKind.allCases, id: \.self) { kind in
+        ForEach(TestPanelKind.panelsTabKinds, id: \.self) { kind in
           Button(kind.title) { model.showTestPanel(kind) }
             .buttonStyle(SecondaryButtonStyle())
             .help("Show a \(kind.rawValue) test panel")

@@ -239,8 +239,8 @@ struct PanelRootView: View {
       QuestionView(model: model, questions: questions, availableHeight: availableHeight)
     case .plan(let plan):
       PlanView(model: model, plan: plan, availableHeight: availableHeight)
-    case .contextCheckpoint:
-      EmptyView()
+    case .contextCheckpoint(let prompt):
+      ContextCheckpointView(model: model, prompt: prompt, availableHeight: availableHeight)
     }
   }
 }
