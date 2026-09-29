@@ -164,6 +164,8 @@ public enum TestPanelLog {
 
   public static let closedForRealRequest = "test panel: closed for a real request"
 
+  public static let resultShown = "test panel: result shown"
+
   private static func describe(_ outcome: ApprovalOutcome, kind: TestPanelKind) -> String {
     switch outcome {
     case .noDecision:

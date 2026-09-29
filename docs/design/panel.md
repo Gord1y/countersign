@@ -562,6 +562,40 @@ one logs `test panel: snoozed for <duration>, quiet time not started`, closes th
 the process without writing the quiet-time file, and without a queue handoff, since a snooze never
 chains.
 
+### The result card
+
+A test panel that ends in an answer does not simply vanish: the person could not tell what Approve
+with a suggestion or Deny & stop would have done, or how "Compact after this step" differs from
+"Hand off & start fresh", without reading `docs/agents.md`. So `DisplayWatch.finish` closes the
+panel, does what it always did (offers the display on, removes the ticket, releases the lease) and
+then shows a result card in the panel's place instead of exiting.
+
+`TestPanelResult.describe(_:kind:checkpointChoice:)` in `ApprovalCore` returns the card's title,
+what was picked (`Approved`, `Approved with a suggestion`, `Denied`, `Denied and stopped`,
+`Answered in chat`, `Submitted`, `Kept planning`, `Continued`, `Compact after this step`,
+`Hand off & start fresh` or `Not this session`), and its detail: one or two sentences on what
+Claude Code would do, taken from [agents.md](../agents.md) and always ending with `Nothing reached
+an agent.` For the two context notes the detail is the note Claude would receive, filled in with
+the sample's tokens and handoff file, in quotes. The outcome alone cannot tell Continue from Not
+this session (both are no decision), so a test panel passes `onCheckpointChoice` too, as a
+checkpoint does, and `DisplayWatch` keeps the choice. In test mode the callback only records it: no
+mute, no state write, no `context choice:` line.
+
+The card is `TestPanelResultCard`, an `ApprovalPanel` (borderless, non-activating, floating) with
+the panel's material, corner radius, border and typography: the title, then the detail, which
+scrolls past eight lines, and nothing else. It is 420 pt wide and centred on the frame the test
+panel had when it closed (`PanelController.frame`), and it takes the height its content reports,
+the same way the panel does. It closes on a click, on Esc or after 8 seconds, and the process exits
+when it closes, so the card never outlives its use. It is key like the panel was, which is what
+lets Esc reach it, but as a non-activating panel it takes no focus from the app the person is in
+beyond what the test panel already had.
+
+A real request that queues while the card shows closes it at once, by the rule that closes the
+test panel (see "One at a time, never ahead of a real request"): `DisplayWatch` keeps ticking in
+the `showingResult` state, and `test panel: closed for a real request` is logged. The card is not
+shown after Snooze (there is no answer), after a real request closed the test panel, or after a
+refusal. It logs `test panel: result shown` once, and never the note's text.
+
 ## Countersign's mark and one accent
 
 Every panel looks the same whichever agent is asking. The header starts with Countersign's own

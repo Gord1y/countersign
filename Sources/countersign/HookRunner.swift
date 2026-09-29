@@ -233,6 +233,7 @@ private final class DisplayWatch: NSObject {
     case queued
     case waitingForIdle
     case shown(controller: PanelController)
+    case showingResult(card: TestPanelResultCard)
   }
 
   private struct PendingHandoff {
@@ -352,6 +353,9 @@ private final class DisplayWatch: NSObject {
         lastWaitingEntries = waitingEntries
         controller.setWaitingEntries(waitingEntries)
       }
+
+    case .showingResult:
+      break
     }
   }
 
@@ -384,12 +388,13 @@ private final class DisplayWatch: NSObject {
       onSnooze: { [weak self] seconds in self?.handleSnooze(seconds) },
       onStepAside: { [weak self] reason in self?.handleStepAside(reason) },
       sessionIdle: checkpoint?.isIdle() ?? false,
-      onCheckpointChoice: checkpoint == nil
+      onCheckpointChoice: checkpoint == nil && !mode.isTest
         ? nil : { [weak self] choice in self?.handleCheckpointChoice(choice) })
   }
 
   private func handleCheckpointChoice(_ choice: ContextCheckpointChoice) {
     checkpointChoice = choice
+    guard !mode.isTest else { return }
     log.write("context choice: \(choice.rawValue)")
     if choice == .notThisSession {
       checkpoint?.mute()
@@ -418,8 +423,13 @@ private final class DisplayWatch: NSObject {
   }
 
   private func yieldToAnotherRequest() -> Never {
-    if case .shown(let controller) = state {
+    switch state {
+    case .shown(let controller):
       closeShownPanel(controller)
+    case .showingResult(let card):
+      card.close()
+    case .queued, .waitingForIdle:
+      break
     }
     queue.remove(ticket)
     lease?.release()
@@ -482,6 +492,9 @@ private final class DisplayWatch: NSObject {
     case .shown(let controller):
       closeShownPanel(controller)
       wording = "resolved while displayed"
+    case .showingResult(let card):
+      card.close()
+      wording = "resolved while showing the result"
     }
     queue.remove(ticket)
     lease?.release()
@@ -496,7 +509,7 @@ private final class DisplayWatch: NSObject {
     case .queued:
       discardHandoff()
       discardPreparedPanel("handed back")
-    case .waitingForIdle:
+    case .waitingForIdle, .showingResult:
       break
     case .shown(let controller):
       handOffToNextInLine(from: controller)
@@ -518,13 +531,27 @@ private final class DisplayWatch: NSObject {
     case .test(let kind):
       log.write(TestPanelLog.outcome(outcome, kind: kind))
     }
+    var panelFrame: NSRect?
     if case .shown(let controller) = state {
+      panelFrame = controller.frame
       handOffToNextInLine(from: controller)
       closeShownPanel(controller)
     }
     queue.remove(ticket)
     lease?.release()
-    exit(0)
+    lease = nil
+    guard case .test(let kind) = mode, let panelFrame else { exit(0) }
+    showResult(of: outcome, kind: kind, around: panelFrame)
+  }
+
+  private func showResult(of outcome: ApprovalOutcome, kind: TestPanelKind, around frame: NSRect) {
+    let result = TestPanelResult.describe(outcome, kind: kind, checkpointChoice: checkpointChoice)
+    let card = TestPanelResultCard(
+      title: result.title, detail: result.detail, around: frame, appearance: settings.appearance,
+      onClose: { exit(0) })
+    state = .showingResult(card: card)
+    card.show()
+    log.write(TestPanelLog.resultShown)
   }
 
   private func handOffToNextInLine(from controller: PanelController) {

@@ -233,6 +233,10 @@ final class PanelController {
     targetScreen?.displayID
   }
 
+  var frame: NSRect {
+    panel.frame
+  }
+
   var fileDiffs: [FileDiff]? {
     model.fileDiffs
   }

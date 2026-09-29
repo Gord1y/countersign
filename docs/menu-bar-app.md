@@ -87,7 +87,8 @@ first." or "A request is waiting for a panel; answer it first." A request that a
 test panel is up closes it and takes its place.
 
 Try every key and button: whatever you choose only closes the test panel. Nothing runs, and
-nothing reaches an agent. Picking a Snooze duration closes it too, without starting quiet time.
+nothing reaches an agent. A small card then says what you picked and what a real request would
+have done; click it, press Esc or wait 8 seconds and it goes. Picking a Snooze duration closes it too, without starting quiet time.
 Because you asked for it, it appears even while Countersign is paused or in quiet time, and
 `handoffApps` doesn't apply.
 

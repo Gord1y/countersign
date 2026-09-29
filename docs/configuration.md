@@ -123,7 +123,8 @@ and accent colour, and the idle wait if you switch away and it steps aside. It s
 without the grace period or the idle wait. Only one test panel shows at a time, and a real request
 always comes first: while a panel is on screen or a request is waiting for one, the test panel
 doesn't show and says why, and a request that arrives while it is up closes it. Nothing you choose
-in it reaches an agent. It reads the file when it starts, so save your changes first, and it uses
+in it reaches an agent, and once you answer, a small card says what you picked and what a real
+request would have done. It reads the file when it starts, so save your changes first, and it uses
 Claude Code's settings, `hosts.claude` included. More in
 [menu-bar-app.md](menu-bar-app.md#test-panel).
 
