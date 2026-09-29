@@ -159,6 +159,7 @@ final class SettingsModel {
   private(set) var newHandoffApp = ""
   private(set) var handoffError: String?
   private(set) var writeErrors: [PreferenceName: String] = [:]
+  private(set) var visit = SettingsVisit()
   private(set) var launchAtLogin = LaunchAtLoginState.unavailable
   private(set) var launchAtLoginError: String?
   private(set) var ownValueNotes: [ApprovalCore.Host: String] = [:]
@@ -283,7 +284,16 @@ final class SettingsModel {
   func select(_ pane: SettingsPane) {
     guard pane != selectedPane else { return }
     selectedPane = pane
+    visit.begin()
     rememberPane?(pane)
+  }
+
+  func beginVisit() {
+    visit.begin()
+  }
+
+  func isResettable(_ name: PreferenceName) -> Bool {
+    isChanged(name) && visit.contains(name)
   }
 
   func refreshStatus() {
@@ -880,8 +890,23 @@ final class SettingsModel {
     for edit in edits {
       writeErrors[edit.key] = nil
     }
+    recordVisit(of: edits)
     loadPreferences()
     return true
+  }
+
+  private func recordVisit(of edits: [PreferenceEdit]) {
+    var written: [PreferenceName] = []
+    var reset: [PreferenceName] = []
+    for edit in edits {
+      if case .reset(let name) = edit {
+        reset.append(name)
+      } else {
+        written.append(edit.key)
+      }
+    }
+    visit.record(written)
+    visit.forget(reset)
   }
 
   func setLaunchAtLogin(_ enabled: Bool) {

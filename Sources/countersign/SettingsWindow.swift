@@ -100,6 +100,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
   }
 
   func show(forceTour: Bool = false) {
+    model.beginVisit()
     NSApplication.shared.setActivationPolicy(.regular)
     Self.configurePlaceholderIconIfNeeded()
     window.makeKeyAndOrderFront(nil)

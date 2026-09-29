@@ -515,8 +515,17 @@ value that isn't the default" — the same rule the parser already uses to decid
 reaches the row at all. `editorApp` has no `Settings.default*` to compare against, since its
 default is absence rather than a value; "changed" for it means only "present in the parsed file",
 whatever the string. A row's reset
-button (the SF Symbol `arrow.uturn.backward`, left of the control) shows only when that is true.
-Clicking it writes `PreferenceEdit.reset(name)`, which `ConfigEdit` turns into removing that
+button (the SF Symbol `arrow.uturn.backward`, left of the control) shows only when that is true
+and the row was changed in this visit. The arrow is an undo for what the person just did, not a
+standing marker of every non-default value: a row that differs from its default but was set in an
+earlier visit shows no arrow, and Restore Defaults is the way back for it. `SettingsVisit` in
+`ApprovalCore` is the bookkeeping: `SettingsModel` records the names of every successful write's
+edits (`PreferenceEdit.key`), forgets the names a row reset or Restore Defaults resets, and begins
+a fresh visit, emptying the set, when the selected pane changes (`select(_:)`) and whenever the
+Settings window is shown, first show and every re-show. `SettingsModel.isResettable(_:)` is
+`isChanged(_:) && visit.contains(_:)`, and the button follows it on every pane. Restore Defaults
+ignores the visit: it is enabled whenever the pane has a value that differs from its default.
+Clicking the arrow writes `PreferenceEdit.reset(name)`, which `ConfigEdit` turns into removing that
 top-level member with `JSONSourceDocument.removeMember`, the same minimal-diff editor every other
 edit uses; it is a no-op when the key is already absent, and it never reaches into `hosts` or
 touches `$schema`, since the key it removes is always one of `PreferenceName`'s own. A reset goes

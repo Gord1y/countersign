@@ -33,11 +33,13 @@ press Return, move to another field or close the window, so there's nothing to s
 never asks. An entry with a mistake shows a red line under it and isn't saved; the file keeps what
 it had.
 
-Changed a setting and want it back the way it was? A row with a changed value shows a small reset
+Changed a setting and want it back the way it was? A row you just changed shows a small reset
 button beside its control; clicking it removes that key from `config.json`, so the setting follows
-the built-in default again, even if that default later changes. **Panels** and **App** each also
-have a **Restore Defaults** button that resets every changed setting in that group at once, after
-you confirm.
+the built-in default again, even if that default later changes. The button is an undo for the
+current visit: once you close the Settings window or switch to another tab, it is gone from that
+row, even though the value still differs from the default. **Panels** and **App** each also have a
+**Restore Defaults** button that resets every changed setting in that group at once, after you
+confirm, whenever it was changed.
 
 Its settings are in a sidebar with four groups — Agents, App, Panels and Help, the last holding the
 tour, documentation, questions and problem reports, updates, and support links — in that order at

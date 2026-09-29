@@ -304,7 +304,7 @@ struct PreferenceRow<Control: View, Detail: View>: View {
         }
         .settingsHelp(explained?.explanation)
         Spacer(minLength: 16)
-        if let reset, reset.model.isChanged(reset.name) {
+        if let reset, reset.model.isResettable(reset.name) {
           PreferenceResetButton(name: reset.name, model: reset.model)
         }
         control
