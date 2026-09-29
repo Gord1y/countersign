@@ -106,6 +106,23 @@ id appears in, not what else is on that line. A `Set` of visited agent ids guard
 and the walk gives up after 10 levels regardless, so a malformed or looping chain degrades to the
 fallback chip instead of hanging or growing without bound.
 
+## The Claude `UserPromptSubmit` input
+
+The same command, `countersign hook --host claude`, serves `PermissionRequest` and
+`UserPromptSubmit`. The hook reads `hook_event_name` first with `ClaudeAdapter.eventName(of:)`,
+which returns the top-level string or `nil` for anything that is not a JSON object with one, and
+only then parses: `ClaudeAdapter.parse` keeps rejecting any event but `PermissionRequest`, and
+`ClaudeAdapter.parseUserPromptSubmit` rejects any event but `UserPromptSubmit`.
+
+A `UserPromptSubmit` input carries exactly `cwd`, `hook_event_name`, `permission_mode`, `prompt`,
+`prompt_id`, `scratchpad_dir`, `session_id` and `transcript_path` (a real capture,
+`claude-user-prompt-submit.json`). `parseUserPromptSubmit` requires `session_id`, `cwd` and the
+event name, reads `transcript_path` and `permission_mode` when present, and ignores `prompt`, so
+the text a person typed never leaves the parser. It returns a `ContextCheckpointInput`, which
+`ApprovalRequest.contextCheckpoint(_:prompt:)` turns into a request with tool name
+`Context checkpoint` and an empty tool input, so the panel and the queue treat it like any other
+request.
+
 ## How suggestion labels are built
 
 `permission_suggestions` entries are structured data meant for a settings file, not for display.

@@ -8,10 +8,11 @@ public struct TicketSummary: Codable, Sendable, Equatable {
   public var agentType: String?
   public var agentDescription: String?
   public var isTestPanel: Bool
+  public var isContextCheckpoint: Bool
 
   public init(
     host: Host, project: String, tool: String, agentType: String?,
-    agentDescription: String? = nil, isTestPanel: Bool = false
+    agentDescription: String? = nil, isTestPanel: Bool = false, isContextCheckpoint: Bool = false
   ) {
     self.host = host
     self.project = project
@@ -19,6 +20,7 @@ public struct TicketSummary: Codable, Sendable, Equatable {
     self.agentType = agentType
     self.agentDescription = agentDescription
     self.isTestPanel = isTestPanel
+    self.isContextCheckpoint = isContextCheckpoint
   }
 
   public init(request: ApprovalRequest, agentDescription: String? = nil, isTestPanel: Bool = false)
@@ -29,8 +31,14 @@ public struct TicketSummary: Codable, Sendable, Equatable {
       tool: request.toolName,
       agentType: request.agentType,
       agentDescription: agentDescription,
-      isTestPanel: isTestPanel
+      isTestPanel: isTestPanel,
+      isContextCheckpoint: Self.isContextCheckpoint(request.kind)
     )
+  }
+
+  private static func isContextCheckpoint(_ kind: RequestKind) -> Bool {
+    guard case .contextCheckpoint = kind else { return false }
+    return true
   }
 
   public var agentLabel: String? {
@@ -42,7 +50,7 @@ public struct TicketSummary: Codable, Sendable, Equatable {
   }
 
   private enum CodingKeys: String, CodingKey {
-    case host, project, tool, agentType, agentDescription, isTestPanel
+    case host, project, tool, agentType, agentDescription, isTestPanel, isContextCheckpoint
   }
 
   public init(from decoder: Decoder) throws {
@@ -53,6 +61,8 @@ public struct TicketSummary: Codable, Sendable, Equatable {
     agentType = try container.decodeIfPresent(String.self, forKey: .agentType)
     agentDescription = try container.decodeIfPresent(String.self, forKey: .agentDescription)
     isTestPanel = try container.decodeIfPresent(Bool.self, forKey: .isTestPanel) ?? false
+    isContextCheckpoint =
+      try container.decodeIfPresent(Bool.self, forKey: .isContextCheckpoint) ?? false
   }
 }
 
@@ -153,6 +163,13 @@ public struct TicketQueue: Sendable {
   public func realRequestCount(excluding ticket: Ticket) -> Int {
     liveTickets().filter { $0.fileName != ticket.fileName && $0.summary?.isTestPanel != true }
       .count
+  }
+
+  public func approvalCount(excluding ticket: Ticket?) -> Int {
+    liveTickets().filter {
+      $0.fileName != ticket?.fileName && $0.summary?.isTestPanel != true
+        && $0.summary?.isContextCheckpoint != true
+    }.count
   }
 
   public func waitingEntries(excluding ticket: Ticket) -> [WaitingEntry] {

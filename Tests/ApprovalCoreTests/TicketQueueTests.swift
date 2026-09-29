@@ -130,6 +130,52 @@ import Testing
     #expect(temporary.queue.realRequestCount(excluding: ownTicket) == 2)
   }
 
+  @Test func approvalCountSkipsTestPanelsCheckpointsAndOurs() throws {
+    let temporary = try TemporaryQueue()
+    defer { temporary.remove() }
+    let own = getpid()
+    let ownTicket = try temporary.queue.enqueue(.probe)
+    let encoder = JSONEncoder()
+
+    let approval = TicketSummary(host: .claude, project: "shop-api", tool: "Bash", agentType: nil)
+    _ = try temporary.writeTicket(
+      timestamp: 100, pid: own,
+      content: encoder.encode(TicketContent(processStart: nil, summary: approval)))
+    #expect(temporary.queue.approvalCount(excluding: ownTicket) == 1)
+
+    let testPanel = TicketSummary(
+      host: .claude, project: "Countersign test", tool: "Bash", agentType: nil, isTestPanel: true)
+    _ = try temporary.writeTicket(
+      timestamp: 200, pid: own,
+      content: encoder.encode(TicketContent(processStart: nil, summary: testPanel)))
+    let checkpoint = TicketSummary(
+      host: .claude, project: "shop-api", tool: "Context checkpoint", agentType: nil,
+      isContextCheckpoint: true)
+    _ = try temporary.writeTicket(
+      timestamp: 300, pid: own,
+      content: encoder.encode(TicketContent(processStart: nil, summary: checkpoint)))
+    #expect(temporary.queue.approvalCount(excluding: ownTicket) == 1)
+    #expect(temporary.queue.approvalCount(excluding: nil) == 2)
+  }
+
+  @Test func aSummaryWithoutTheCheckpointFlagDecodesAsNotACheckpoint() throws {
+    let json = Data(#"{"host":"claude","project":"p","tool":"Bash"}"#.utf8)
+    let summary = try JSONDecoder().decode(TicketSummary.self, from: json)
+    #expect(!summary.isContextCheckpoint)
+  }
+
+  @Test func aCheckpointRequestFillsTheSummaryFlag() {
+    let input = ContextCheckpointInput(
+      sessionID: "s", cwd: "/tmp/shop-api", transcriptPath: nil, permissionMode: nil)
+    let prompt = ContextCheckpointPrompt(
+      tokens: 1, level: .soft, ladder: [1, 2, 3], modelID: nil, handoffFile: "h.md",
+      notes: .default)
+    let summary = TicketSummary(request: .contextCheckpoint(input, prompt: prompt))
+    #expect(summary.isContextCheckpoint)
+    #expect(summary.tool == "Context checkpoint")
+    #expect(summary.project == "shop-api")
+  }
+
   @Test func waitingEntriesAreOldestFirstExcludingSelf() throws {
     let temporary = try TemporaryQueue()
     defer { temporary.remove() }

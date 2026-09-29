@@ -23,10 +23,10 @@ import Testing
     ]
     #expect(
       ContextLadder.thresholds(modelID: nil, hasMillionTokenWindow: false, settings: settings)
-        == ContextLadderSettings.defaultStandardThresholds)
+        == ContextCheckpointSettings.defaultStandardThresholds)
     #expect(
       ContextLadder.thresholds(modelID: nil, hasMillionTokenWindow: true, settings: settings)
-        == ContextLadderSettings.defaultMillionThresholds)
+        == ContextCheckpointSettings.defaultMillionThresholds)
     #expect(
       ContextLadder.thresholds(
         modelID: "claude-opus-5-5[1m]", hasMillionTokenWindow: true, settings: settings)

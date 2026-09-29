@@ -154,6 +154,8 @@ public enum TestPanelLog {
         return "kept planning"
       }
       return interrupt ? "denied and stopped" : "denied"
+    case .addContext:
+      return "context note"
     }
   }
 }

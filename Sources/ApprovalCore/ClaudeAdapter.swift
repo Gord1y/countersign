@@ -70,10 +70,45 @@ public enum ClaudeAdapter {
     )
   }
 
+  public static func eventName(of data: Data) -> String? {
+    guard let decoded = try? JSONDecoder().decode(JSONValue.self, from: data),
+      case .object(let root) = decoded
+    else { return nil }
+    return root["hook_event_name"]?.stringValue
+  }
+
+  public static func parseUserPromptSubmit(_ data: Data) throws -> ContextCheckpointInput {
+    let decoded: JSONValue
+    do {
+      decoded = try JSONDecoder().decode(JSONValue.self, from: data)
+    } catch {
+      throw AdapterError.malformedInput("invalid JSON")
+    }
+    guard case .object(let root) = decoded else {
+      throw AdapterError.malformedInput("expected a JSON object")
+    }
+    guard let sessionID = root["session_id"]?.stringValue else {
+      throw AdapterError.malformedInput("missing session_id")
+    }
+    guard let cwd = root["cwd"]?.stringValue else {
+      throw AdapterError.malformedInput("missing cwd")
+    }
+    guard root["hook_event_name"]?.stringValue == "UserPromptSubmit" else {
+      throw AdapterError.malformedInput("unexpected hook_event_name")
+    }
+    return ContextCheckpointInput(
+      sessionID: sessionID,
+      cwd: cwd,
+      transcriptPath: root["transcript_path"]?.stringValue,
+      permissionMode: root["permission_mode"]?.stringValue)
+  }
+
   public static func encode(_ outcome: ApprovalOutcome) -> Data? {
     switch outcome {
     case .noDecision:
       return nil
+    case .addContext(let text):
+      return encodeContextEnvelope(text)
     case .allow(let updatedInput, let updatedPermissions):
       var decision: [String: JSONValue] = ["behavior": .string("allow")]
       if let updatedInput {
@@ -244,12 +279,26 @@ public enum ClaudeAdapter {
   }
 
   private static func encodeEnvelope(_ decision: [String: JSONValue]) -> Data? {
-    let envelope: JSONValue = .object([
-      "hookSpecificOutput": .object([
-        "hookEventName": .string("PermissionRequest"),
-        "decision": .object(decision),
-      ])
-    ])
+    encodeOutput(
+      .object([
+        "hookSpecificOutput": .object([
+          "hookEventName": .string("PermissionRequest"),
+          "decision": .object(decision),
+        ])
+      ]))
+  }
+
+  private static func encodeContextEnvelope(_ text: String) -> Data? {
+    encodeOutput(
+      .object([
+        "hookSpecificOutput": .object([
+          "hookEventName": .string("UserPromptSubmit"),
+          "additionalContext": .string(text),
+        ])
+      ]))
+  }
+
+  private static func encodeOutput(_ envelope: JSONValue) -> Data? {
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
     return try? encoder.encode(envelope)

@@ -207,6 +207,35 @@ which is a plain deny, `interrupt: false`, with its own default message, not the
 Blank feedback sends that default message; typed feedback replaces it verbatim. This is Claude-only
 for the same reason as plan approval: Codex has no `ExitPlanMode` hook to answer.
 
+## A context checkpoint (Claude `UserPromptSubmit`)
+
+A context checkpoint answers `UserPromptSubmit`, not `PermissionRequest`. The hook entry is async:
+Claude Code runs it in the background and puts `hookSpecificOutput.additionalContext` in front of
+Claude at its next request. `ClaudeAdapter.encode(.addContext(text))` prints exactly this, with
+sorted keys, and every other host encodes `.addContext` as `nil`:
+
+```json
+{"hookSpecificOutput":{"additionalContext":"<the rendered note>","hookEventName":"UserPromptSubmit"}}
+```
+
+`ContextCheckpointChoice.outcome(for:)` maps each panel choice:
+
+| Choice | Output |
+| --- | --- |
+| **Continue** | Nothing on stdout (`.noDecision`) |
+| **Not this session** | Nothing on stdout (`.noDecision`); the session is also muted |
+| **Compact after this step** | The JSON above with `notes.compact` rendered |
+| **Hand off & start fresh** | The JSON above with `notes.handoff` rendered |
+
+Rendering fills `{tokens}` (for example `131K`) and `{handoffFile}`. Silent mode prints the same
+JSON with the note of the level that fired (`soft`, `status` or `insist`), without a panel.
+
+Nothing on stdout, exit 0, means "nothing to add" in every other case: Esc, a click outside the
+panel, a panel closed or abandoned (parent exited, session compacted meanwhile, another checkpoint
+took over), a reading that is unknown, a level that did not cross, a muted session and a disabled
+feature. An async hook's `systemMessage` is never shown to the user, so this feature never prints
+one.
+
 ## No answer at all
 
 Every row here ends the hook process with nothing on stdout and exit 0, the same "no decision" the

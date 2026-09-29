@@ -189,6 +189,7 @@ enum HookRunner {
   static func describe(_ outcome: ApprovalOutcome) -> String {
     switch outcome {
     case .noDecision: return "no decision"
+    case .addContext: return "context note"
     case .allow(_, let updatedPermissions):
       return updatedPermissions.isEmpty ? "allow" : "allow+permissions"
     case .deny(_, let interrupt): return interrupt ? "deny+interrupt" : "deny"
@@ -464,7 +465,7 @@ private final class DisplayWatch: NSObject {
 
   private func finish(_ outcome: ApprovalOutcome) {
     switch mode {
-    case .hook:
+    case .hook, .checkpoint:
       HookRunner.writeReply(outcome, host: host)
       log.write("outcome: \(HookRunner.describe(outcome))")
     case .test(let kind):

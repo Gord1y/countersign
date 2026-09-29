@@ -101,6 +101,26 @@ public enum RequestKind: Sendable, Equatable {
   case permission(PermissionPrompt)
   case questions([Question])
   case plan(PlanProposal)
+  case contextCheckpoint(ContextCheckpointPrompt)
+}
+
+extension ApprovalRequest {
+  public static func contextCheckpoint(
+    _ input: ContextCheckpointInput, prompt: ContextCheckpointPrompt
+  ) -> ApprovalRequest {
+    ApprovalRequest(
+      host: .claude,
+      sessionID: input.sessionID,
+      cwd: input.cwd,
+      permissionMode: input.permissionMode,
+      transcriptPath: input.transcriptPath,
+      agentID: nil,
+      agentType: nil,
+      toolName: "Context checkpoint",
+      toolInput: .object([:]),
+      kind: .contextCheckpoint(prompt)
+    )
+  }
 }
 
 public struct PermissionPrompt: Sendable, Equatable {

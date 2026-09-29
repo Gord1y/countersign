@@ -90,3 +90,33 @@ the stored `lastTokens` is only as new as the last prompt. If the transcript can
 row falls back to `lastTokens`. The row title is `<project> · <size> tokens`, with `Claude Code`
 when no project was stored. Rows are sorted by tokens, largest first, capped at eight. The read
 happens only when the menu opens; nothing polls, and the icon timer never reads transcripts.
+
+## Choices and what Claude receives
+
+A panel offers four choices. **Continue** and **Not this session** send nothing; the second also
+mutes the session. **Compact after this step** sends the `compact` note and **Hand off & start
+fresh** sends the `handoff` note, each with `{tokens}` and `{handoffFile}` filled in, as
+`additionalContext` (the exact JSON is in "A context checkpoint" in [answers.md](answers.md)). The
+highlighted choice follows the level: `soft` and `status` highlight **Compact after this step**,
+`insist` highlights **Hand off & start fresh**. Esc, a click outside, and a closed or abandoned
+panel send nothing.
+
+`silent` mode skips the panel and sends the note of the level that fired (`soft`, `status` or
+`insist`) straight away.
+
+The hook entry is async, so Claude Code runs it in the background and delivers its
+`additionalContext` at Claude's next request. Its `systemMessage` would never be shown to the user,
+so a checkpoint never prints one; the panel is the only thing the user sees.
+
+Because the panel can stay open while the session moves on, `ContextCheckpointWatcher` polls and
+abandons the panel, with no output, for the first of three reasons it sees:
+
+- `parentExited`: the hook's parent process changed, so the Claude Code session is gone.
+- `superseded`: the stored state for the session names another hook process as pending, so a newer
+  checkpoint took over.
+- `compacted`: the transcript grew and now carries a compaction id that differs from the one seen
+  when the panel was planned, so the user already compacted and the question is stale.
+
+The transcript is looked at at most once every 2 seconds, and only when its size changed since the
+last look; an unreadable transcript keeps the watch going. Once a reason is found, `poll` keeps
+returning it.

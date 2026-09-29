@@ -215,6 +215,10 @@ private func parse(_ json: String) throws -> ApprovalRequest {
     #expect(ApprovalCore.Host.allCases == [.claude, .codex, .cursor, .antigravity])
   }
 
+  @Test func encodesAddContextAsNil() {
+    #expect(AntigravityAdapter.encode(.addContext("note")) == nil)
+  }
+
   @Test func otherHostsAreAskedAboutEveryRequestTheyParse() throws {
     #expect(try ClaudeAdapter.parse(FixtureLoader.data("claude-bash")).isAskedAbout)
     #expect(try CodexAdapter.parse(FixtureLoader.data("codex-bash")).isAskedAbout)

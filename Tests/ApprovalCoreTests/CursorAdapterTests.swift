@@ -223,6 +223,10 @@ private func parse(_ json: String) throws -> ApprovalRequest {
     #expect(CursorAdapter.events == ["beforeShellExecution", "beforeMCPExecution"])
   }
 
+  @Test func encodesAddContextAsNil() {
+    #expect(CursorAdapter.encode(.addContext("note")) == nil)
+  }
+
   @Test func otherHostsNeverRunInASandbox() throws {
     #expect(!(try ClaudeAdapter.parse(FixtureLoader.data("claude-bash"))).runsInSandbox)
     #expect(!(try CodexAdapter.parse(FixtureLoader.data("codex-bash"))).runsInSandbox)

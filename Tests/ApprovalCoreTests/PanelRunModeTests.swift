@@ -43,6 +43,29 @@ import Testing
     #expect(mode.yieldsToOtherRequests)
   }
 
+  @Test func aCheckpointWaitsItsTurnAndForIdleButSkipsChatGraceAndTimeout() {
+    let mode = PanelRunMode.checkpoint
+
+    #expect(!mode.isTest)
+    #expect(!mode.followsChat)
+    #expect(mode.honorsPause)
+    #expect(mode.honorsQuietTime)
+    #expect(!mode.handsBackBeforeTimeout)
+    #expect(!mode.honorsGracePeriod)
+    #expect(mode.waitsItsTurn)
+    #expect(mode.waitsForIdleOnArrival)
+    #expect(!mode.yieldsToOtherRequests)
+  }
+
+  @Test func onlyACheckpointSkipsHandoffAppsAndWaitsForApprovals() {
+    #expect(!PanelRunMode.checkpoint.usesHandoffApps)
+    #expect(PanelRunMode.checkpoint.waitsForApprovalsFirst)
+    #expect(PanelRunMode.hook.usesHandoffApps)
+    #expect(!PanelRunMode.hook.waitsForApprovalsFirst)
+    #expect(PanelRunMode.test(.command).usesHandoffApps)
+    #expect(!PanelRunMode.test(.command).waitsForApprovalsFirst)
+  }
+
   @Test func modesCompareByKind() {
     #expect(PanelRunMode.test(.command) == .test(.command))
     #expect(PanelRunMode.test(.command) != .test(.plan))

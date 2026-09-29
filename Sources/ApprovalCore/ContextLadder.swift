@@ -26,13 +26,15 @@ public struct ContextLadderSettings: Sendable, Equatable {
     self.rearmBelow = rearmBelow
   }
 
-  public static let defaultStandardThresholds = [100_000, 130_000, 160_000]
-  public static let defaultMillionThresholds = [200_000, 300_000, 400_000]
-  public static let defaultRearmBelow = 0.6
+  public init(_ settings: ContextCheckpointSettings) {
+    self.init(
+      standardThresholds: settings.standardThresholds,
+      millionThresholds: settings.millionThresholds,
+      modelThresholds: settings.modelThresholds,
+      rearmBelow: settings.rearmBelow)
+  }
 
-  public static let `default` = ContextLadderSettings(
-    standardThresholds: defaultStandardThresholds, millionThresholds: defaultMillionThresholds,
-    modelThresholds: [:], rearmBelow: defaultRearmBelow)
+  public static let `default` = ContextLadderSettings(.default)
 }
 
 public struct ContextLadderStep: Sendable, Equatable {
