@@ -67,13 +67,15 @@ public enum Doctor {
     public var installVersionMismatch: InstallVersionMismatch?
     public var codexHookTrustRecord: CodexHookTrustRecord?
     public var codexConfigFile: FileState
+    public var contextCheckpointsEnabled: Bool
 
     public init(
       version: String, resolvedExecutablePath: String, stableExecutablePath: String,
       hosts: [HostInput], configPath: String, configFileExists: Bool, configLogLines: [String],
       queueDirectoryPath: String, liveTicketCount: Int, pauseState: PauseState,
       quietUntilDescription: String?, logFilePath: String, logFileSize: Int?,
-      codexHookTrustRecord: CodexHookTrustRecord? = nil, codexConfigFile: FileState = .missing
+      codexHookTrustRecord: CodexHookTrustRecord? = nil, codexConfigFile: FileState = .missing,
+      contextCheckpointsEnabled: Bool = false
     ) {
       self.version = version
       self.resolvedExecutablePath = resolvedExecutablePath
@@ -90,6 +92,7 @@ public enum Doctor {
       self.logFileSize = logFileSize
       self.codexHookTrustRecord = codexHookTrustRecord
       self.codexConfigFile = codexConfigFile
+      self.contextCheckpointsEnabled = contextCheckpointsEnabled
     }
   }
 
@@ -133,6 +136,9 @@ public enum Doctor {
     for hostInput in input.hosts {
       lines.append(contentsOf: hostLines(hostInput, stablePath: input.stableExecutablePath))
       lines.append(contentsOf: followUpLines(hostInput, input: input))
+      if hostInput.host == .claude {
+        lines.append(contentsOf: contextLines(hostInput, input: input))
+      }
     }
     lines.append(contentsOf: configLines(input))
     lines.append(
@@ -279,41 +285,8 @@ public enum Doctor {
     var lines: [DoctorLine] = []
     for (offset, entry) in entries.enumerated() {
       let label = label(for: entry, at: offset, in: entries)
-      var issues: [DoctorLine] = []
-      if entry.executablePath != stablePath {
-        issues.append(
-          DoctorLine(
-            status: .warn, check: check,
-            detail:
-              "\(label): \(entry.executablePath) differs from the stable path \(stablePath), run countersign setup"
-          ))
-      }
-      if !(hostInput.executableChecks[entry.executablePath] ?? false) {
-        issues.append(
-          DoctorLine(
-            status: .fail, check: check,
-            detail: "\(label): \(entry.executablePath) does not exist or is not executable"))
-      }
-      let timeoutIsLongEnough = entry.timeoutSeconds.map { $0 >= minimumTimeoutSeconds } ?? false
-      if !timeoutIsLongEnough {
-        let shown = entry.timeoutSeconds.map { "\(formatNumber($0))s" } ?? "not set"
-        issues.append(
-          DoctorLine(
-            status: .warn, check: check,
-            detail:
-              "\(label): timeout is \(shown), below 600s; a short hook timeout can kill the wait for a person"
-          ))
-      }
-      let arguments = Array(entry.words.dropFirst())
-      let expected = HookCommand.arguments(for: hostInput.host)
-      if arguments != expected {
-        issues.append(
-          DoctorLine(
-            status: .warn, check: check,
-            detail:
-              "\(label): arguments \(arguments.joined(separator: " ")) differ from \(expected.joined(separator: " ")), run countersign setup"
-          ))
-      }
+      let issues = issueLines(
+        entry, label: label, check: check, hostInput: hostInput, stablePath: stablePath)
       if issues.isEmpty {
         let timeoutText = entry.timeoutSeconds.map(formatNumber) ?? "not set"
         lines.append(
@@ -325,6 +298,97 @@ public enum Doctor {
       }
     }
     return lines
+  }
+
+  private static func contextLines(_ hostInput: HostInput, input: Input) -> [DoctorLine] {
+    let check = "claude context"
+    guard case .bytes(let bytes) = hostInput.fileState, !HookSetup.isBlank(bytes),
+      let root = try? JSONSpanReader.parse(bytes)
+    else { return [] }
+    let sites = HookSetup.sites(in: root, event: ContextHookSetup.eventName)
+    let event = ContextHookSetup.eventName
+    guard !sites.isEmpty else {
+      guard input.contextCheckpointsEnabled else { return [] }
+      return [
+        DoctorLine(
+          status: .warn, check: check,
+          detail:
+            "context checkpoints are on in config.json, but \(hostInput.filePath) has no \(event) entry of Countersign's; turn Context checkpoints off and on again in countersign settings"
+        )
+      ]
+    }
+    var lines: [DoctorLine] = []
+    if !input.contextCheckpointsEnabled {
+      lines.append(
+        DoctorLine(
+          status: .warn, check: check,
+          detail:
+            "\(hostInput.filePath) still has Countersign's \(event) entry although context checkpoints are off; turning Context checkpoints off in countersign settings removes it"
+        ))
+    }
+    let entries = sites.map { entry(for: $0.hook, event: event) }
+    for (offset, site) in sites.enumerated() {
+      let label = label(for: entries[offset], at: offset, in: entries)
+      var issues = issueLines(
+        entries[offset], label: label, check: check, hostInput: hostInput,
+        stablePath: input.stableExecutablePath)
+      if !ContextHookSetup.isAsync(site.hook) {
+        issues.append(
+          DoctorLine(
+            status: .warn, check: check,
+            detail:
+              "Countersign's \(event) entry in \(hostInput.filePath) is not async, so every prompt waits for the checkpoint panel; run countersign setup"
+          ))
+      }
+      if issues.isEmpty, input.contextCheckpointsEnabled {
+        lines.append(
+          DoctorLine(
+            status: .ok, check: check, detail: "\(label) in \(hostInput.filePath), async"))
+      }
+      lines.append(contentsOf: issues)
+    }
+    return lines
+  }
+
+  private static func issueLines(
+    _ entry: HookEntry, label: String, check: String, hostInput: HostInput, stablePath: String
+  ) -> [DoctorLine] {
+    var issues: [DoctorLine] = []
+    if entry.executablePath != stablePath {
+      issues.append(
+        DoctorLine(
+          status: .warn, check: check,
+          detail:
+            "\(label): \(entry.executablePath) differs from the stable path \(stablePath), run countersign setup"
+        ))
+    }
+    if !(hostInput.executableChecks[entry.executablePath] ?? false) {
+      issues.append(
+        DoctorLine(
+          status: .fail, check: check,
+          detail: "\(label): \(entry.executablePath) does not exist or is not executable"))
+    }
+    let timeoutIsLongEnough = entry.timeoutSeconds.map { $0 >= minimumTimeoutSeconds } ?? false
+    if !timeoutIsLongEnough {
+      let shown = entry.timeoutSeconds.map { "\(formatNumber($0))s" } ?? "not set"
+      issues.append(
+        DoctorLine(
+          status: .warn, check: check,
+          detail:
+            "\(label): timeout is \(shown), below 600s; a short hook timeout can kill the wait for a person"
+        ))
+    }
+    let arguments = Array(entry.words.dropFirst())
+    let expected = HookCommand.arguments(for: hostInput.host)
+    if arguments != expected {
+      issues.append(
+        DoctorLine(
+          status: .warn, check: check,
+          detail:
+            "\(label): arguments \(arguments.joined(separator: " ")) differ from \(expected.joined(separator: " ")), run countersign setup"
+        ))
+    }
+    return issues
   }
 
   private static func label(for entry: HookEntry, at offset: Int, in entries: [HookEntry])

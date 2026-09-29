@@ -46,6 +46,15 @@ public enum HookSetup {
     case .antigravity:
       return try AntigravityHookSetup.install(into: original, executablePath: executablePath)
     }
+    let installed = try installPermissionEntry(
+      into: original, host: host, executablePath: executablePath)
+    guard host == .claude else { return installed }
+    return try ContextHookSetup.refresh(into: installed, executablePath: executablePath)
+  }
+
+  private static func installPermissionEntry(
+    into original: [UInt8]?, host: Host, executablePath: String
+  ) throws -> [UInt8] {
     let source = original.flatMap { isBlank($0) ? nil : $0 } ?? emptyDocument
     var document = try JSONSourceDocument(bytes: source)
     let group = groupFragment(host: host, executablePath: executablePath)
@@ -90,21 +99,27 @@ public enum HookSetup {
 
   public static func uninstall(from original: [UInt8]?, host: Host) throws -> [UInt8]? {
     switch host {
-    case .claude, .codex:
-      break
+    case .claude:
+      let removed = try removeEntries(from: original, event: eventName)
+      return try ContextHookSetup.uninstall(from: removed)
+    case .codex:
+      return try removeEntries(from: original, event: eventName)
     case .cursor:
       return try CursorHookSetup.uninstall(from: original)
     case .antigravity:
       return try AntigravityHookSetup.uninstall(from: original)
     }
+  }
+
+  static func removeEntries(from original: [UInt8]?, event: String) throws -> [UInt8]? {
     guard let original, !isBlank(original) else { return original }
     var document = try JSONSourceDocument(bytes: original)
     guard case .object = document.root.content else {
       throw HookSetupError.unexpectedType(key: "the top level", expected: "an object")
     }
     guard let hooks = try hooksObject(in: document.root) else { return document.bytes }
-    guard try eventArray(in: hooks) != nil else { return document.bytes }
-    while let site = sites(in: document.root).first {
+    guard try eventArray(in: hooks, event: event) != nil else { return document.bytes }
+    while let site = sites(in: document.root, event: event).first {
       if let count = site.groupHooks.elements?.count, count > 1 {
         try document.removeElement(at: site.hookIndex, from: site.groupHooks)
       } else if let count = site.groups.elements?.count, count > 1 {
@@ -144,10 +159,10 @@ public enum HookSetup {
     ])
   }
 
-  static func sites(in root: JSONSpanNode) -> [HookSite] {
+  static func sites(in root: JSONSpanNode, event: String = eventName) -> [HookSite] {
     guard let hooksObject = root.member(named: "hooks")?.value,
-      let eventMemberIndex = hooksObject.memberIndex(named: eventName),
-      let groups = hooksObject.member(named: eventName)?.value,
+      let eventMemberIndex = hooksObject.memberIndex(named: event),
+      let groups = hooksObject.member(named: event)?.value,
       let groupNodes = groups.elements
     else { return [] }
     var result: [HookSite] = []
@@ -184,7 +199,7 @@ public enum HookSetup {
     bytes.allSatisfy(JSONByte.isWhitespace)
   }
 
-  private static func hooksObject(in root: JSONSpanNode) throws -> JSONSpanNode? {
+  static func hooksObject(in root: JSONSpanNode) throws -> JSONSpanNode? {
     guard let hooks = root.member(named: "hooks")?.value else { return nil }
     guard hooks.members != nil else {
       throw HookSetupError.unexpectedType(key: "hooks", expected: "an object")
@@ -192,12 +207,14 @@ public enum HookSetup {
     return hooks
   }
 
-  private static func eventArray(in hooks: JSONSpanNode) throws -> JSONSpanNode? {
-    guard let event = hooks.member(named: eventName)?.value else { return nil }
-    guard event.elements != nil else {
-      throw HookSetupError.unexpectedType(key: "hooks.\(eventName)", expected: "an array")
+  static func eventArray(in hooks: JSONSpanNode, event: String = eventName) throws
+    -> JSONSpanNode?
+  {
+    guard let node = hooks.member(named: event)?.value else { return nil }
+    guard node.elements != nil else {
+      throw HookSetupError.unexpectedType(key: "hooks.\(event)", expected: "an array")
     }
-    return event
+    return node
   }
 
   private static func hookNode(_ index: Int, host: Host, in document: JSONSourceDocument)

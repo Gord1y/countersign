@@ -19,7 +19,8 @@ private func baseInput(
   liveTicketCount: Int = 0,
   pauseState: PauseState = .active,
   quietUntilDescription: String? = nil,
-  logFileSize: Int? = nil
+  logFileSize: Int? = nil,
+  contextCheckpointsEnabled: Bool = false
 ) -> Doctor.Input {
   Doctor.Input(
     version: "0.1.0",
@@ -34,7 +35,7 @@ private func baseInput(
     pauseState: pauseState,
     quietUntilDescription: quietUntilDescription,
     logFilePath: "/logs/countersign.log",
-    logFileSize: logFileSize)
+    logFileSize: logFileSize, contextCheckpointsEnabled: contextCheckpointsEnabled)
 }
 
 private func codexEntryJSON(command: String) -> [UInt8] {
@@ -717,4 +718,96 @@ private func cursorHost(_ bytes: [UInt8], checks: [String: Bool] = [stablePath: 
   Doctor.HostInput(
     host: .cursor, directoryPath: "/home/.cursor", filePath: "/home/.cursor/hooks.json",
     directoryExists: true, fileState: .bytes(bytes), executableChecks: checks)
+}
+
+private let claudeFilePath = "/missing/claude/file.json"
+
+private func claudeContextLines(
+  promptEntry: String?, enabled: Bool, checks: [String: Bool] = [stablePath: true]
+)
+  -> [DoctorLine]
+{
+  let prompt = promptEntry.map { ", \"UserPromptSubmit\": [{\"hooks\": [\($0)]}]" } ?? ""
+  let text = """
+    {"hooks": {"PermissionRequest": [{"matcher": "", "hooks": [{"type": "command", "command": "\(stablePath) hook --host claude", "timeout": 3600}]}]\(prompt)}}
+    """
+  var host = missingHost(.claude)
+  host.directoryExists = true
+  host.fileState = .bytes(Array(text.utf8))
+  host.executableChecks = checks
+  return Doctor.report(
+    baseInput(hosts: [host, missingHost(.codex)], contextCheckpointsEnabled: enabled)
+  ).filter { $0.check == "claude context" }
+}
+
+private func promptHook(
+  command: String = "\(stablePath) hook --host claude", async: String? = "true",
+  timeout: String? = "3600"
+) -> String {
+  var members = ["\"type\": \"command\"", "\"command\": \"\(command)\""]
+  if let async { members.append("\"async\": \(async)") }
+  if let timeout { members.append("\"timeout\": \(timeout)") }
+  return "{\(members.joined(separator: ", "))}"
+}
+
+@Suite struct DoctorContextTests {
+  @Test func warnsWhenCheckpointsAreOnButThereIsNoEntry() {
+    #expect(
+      claudeContextLines(promptEntry: nil, enabled: true) == [
+        DoctorLine(
+          status: .warn, check: "claude context",
+          detail:
+            "context checkpoints are on in config.json, but \(claudeFilePath) has no UserPromptSubmit entry of Countersign's; turn Context checkpoints off and on again in countersign settings"
+        )
+      ])
+  }
+
+  @Test func warnsWhenCheckpointsAreOffButTheEntryRemains() {
+    #expect(
+      claudeContextLines(promptEntry: promptHook(), enabled: false) == [
+        DoctorLine(
+          status: .warn, check: "claude context",
+          detail:
+            "\(claudeFilePath) still has Countersign's UserPromptSubmit entry although context checkpoints are off; turning Context checkpoints off in countersign settings removes it"
+        )
+      ])
+  }
+
+  @Test func warnsWhenTheEntryIsNotAsync() {
+    for async in [nil, "false", "\"true\""] {
+      #expect(
+        claudeContextLines(promptEntry: promptHook(async: async), enabled: true) == [
+          DoctorLine(
+            status: .warn, check: "claude context",
+            detail:
+              "Countersign's UserPromptSubmit entry in \(claudeFilePath) is not async, so every prompt waits for the checkpoint panel; run countersign setup"
+          )
+        ])
+    }
+  }
+
+  @Test func reportsOKWhenEnabledAndTheEntryIsFine() {
+    #expect(
+      claudeContextLines(promptEntry: promptHook(), enabled: true) == [
+        DoctorLine(
+          status: .ok, check: "claude context",
+          detail: "UserPromptSubmit entry in \(claudeFilePath), async")
+      ])
+  }
+
+  @Test func staysSilentWhenDisabledWithoutAnEntry() {
+    #expect(claudeContextLines(promptEntry: nil, enabled: false).isEmpty)
+  }
+
+  @Test func reusesTheEntryChecksWithTheUserPromptSubmitLabel() {
+    let lines = claudeContextLines(
+      promptEntry: promptHook(command: "/x/countersign hook --host claude", timeout: nil),
+      enabled: true, checks: [stablePath: true, "/x/countersign": false])
+    #expect(
+      lines.map(\.detail) == [
+        "UserPromptSubmit entry: /x/countersign differs from the stable path \(stablePath), run countersign setup",
+        "UserPromptSubmit entry: /x/countersign does not exist or is not executable",
+        "UserPromptSubmit entry: timeout is not set, below 600s; a short hook timeout can kill the wait for a person",
+      ])
+  }
 }

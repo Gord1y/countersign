@@ -33,6 +33,49 @@ top-level keys:
 Codex's `hooks.json` gets the same shape with `--host codex` and one more field,
 `"statusMessage": "Waiting for the approval panel"`.
 
+### The Context checkpoints entry
+
+Turning on Context checkpoints adds a second entry to Claude Code's file, under
+`hooks.UserPromptSubmit`, in one group without a `matcher` (the event has none):
+
+```json
+"hooks": {
+  "UserPromptSubmit": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "/opt/homebrew/bin/countersign hook --host claude",
+          "async": true,
+          "timeout": 3600
+        }
+      ]
+    }
+  ]
+}
+```
+
+The command is the same string as the `PermissionRequest` entry's; the hook tells the two events
+apart by `hook_event_name` in its input. Three facts decide the shape:
+
+- `async: true` keeps the prompt from waiting. Claude Code runs the hook in the background,
+  applies no timeout to it once backgrounded, and delivers its `additionalContext` at Claude's
+  next request (verified live on Claude Code 2.1.278). Without `async`, a `UserPromptSubmit` hook
+  that times out blocks the prompt, which Claude Code documents.
+- `timeout: 3600` covers a Claude Code that ignores `async`: the prompt then waits for the panel
+  instead of being blocked at the 30 second default.
+- Recognition is the same as for the `PermissionRequest` entry (see "How our entry is
+  recognised"), searched under `hooks.UserPromptSubmit`. Anyone else's hooks under the event are
+  never touched.
+
+`ContextHookSetup.install` adds the entry, or refreshes it when one of ours already exists under
+the event: the `command`, `async` and `timeout` are set with the same rules as "Install" (a value
+that is already right, however it is spelled, is left as written). Only turning the feature on
+calls it. `HookSetup.install` for Claude Code, which runs on Wire and Update and on every
+`countersign setup`, only refreshes an existing `UserPromptSubmit` entry of ours and never adds
+one, so a person who has not turned the feature on never gets an entry, and one who has turned it on
+never keeps a stale one. A stale entry therefore shows as "Needs an update" in the Agents rows.
+
 Cursor's `hooks.json` has no groups and no `type`: each event holds a plain list of entries, and
 ours goes under both events Countersign answers, shell commands and MCP tools:
 
@@ -97,7 +140,8 @@ setup says so and exits 0.
 Our entry is a hook object whose `type` is `command` and whose `command` has, as its first word,
 an executable path named `countersign` and, as its second word, `hook`. A first word in single or
 double quotes counts as one word, so a path with spaces is still found. Only
-`hooks.PermissionRequest` is searched; an entry of ours under another event is left alone. Only
+`hooks.PermissionRequest` is searched, and for Claude Code also `hooks.UserPromptSubmit` (see "The
+Context checkpoints entry"); an entry of ours under any other event is left alone. Only
 those two words count: an entry of ours with anything else after `hook`, another host, no
 `--host` or an extra word, is still ours, and install rewrites its command (see "Install").
 
@@ -317,6 +361,11 @@ In Antigravity's file, uninstall removes the top-level named hook `countersign`,
 (every one, if the key appears more than once), and nothing else. A file install created from
 nothing ends up as `{}`, and a file install appended the named hook to is back to its original
 bytes. Every other named hook, including one that runs countersign, is left alone.
+
+In Claude Code's file, uninstall (Remove, and `setup --cli --uninstall`) removes every entry of
+ours under both `hooks.PermissionRequest` and `hooks.UserPromptSubmit`, with the same rules for a
+group or an event left empty. `hooks` stays. Someone else's hooks under `UserPromptSubmit` are
+left alone.
 
 ## The stable path
 

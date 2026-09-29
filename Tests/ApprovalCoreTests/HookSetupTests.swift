@@ -587,6 +587,45 @@ private let otherPermissionHook = """
     #expect(HookSetup.sites(in: try JSONSpanReader.parse(Array("{}".utf8))).isEmpty)
   }
 
+  @Test func claudeInstallRefreshesAStaleUserPromptSubmitEntryButNeverAddsOne() throws {
+    let stale = """
+      {"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": "/old/countersign hook --host claude"}]}]}}
+      """
+    let refreshed = try install(stale)
+    #expect(
+      refreshed.contains(
+        "{\"type\": \"command\", \"command\": \"/opt/homebrew/bin/countersign hook --host claude\", \"async\": true, \"timeout\": 3600}"
+      ))
+    #expect(refreshed.contains("\"PermissionRequest\""))
+    #expect(try install(refreshed) == refreshed)
+    #expect(!(try install(claudeSettings)).contains("UserPromptSubmit"))
+    #expect(!(try install(nil, host: .codex)).contains("UserPromptSubmit"))
+    let codexPrompt = stale.replacingOccurrences(of: "--host claude", with: "--host codex")
+    #expect(!(try install(codexPrompt, host: .codex)).contains("async"))
+  }
+
+  @Test func claudeUninstallRemovesTheEntriesOfBothEvents() throws {
+    let settings = """
+      {"hooks": {
+        "PermissionRequest": [{"matcher": "", "hooks": [{"type": "command", "command": "countersign hook --host claude"}]}],
+        "UserPromptSubmit": [
+          {"hooks": [{"type": "command", "command": "~/bin/prompt-log.sh"}]},
+          {"hooks": [{"type": "command", "command": "countersign hook --host claude", "async": true}]}
+        ]
+      }}
+      """
+    let removed = try #require(try uninstall(settings))
+    #expect(removed.contains("~/bin/prompt-log.sh"))
+    #expect(!removed.contains("countersign"))
+    #expect(!removed.contains("PermissionRequest"))
+    let onlyPrompt =
+      "{\"hooks\": {\"UserPromptSubmit\": [{\"hooks\": [{\"type\": \"command\", \"command\": \"countersign hook\"}]}]}}"
+    #expect(try uninstall(onlyPrompt) == "{\"hooks\": {}}")
+    let codex = try #require(try uninstall(settings, host: .codex))
+    #expect(codex.contains("UserPromptSubmit"))
+    #expect(codex.contains("countersign hook --host claude\", \"async\""))
+  }
+
   @Test func acceptsOnlyYesAsConfirmation() {
     #expect(HookSetup.isConfirmation("y"))
     #expect(HookSetup.isConfirmation("Y"))

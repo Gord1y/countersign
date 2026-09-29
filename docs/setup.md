@@ -101,6 +101,10 @@ can wait up to an hour for you. The hook takes nothing else: every setting lives
 Countersign's with any other arguments is rewritten to this command. The exact shape for each
 agent is in [design/setup.md](design/setup.md).
 
+Turning on Context checkpoints in the Settings window adds a second entry to Claude Code's file,
+under `hooks.UserPromptSubmit`. It runs the same command and is marked `"async": true`, so your
+prompts never wait for it. Remove takes out both entries.
+
 Setup touches only its own entry. Everything else in the file, other hooks, key order,
 indentation, line endings, stays exactly as it was. Before it changes a file that already exists,
 it saves a copy next to it, `<file>.countersign-<yyyyMMdd-HHmmss>.bak`, and prints where. A file

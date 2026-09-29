@@ -79,6 +79,21 @@ or config file's content, only paths and our own hook entry's command.
        works. `countersign setup` rewrites the command (see "Install" in [setup.md](setup.md)).
      - an entry with none of the above prints a single `ok` line naming its path and timeout, so a
        clean host still shows up in the output instead of staying silent.
+
+   After the lines above, for Claude Code's file only, when it is valid JSON, lines with the check
+   name **`claude context`** cover the `hooks.UserPromptSubmit` entry that Context checkpoints
+   need (see "The Context checkpoints entry" in [setup.md](setup.md)). They depend on
+   `Doctor.Input.contextCheckpointsEnabled`, which the caller fills from `config.json`:
+   - enabled and no entry of ours: `warn`, since the feature is on and nothing calls the hook;
+     turning Context checkpoints off and on again in `countersign settings` adds the entry.
+   - disabled and an entry of ours present: `warn`; turning Context checkpoints off in
+     `countersign settings` removes it.
+   - an entry whose `async` is not `true`: `warn`, because without `async` every prompt waits for
+     the checkpoint panel; `countersign setup` refreshes it.
+   - the entry's executable path, missing executable and `timeout` are checked with the same rules
+     and wording as the `PermissionRequest` entry's, labelled `UserPromptSubmit entry`.
+   - enabled and the entry fine: one `ok` line, `UserPromptSubmit entry in <path>, async`.
+   - disabled and no entry: no line.
 3. Right after each host's lines, only when that host ends up wired and up to date (the same gate
    the Agents rows use for "Wired"; see "Follow-up lines" in [setup.md](setup.md)): for Codex, one
    line for the state `CodexTrustVerdict.judge` gives (see "The verdict" in [setup.md](setup.md)),

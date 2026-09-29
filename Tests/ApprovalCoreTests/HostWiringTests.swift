@@ -60,6 +60,21 @@ private func status(
     #expect(status(entry("/usr/local/bin/other-tool check")) == .notWired)
   }
 
+  @Test func needsAnUpdateWhenOnlyTheUserPromptSubmitEntryIsStale() {
+    let settings = """
+      {"hooks": {
+        "PermissionRequest": [{"matcher": "", "hooks": [{"type": "command", "command": "\(stablePath) hook --host claude", "timeout": 3600}]}],
+        "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "\(oldPath) hook --host claude"}]}]
+      }}
+      """
+    #expect(
+      status(settings) == .needsUpdate(HostWiringUpdate(otherExecutablePaths: [])))
+    let current = settings.replacingOccurrences(
+      of: "\(oldPath) hook --host claude\"",
+      with: "\(stablePath) hook --host claude\", \"async\": true, \"timeout\": 3600")
+    #expect(status(current) == .wired)
+  }
+
   @Test func isWiredWhenSetupWouldChangeNothing() {
     #expect(status(entry("\(stablePath) hook --host claude")) == .wired)
     #expect(status(entry("\(stablePath) hook --host codex", codex: true), host: .codex) == .wired)
