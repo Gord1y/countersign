@@ -127,11 +127,12 @@ enum HookRunner {
     if mode.waitsForApprovalsFirst {
       waitUntilNoApprovalIsQueued(queue: queue, log: log, abandonReason: abandonReason)
     }
+    let subagentChain = SubagentDescription.chain(for: request)
     let ticket: Ticket
     do {
       ticket = try queue.enqueue(
         TicketSummary(
-          request: request, agentDescription: SubagentDescription.resolve(for: request),
+          request: request, agentDescription: SubagentDescription.resolve(from: subagentChain),
           isTestPanel: mode.isTest)
       )
     } catch {
@@ -168,7 +169,8 @@ enum HookRunner {
     let displayWatch = DisplayWatch(
       app: app, request: request, mode: mode, queue: queue, ticket: ticket, lease: lease,
       log: log, activityGate: activityGate, quietTime: quietTime, settings: settings,
-      waitingEntries: initialWaitingEntries, sessionsDirectory: paths.claudeSessionsDirectory,
+      subagentChain: subagentChain, waitingEntries: initialWaitingEntries,
+      sessionsDirectory: paths.claudeSessionsDirectory,
       hostApp: hostApp, checkpoint: checkpoint, abandonReason: abandonReason,
       handBackIsDue: handBackIsDue)
     let timer = Timer(
@@ -277,12 +279,14 @@ private final class DisplayWatch: NSObject {
   private var handoffPoll: Timer?
   private var hasEvaluatedChatTracking = false
   private var chatTrackingDrift: ChatTrackingDrift?
+  private let subagentChain: [SubagentChainLink]?
 
   init(
     app: PanelApplication, request: ApprovalRequest, mode: PanelRunMode, queue: TicketQueue,
     ticket: Ticket, lease: DisplayLease?, log: EventLog, activityGate: ActivityGate,
-    quietTime: QuietTime, settings: Settings, waitingEntries: [WaitingEntry],
-    sessionsDirectory: URL, hostApp: HostApp?, checkpoint: ContextCheckpointSession?,
+    quietTime: QuietTime, settings: Settings, subagentChain: [SubagentChainLink]?,
+    waitingEntries: [WaitingEntry], sessionsDirectory: URL, hostApp: HostApp?,
+    checkpoint: ContextCheckpointSession?,
     abandonReason: @escaping () -> String?, handBackIsDue: @escaping () -> Bool
   ) {
     self.app = app
@@ -296,6 +300,7 @@ private final class DisplayWatch: NSObject {
     self.activityGate = activityGate
     self.quietTime = quietTime
     self.settings = settings
+    self.subagentChain = subagentChain
     self.lastWaitingEntries = waitingEntries
     self.sessionsDirectory = sessionsDirectory
     self.hostApp = hostApp
@@ -382,8 +387,8 @@ private final class DisplayWatch: NSObject {
       snoozeMinutes: settings.snoozeMinutes, questionNotes: settings.questionNotes,
       modeAfterPlan: settings.modeAfterPlan,
       appearance: settings.appearance, accentColor: settings.accentColor,
-      chatTrackingDrift: chatTrackingDrift, isTestPanel: mode.isTest,
-      handoffBackdrop: handoffBackdrop, afterHandoff: afterHandoff,
+      chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
+      isTestPanel: mode.isTest, handoffBackdrop: handoffBackdrop, afterHandoff: afterHandoff,
       onFinish: { [weak self] outcome in self?.finish(outcome) },
       onSnooze: { [weak self] seconds in self?.handleSnooze(seconds) },
       onStepAside: { [weak self] reason in self?.handleStepAside(reason) },

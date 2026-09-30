@@ -95,12 +95,19 @@ from the requesting agent up to the depth-1 root, and any missing file, missing 
 failure anywhere along the way returns `nil` for the whole chain rather than a partial one, so the
 header can fall back to the plain `subagent · <agentType>` chip.
 
-There is no explicit parent pointer to follow (a `parentAgentId` field has been observed in some
-real meta files, but it is not documented and the fixtures that ship with this repo do not carry
-it, so the reader does not depend on it). Instead, each step reads the current agent's
-`toolUseId` and finds which transcript contains it: the main transcript first (that agent is the
-root, and the walk stops), otherwise each `agent-*.jsonl` in the same `subagents` directory except
-the current agent's own file. The match is a byte search for the id string, not a JSON parse of
+The walk is meta-first. Checked on Claude Code 2.1.278 against 933 local metas: `parentAgentId` is
+a top-level key of `agent-<id>.meta.json` only (never in a `.jsonl` row), it is present exactly
+when `spawnDepth` is 2 or more (176 at depth 2, 4 at depth 3), and absent on all 753 depth-1
+agents, whose parent is the main session. So each hop reads one small meta file: a
+`parentAgentId` names the next hop, a meta without one and with `spawnDepth` 1 ends the chain at
+the main session, and neither opens a transcript. The cost is one meta read per level instead of a
+full read of the main transcript plus every sibling `agent-*.jsonl` per level.
+
+A meta with no `parentAgentId` whose `spawnDepth` is missing or above 1 (an older Claude Code, or
+an inconsistent file) falls back to the transcript walk for that hop: each step reads the current
+agent's `toolUseId` and finds which transcript contains it: the main transcript first (that agent
+is the root, and the walk stops), otherwise each `agent-*.jsonl` in the same `subagents` directory
+except the current agent's own file. The match is a byte search for the id string, not a JSON parse of
 the whole transcript — these files can be large, and the reader only needs to know which file the
 id appears in, not what else is on that line. A `Set` of visited agent ids guards against a cycle,
 and the walk gives up after 10 levels regardless, so a malformed or looping chain degrades to the

@@ -56,6 +56,7 @@ final class PanelModel {
     questionNotes: Bool = Settings.defaultQuestionNotes,
     modeAfterPlan: PlanApprovalMode = Settings.defaultModeAfterPlan,
     chatTrackingDrift: ChatTrackingDrift? = nil,
+    subagentChain: [SubagentChainLink]? = nil,
     isTestPanel: Bool = false,
     sessionIdle: Bool = false,
     openDropdownOnAppear: PanelDropdownID? = nil
@@ -71,12 +72,7 @@ final class PanelModel {
     self.isTestPanel = isTestPanel
     self.dropdown = PanelDropdownState(requestedOnAppear: openDropdownOnAppear)
     self.fileDiffs = FileDiffBuilder.load(for: request)
-    if let transcriptPath = request.transcriptPath, let agentID = request.agentID {
-      self.subagentChain = SubagentChainReader.chain(
-        transcriptPath: transcriptPath, agentID: agentID)
-    } else {
-      self.subagentChain = nil
-    }
+    self.subagentChain = subagentChain
   }
 
   func startArming() {
@@ -144,6 +140,7 @@ final class PanelController {
     appearance: AppearanceChoice = Settings.defaultAppearance,
     accentColor: HexColor = Settings.defaultAccentColor,
     chatTrackingDrift: ChatTrackingDrift? = nil,
+    subagentChain: [SubagentChainLink]? = nil,
     isTestPanel: Bool = false,
     handoffBackdrop: BackdropWindow? = nil,
     afterHandoff: Bool = false,
@@ -162,7 +159,8 @@ final class PanelController {
     let model = PanelModel(
       request: request, waitingEntries: waitingEntries, armDuration: clampedArmDuration,
       snoozeMinutes: snoozeMinutes, questionNotes: questionNotes, modeAfterPlan: modeAfterPlan,
-      chatTrackingDrift: chatTrackingDrift, isTestPanel: isTestPanel, sessionIdle: sessionIdle)
+      chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
+      isTestPanel: isTestPanel, sessionIdle: sessionIdle)
     CountersignPalette.use(accentColor)
     let panel = ApprovalPanel()
     panel.appearance = appearance.windowAppearance

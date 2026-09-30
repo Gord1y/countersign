@@ -41,17 +41,18 @@ enum PreviewCommand {
       diagnosticLog("chat tracking: \(chatTrackingDrift.reason)")
     }
 
+    let subagentChain = SubagentDescription.chain(for: request)
     let waitingEntries = Array(
       repeating: WaitingEntry(
         summary: TicketSummary(
-          request: request, agentDescription: SubagentDescription.resolve(for: request))),
+          request: request, agentDescription: SubagentDescription.resolve(from: subagentChain))),
       count: options.waitingCount)
     let controller = PanelController(
       request: request, waitingEntries: waitingEntries, armDuration: settings.armDelay,
       snoozeMinutes: settings.snoozeMinutes, questionNotes: settings.questionNotes,
       modeAfterPlan: settings.modeAfterPlan,
       appearance: settings.appearance, accentColor: settings.accentColor,
-      chatTrackingDrift: chatTrackingDrift,
+      chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
       onFinish: { outcome in
         if let data = options.host.encode(outcome), let string = String(data: data, encoding: .utf8)
         {

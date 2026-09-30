@@ -61,18 +61,19 @@ enum SnapshotCommand {
     let width = PanelController.panelWidth(screen: screen)
     let maxHeight = PanelController.maxContentHeight(screen: screen)
 
+    let subagentChain = SubagentDescription.chain(for: request)
     let waitingEntries = Array(
       repeating: WaitingEntry(
         summary: TicketSummary(
-          request: request, agentDescription: SubagentDescription.resolve(for: request))),
+          request: request, agentDescription: SubagentDescription.resolve(from: subagentChain))),
       count: options.waitingCount)
     let chatTrackingDrift =
       isTestPanel ? nil : ChatTrackingHealth.evaluateTranscript(request: request)
     CountersignPalette.use(options.accentColor)
     let model = PanelModel(
       request: request, waitingEntries: waitingEntries, questionNotes: options.questionNotes,
-      chatTrackingDrift: chatTrackingDrift, isTestPanel: isTestPanel,
-      openDropdownOnAppear: options.openMenu)
+      chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
+      isTestPanel: isTestPanel, openDropdownOnAppear: options.openMenu)
     model.onSnooze = { _ in }
     if options.isArmed {
       model.arm()

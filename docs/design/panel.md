@@ -704,9 +704,14 @@ list" uses for the "+N" chip's dropdown — plain, non-focusable `Text` in a `VS
 
 A single `subagent · <agentType>` chip says a subagent is asking, but not what it or its ancestors
 are actually doing, which matters most for a subagent spawned by another subagent. `PanelModel`
-computes `ApprovalCore.SubagentChainReader.chain(transcriptPath:agentID:)` once at init (see
-"Walking the subagent chain" in [hosts.md](hosts.md) for how it walks the meta files), so both
-`hook` and `snapshot` render from the same chain.
+receives the `ApprovalCore.SubagentChainReader.chain(transcriptPath:agentID:)` result from its
+caller (see "Walking the subagent chain" in [hosts.md](hosts.md)): `HookRunner`, `preview` and
+`snapshot` each compute it once per request and hand the same chain to the panel header and to
+the ticket summary's task description, so nothing walks the files twice. The walk is meta-first:
+`parentAgentId` in each `agent-<id>.meta.json` names the next hop, a meta without it and with
+`spawnDepth` 1 ends the chain at the main session, and only an older or inconsistent meta falls
+back to searching transcripts. The cost is one small meta read per level, not a full transcript
+read per level and sibling.
 
 The header shows only the agent that is asking, the one whose answer this panel actually records;
 its parents are context, and context is a hover away. One crumb per agent, from the depth-1 root
