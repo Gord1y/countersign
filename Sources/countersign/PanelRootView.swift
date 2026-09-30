@@ -36,8 +36,9 @@ struct PanelRootView: View {
     .background(surface.fill)
     .clipShape(RoundedRectangle(cornerRadius: PanelMetrics.cornerRadius, style: .continuous))
     .overlay(
-      RoundedRectangle(cornerRadius: PanelMetrics.cornerRadius, style: .continuous)
-        .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+      PanelBorder(
+        shape: RoundedRectangle(cornerRadius: PanelMetrics.cornerRadius, style: .continuous),
+        opacity: 0.1)
     )
     .reportHeight { model.onPreferredHeightChange?(min($0, maxHeight)) }
     .onAppear {
@@ -64,6 +65,7 @@ struct PanelRootView: View {
     HStack(spacing: 8) {
       CountersignMark()
         .frame(width: 20, height: 20)
+        .accessibilityHidden(true)
 
       Text(host.displayName)
         .font(.system(size: 13, weight: .semibold))
@@ -84,7 +86,7 @@ struct PanelRootView: View {
         .layoutPriority(1)
 
       if model.isTestPanel {
-        Chip("Test")
+        Chip("Test", spokenLabel: "Test panel")
           .hoverCard(width: 260, alignment: .topLeading) {
             Text(Self.testPanelText)
           }
@@ -106,13 +108,17 @@ struct PanelRootView: View {
         chevron
         askingLabel(for: chain)
       } else if let agentType = request.agentType {
-        Chip("subagent · \(agentType)", symbol: "person.2")
+        Chip(
+          "subagent · \(agentType)", symbol: "person.2", spokenLabel: "Subagent \(agentType)")
       }
       if let modeDisplay = PermissionModeDisplay.forMode(request.permissionMode, host: host) {
-        Chip(modeDisplay.label, symbol: "shield")
-          .hoverCard(width: 280) {
-            Text(modeDisplay.tooltip)
-          }
+        Chip(
+          modeDisplay.label, symbol: "shield",
+          spokenLabel: "Permission mode: \(modeDisplay.label)"
+        )
+        .hoverCard(width: 280) {
+          Text(modeDisplay.tooltip)
+        }
       }
 
       Spacer()
@@ -141,6 +147,7 @@ struct PanelRootView: View {
     Image(systemName: "chevron.right")
       .font(.system(size: 10))
       .foregroundStyle(.secondary)
+      .accessibilityHidden(true)
   }
 
   private static let testPanelText =
@@ -211,6 +218,7 @@ struct PanelRootView: View {
     }
     .buttonStyle(.plain)
     .fixedSize()
+    .accessibilityLabel("Snooze")
     .disabled(!model.isArmed)
     .panelDropdownAnchor(.snooze)
     .hoverCard(width: 60) {

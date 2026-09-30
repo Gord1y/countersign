@@ -227,8 +227,7 @@ private struct PanelDropdownCard: View {
       }
     )
     .overlay(
-      RoundedRectangle(cornerRadius: 10, style: .continuous)
-        .stroke(Color.primary.opacity(0.12), lineWidth: 1)
+      PanelBorder(shape: RoundedRectangle(cornerRadius: 10, style: .continuous), opacity: 0.12)
     )
     .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
     .disabled(!isEnabled)
@@ -251,6 +250,7 @@ private struct PanelDropdownRowView: View {
             .font(.system(size: 11, weight: .semibold))
             .foregroundStyle(CountersignPalette.accentText)
             .opacity(row.isChecked ? 1 : 0)
+            .accessibilityHidden(true)
         }
         VStack(alignment: .leading, spacing: 2) {
           Text(row.title)
@@ -278,6 +278,12 @@ private struct PanelDropdownRowView: View {
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
+    .accessibilityAddTraits(isHighlighted ? .isSelected : [])
+    .accessibilityValue(showsCheckmark && row.isChecked ? "Current" : "")
+    .accessibilityHint(
+      index < DropdownNavigation.digitLimit
+        ? PanelAnnouncement.shortcutHint(for: "\(index + 1)") : ""
+    )
     .onHover { hovering in
       if hovering {
         onHover()

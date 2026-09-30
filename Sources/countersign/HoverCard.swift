@@ -23,8 +23,7 @@ struct HoverCardBody<Content: View>: View {
         .fill(.regularMaterial)
     )
     .overlay(
-      RoundedRectangle(cornerRadius: 10, style: .continuous)
-        .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+      PanelBorder(shape: RoundedRectangle(cornerRadius: 10, style: .continuous), opacity: 0.1)
     )
     .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
     .allowsHitTesting(false)

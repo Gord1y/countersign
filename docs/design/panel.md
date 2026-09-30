@@ -1554,6 +1554,59 @@ request kinds reading as one product:
   and why `PlanView`'s footer swaps to a feedback state instead of keeping a feedback `TextField`
   permanently docked next to Approve.
 
+## Accessibility
+
+The panel is shortcut-driven and non-activating, so VoiceOver reaches it through announcements and
+the accessibility tree rather than through a Tab loop. `PanelAnnouncement` in `ApprovalCore` holds
+every string that is pure logic, so the wording is tested.
+
+What VoiceOver hears:
+
+- **On show.** `PanelController.show()` gives the panel the accessibility title "Countersign
+  approval", posts `focusedUIElementChanged` on the hosting view so the panel's content is the
+  VoiceOver focus, and posts a high-priority announcement with a one-line summary, from
+  `PanelAnnouncement.text(for:)`: host, project and, for a subagent, "subagent <type>", then what
+  is asked, for example "Claude Code, countersign: asks permission to use Bash", "asks a question",
+  "asks 2 questions", "proposes a plan" or "suggests a context checkpoint".
+- **During the arm lock.** The primary button (Approve, Submit, the plan's Approve, the checkpoint's
+  choice) has the accessibility value "Not available yet" while the panel is unarmed, and the
+  panel announces "Ready" once when the lock ends. With no arm delay there is nothing to wait for
+  and nothing is announced.
+- **Shortcuts.** `KeyHint` chips are hidden from the tree, so a chip is never read as a stray
+  glyph. Each button, option card and dropdown row carries the shortcut as its accessibility hint
+  instead: "Shortcut: Return", "Shortcut: Command-Return", "Shortcut: Delete", "Shortcut: Escape",
+  "Shortcut: 1".
+- **Choices.** An `OptionCard` is one element (`.combine`) with the selected trait on the chosen
+  card and its indicator glyph hidden. A question tab reads "Answered" once it has an answer and
+  carries the selected trait when current. A dropdown row is a button; the highlighted row has the
+  selected trait and the checked row's value is "Current".
+- **Chips.** `Chip` has an explicit label ("Test panel", "Subagent <type>", "Permission mode:
+  <mode>") and hides its symbol. The "+N waiting" chip is a `Button`, so VoiceOver and the keyboard
+  can open the list; it is labelled "N waiting" and its hint says whether the list is open.
+- **Diffs.** `DiffRunHostView` draws its gutter itself, so it exposes one accessibility element per
+  row instead of the text view. `DiffLineSpeech` builds each label: "Added, line 12: <text>",
+  "Removed, line 11: <text>", "line 4: <text>" for context, and no line numbers in the
+  marker-only gutter. The gap button's icon is hidden and its label is its title.
+- **Decoration.** Chevrons, `doc.text`, the plan's bullet dots and rules, the Countersign mark and
+  the arm line are hidden.
+
+Reduce Motion: with `accessibilityDisplayShouldReduceMotion` the panel does not fade in, and with
+the SwiftUI `accessibilityReduceMotion` environment value the arm line jumps to full instead of
+growing across the arm delay. The arm lock itself still lasts the full delay.
+
+Increase Contrast: with `colorSchemeContrast == .increased`, the hairlines and card borders that
+are `primary` at 8 to 12% (the panel, code cards, diff cards, the deny reason field, hover cards,
+the waiting list and dropdown cards) use `PanelBorder`, which draws `primary` at 50%, about 4:1 on
+either panel background. The orange shell-flag colour, `#FF9500` on light and `#FF9F0A` on dark,
+does not reach 4.5:1 on a code card (`#F2F2F2` and `#292929`), so it is replaced by
+`PanelContrast.increasedContrastOrangeLight` and `increasedContrastOrangeDark`: the orange
+darkened, or lightened, in the same 0.005 HSL steps as the accent's text colours until it reaches
+4.5:1 against the card.
+
+Known limit: there is no Tab loop. The panel owns the keyboard through its key monitor, so VoiceOver
+navigates it with its own cursor and presses controls with VoiceOver's press command, while every
+action also has its shortcut. Dynamic Type is not supported.
+
 ## Snapshots
 
 `countersign snapshot` renders a request's panel to a PNG without putting anything on screen, so

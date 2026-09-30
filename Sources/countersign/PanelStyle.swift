@@ -202,9 +202,35 @@ struct CodeCard<Content: View>: View {
           .fill(Color.primary.opacity(0.05))
       )
       .overlay(
-        RoundedRectangle(cornerRadius: 10, style: .continuous)
-          .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        PanelBorder(
+          shape: RoundedRectangle(cornerRadius: 10, style: .continuous), opacity: 0.08)
       )
+  }
+}
+
+struct PanelBorder<BorderShape: InsettableShape>: View {
+  static var increasedContrastOpacity: Double { 0.5 }
+
+  let shape: BorderShape
+  let opacity: Double
+
+  @Environment(\.colorSchemeContrast) private var contrast
+
+  var body: some View {
+    shape.stroke(
+      Color.primary.opacity(contrast == .increased ? Self.increasedContrastOpacity : opacity),
+      lineWidth: 1)
+  }
+}
+
+extension View {
+  func panelButtonAccessibility(shortcut: String) -> some View {
+    accessibilityHint(PanelAnnouncement.shortcutHint(for: shortcut))
+  }
+
+  func panelPrimaryAccessibility(shortcut: String, model: PanelModel) -> some View {
+    panelButtonAccessibility(shortcut: shortcut)
+      .accessibilityValue(model.isArmed ? "" : PanelAnnouncement.notAvailableYet)
   }
 }
 
@@ -212,21 +238,28 @@ struct Chip: View {
   let text: String
   var symbol: String?
   var tint: Color?
+  var spokenLabel: String?
 
-  init(_ text: String, symbol: String? = nil, tint: Color? = nil) {
+  init(
+    _ text: String, symbol: String? = nil, tint: Color? = nil, spokenLabel: String? = nil
+  ) {
     self.text = text
     self.symbol = symbol
     self.tint = tint
+    self.spokenLabel = spokenLabel
   }
 
   var body: some View {
     HStack(spacing: 4) {
       if let symbol {
         Image(systemName: symbol)
+          .accessibilityHidden(true)
       }
       Text(text)
         .lineLimit(1)
     }
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(spokenLabel ?? text)
     .fixedSize()
     .font(PanelTypography.caption)
     .foregroundStyle(tint ?? Color.primary)
@@ -257,6 +290,7 @@ struct KeyHint: View {
 
   var body: some View {
     Text(text)
+      .accessibilityHidden(true)
       .font(PanelTypography.caption)
       .monospacedDigit()
       .foregroundStyle(foreground)
@@ -327,6 +361,7 @@ struct AnswerInChatButton: View {
         }
       }
       .buttonStyle(LinkButtonStyle())
+      .panelButtonAccessibility(shortcut: "esc")
       .disabled(!model.isArmed)
     }
   }
@@ -353,6 +388,7 @@ struct PanelScaffold<Body: View, Footer: View>: View {
   @State private var bodyHeight: CGFloat = 0
   @State private var footerHeight: CGFloat = 0
   @State private var armProgress: CGFloat = 0
+  @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
   init(
     model: PanelModel,
@@ -407,11 +443,16 @@ struct PanelScaffold<Body: View, Footer: View>: View {
         .frame(height: 2)
         .frame(maxWidth: .infinity, alignment: .leading)
         .scaleEffect(x: armProgress, y: 1, anchor: .leading)
+        .accessibilityHidden(true)
     }
   }
 
   private func startArmProgressIfNeeded() {
     guard model.armDuration > 0 else { return }
+    guard !reduceMotion else {
+      armProgress = 1
+      return
+    }
     armProgress = 0
     withAnimation(.linear(duration: model.armDuration)) {
       armProgress = 1

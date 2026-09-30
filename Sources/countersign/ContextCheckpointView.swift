@@ -55,6 +55,7 @@ struct ContextCheckpointView: View {
           }
         }
         .buttonStyle(PrimaryButtonStyle())
+        .panelPrimaryAccessibility(shortcut: "⏎", model: model)
         .disabled(!model.isArmed)
       }
     }
@@ -113,6 +114,7 @@ struct ContextCheckpointView: View {
   private func choiceCard(index: Int, choice: ContextCheckpointChoice) -> some View {
     OptionCard(
       selected: choice == highlighted,
+      shortcut: "\(index + 1)",
       action: { perform(choice) },
       content: {
         HStack(alignment: .firstTextBaseline, spacing: 8) {

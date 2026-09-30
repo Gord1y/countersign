@@ -207,7 +207,8 @@ final class PanelController {
   func show() {
     showTime = Date()
     layOut()
-    let fadesIn = !isAfterHandoff
+    let fadesIn = !isAfterHandoff && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    panel.setAccessibilityTitle("Countersign approval")
     panel.alphaValue = fadesIn ? 0 : 1
     backdrop?.alphaValue = fadesIn ? 0 : 1
     backdrop?.orderFrontRegardless()
@@ -217,6 +218,7 @@ final class PanelController {
     isPresented = true
     installKeyMonitor()
     installStepAsideTriggers()
+    announcePresentation()
     if fadesIn {
       NSAnimationContext.runAnimationGroup { context in
         context.duration = 0.15
@@ -245,6 +247,20 @@ final class PanelController {
     backdrop?.orderOut(nil)
   }
 
+  private func announcePresentation() {
+    NSAccessibility.post(element: hostingController.view, notification: .focusedUIElementChanged)
+    postAnnouncement(PanelAnnouncement.text(for: model.request))
+  }
+
+  private func postAnnouncement(_ text: String) {
+    NSAccessibility.post(
+      element: panel, notification: .announcementRequested,
+      userInfo: [
+        .announcement: text,
+        .priority: NSAccessibilityPriorityLevel.high.rawValue,
+      ])
+  }
+
   private func startArming() {
     armTask?.cancel()
     let model = self.model
@@ -253,11 +269,12 @@ final class PanelController {
       model.arm()
       return
     }
-    armTask = Task {
+    armTask = Task { [weak self] in
       let nanoseconds = UInt64(model.armDuration * 1_000_000_000)
       try? await Task.sleep(nanoseconds: nanoseconds)
       guard !Task.isCancelled else { return }
       model.arm()
+      self?.postAnnouncement(PanelAnnouncement.ready)
     }
   }
 
