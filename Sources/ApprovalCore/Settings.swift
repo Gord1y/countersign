@@ -10,6 +10,8 @@ public struct Settings: Sendable, Equatable {
   public var quitBehavior: QuitBehavior
   public var modeAfterPlan: PlanApprovalMode
   public var panelSound: String
+  public var waitingNotices: Bool
+  public var waitingNoticeMinutes: Int
   public var includeHeadlessSessions: Bool
   public var questionNotes: Bool
   public var appearance: AppearanceChoice
@@ -28,6 +30,8 @@ public struct Settings: Sendable, Equatable {
     quitBehavior: QuitBehavior,
     modeAfterPlan: PlanApprovalMode,
     panelSound: String = Settings.defaultPanelSound,
+    waitingNotices: Bool = Settings.defaultWaitingNotices,
+    waitingNoticeMinutes: Int = Settings.defaultWaitingNoticeMinutes,
     includeHeadlessSessions: Bool,
     questionNotes: Bool,
     appearance: AppearanceChoice,
@@ -45,6 +49,8 @@ public struct Settings: Sendable, Equatable {
     self.quitBehavior = quitBehavior
     self.modeAfterPlan = modeAfterPlan
     self.panelSound = panelSound
+    self.waitingNotices = waitingNotices
+    self.waitingNoticeMinutes = waitingNoticeMinutes
     self.includeHeadlessSessions = includeHeadlessSessions
     self.questionNotes = questionNotes
     self.appearance = appearance
@@ -64,6 +70,10 @@ public struct Settings: Sendable, Equatable {
   public static let defaultQuitBehavior = QuitBehavior.ask
   public static let defaultModeAfterPlan = PlanApprovalMode.default
   public static let defaultPanelSound = PanelSound.none
+  public static let defaultWaitingNotices = false
+  public static let defaultWaitingNoticeMinutes = 2
+  public static let waitingNoticeMinutesRange = 1...60
+  public static let waitingNoticeMinuteChoices = [1, 2, 5, 10, 15, 30]
   public static let defaultIncludeHeadlessSessions = false
   public static let defaultQuestionNotes = false
   public static let defaultAppearance = AppearanceChoice.system
@@ -83,6 +93,8 @@ public struct Settings: Sendable, Equatable {
     let quitBehavior = file.quitBehavior ?? defaultQuitBehavior
     let modeAfterPlan = file.modeAfterPlan ?? defaultModeAfterPlan
     let panelSound = file.panelSound ?? defaultPanelSound
+    let waitingNotices = file.waitingNotices ?? defaultWaitingNotices
+    let waitingNoticeMinutes = file.waitingNoticeMinutes ?? defaultWaitingNoticeMinutes
     let includeHeadlessSessions =
       hostOverrides?.includeHeadlessSessions ?? file.includeHeadlessSessions
       ?? defaultIncludeHeadlessSessions
@@ -102,6 +114,8 @@ public struct Settings: Sendable, Equatable {
       quitBehavior: quitBehavior,
       modeAfterPlan: modeAfterPlan,
       panelSound: panelSound,
+      waitingNotices: waitingNotices,
+      waitingNoticeMinutes: waitingNoticeMinutes,
       includeHeadlessSessions: includeHeadlessSessions,
       questionNotes: questionNotes,
       appearance: appearance,

@@ -29,6 +29,8 @@ public struct PreferenceValues: Sendable, Equatable {
   public var quitBehavior: QuitBehavior
   public var modeAfterPlan: PlanApprovalMode
   public var panelSound: String
+  public var waitingNotices: Bool
+  public var waitingNoticeMinutes: Int
   public var questionNotes: Bool
   public var appearance: AppearanceChoice
   public var accentColor: HexColor
@@ -47,6 +49,8 @@ public struct PreferenceValues: Sendable, Equatable {
     quitBehavior: QuitBehavior = Settings.defaultQuitBehavior,
     modeAfterPlan: PlanApprovalMode = Settings.defaultModeAfterPlan,
     panelSound: String = Settings.defaultPanelSound,
+    waitingNotices: Bool = Settings.defaultWaitingNotices,
+    waitingNoticeMinutes: Int = Settings.defaultWaitingNoticeMinutes,
     questionNotes: Bool = Settings.defaultQuestionNotes,
     appearance: AppearanceChoice = Settings.defaultAppearance,
     accentColor: HexColor = Settings.defaultAccentColor,
@@ -64,6 +68,8 @@ public struct PreferenceValues: Sendable, Equatable {
     self.quitBehavior = quitBehavior
     self.modeAfterPlan = modeAfterPlan
     self.panelSound = panelSound
+    self.waitingNotices = waitingNotices
+    self.waitingNoticeMinutes = waitingNoticeMinutes
     self.questionNotes = questionNotes
     self.appearance = appearance
     self.accentColor = accentColor
@@ -84,6 +90,8 @@ public struct PreferenceValues: Sendable, Equatable {
       quitBehavior: file.quitBehavior ?? Settings.defaultQuitBehavior,
       modeAfterPlan: file.modeAfterPlan ?? Settings.defaultModeAfterPlan,
       panelSound: file.panelSound ?? Settings.defaultPanelSound,
+      waitingNotices: file.waitingNotices ?? Settings.defaultWaitingNotices,
+      waitingNoticeMinutes: file.waitingNoticeMinutes ?? Settings.defaultWaitingNoticeMinutes,
       questionNotes: file.questionNotes ?? Settings.defaultQuestionNotes,
       appearance: file.appearance ?? Settings.defaultAppearance,
       accentColor: file.accentColor ?? Settings.defaultAccentColor,
@@ -115,6 +123,10 @@ public struct PreferenceValues: Sendable, Equatable {
       values.modeAfterPlan = mode
     case .panelSound(let name):
       values.panelSound = name
+    case .waitingNotices(let enabled):
+      values.waitingNotices = enabled
+    case .waitingNoticeMinutes(let minutes):
+      values.waitingNoticeMinutes = minutes
     case .questionNotes(let enabled):
       values.questionNotes = enabled
     case .appearance(let appearance):
@@ -169,6 +181,8 @@ public struct PreferenceValues: Sendable, Equatable {
     case .quitBehavior: values.quitBehavior = Settings.defaultQuitBehavior
     case .modeAfterPlan: values.modeAfterPlan = Settings.defaultModeAfterPlan
     case .panelSound: values.panelSound = Settings.defaultPanelSound
+    case .waitingNotices: values.waitingNotices = Settings.defaultWaitingNotices
+    case .waitingNoticeMinutes: values.waitingNoticeMinutes = Settings.defaultWaitingNoticeMinutes
     case .questionNotes: values.questionNotes = Settings.defaultQuestionNotes
     case .appearance: values.appearance = Settings.defaultAppearance
     case .accentColor: values.accentColor = Settings.defaultAccentColor

@@ -76,6 +76,42 @@ calls it. `HookSetup.install` for Claude Code, which runs on Wire and Update and
 one, so a person who has not turned the feature on never gets an entry, and one who has turned it on
 never keeps a stale one. A stale entry therefore shows as "Needs an update" in the Agents rows.
 
+### The waiting-agent entry
+
+Waiting-agent notices add one more entry for Claude Code, under `hooks.Stop`, in one group without
+a `matcher`:
+
+```json
+"Stop": [
+  {
+    "hooks": [
+      {
+        "type": "command",
+        "command": "<exe> hook --host claude --event waiting",
+        "async": true,
+        "timeout": 30
+      }
+    ]
+  }
+]
+```
+
+- `async` so the end of a turn never waits for Countersign. 30 seconds because the hook only
+  records the turn end and exits.
+- The command says what it is with `--event waiting` (`HookOptions.event`, `HookCommand` with its
+  `event` parameter) instead of relying on the payload's `hook_event_name`: Antigravity's payloads
+  have no event-name field, so every host's waiting entry names itself on its own command line.
+  `HookCommand.isCommand` compares the event too, so the approval and the waiting command of one
+  host never match each other.
+- Setup never adds it. `HookSetup.install` for Claude Code, on Wire, Update and every
+  `countersign setup`, only refreshes an existing `Stop` entry of ours (command path, `async`,
+  `timeout`) through `WaitingHookSetup.refresh`. Only the Waiting-agent notices toggle in Settings
+  adds it, through `WaitingHookRun` (preview, then apply with a backup, over the wired hosts in
+  `WaitingHookSetup.supportedHosts`). `countersign setup --remove` and turning the toggle off
+  remove it, and someone else's `Stop` hooks stay untouched.
+- Until the notice runtime exists, `hook --event waiting` logs `waiting: <host> not handled yet`
+  and exits 0.
+
 Cursor's `hooks.json` has no groups and no `type`: each event holds a plain list of entries, and
 ours goes under both events Countersign answers, shell commands and MCP tools:
 

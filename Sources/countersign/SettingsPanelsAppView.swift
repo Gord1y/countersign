@@ -110,6 +110,30 @@ struct PanelsSection: View {
             }
           }
           SettingsDivider()
+          WaitingNoticesRow(model: model)
+          SettingsDivider()
+          PreferenceRow(
+            .waitingNoticeMinutes, model: model, problem: model.writeErrors[.waitingNoticeMinutes]
+          ) {
+            Picker(
+              PreferenceName.waitingNoticeMinutes.title,
+              selection: Binding(
+                get: { model.waitingNoticeMinutes }, set: { model.setWaitingNoticeMinutes($0) })
+            ) {
+              ForEach(
+                PreferenceRules.waitingNoticeMinuteChoices(including: model.waitingNoticeMinutes),
+                id: \.self
+              ) { minutes in
+                Text(PreferenceRules.minutesText(minutes)).tag(minutes)
+              }
+            }
+            .pickerStyle(.menu)
+            .controlSize(.small)
+            .labelsHidden()
+            .fixedSize()
+            .disabled(!model.waitingNotices)
+          }
+          SettingsDivider()
           ContextToggleRow(model: model)
         }
         .disabled(model.configProblem != nil)
@@ -119,6 +143,40 @@ struct PanelsSection: View {
         RestoreDefaultsRow(pane: .panels, model: model)
       }
     }
+  }
+}
+
+private struct WaitingHookPromptPresenter: ViewModifier {
+  let model: SettingsModel
+
+  func body(content: Content) -> some View {
+    content.onChange(of: model.waitingChange != nil) { _, isPending in
+      guard isPending, let change = model.waitingChange else { return }
+      WaitingHookPrompt.present(
+        change: change, home: model.homeDirectory, on: NSApp.keyWindow,
+        onConfirm: { model.confirmWaitingChange() },
+        onCancel: { model.cancelWaitingChange() })
+    }
+  }
+}
+
+struct WaitingNoticesRow: View {
+  let model: SettingsModel
+
+  var body: some View {
+    PreferenceRow(
+      PreferenceName.waitingNotices.title, caption: PreferenceName.waitingNotices.caption,
+      problem: model.waitingToggleProblem,
+      explained: PreferenceRowExplanation(.waitingNotices)
+    ) {
+      SettingsSwitch(
+        PreferenceName.waitingNotices.title,
+        isOn: Binding(
+          get: { model.waitingNotices },
+          set: { model.requestWaitingNotices($0) })
+      )
+    }
+    .modifier(WaitingHookPromptPresenter(model: model))
   }
 }
 

@@ -16,6 +16,8 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
   case accentColor
   case editorApp
   case panelSound
+  case waitingNotices
+  case waitingNoticeMinutes
   case contextCheckpointsEnabled
   case contextMode
   case contextStandardThresholds
@@ -71,6 +73,8 @@ public enum PreferenceEdit: Sendable, Equatable {
   case quitBehavior(QuitBehavior)
   case modeAfterPlan(PlanApprovalMode)
   case panelSound(String)
+  case waitingNotices(Bool)
+  case waitingNoticeMinutes(Int)
   case questionNotes(Bool)
   case appearance(AppearanceChoice)
   case accentColor(HexColor)
@@ -101,6 +105,8 @@ public enum PreferenceEdit: Sendable, Equatable {
     case .quitBehavior: return .quitBehavior
     case .modeAfterPlan: return .modeAfterPlan
     case .panelSound: return .panelSound
+    case .waitingNotices: return .waitingNotices
+    case .waitingNoticeMinutes: return .waitingNoticeMinutes
     case .questionNotes: return .questionNotes
     case .appearance: return .appearance
     case .accentColor: return .accentColor
@@ -180,6 +186,10 @@ public enum ConfigEdit {
       }
     case .panelSound(let name):
       try set(key, to: .string(name), in: &document) { $0.stringValue == name }
+    case .waitingNotices(let enabled):
+      try set(key, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
+    case .waitingNoticeMinutes(let minutes):
+      try set(key, to: .integer(minutes), in: &document) { $0.numberValue == Double(minutes) }
     case .questionNotes(let enabled):
       try set(key, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
     case .appearance(let appearance):

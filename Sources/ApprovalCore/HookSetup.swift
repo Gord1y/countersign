@@ -49,7 +49,9 @@ public enum HookSetup {
     let installed = try installPermissionEntry(
       into: original, host: host, executablePath: executablePath)
     guard host == .claude else { return installed }
-    return try ContextHookSetup.refresh(into: installed, executablePath: executablePath)
+    let withContext = try ContextHookSetup.refresh(into: installed, executablePath: executablePath)
+    return try WaitingHookSetup.refresh(
+      into: withContext, host: host, executablePath: executablePath)
   }
 
   private static func installPermissionEntry(
@@ -101,7 +103,8 @@ public enum HookSetup {
     switch host {
     case .claude:
       let removed = try removeEntries(from: original, event: eventName)
-      return try ContextHookSetup.uninstall(from: removed)
+      let withoutContext = try ContextHookSetup.uninstall(from: removed)
+      return try WaitingHookSetup.uninstall(from: withoutContext, host: host)
     case .codex:
       return try removeEntries(from: original, event: eventName)
     case .cursor:

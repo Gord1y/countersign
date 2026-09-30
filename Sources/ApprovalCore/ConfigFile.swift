@@ -40,6 +40,8 @@ public struct ConfigFile: Sendable, Equatable {
   public var quitBehavior: QuitBehavior?
   public var modeAfterPlan: PlanApprovalMode?
   public var panelSound: String?
+  public var waitingNotices: Bool?
+  public var waitingNoticeMinutes: Int?
   public var includeHeadlessSessions: Bool?
   public var questionNotes: Bool?
   public var appearance: AppearanceChoice?
@@ -64,6 +66,8 @@ public struct ConfigFile: Sendable, Equatable {
     quitBehavior: QuitBehavior? = nil,
     modeAfterPlan: PlanApprovalMode? = nil,
     panelSound: String? = nil,
+    waitingNotices: Bool? = nil,
+    waitingNoticeMinutes: Int? = nil,
     includeHeadlessSessions: Bool? = nil,
     questionNotes: Bool? = nil,
     appearance: AppearanceChoice? = nil,
@@ -87,6 +91,8 @@ public struct ConfigFile: Sendable, Equatable {
     self.quitBehavior = quitBehavior
     self.modeAfterPlan = modeAfterPlan
     self.panelSound = panelSound
+    self.waitingNotices = waitingNotices
+    self.waitingNoticeMinutes = waitingNoticeMinutes
     self.includeHeadlessSessions = includeHeadlessSessions
     self.questionNotes = questionNotes
     self.appearance = appearance
@@ -132,7 +138,8 @@ public enum ConfigFileParser {
   static let topLevelKeys: Set<String> = [
     "armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds", "handoffApps",
     "snoozeMinutes", "quietHours", "checkForUpdates", "quitBehavior", "modeAfterPlan",
-    "panelSound", "includeHeadlessSessions", "questionNotes", "editorApp", "hosts",
+    "panelSound", "waitingNotices", "waitingNoticeMinutes", "includeHeadlessSessions",
+    "questionNotes", "editorApp", "hosts",
     "appearance", "accentColor", "contextCheckpoints",
     "$schema",
   ]
@@ -192,6 +199,11 @@ public enum ConfigFileParser {
       root["modeAfterPlan"], path: "modeAfterPlan", logLines: &logLines)
     file.panelSound = readPanelSound(
       root["panelSound"], path: "panelSound", soundNames: soundNames, logLines: &logLines)
+    file.waitingNotices = readBool(
+      root["waitingNotices"], path: "waitingNotices",
+      defaultValue: Settings.defaultWaitingNotices, logLines: &logLines)
+    file.waitingNoticeMinutes = readWaitingNoticeMinutes(
+      root["waitingNoticeMinutes"], path: "waitingNoticeMinutes", logLines: &logLines)
     file.includeHeadlessSessions = readBool(
       root["includeHeadlessSessions"], path: "includeHeadlessSessions",
       defaultValue: Settings.defaultIncludeHeadlessSessions, logLines: &logLines)
@@ -535,6 +547,21 @@ public enum ConfigFileParser {
       return nil
     }
     return mode
+  }
+
+  private static func readWaitingNoticeMinutes(
+    _ value: JSONValue?, path: String, logLines: inout [String]
+  ) -> Int? {
+    guard let value else { return nil }
+    guard let minutes = integerValue(value), Settings.waitingNoticeMinutesRange.contains(minutes)
+    else {
+      logLines.append(
+        "\(path): expected an integer from \(Settings.waitingNoticeMinutesRange.lowerBound) to"
+          + " \(Settings.waitingNoticeMinutesRange.upperBound), using default"
+          + " \(Settings.defaultWaitingNoticeMinutes)")
+      return nil
+    }
+    return minutes
   }
 
   private static func readPanelSound(

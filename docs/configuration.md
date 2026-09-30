@@ -72,11 +72,14 @@ How approval panels behave, for every agent unless a key is overridden for one u
 | Notes on answers | `questionNotes` | `false` |
 | Mode after a plan | `modeAfterPlan` | `"default"` |
 | Sound | `panelSound` | `"none"` |
+| Waiting-agent notices | `waitingNotices` | `false` |
+| Notice after | `waitingNoticeMinutes` | `2` |
 
-All of these except **Quiet hours**, **Notes on answers**, **Mode after a plan** and **Sound**
-live at the top level of `config.json` and can also be set per agent, under `hosts.<agent>`.
-`quietHours`, `questionNotes`, `modeAfterPlan` and `panelSound` are top-level only, like the App
-group's keys below.
+All of these except **Quiet hours**, **Notes on answers**, **Mode after a plan**, **Sound**,
+**Waiting-agent notices** and **Notice after** live at the top level of `config.json` and can
+also be set per agent, under `hosts.<agent>`. `quietHours`, `questionNotes`, `modeAfterPlan`,
+`panelSound`, `waitingNotices` and `waitingNoticeMinutes` are top-level only, like the App group's
+keys below.
 
 - **Wait for idle** (`idleSeconds`): how long since your last keyboard, mouse or scroll input a
   panel needs before it appears — counted from that last input, not from when the request
@@ -146,6 +149,16 @@ group's keys below.
   `"none"`. It plays for approval panels, context checkpoints and test panels, so you can hear
   your choice, but not for the next panel in a chain you are already answering, and never for the
   result card or a notice. The speaker button beside the menu in Settings plays the chosen sound.
+- **Waiting-agent notices** (`waitingNotices`): `true` shows a corner card, "Claude Code is
+  waiting for you", once an agent has finished a turn and waited for you. `false` unless you change
+  it. Turn it on from Settings, not by editing the file: the toggle also adds Countersign's `Stop`
+  hook to Claude Code's `settings.json`, after showing you the change, and turning it off removes
+  that hook again. Only Claude Code is wired so far.
+- **Notice after** (`waitingNoticeMinutes`): how many minutes an agent has been waiting before the
+  notice appears, an integer from 1 to 60, `2` unless you change it. A value outside the range or
+  of another type logs one line and falls back to `2`. Settings offers 1, 2, 5, 10, 15 and 30
+  minutes and shows any other value from the file as its own item; the menu is disabled while
+  notices are off.
 
 #### Try your settings
 
@@ -224,7 +237,7 @@ profile. If you set `XDG_CONFIG_HOME` only there, its Settings window edits
 #### Settings for one agent
 
 Every key except `checkForUpdates`, `questionNotes`, `quitBehavior`, `modeAfterPlan`, `panelSound`,
-`appearance`, `accentColor` and `editorApp` can also be set for one agent, under
+`waitingNotices`, `waitingNoticeMinutes`, `appearance`, `accentColor` and `editorApp` can also be set for one agent, under
 `hosts.claude`, `hosts.codex`, `hosts.cursor` or `hosts.antigravity`:
 
 ```json

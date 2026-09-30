@@ -64,6 +64,8 @@ enum DoctorCommand {
     input.installVersionMismatch = InstallCopiesCheck.versionMismatch(home: home)
     input.contextCheckpointsEnabled =
       Settings.resolve(file: configFile, host: .claude).contextCheckpoints.enabled
+    input.waitingNoticesEnabled =
+      Settings.resolve(file: configFile, host: .claude).waitingNotices
     input.codexHookTrustRecord = CodexHookTrustRecordStore.load(file: paths.codexHookTrustFile)
     input.codexConfigFile = readFileState(
       CodexHookTrust.configFile(

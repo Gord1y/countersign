@@ -333,6 +333,18 @@
       "default": "none",
       "description": "A system sound played once when a panel appears, except the next panel in a chain of answers; none plays nothing; top level only."
     },
+    "waitingNotices": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether a corner card appears when a Claude Code agent has been waiting for you; turn it on from Settings, which also adds the Stop hook; top level only."
+    },
+    "waitingNoticeMinutes": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 60,
+      "default": 2,
+      "description": "How many minutes an agent has been waiting before the notice appears; top level only."
+    },
     "includeHeadlessSessions": {
       "type": "boolean",
       "default": false,

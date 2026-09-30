@@ -68,6 +68,7 @@ public enum Doctor {
     public var codexHookTrustRecord: CodexHookTrustRecord?
     public var codexConfigFile: FileState
     public var contextCheckpointsEnabled: Bool
+    public var waitingNoticesEnabled: Bool
 
     public init(
       version: String, resolvedExecutablePath: String, stableExecutablePath: String,
@@ -75,7 +76,7 @@ public enum Doctor {
       queueDirectoryPath: String, liveTicketCount: Int, pauseState: PauseState,
       quietUntilDescription: String?, logFilePath: String, logFileSize: Int?,
       codexHookTrustRecord: CodexHookTrustRecord? = nil, codexConfigFile: FileState = .missing,
-      contextCheckpointsEnabled: Bool = false
+      contextCheckpointsEnabled: Bool = false, waitingNoticesEnabled: Bool = false
     ) {
       self.version = version
       self.resolvedExecutablePath = resolvedExecutablePath
@@ -93,6 +94,7 @@ public enum Doctor {
       self.codexHookTrustRecord = codexHookTrustRecord
       self.codexConfigFile = codexConfigFile
       self.contextCheckpointsEnabled = contextCheckpointsEnabled
+      self.waitingNoticesEnabled = waitingNoticesEnabled
     }
   }
 
@@ -138,6 +140,7 @@ public enum Doctor {
       lines.append(contentsOf: followUpLines(hostInput, input: input))
       if hostInput.host == .claude {
         lines.append(contentsOf: contextLines(hostInput, input: input))
+        lines.append(contentsOf: waitingLines(hostInput, input: input))
       }
     }
     lines.append(contentsOf: configLines(input))
@@ -350,8 +353,59 @@ public enum Doctor {
     return lines
   }
 
+  private static func waitingLines(_ hostInput: HostInput, input: Input) -> [DoctorLine] {
+    let check = "claude waiting"
+    let event = WaitingHookSetup.eventName
+    guard case .bytes(let bytes) = hostInput.fileState, !HookSetup.isBlank(bytes),
+      let root = try? JSONSpanReader.parse(bytes)
+    else { return [] }
+    let sites = HookSetup.sites(in: root, event: event)
+    guard !sites.isEmpty else {
+      guard input.waitingNoticesEnabled else { return [] }
+      return [
+        DoctorLine(
+          status: .warn, check: check,
+          detail:
+            "waiting-agent notices are on in config.json, but \(hostInput.filePath) has no \(event) entry of Countersign's; turn Waiting-agent notices off and on again in countersign settings"
+        )
+      ]
+    }
+    var lines: [DoctorLine] = []
+    if !input.waitingNoticesEnabled {
+      lines.append(
+        DoctorLine(
+          status: .warn, check: check,
+          detail:
+            "\(hostInput.filePath) still has Countersign's \(event) entry although waiting-agent notices are off; turning Waiting-agent notices off in countersign settings removes it"
+        ))
+    }
+    let entries = sites.map { entry(for: $0.hook, event: event) }
+    for (offset, site) in sites.enumerated() {
+      let label = label(for: entries[offset], at: offset, in: entries)
+      var issues = issueLines(
+        entries[offset], label: label, check: check, hostInput: hostInput,
+        stablePath: input.stableExecutablePath, event: .waiting)
+      if !ContextHookSetup.isAsync(site.hook) {
+        issues.append(
+          DoctorLine(
+            status: .warn, check: check,
+            detail:
+              "Countersign's \(event) entry in \(hostInput.filePath) is not async, so every turn end waits for it; run countersign setup"
+          ))
+      }
+      if issues.isEmpty, input.waitingNoticesEnabled {
+        lines.append(
+          DoctorLine(
+            status: .ok, check: check, detail: "\(label) in \(hostInput.filePath), async"))
+      }
+      lines.append(contentsOf: issues)
+    }
+    return lines
+  }
+
   private static func issueLines(
-    _ entry: HookEntry, label: String, check: String, hostInput: HostInput, stablePath: String
+    _ entry: HookEntry, label: String, check: String, hostInput: HostInput, stablePath: String,
+    event: HookEventOption? = nil
   ) -> [DoctorLine] {
     var issues: [DoctorLine] = []
     if entry.executablePath != stablePath {
@@ -369,7 +423,7 @@ public enum Doctor {
           detail: "\(label): \(entry.executablePath) does not exist or is not executable"))
     }
     let timeoutIsLongEnough = entry.timeoutSeconds.map { $0 >= minimumTimeoutSeconds } ?? false
-    if !timeoutIsLongEnough {
+    if event == nil, !timeoutIsLongEnough {
       let shown = entry.timeoutSeconds.map { "\(formatNumber($0))s" } ?? "not set"
       issues.append(
         DoctorLine(
@@ -379,7 +433,7 @@ public enum Doctor {
         ))
     }
     let arguments = Array(entry.words.dropFirst())
-    let expected = HookCommand.arguments(for: hostInput.host)
+    let expected = HookCommand.arguments(for: hostInput.host, event: event)
     if arguments != expected {
       issues.append(
         DoctorLine(

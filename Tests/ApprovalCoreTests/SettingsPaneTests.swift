@@ -78,6 +78,7 @@ import Testing
       SettingsPane.panels.preferenceNames == [
         .idleSeconds, .graceSeconds, .armDelay, .chainedArmDelay, .snoozeMinutes, .quietHours,
         .handoffApps, .questionNotes, .modeAfterPlan, .panelSound,
+        .waitingNoticeMinutes,
       ])
     #expect(
       SettingsPane.app.preferenceNames == [
@@ -97,6 +98,8 @@ import Testing
       Set(
         SettingsPane.panels.preferenceNames + SettingsPane.app.preferenceNames
           + SettingsPane.context.preferenceNames)
-        == Set(PreferenceName.allCases).subtracting([.editorApp, .contextCheckpointsEnabled]))
+        == Set(PreferenceName.allCases).subtracting([
+          .editorApp, .contextCheckpointsEnabled, .waitingNotices,
+        ]))
   }
 }

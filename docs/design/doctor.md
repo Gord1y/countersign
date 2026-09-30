@@ -94,6 +94,17 @@ or config file's content, only paths and our own hook entry's command.
      and wording as the `PermissionRequest` entry's, labelled `UserPromptSubmit entry`.
    - enabled and the entry fine: one `ok` line, `UserPromptSubmit entry in <path>, async`.
    - disabled and no entry: no line.
+
+   Lines named **`claude waiting`** cover the `hooks.Stop` entry of Waiting-agent notices (see "The
+   waiting-agent entry" in [setup.md](setup.md)), with the same shape, driven by
+   `Doctor.Input.waitingNoticesEnabled`:
+   - enabled and no entry: `warn`; turning Waiting-agent notices off and on again adds it.
+   - disabled and an entry present: `warn`; turning the notices off removes it.
+   - not async: `warn`, because every turn end would wait for it; `countersign setup` refreshes it.
+   - the path and executable checks are the `PermissionRequest` entry's, and the arguments must
+     include `--event waiting`; the 600 second minimum timeout does not apply, since the entry
+     runs for 30 seconds.
+   - enabled and fine: one `ok` line, `Stop entry in <path>, async`.
 3. Right after each host's lines, only when that host ends up wired and up to date (the same gate
    the Agents rows use for "Wired"; see "Follow-up lines" in [setup.md](setup.md)): for Codex, one
    line for the state `CodexTrustVerdict.judge` gives (see "The verdict" in [setup.md](setup.md)),

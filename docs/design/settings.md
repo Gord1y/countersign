@@ -180,7 +180,7 @@ since the sidebar already names it:
 | Group | Holds | What it changes |
 | --- | --- | --- |
 | Agents | a row per agent (Wire, Update, Remove, Show changes), the notice about a second copy, on each row the values `hosts.<agent>` sets, and, once wired, its follow-up line and Codex's "Mark as done" (`AgentFollowUp`; see "Follow-up lines" and "The Codex hook trust record" in [setup.md](setup.md)) | each agent's own hook file; the Codex hook trust record, never `config.json` |
-| Panels | Wait for idle, Grace period, Arm delay, Arm delay after an answer, Hand off when frontmost, Snooze presets, Notes on answers, Mode after a plan, Sound, then Show a test panel | `config.json`, for every agent |
+| Panels | Wait for idle, Grace period, Arm delay, Arm delay after an answer, Hand off when frontmost, Snooze presets, Notes on answers, Mode after a plan, Sound, Waiting-agent notices, Notice after, then Show a test panel | `config.json`, for every agent |
 | App | Launch at login, Check for updates, When Countersign quits, Appearance, Accent colour, the offer to link Countersign.app, then Advanced… | macOS's login items, `config.json`, `~/Applications` |
 | Help | the tour, documentation, ask a question, report a problem, contact the developer, updates, then support links | nothing in `config.json`; never `update-check.json` |
 | Advanced | the config file's path, Open in Editor, Copy Path, Open with, the schema, what only the file can set, and the prompt for a coding agent | `config.json` for Open with; otherwise nothing beyond creating a missing `config.json` to open it |
@@ -300,6 +300,8 @@ The window edits top-level keys only:
 | Panels | Notes on answers, a switch | `questionNotes` | on or off |
 | Panels | Mode after a plan, a menu | `modeAfterPlan` | "Ask before edits", "Accept edits" or "Auto" |
 | Panels | Sound, a menu and a play button | `panelSound` | None, then the names in `/System/Library/Sounds`; the button (`speaker.wave.2`, label `Play <name>`) is disabled for None |
+| Panels | Waiting-agent notices, a switch | `waitingNotices` | on or off; never written directly, see below |
+| Panels | Notice after, a menu | `waitingNoticeMinutes` | 1, 2, 5, 10, 15 and 30 minutes, plus the file's own value when it is outside that list; disabled while notices are off |
 | App | Launch at login, a switch | none, `SMAppService.mainApp` | see below |
 | App | Check for updates, a switch | `checkForUpdates` | on or off |
 | App | When Countersign quits, a menu | `quitBehavior` | "Ask", "Keep showing panels" or "Pause panels" |
@@ -530,6 +532,19 @@ failed write keeps it open too. The Context pane's Restore Defaults still resets
 `contextCheckpointsEnabled` is in no pane's Restore Defaults and has no reset arrow: restoring
 defaults must not unwire a hook file or delete state. The Context tab's Restore Defaults covers
 its own rows only.
+
+### Waiting-agent notices
+
+The switch never writes `config.json` on its own. Changing it asks `SettingsModel` for a
+`WaitingHookChange`: `WaitingHookRun.preview` over the wired hosts that
+`WaitingHookSetup.supportedHosts` names, shown by `WaitingHookPrompt` (a sibling of
+`ContextHookPrompt`, sharing `HookDiffPreview`) as "Turn on waiting-agent notices?" or "Turn off
+waiting-agent notices?", with "Countersign changes <paths> and keeps a backup." and the buttons Turn
+On / Turn Off and Cancel, or OK alone with the failure lines when a file cannot be changed. On
+confirm, `WaitingHookRun.apply` writes the hook file with a backup and only then is `waitingNotices`
+written. With no wired Claude Code the popup shows "Nothing to change." and confirming writes only
+the config. The Notice after menu is an ordinary row. Restore Defaults for Panels resets Notice
+after and never the switch, since flipping it needs the popup; the switch has no reset button.
 
 ### Resetting to defaults
 

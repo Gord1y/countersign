@@ -811,3 +811,87 @@ private func promptHook(
       ])
   }
 }
+
+private func claudeWaitingLines(
+  stopEntry: String?, enabled: Bool, checks: [String: Bool] = [stablePath: true]
+) -> [DoctorLine] {
+  let stop = stopEntry.map { ", \"Stop\": [{\"hooks\": [\($0)]}]" } ?? ""
+  let text = """
+    {"hooks": {"PermissionRequest": [{"matcher": "", "hooks": [{"type": "command", "command": "\(stablePath) hook --host claude", "timeout": 3600}]}]\(stop)}}
+    """
+  var host = missingHost(.claude)
+  host.directoryExists = true
+  host.fileState = .bytes(Array(text.utf8))
+  host.executableChecks = checks
+  var input = baseInput(hosts: [host, missingHost(.codex)])
+  input.waitingNoticesEnabled = enabled
+  return Doctor.report(input).filter { $0.check == "claude waiting" }
+}
+
+private func stopHook(
+  command: String = "\(stablePath) hook --host claude --event waiting", async: String? = "true",
+  timeout: String? = "30"
+) -> String {
+  promptHook(command: command, async: async, timeout: timeout)
+}
+
+@Suite struct DoctorWaitingTests {
+  @Test func warnsWhenNoticesAreOnButThereIsNoEntry() {
+    #expect(
+      claudeWaitingLines(stopEntry: nil, enabled: true) == [
+        DoctorLine(
+          status: .warn, check: "claude waiting",
+          detail:
+            "waiting-agent notices are on in config.json, but \(claudeFilePath) has no Stop entry of Countersign's; turn Waiting-agent notices off and on again in countersign settings"
+        )
+      ])
+  }
+
+  @Test func warnsWhenNoticesAreOffButTheEntryRemains() {
+    #expect(
+      claudeWaitingLines(stopEntry: stopHook(), enabled: false) == [
+        DoctorLine(
+          status: .warn, check: "claude waiting",
+          detail:
+            "\(claudeFilePath) still has Countersign's Stop entry although waiting-agent notices are off; turning Waiting-agent notices off in countersign settings removes it"
+        )
+      ])
+  }
+
+  @Test func warnsWhenTheEntryIsNotAsync() {
+    for async in [nil, "false", "\"true\""] {
+      #expect(
+        claudeWaitingLines(stopEntry: stopHook(async: async), enabled: true) == [
+          DoctorLine(
+            status: .warn, check: "claude waiting",
+            detail:
+              "Countersign's Stop entry in \(claudeFilePath) is not async, so every turn end waits for it; run countersign setup"
+          )
+        ])
+    }
+  }
+
+  @Test func reportsOKWhenEnabledAndTheEntryIsFine() {
+    #expect(
+      claudeWaitingLines(stopEntry: stopHook(), enabled: true) == [
+        DoctorLine(
+          status: .ok, check: "claude waiting", detail: "Stop entry in \(claudeFilePath), async")
+      ])
+  }
+
+  @Test func staysSilentWhenDisabledWithoutAnEntry() {
+    #expect(claudeWaitingLines(stopEntry: nil, enabled: false).isEmpty)
+  }
+
+  @Test func doesNotDemandTheLongTimeoutOfTheApprovalEntry() {
+    let lines = claudeWaitingLines(
+      stopEntry: stopHook(command: "/x/countersign hook --host claude", timeout: nil),
+      enabled: true, checks: [stablePath: true, "/x/countersign": false])
+    #expect(
+      lines.map(\.detail) == [
+        "Stop entry: /x/countersign differs from the stable path \(stablePath), run countersign setup",
+        "Stop entry: /x/countersign does not exist or is not executable",
+        "Stop entry: arguments hook --host claude differ from hook --host claude --event waiting, run countersign setup",
+      ])
+  }
+}

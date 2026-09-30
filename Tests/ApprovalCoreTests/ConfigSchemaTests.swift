@@ -123,6 +123,22 @@ import Testing
         == Settings.defaultAccentColor.hex)
   }
 
+  @Test func waitingNoticeKeysMatchWhatTheParserKnows() throws {
+    let schema = try Self.loadSchema()
+    #expect(schema["properties"]?["waitingNotices"]?["type"]?.stringValue == "boolean")
+    #expect(schema["properties"]?["waitingNotices"]?["default"]?.boolValue == false)
+    #expect(schema["properties"]?["waitingNoticeMinutes"]?["type"]?.stringValue == "integer")
+    #expect(
+      schema["properties"]?["waitingNoticeMinutes"]?["minimum"]
+        == .int(Int64(Settings.waitingNoticeMinutesRange.lowerBound)))
+    #expect(
+      schema["properties"]?["waitingNoticeMinutes"]?["maximum"]
+        == .int(Int64(Settings.waitingNoticeMinutesRange.upperBound)))
+    #expect(
+      schema["properties"]?["waitingNoticeMinutes"]?["default"]
+        == .int(Int64(Settings.defaultWaitingNoticeMinutes)))
+  }
+
   @Test func topLevelAndHostBlocksForbidAdditionalProperties() throws {
     let schema = try Self.loadSchema()
     #expect(schema["additionalProperties"]?.boolValue == false)

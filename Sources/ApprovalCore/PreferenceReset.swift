@@ -28,6 +28,10 @@ public enum PreferenceReset {
       return changed(file.modeAfterPlan, from: Settings.defaultModeAfterPlan)
     case .panelSound:
       return changed(file.panelSound, from: Settings.defaultPanelSound)
+    case .waitingNotices:
+      return changed(file.waitingNotices, from: Settings.defaultWaitingNotices)
+    case .waitingNoticeMinutes:
+      return changed(file.waitingNoticeMinutes, from: Settings.defaultWaitingNoticeMinutes)
     case .questionNotes:
       return changed(file.questionNotes, from: Settings.defaultQuestionNotes)
     case .appearance:
@@ -108,6 +112,8 @@ public enum PreferenceReset {
     case .quitBehavior: return values.quitBehavior.title
     case .modeAfterPlan: return values.modeAfterPlan.title
     case .panelSound: return PanelSound.title(values.panelSound)
+    case .waitingNotices: return values.waitingNotices ? "On" : "Off"
+    case .waitingNoticeMinutes: return PreferenceRules.minutesText(values.waitingNoticeMinutes)
     case .appearance: return values.appearance.title
     case .accentColor: return AccentPreset.name(of: values.accentColor)
     case .editorApp: return values.editorApp ?? PreferenceName.editorApp.defaultText
@@ -161,8 +167,9 @@ public enum PreferenceReset {
     case .snoozeMinutes: return overrides.snoozeMinutes != nil
     case .handoffApps: return overrides.handoffApps != nil
     case .quietHours, .checkForUpdates, .questionNotes, .quitBehavior, .modeAfterPlan,
-      .panelSound, .appearance, .accentColor, .editorApp, .contextCheckpointsEnabled, .contextMode,
-      .contextStandardThresholds, .contextMillionThresholds, .contextModelThresholds,
+      .panelSound, .waitingNotices, .waitingNoticeMinutes, .appearance, .accentColor,
+      .editorApp, .contextCheckpointsEnabled, .contextMode, .contextStandardThresholds,
+      .contextMillionThresholds, .contextModelThresholds,
       .contextRearmBelow, .contextHandoffFile, .contextNoteSoft, .contextNoteStatus,
       .contextNoteInsist, .contextNoteCompact, .contextNoteHandoff, .contextMenuBarMeter:
       return false

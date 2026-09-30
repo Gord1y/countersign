@@ -72,6 +72,13 @@ struct HostRow: Identifiable {
     error ?? preview?.failures.first
   }
 
+  var isWiredOrStale: Bool {
+    switch status {
+    case .wired, .needsUpdate: return true
+    case .notInstalled, .notWired, .unusable: return false
+    }
+  }
+
   var canApply: Bool {
     action != nil && preview?.failures.isEmpty != false
   }
@@ -124,6 +131,19 @@ struct ContextHookChange {
   }
 }
 
+struct WaitingHookChange {
+  let enable: Bool
+  let preview: SetupPreview
+
+  var canApply: Bool {
+    preview.failures.isEmpty
+  }
+
+  var confirmTitle: String {
+    enable ? "Turn On" : "Turn Off"
+  }
+}
+
 struct ContextHookFailure {
   let origin: ContextHookChangeOrigin
   let message: String
@@ -173,6 +193,8 @@ final class SettingsModel {
   private(set) var contextChange: ContextHookChange?
   private(set) var contextHookFailure: ContextHookFailure?
   private(set) var contextHookStatus = ContextHookStatus.notWired
+  private(set) var waitingChange: WaitingHookChange?
+  private(set) var waitingHookFailure: String?
   private(set) var contextTexts: [PreferenceName: String] = [:]
   private(set) var contextErrors: [PreferenceName: String] = [:]
   private(set) var newContextModelPrefix = ""
@@ -235,6 +257,8 @@ final class SettingsModel {
   var quitBehavior: QuitBehavior { preferences.quitBehavior }
   var modeAfterPlan: PlanApprovalMode { preferences.modeAfterPlan }
   var panelSound: String { preferences.panelSound }
+  var waitingNotices: Bool { preferences.waitingNotices }
+  var waitingNoticeMinutes: Int { preferences.waitingNoticeMinutes }
   var questionNotes: Bool { preferences.questionNotes }
   var appearance: AppearanceChoice { preferences.appearance }
   var accentColor: HexColor { customAccentColor ?? preferences.accentColor }
@@ -640,6 +664,59 @@ final class SettingsModel {
 
   func setPanelSound(_ name: String) {
     write(.panelSound(name))
+  }
+
+  func setWaitingNoticeMinutes(_ minutes: Int) {
+    write(.waitingNoticeMinutes(minutes))
+  }
+
+  var homeDirectory: URL {
+    environment.home
+  }
+
+  var waitingToggleProblem: String? {
+    waitingHookFailure ?? writeErrors[.waitingNotices]
+  }
+
+  var waitingLocations: [HookConfigLocation] {
+    hostRows
+      .filter { WaitingHookSetup.supportedHosts.contains($0.id) && $0.isWiredOrStale }
+      .map(\.location)
+  }
+
+  func requestWaitingNotices(_ enable: Bool) {
+    guard enable != waitingNotices else { return }
+    waitingHookFailure = nil
+    let locations = waitingLocations
+    if enable, !locations.isEmpty, stablePath == nil {
+      waitingChange = nil
+      waitingHookFailure = Self.unresolvedExecutable
+      return
+    }
+    waitingChange = WaitingHookChange(
+      enable: enable,
+      preview: WaitingHookRun.preview(
+        locations: locations, executablePath: stablePath ?? "", enable: enable))
+  }
+
+  func cancelWaitingChange() {
+    waitingChange = nil
+  }
+
+  func confirmWaitingChange() {
+    guard let change = waitingChange, change.canApply else { return }
+    waitingChange = nil
+    let failures = WaitingHookRun.apply(
+      locations: waitingLocations, executablePath: stablePath ?? "", enable: change.enable,
+      now: now())
+    guard failures.isEmpty else {
+      waitingHookFailure = failures.joined(separator: "\n")
+      refreshHosts()
+      return
+    }
+    waitingHookFailure = nil
+    write(.waitingNotices(change.enable))
+    refreshHosts()
   }
 
   func setQuestionNotes(_ enabled: Bool) {

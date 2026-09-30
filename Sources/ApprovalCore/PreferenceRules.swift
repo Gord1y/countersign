@@ -125,6 +125,16 @@ public enum PreferenceRules {
     return .success(window)
   }
 
+  public static func minutesText(_ minutes: Int) -> String {
+    "\(minutes) minute\(minutes == 1 ? "" : "s")"
+  }
+
+  public static func waitingNoticeMinuteChoices(including current: Int) -> [Int] {
+    let choices = Settings.waitingNoticeMinuteChoices
+    guard !choices.contains(current) else { return choices }
+    return (choices + [current]).sorted()
+  }
+
   public static func secondsText(_ value: Double) -> String {
     "\(numberText(value)) s"
   }

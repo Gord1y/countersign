@@ -15,6 +15,8 @@ extension PreferenceName {
     case .quitBehavior: return "When Countersign quits"
     case .modeAfterPlan: return "Mode after a plan"
     case .panelSound: return "Sound"
+    case .waitingNotices: return "Waiting-agent notices"
+    case .waitingNoticeMinutes: return "Notice after"
     case .appearance: return "Appearance"
     case .accentColor: return "Accent colour"
     case .editorApp: return "Open with"
@@ -49,6 +51,9 @@ extension PreferenceName {
     case .quitBehavior: return "Whether panels keep appearing after you quit the menu-bar app."
     case .modeAfterPlan: return "What Claude Code switches to when you approve its plan."
     case .panelSound: return "A macOS sound played when a panel appears."
+    case .waitingNotices:
+      return "A corner card when an agent has been waiting for you for a while."
+    case .waitingNoticeMinutes: return "How long an agent waits before the notice appears."
     case .appearance: return "Light or dark for panels and Settings, or follow macOS."
     case .accentColor: return "The colour of Approve and highlights on panels and in Settings."
     case .editorApp: return "The app Open in Editor uses for config.json."
@@ -161,6 +166,18 @@ extension PreferenceName {
         + " appears. It stays silent for the next panel in a chain you are already answering,"
         + " after the result card, and for notices. None, the default, plays nothing; the play"
         + " button next to the menu lets you hear a sound before you pick it."
+    case .waitingNotices:
+      return
+        "When an agent finishes a turn and waits for you, Countersign shows a corner card, \"Claude"
+        + " Code is waiting for you\" with the project's name, once it has waited for the time"
+        + " below. Turning it on adds a Stop hook to Claude Code's settings.json, after showing"
+        + " you the change, and turning it off removes that hook again, so it is changed here"
+        + " and not by editing config.json. It is off by default and top-level only."
+    case .waitingNoticeMinutes:
+      return
+        "How many minutes an agent has been waiting before the notice appears, from 1 to 60. The"
+        + " menu offers 1, 2, 5, 10, 15 and 30; a value you set in config.json shows as its own"
+        + " item. It has no effect while Waiting-agent notices is off, and it is top-level only."
     case .appearance:
       return
         "Whether approval panels and this Settings window are light or dark. System follows the"
@@ -271,6 +288,9 @@ extension PreferenceName {
     case .quitBehavior: return Settings.defaultQuitBehavior.title
     case .modeAfterPlan: return Settings.defaultModeAfterPlan.title
     case .panelSound: return PanelSound.title(Settings.defaultPanelSound)
+    case .waitingNotices: return Self.boolText(Settings.defaultWaitingNotices)
+    case .waitingNoticeMinutes:
+      return PreferenceRules.minutesText(Settings.defaultWaitingNoticeMinutes)
     case .appearance: return Settings.defaultAppearance.title
     case .accentColor: return AccentPreset.name(of: Settings.defaultAccentColor)
     case .editorApp: return "Default app"

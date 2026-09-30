@@ -51,6 +51,44 @@ import Testing
     #expect(file.editorApp == "com.microsoft.VSCode")
   }
 
+  @Test func waitingNoticesAreOffAndTwoMinutesByDefault() {
+    let (file, logLines) = parse("{}")
+    #expect(file.waitingNotices == nil)
+    #expect(file.waitingNoticeMinutes == nil)
+    #expect(logLines.isEmpty)
+    let settings = Settings.resolve(file: file, host: .claude)
+    #expect(settings.waitingNotices == false)
+    #expect(settings.waitingNoticeMinutes == 2)
+  }
+
+  @Test func readsValidWaitingNoticeValues() {
+    for minutes in [1, 2, 7, 60] {
+      let (file, logLines) = parse(
+        #"{ "waitingNotices": true, "waitingNoticeMinutes": \#(minutes) }"#)
+      #expect(file.waitingNotices == true)
+      #expect(file.waitingNoticeMinutes == minutes)
+      #expect(logLines.isEmpty)
+      let settings = Settings.resolve(file: file, host: .codex)
+      #expect(settings.waitingNotices)
+      #expect(settings.waitingNoticeMinutes == minutes)
+    }
+  }
+
+  @Test func waitingNoticeMinutesOutOfRangeOrWrongTypeFallBackToTheDefaultWithOneLine() {
+    for bad in ["0", "61", "-3", "\"2\"", "2.5", "true", "null"] {
+      let (file, logLines) = parse(#"{ "waitingNoticeMinutes": \#(bad) }"#)
+      #expect(file.waitingNoticeMinutes == nil)
+      #expect(
+        logLines == ["waitingNoticeMinutes: expected an integer from 1 to 60, using default 2"])
+    }
+  }
+
+  @Test func waitingNoticesWrongTypeFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "waitingNotices": "yes" }"#)
+    #expect(file.waitingNotices == nil)
+    #expect(logLines == ["waitingNotices: not a boolean, using default false"])
+  }
+
   @Test func editorAppIsRead() {
     let (file, logLines) = parse(#"{ "editorApp": "com.microsoft.VSCode" }"#)
     #expect(file.editorApp == "com.microsoft.VSCode")

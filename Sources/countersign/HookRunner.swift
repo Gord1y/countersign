@@ -17,6 +17,11 @@ enum HookRunner {
       exit(0)
     }
 
+    if options.event == .waiting {
+      log.write("waiting: \(options.host.rawValue) not handled yet")
+      exit(0)
+    }
+
     let (configFile, configLogLines) = ConfigFileLoader.load(
       paths: paths, soundNames: SystemSounds.installedNames)
     for line in configLogLines {
