@@ -316,13 +316,13 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
 
   @Test func eachPreferenceNameIsATopLevelKeyOfTheFile() {
     #expect(
-      PreferenceName.allCases.prefix(13).map(\.rawValue) == [
+      PreferenceName.allCases.prefix(14).map(\.rawValue) == [
         "armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds", "snoozeMinutes",
-        "handoffApps", "checkForUpdates", "questionNotes", "quitBehavior", "modeAfterPlan",
-        "appearance", "accentColor", "editorApp",
+        "quietHours", "handoffApps", "checkForUpdates", "questionNotes", "quitBehavior",
+        "modeAfterPlan", "appearance", "accentColor", "editorApp",
       ])
     #expect(
-      PreferenceName.allCases.prefix(13).allSatisfy { $0.keyPath == [$0.rawValue] })
+      PreferenceName.allCases.prefix(14).allSatisfy { $0.keyPath == [$0.rawValue] })
     #expect(
       Set(PreferenceName.allCases.compactMap(\.keyPath.first)).isSubset(
         of: ConfigFileParser.topLevelKeys))

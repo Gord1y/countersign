@@ -37,6 +37,26 @@ public enum HandoffAppError: Error, Sendable, Equatable, CustomStringConvertible
   }
 }
 
+public enum QuietWindowError: Error, Sendable, Equatable, CustomStringConvertible {
+  case noDays
+  case badTimes
+  case duplicate
+  case full
+
+  public var description: String {
+    switch self {
+    case .noDays:
+      return "Pick at least one day"
+    case .badTimes:
+      return "Enter a start and end time, like 19:00"
+    case .duplicate:
+      return "That window is already in the list"
+    case .full:
+      return "At most \(QuietWindow.maximumCount) windows"
+    }
+  }
+}
+
 public enum PreferenceRules {
   public static let armDelayRange = Settings.armDelayRange
   public static let armDelayStepsPerSecond: Double = 10
@@ -89,6 +109,20 @@ public enum PreferenceRules {
     guard !bundleID.contains(where: \.isWhitespace) else { return .failure(.containsWhitespace) }
     guard !existing.contains(bundleID) else { return .failure(.duplicate(bundleID)) }
     return .success(bundleID)
+  }
+
+  public static func quietWindow(
+    days: [QuietWeekday], from: String, to: String, joining existing: [QuietWindow]
+  ) -> Result<QuietWindow, QuietWindowError> {
+    guard !days.isEmpty else { return .failure(.noDays) }
+    guard
+      let window = QuietWindow(
+        days: days, from: from.trimmingCharacters(in: .whitespaces),
+        to: to.trimmingCharacters(in: .whitespaces))
+    else { return .failure(.badTimes) }
+    guard !existing.contains(window) else { return .failure(.duplicate) }
+    guard existing.count < QuietWindow.maximumCount else { return .failure(.full) }
+    return .success(window)
   }
 
   public static func secondsText(_ value: Double) -> String {

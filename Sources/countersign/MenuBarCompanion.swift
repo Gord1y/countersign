@@ -160,7 +160,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
 
   private func refreshIcon() {
     let icon = CompanionMenu.icon(
-      isPaused: pauseSwitch.isPaused, quietUntil: quietTime.activeUntil())
+      isPaused: pauseSwitch.isPaused, quietUntil: QuietState(paths: paths).activeUntil())
     guard icon != shownIcon, let button = statusItem?.button else { return }
     button.image = MenuBarIcon.image(for: icon)
     shownIcon = icon
@@ -179,7 +179,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
       : []
     return CompanionMenuInput(
       isPaused: pauseSwitch.isPaused,
-      quietUntil: quietTime.activeUntil(),
+      quietUntil: QuietState(paths: paths, schedule: configFile.quietSchedule).activeUntil(),
       pendingEntries: queue.waitingEntries(),
       snoozeMinutes: CompanionMenu.snoozeMinutes(for: configFile),
       launchAtLogin: launchAtLoginState(),
@@ -328,7 +328,9 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
         failure: "failed to set quiet time"
       ) { try stateSwitches.snooze(until: until) }
     case .endQuietTime:
-      attempt("quiet time ended", failure: "failed to end quiet time") { try quietTime.clear() }
+      attempt("quiet time ended", failure: "failed to end quiet time") {
+        try QuietState(paths: paths).endNow()
+      }
     case .openSettings:
       openSettings()
     case .showTestPanel(let kind):

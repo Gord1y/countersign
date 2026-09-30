@@ -63,6 +63,10 @@ public struct AppPaths: Sendable, Equatable {
     supportDirectory.appendingPathComponent("quiet-until")
   }
 
+  public var quietHoursSkippedFile: URL {
+    supportDirectory.appendingPathComponent("quiet-hours-skipped-until")
+  }
+
   public var codexHookTrustFile: URL {
     supportDirectory.appendingPathComponent("codex-hook-trust.json")
   }

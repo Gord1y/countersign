@@ -16,6 +16,8 @@ public enum PreferenceReset {
       return changed(file.graceSeconds, from: Settings.defaultGraceSeconds)
     case .snoozeMinutes:
       return changed(file.snoozeMinutes, from: Settings.defaultSnoozeMinutes)
+    case .quietHours:
+      return changed(file.quietHours, from: Settings.defaultQuietHours)
     case .handoffApps:
       return changed(file.handoffApps, from: Settings.defaultHandoffApps)
     case .checkForUpdates:
@@ -97,6 +99,7 @@ public enum PreferenceReset {
     case .idleSeconds: return PreferenceRules.secondsText(values.idleSeconds)
     case .graceSeconds: return PreferenceRules.secondsText(values.graceSeconds)
     case .snoozeMinutes: return PreferenceRules.snoozeText(values.snoozeMinutes)
+    case .quietHours: return quietHoursCountText(values.quietHours.count)
     case .handoffApps: return handoffAppsCountText(values.handoffApps.count)
     case .checkForUpdates: return values.checkForUpdates ? "On" : "Off"
     case .questionNotes: return values.questionNotes ? "On" : "Off"
@@ -134,6 +137,11 @@ public enum PreferenceReset {
     return "\(count) model\(count == 1 ? "" : "s")"
   }
 
+  private static func quietHoursCountText(_ count: Int) -> String {
+    guard count > 0 else { return "none" }
+    return "\(count) window\(count == 1 ? "" : "s")"
+  }
+
   private static func handoffAppsCountText(_ count: Int) -> String {
     guard count > 0 else { return "none" }
     return "\(count) app\(count == 1 ? "" : "s")"
@@ -149,8 +157,8 @@ public enum PreferenceReset {
     case .graceSeconds: return overrides.graceSeconds != nil
     case .snoozeMinutes: return overrides.snoozeMinutes != nil
     case .handoffApps: return overrides.handoffApps != nil
-    case .checkForUpdates, .questionNotes, .quitBehavior, .modeAfterPlan, .appearance,
-      .accentColor, .editorApp, .contextCheckpointsEnabled, .contextMode,
+    case .quietHours, .checkForUpdates, .questionNotes, .quitBehavior, .modeAfterPlan,
+      .appearance, .accentColor, .editorApp, .contextCheckpointsEnabled, .contextMode,
       .contextStandardThresholds, .contextMillionThresholds, .contextModelThresholds,
       .contextRearmBelow, .contextHandoffFile, .contextNoteSoft, .contextNoteStatus,
       .contextNoteInsist, .contextNoteCompact, .contextNoteHandoff, .contextMenuBarMeter:

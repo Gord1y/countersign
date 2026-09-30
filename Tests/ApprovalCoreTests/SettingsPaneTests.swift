@@ -76,8 +76,8 @@ import Testing
   @Test func namesThePreferencesEachGroupWrites() {
     #expect(
       SettingsPane.panels.preferenceNames == [
-        .idleSeconds, .graceSeconds, .armDelay, .chainedArmDelay, .snoozeMinutes, .handoffApps,
-        .questionNotes, .modeAfterPlan,
+        .idleSeconds, .graceSeconds, .armDelay, .chainedArmDelay, .snoozeMinutes, .quietHours,
+        .handoffApps, .questionNotes, .modeAfterPlan,
       ])
     #expect(
       SettingsPane.app.preferenceNames == [

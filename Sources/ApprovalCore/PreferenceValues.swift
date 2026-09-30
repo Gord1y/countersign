@@ -23,6 +23,7 @@ public struct PreferenceValues: Sendable, Equatable {
   public var idleSeconds: Double
   public var graceSeconds: Double
   public var snoozeMinutes: [Int]
+  public var quietHours: [QuietWindow]
   public var handoffApps: [String]
   public var checkForUpdates: Bool
   public var quitBehavior: QuitBehavior
@@ -39,6 +40,7 @@ public struct PreferenceValues: Sendable, Equatable {
     idleSeconds: Double = Settings.defaultIdleSeconds,
     graceSeconds: Double = Settings.defaultGraceSeconds,
     snoozeMinutes: [Int] = Settings.defaultSnoozeMinutes,
+    quietHours: [QuietWindow] = Settings.defaultQuietHours,
     handoffApps: [String] = Settings.defaultHandoffApps,
     checkForUpdates: Bool = Settings.defaultCheckForUpdates,
     quitBehavior: QuitBehavior = Settings.defaultQuitBehavior,
@@ -54,6 +56,7 @@ public struct PreferenceValues: Sendable, Equatable {
     self.idleSeconds = idleSeconds
     self.graceSeconds = graceSeconds
     self.snoozeMinutes = snoozeMinutes
+    self.quietHours = quietHours
     self.handoffApps = handoffApps
     self.checkForUpdates = checkForUpdates
     self.quitBehavior = quitBehavior
@@ -72,6 +75,7 @@ public struct PreferenceValues: Sendable, Equatable {
       idleSeconds: file.idleSeconds ?? Settings.defaultIdleSeconds,
       graceSeconds: file.graceSeconds ?? Settings.defaultGraceSeconds,
       snoozeMinutes: file.snoozeMinutes ?? Settings.defaultSnoozeMinutes,
+      quietHours: file.quietHours ?? Settings.defaultQuietHours,
       handoffApps: file.handoffApps ?? Settings.defaultHandoffApps,
       checkForUpdates: file.checkForUpdates ?? Settings.defaultCheckForUpdates,
       quitBehavior: file.quitBehavior ?? Settings.defaultQuitBehavior,
@@ -97,6 +101,8 @@ public struct PreferenceValues: Sendable, Equatable {
       values.graceSeconds = value
     case .snoozeMinutes(let minutes):
       values.snoozeMinutes = minutes
+    case .quietHours(let windows):
+      values.quietHours = windows
     case .checkForUpdates(let enabled):
       values.checkForUpdates = enabled
     case .quitBehavior(let behavior):
@@ -151,6 +157,7 @@ public struct PreferenceValues: Sendable, Equatable {
     case .idleSeconds: values.idleSeconds = Settings.defaultIdleSeconds
     case .graceSeconds: values.graceSeconds = Settings.defaultGraceSeconds
     case .snoozeMinutes: values.snoozeMinutes = Settings.defaultSnoozeMinutes
+    case .quietHours: values.quietHours = Settings.defaultQuietHours
     case .handoffApps: values.handoffApps = Settings.defaultHandoffApps
     case .checkForUpdates: values.checkForUpdates = Settings.defaultCheckForUpdates
     case .quitBehavior: values.quitBehavior = Settings.defaultQuitBehavior

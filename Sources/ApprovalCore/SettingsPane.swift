@@ -63,8 +63,8 @@ public enum SettingsPane: String, CaseIterable, Sendable {
     case .agents, .help, .advanced: return []
     case .panels:
       return [
-        .idleSeconds, .graceSeconds, .armDelay, .chainedArmDelay, .snoozeMinutes, .handoffApps,
-        .questionNotes, .modeAfterPlan,
+        .idleSeconds, .graceSeconds, .armDelay, .chainedArmDelay, .snoozeMinutes, .quietHours,
+        .handoffApps, .questionNotes, .modeAfterPlan,
       ]
     case .app: return [.checkForUpdates, .quitBehavior, .appearance, .accentColor]
     case .context:

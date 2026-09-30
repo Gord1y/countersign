@@ -158,6 +158,10 @@ final class SettingsModel {
   private(set) var snoozeError: String?
   private(set) var newHandoffApp = ""
   private(set) var handoffError: String?
+  private(set) var newQuietDays: Set<QuietWeekday> = []
+  private(set) var newQuietFrom = ""
+  private(set) var newQuietTo = ""
+  private(set) var quietHoursError: String?
   private(set) var writeErrors: [PreferenceName: String] = [:]
   private(set) var visit = SettingsVisit()
   private(set) var launchAtLogin = LaunchAtLoginState.unavailable
@@ -226,6 +230,7 @@ final class SettingsModel {
   var idleSeconds: Double { preferences.idleSeconds }
   var graceSeconds: Double { preferences.graceSeconds }
   var handoffApps: [String] { preferences.handoffApps }
+  var quietHours: [QuietWindow] { preferences.quietHours }
   var checkForUpdates: Bool { preferences.checkForUpdates }
   var quitBehavior: QuitBehavior { preferences.quitBehavior }
   var modeAfterPlan: PlanApprovalMode { preferences.modeAfterPlan }
@@ -275,6 +280,10 @@ final class SettingsModel {
 
   var snoozeProblem: String? {
     snoozeError ?? writeErrors[.snoozeMinutes]
+  }
+
+  var quietHoursProblem: String? {
+    quietHoursError ?? writeErrors[.quietHours]
   }
 
   var handoffProblem: String? {
@@ -330,7 +339,8 @@ final class SettingsModel {
 
   func endQuietTime() {
     let paths = environment.paths
-    changeStatus { try QuietTime(file: paths.quietFile).clear() }
+    let endedAt = now()
+    changeStatus { try QuietState(paths: paths).endNow(now: endedAt) }
   }
 
   private func stateSwitches(_ paths: AppPaths) -> StateSwitches {
@@ -539,6 +549,51 @@ final class SettingsModel {
     }
     write(.snoozeMinutes(minutes))
     showSnoozeMinutes()
+  }
+
+  func toggleNewQuietDay(_ day: QuietWeekday) {
+    if newQuietDays.contains(day) {
+      newQuietDays.remove(day)
+    } else {
+      newQuietDays.insert(day)
+    }
+    quietHoursError = nil
+  }
+
+  func setNewQuietFrom(_ text: String) {
+    newQuietFrom = text
+    quietHoursError = nil
+  }
+
+  func setNewQuietTo(_ text: String) {
+    newQuietTo = text
+    quietHoursError = nil
+  }
+
+  func addQuietWindow() {
+    let days = QuietWeekday.allCases.filter { newQuietDays.contains($0) }
+    switch PreferenceRules.quietWindow(
+      days: days, from: newQuietFrom, to: newQuietTo, joining: quietHours)
+    {
+    case .success(let window):
+      quietHoursError = nil
+      if write(.quietHours(quietHours + [window])) {
+        clearNewQuietWindow()
+      }
+    case .failure(let error):
+      quietHoursError = error.description
+    }
+  }
+
+  func removeQuietWindow(_ window: QuietWindow) {
+    write(.quietHours(quietHours.filter { $0 != window }))
+  }
+
+  private func clearNewQuietWindow() {
+    newQuietDays = []
+    newQuietFrom = ""
+    newQuietTo = ""
+    quietHoursError = nil
   }
 
   func setNewHandoffApp(_ text: String) {
@@ -872,6 +927,9 @@ final class SettingsModel {
       newHandoffApp = ""
       handoffError = nil
     }
+    if names.contains(.quietHours) {
+      clearNewQuietWindow()
+    }
     if names.contains(.accentColor) {
       discardCustomAccentColor()
     }
@@ -1089,7 +1147,7 @@ final class SettingsModel {
   private static func readStatus(_ paths: AppPaths) -> CountersignStatus {
     CountersignStatus.current(
       pause: PauseSwitch(file: paths.pauseFile).state,
-      quietUntil: QuietTime(file: paths.quietFile).activeUntil())
+      quietUntil: QuietState(paths: paths).activeUntil())
   }
 
   private static func somethingExists(_ path: String) -> Bool {

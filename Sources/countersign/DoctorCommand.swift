@@ -36,8 +36,8 @@ enum DoctorCommand {
     let liveTicketCount = queue.liveTickets().count
 
     let pauseSwitch = PauseSwitch(file: paths.pauseFile)
-    let quietTime = QuietTime(file: paths.quietFile)
-    let quietUntilDescription = quietTime.activeUntil().map(formattedTime)
+    let quietState = QuietState(paths: paths, schedule: configFile.quietSchedule)
+    let quietUntilDescription = quietState.activeUntil().map(formattedTime)
 
     let logSize =
       (try? FileManager.default.attributesOfItem(atPath: paths.logFile.path))?[.size]

@@ -68,12 +68,13 @@ How approval panels behave, for every agent unless a key is overridden for one u
 | Arm delay after an answer | `chainedArmDelay` | `0.1` |
 | Hand off when frontmost | `handoffApps` | `[]` |
 | Snooze presets | `snoozeMinutes` | `[1, 5, 15, 30]` |
+| Quiet hours | `quietHours` | `[]` |
 | Notes on answers | `questionNotes` | `false` |
 | Mode after a plan | `modeAfterPlan` | `"default"` |
 
-All of these except **Notes on answers** and **Mode after a plan** live at the top level of
-`config.json` and can also be set per agent, under `hosts.<agent>`. `questionNotes` and
-`modeAfterPlan` are top-level only, like the App group's keys below.
+All of these except **Quiet hours**, **Notes on answers** and **Mode after a plan** live at the
+top level of `config.json` and can also be set per agent, under `hosts.<agent>`. `quietHours`,
+`questionNotes` and `modeAfterPlan` are top-level only, like the App group's keys below.
 
 - **Wait for idle** (`idleSeconds`): how long since your last keyboard, mouse or scroll input a
   panel needs before it appears — counted from that last input, not from when the request
@@ -103,6 +104,30 @@ All of these except **Notes on answers** and **Mode after a plan** live at the t
   whole numbers, each `1` to `1440`. Set the presets you actually use. The menu-bar app's own
   Snooze menu isn't tied to one agent, so it always uses the top-level value, even when an agent's
   `hosts` block sets its own.
+- **Quiet hours** (`quietHours`): recurring windows in which panels wait, like a snooze that
+  repeats. Up to 7 entries, each with `days` (any of `"mon"` to `"sun"`), `from` and `to` as
+  `HH:mm` in your local time. Panels wait exactly as during a snooze: requests go to their chats
+  and can still be answered there. The window is over at the minute `to` is reached.
+
+  ```json
+  {
+    "quietHours": [
+      { "days": ["mon", "tue", "wed", "thu", "fri"], "from": "19:00", "to": "09:00" },
+      { "days": ["sat", "sun"], "from": "00:00", "to": "12:00" }
+    ]
+  }
+  ```
+
+  A `to` earlier than `from` makes the window run past midnight, and `days` names the day it
+  starts: the first entry above starts Monday 19:00 and ends Tuesday 09:00, so Saturday 03:00 is
+  quiet because Friday's window is still running. `from` and `to` must differ. Windows that touch or
+  overlap, such as Mon 19:00 to 00:00 and Tue 00:00 to 09:00, are one quiet period that lasts
+  until the last end, and End now skips the whole period. A snooze that ends later than a window
+  extends it. End now (the menu, the Settings
+  header, `countersign snooze off`) ends a snooze and also skips the window that is running now;
+  the next day's window applies as usual. Pause still wins over quiet hours. A bad entry gets one
+  line in the log and is dropped, and the rest apply. `countersign status` prints `quiet: until
+  09:00 (quiet hours)` while a window is running. Settings, Panels, adds and removes windows.
 - **Notes on answers** (`questionNotes`): off by default, so a question panel shows only its
   options. Turn it on if you want a way to add context to the option you pick; it shows a **+ Add
   a note** link under a question's options, and the note you type comes back to Claude in the
@@ -205,7 +230,7 @@ Every key except `checkForUpdates`, `questionNotes`, `quitBehavior`, `modeAfterP
 For a request from an agent, its `hosts` value wins over the top-level one, which wins over the
 default. This file is the only place settings live: the hook command takes nothing but
 `--host <agent>`. The menu-bar app's Snooze menu isn't tied to one agent, so it always uses the
-top-level `snoozeMinutes`.
+top-level `snoozeMinutes`, and quiet hours are top-level only too.
 
 #### Mistakes in the file
 

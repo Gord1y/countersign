@@ -261,6 +261,39 @@
       "default": [1, 5, 15, 30],
       "description": "Durations, in minutes and in menu order, offered by the panel's Snooze menu."
     },
+    "quietHours": {
+      "type": "array",
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["days", "from", "to"],
+        "properties": {
+          "days": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+            },
+            "description": "The days a window starts on."
+          },
+          "from": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "description": "Local start time, HH:mm."
+          },
+          "to": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "description": "Local end time, HH:mm, different from the start. Earlier than the start means the window runs past midnight."
+          }
+        }
+      },
+      "default": [],
+      "description": "Recurring windows in which panels wait, like a snooze that repeats; top level only."
+    },
     "checkForUpdates": {
       "type": "boolean",
       "default": false,

@@ -26,6 +26,10 @@ import Testing
       paths.quietFile.path == "/Users/dev/Library/Application Support/Countersign/quiet-until"
     )
     #expect(
+      paths.quietHoursSkippedFile.path
+        == "/Users/dev/Library/Application Support/Countersign/quiet-hours-skipped-until"
+    )
+    #expect(
       paths.codexHookTrustFile.path
         == "/Users/dev/Library/Application Support/Countersign/codex-hook-trust.json"
     )

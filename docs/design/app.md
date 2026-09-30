@@ -291,6 +291,33 @@ agent's own chat, so a snooze underneath it would only resurface later as a surp
 ends. `countersign snooze off` still clears quiet time on its own, since ending quiet time is never
 a surprise.
 
+Quiet time has two sources, a snooze (the `quiet-until` file) and the scheduled `quietHours`
+windows from the config file, and `ApprovalCore.QuietState.activeUntil(now:)` is the one accessor
+every reader goes through: the hook's idle gate and its on-screen step-aside, the menu-bar icon and
+menu, the Settings header, `countersign status` and `doctor`. It returns the later end of an active
+snooze and an active window, or nil, so readers keep receiving a single `Date?` and
+`CountersignStatus` and the menu model know nothing about windows. Going through one accessor is
+what stops a reader from honouring the snooze and forgetting the schedule. A snooze started during a
+window therefore extends quiet time only when it ends later, with no special case.
+
+`QuietSchedule.activeWindow(at:)` is pure, with the date and calendar injected. A window belongs to
+the day it starts on, so it looks at today's and yesterday's occurrences: Friday 22:00 to 09:00 is
+active on Saturday 03:00 because the Friday occurrence has not ended. Start and end are built with
+`Calendar.date(bySettingHour:)` on that day rather than by adding a duration, so a window follows
+the wall clock across a daylight-saving change. Windows that touch or overlap are merged into one
+run: a window starting exactly when the current run ends extends it, repeatedly, looking at most
+seven days ahead. The returned end is the run's real end, so "Quiet until" is honest and End now
+skips the whole run rather than resuming quiet time at the next joint. The end is exclusive: at exactly `to` the window is
+over.
+
+Ending quiet time (the menu's "End Quiet Time", the Settings header's End now, `countersign snooze
+off`) is `QuietState.endNow(now:)`. It clears the snooze and, when a window is active, writes that
+window's end to `quiet-hours-skipped-until`, which `QuietState` honours: a window whose end is not
+after the stored time counts as skipped. Storing the end rather than a flag means the skip lapses
+by itself, and the next occurrence of the window applies normally. Pause is unchanged and still
+wins, because `CountersignStatus` checks it before quiet time. Windows are read from `config.json`
+whenever quiet state is read, and the hook uses the settings it resolved when it started.
+
 The Help submenu is the same on every install and needs no input: "Documentation" opens the
 README on GitHub, "Ask a Question…" opens a new GitHub Discussion under the Q&A category, and
 "Contact the Developer…" opens `https://www.gord1y.dev/`. None of it collects an email address.

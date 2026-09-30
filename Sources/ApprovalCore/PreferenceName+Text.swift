@@ -8,6 +8,7 @@ extension PreferenceName {
     case .idleSeconds: return "Wait for idle"
     case .graceSeconds: return "Grace period"
     case .snoozeMinutes: return "Snooze presets"
+    case .quietHours: return "Quiet hours"
     case .handoffApps: return "Hand off when frontmost"
     case .checkForUpdates: return "Check for updates"
     case .questionNotes: return "Notes on answers"
@@ -39,6 +40,7 @@ extension PreferenceName {
     case .idleSeconds: return "Quiet keyboard and mouse needed before a panel shows."
     case .graceSeconds: return "Time a request may resolve elsewhere before it queues."
     case .snoozeMinutes: return "Minutes offered by the Snooze menu, in order."
+    case .quietHours: return "Recurring times when panels wait, like a snooze that repeats."
     case .handoffApps: return "No panel while the asking app is one of these and in front."
     case .checkForUpdates: return "Look for a newer Countersign release."
     case .questionNotes:
@@ -105,6 +107,14 @@ extension PreferenceName {
         + " actually use, from 1 to 6 values between 1 and 1440 minutes. It's a single, top-level"
         + " list: snoozing isn't tied to one agent, so a per-agent override here has no effect on"
         + " the menu-bar app's own menu."
+    case .quietHours:
+      return
+        "Windows that repeat every week, in which panels wait exactly as they do during a snooze:"
+        + " requests go to their chats and can still be answered there. Each window names the"
+        + " days it starts on and a start and end time; an end earlier than the start runs past"
+        + " midnight into the next morning. Ending quiet time from the menu, Settings or"
+        + " countersign snooze off also skips the window that is running now. It's a single,"
+        + " top-level list, at most 7 windows, and applies to every agent."
     case .handoffApps:
       return
         "Bundle IDs of apps where you'd rather answer in that app's own chat than see a panel."
@@ -246,6 +256,7 @@ extension PreferenceName {
     case .idleSeconds: return Self.secondsText(Settings.defaultIdleSeconds)
     case .graceSeconds: return Self.secondsText(Settings.defaultGraceSeconds)
     case .snoozeMinutes: return Self.minutesListText(Settings.defaultSnoozeMinutes)
+    case .quietHours: return "No windows"
     case .handoffApps: return Self.handoffAppsText(Settings.defaultHandoffApps)
     case .checkForUpdates: return Self.boolText(Settings.defaultCheckForUpdates)
     case .questionNotes: return Self.boolText(Settings.defaultQuestionNotes)

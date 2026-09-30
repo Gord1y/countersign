@@ -35,6 +35,7 @@ public struct ConfigFile: Sendable, Equatable {
   public var graceSeconds: Double?
   public var handoffApps: [String]?
   public var snoozeMinutes: [Int]?
+  public var quietHours: [QuietWindow]?
   public var checkForUpdates: Bool?
   public var quitBehavior: QuitBehavior?
   public var modeAfterPlan: PlanApprovalMode?
@@ -57,6 +58,7 @@ public struct ConfigFile: Sendable, Equatable {
     graceSeconds: Double? = nil,
     handoffApps: [String]? = nil,
     snoozeMinutes: [Int]? = nil,
+    quietHours: [QuietWindow]? = nil,
     checkForUpdates: Bool? = nil,
     quitBehavior: QuitBehavior? = nil,
     modeAfterPlan: PlanApprovalMode? = nil,
@@ -78,6 +80,7 @@ public struct ConfigFile: Sendable, Equatable {
     self.graceSeconds = graceSeconds
     self.handoffApps = handoffApps
     self.snoozeMinutes = snoozeMinutes
+    self.quietHours = quietHours
     self.checkForUpdates = checkForUpdates
     self.quitBehavior = quitBehavior
     self.modeAfterPlan = modeAfterPlan
@@ -92,6 +95,10 @@ public struct ConfigFile: Sendable, Equatable {
     self.antigravity = antigravity
     self.contextCheckpoints = contextCheckpoints
     self.contextCheckpointsClaude = contextCheckpointsClaude
+  }
+
+  public var quietSchedule: QuietSchedule {
+    QuietSchedule(windows: quietHours ?? [])
   }
 
   public func overrides(for host: Host) -> HostOverrides? {
@@ -119,7 +126,7 @@ public enum ConfigFileLoader {
 public enum ConfigFileParser {
   static let topLevelKeys: Set<String> = [
     "armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds", "handoffApps",
-    "snoozeMinutes", "checkForUpdates", "quitBehavior", "modeAfterPlan",
+    "snoozeMinutes", "quietHours", "checkForUpdates", "quitBehavior", "modeAfterPlan",
     "includeHeadlessSessions", "questionNotes", "editorApp", "hosts",
     "appearance", "accentColor", "contextCheckpoints",
     "$schema",
@@ -167,6 +174,8 @@ public enum ConfigFileParser {
       root["handoffApps"], path: "handoffApps", logLines: &logLines)
     file.snoozeMinutes = readSnoozeMinutes(
       root["snoozeMinutes"], path: "snoozeMinutes", logLines: &logLines)
+    file.quietHours = readQuietHours(
+      root["quietHours"], path: "quietHours", logLines: &logLines)
     file.checkForUpdates = readBool(
       root["checkForUpdates"], path: "checkForUpdates",
       defaultValue: Settings.defaultCheckForUpdates, logLines: &logLines)
@@ -573,6 +582,64 @@ public enum ConfigFileParser {
       apps.append(string)
     }
     return apps
+  }
+
+  private static let quietWindowKeys: Set<String> = ["days", "from", "to"]
+
+  private static func readQuietHours(
+    _ value: JSONValue?, path: String, logLines: inout [String]
+  ) -> [QuietWindow]? {
+    guard let value else { return nil }
+    guard case .array(let array) = value else {
+      logLines.append("\(path): not an array, using default []")
+      return nil
+    }
+    var windows: [QuietWindow] = []
+    for (index, element) in array.enumerated() {
+      let entryPath = "\(path)[\(index)]"
+      guard windows.count < QuietWindow.maximumCount else {
+        logLines.append("\(entryPath): at most \(QuietWindow.maximumCount) windows, dropped")
+        continue
+      }
+      guard let window = readQuietWindow(element, path: entryPath, logLines: &logLines) else {
+        continue
+      }
+      windows.append(window)
+    }
+    return windows
+  }
+
+  private static func readQuietWindow(
+    _ value: JSONValue, path: String, logLines: inout [String]
+  ) -> QuietWindow? {
+    guard case .object(let object) = value else {
+      logLines.append("\(path): expected an object, dropped")
+      return nil
+    }
+    for key in object.keys.sorted() where !quietWindowKeys.contains(key) {
+      logLines.append("unknown key \"\(path).\(key)\", ignored")
+    }
+    guard case .array(let dayValues)? = object["days"] else {
+      logLines.append("\(path).days: expected a list of days like \"mon\", dropped")
+      return nil
+    }
+    var days: [QuietWeekday] = []
+    for dayValue in dayValues {
+      guard let day = dayValue.stringValue.flatMap(QuietWeekday.init(rawValue:)) else {
+        logLines.append("\(path).days: expected \"mon\" to \"sun\", dropped")
+        return nil
+      }
+      days.append(day)
+    }
+    guard let from = object["from"]?.stringValue, let to = object["to"]?.stringValue,
+      let window = QuietWindow(days: days, from: from, to: to)
+    else {
+      logLines.append(
+        "\(path): expected at least one day and different from and to times like \"19:00\","
+          + " dropped")
+      return nil
+    }
+    return window
   }
 
   private static func readSnoozeMinutes(

@@ -52,6 +52,8 @@ struct PanelsSection: View {
             .onDisappear { model.setEditingSnoozeMinutes(false) }
           }
           SettingsDivider()
+          QuietHoursRow(model: model)
+          SettingsDivider()
           PreferenceRow(.questionNotes, model: model, problem: model.writeErrors[.questionNotes]) {
             SettingsSwitch(
               PreferenceName.questionNotes.title,
@@ -539,6 +541,99 @@ private struct SecondsStepper: View {
       .labelsHidden()
       .controlSize(.small)
     }
+  }
+}
+
+private struct QuietHoursRow: View {
+  let model: SettingsModel
+
+  var body: some View {
+    PreferenceRow(.quietHours, model: model, problem: model.quietHoursProblem) {
+      EmptyView()
+    } detail: {
+      VStack(alignment: .leading, spacing: 8) {
+        if !model.quietHours.isEmpty {
+          VStack(alignment: .leading, spacing: 4) {
+            ForEach(model.quietHours, id: \.self) { window in
+              HStack(spacing: 8) {
+                Text(window.title)
+                  .font(PanelTypography.body.monospacedDigit())
+                  .lineLimit(1)
+                Spacer(minLength: 8)
+                Button {
+                  model.removeQuietWindow(window)
+                } label: {
+                  Image(systemName: "minus.circle.fill")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Remove \(window.title)")
+                .accessibilityLabel("Remove \(window.title)")
+              }
+              .padding(.horizontal, 10)
+              .padding(.vertical, 5)
+              .background(
+                RoundedRectangle(cornerRadius: 6, style: .continuous)
+                  .fill(Color.primary.opacity(0.05))
+              )
+            }
+          }
+        }
+        HStack(spacing: 4) {
+          ForEach(QuietWeekday.allCases, id: \.self) { day in
+            QuietDayToggle(day: day, isOn: model.newQuietDays.contains(day)) {
+              model.toggleNewQuietDay(day)
+            }
+          }
+        }
+        HStack(spacing: 8) {
+          TextField(
+            "19:00",
+            text: Binding(get: { model.newQuietFrom }, set: { model.setNewQuietFrom($0) })
+          )
+          .textFieldStyle(.roundedBorder)
+          .font(PanelTypography.body.monospacedDigit())
+          .frame(width: 70)
+          .onSubmit { model.addQuietWindow() }
+          Text("to")
+            .font(PanelTypography.caption)
+            .foregroundStyle(.secondary)
+          TextField(
+            "09:00",
+            text: Binding(get: { model.newQuietTo }, set: { model.setNewQuietTo($0) })
+          )
+          .textFieldStyle(.roundedBorder)
+          .font(PanelTypography.body.monospacedDigit())
+          .frame(width: 70)
+          .onSubmit { model.addQuietWindow() }
+          Button("Add") { model.addQuietWindow() }
+            .buttonStyle(SecondaryButtonStyle())
+        }
+      }
+    }
+  }
+}
+
+private struct QuietDayToggle: View {
+  let day: QuietWeekday
+  let isOn: Bool
+  let action: () -> Void
+
+  var body: some View {
+    Button(action: action) {
+      Text(day.initial)
+        .font(.system(size: 12, weight: .semibold))
+        .foregroundStyle(isOn ? Color.white : Color.primary)
+        .frame(width: 26, height: 26)
+        .background(
+          Circle().fill(isOn ? Color.accentColor : Color.primary.opacity(0.08))
+        )
+    }
+    .buttonStyle(.plain)
+    .help(day.title)
+    .accessibilityLabel(day.title)
+    .accessibilityAddTraits(isOn ? .isSelected : [])
   }
 }
 

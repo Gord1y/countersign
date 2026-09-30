@@ -5,21 +5,23 @@ import Testing
 @Suite struct PreferenceNameTextTests {
   @Test func titlesEveryRow() {
     #expect(
-      PreferenceName.allCases.prefix(13).map(\.title) == [
+      PreferenceName.allCases.prefix(14).map(\.title) == [
         "Arm delay", "Arm delay after an answer", "Wait for idle", "Grace period",
-        "Snooze presets", "Hand off when frontmost", "Check for updates", "Notes on answers",
+        "Snooze presets", "Quiet hours", "Hand off when frontmost", "Check for updates",
+        "Notes on answers",
         "When Countersign quits", "Mode after a plan", "Appearance", "Accent colour", "Open with",
       ])
   }
 
   @Test func captionsEveryRow() {
     #expect(
-      PreferenceName.allCases.prefix(13).map(\.caption) == [
+      PreferenceName.allCases.prefix(14).map(\.caption) == [
         "How long a new panel ignores keys and clicks.",
         "How long the next panel ignores keys and clicks.",
         "Quiet keyboard and mouse needed before a panel shows.",
         "Time a request may resolve elsewhere before it queues.",
         "Minutes offered by the Snooze menu, in order.",
+        "Recurring times when panels wait, like a snooze that repeats.",
         "No panel while the asking app is one of these and in front.",
         "Look for a newer Countersign release.",
         "Offer a note under Claude's questions, sent with the option you pick.",

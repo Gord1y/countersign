@@ -6,6 +6,7 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
   case idleSeconds
   case graceSeconds
   case snoozeMinutes
+  case quietHours
   case handoffApps
   case checkForUpdates
   case questionNotes
@@ -64,6 +65,7 @@ public enum PreferenceEdit: Sendable, Equatable {
   case idleSeconds(Double)
   case graceSeconds(Double)
   case snoozeMinutes([Int])
+  case quietHours([QuietWindow])
   case checkForUpdates(Bool)
   case quitBehavior(QuitBehavior)
   case modeAfterPlan(PlanApprovalMode)
@@ -92,6 +94,7 @@ public enum PreferenceEdit: Sendable, Equatable {
     case .idleSeconds: return .idleSeconds
     case .graceSeconds: return .graceSeconds
     case .snoozeMinutes: return .snoozeMinutes
+    case .quietHours: return .quietHours
     case .checkForUpdates: return .checkForUpdates
     case .quitBehavior: return .quitBehavior
     case .modeAfterPlan: return .modeAfterPlan
@@ -160,6 +163,8 @@ public enum ConfigEdit {
       try set(key, to: .array(minutes.map(JSONFragment.integer)), in: &document) {
         $0.elements?.map(\.numberValue) == minutes.map { Double($0) }
       }
+    case .quietHours(let windows):
+      try set(key, to: .array(windows.map(quietWindowFragment)), in: &document) { _ in false }
     case .checkForUpdates(let enabled):
       try set(key, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
     case .quitBehavior(let behavior):
@@ -212,6 +217,14 @@ public enum ConfigEdit {
     case .reset:
       try removeMember(path, in: &document)
     }
+  }
+
+  private static func quietWindowFragment(_ window: QuietWindow) -> JSONFragment {
+    .object([
+      JSONFragmentMember(key: "days", value: .array(window.days.map { .string($0.rawValue) })),
+      JSONFragmentMember(key: "from", value: .string(window.fromText)),
+      JSONFragmentMember(key: "to", value: .string(window.toText)),
+    ])
   }
 
   private static func removeMember(_ path: [String], in document: inout JSONSourceDocument)

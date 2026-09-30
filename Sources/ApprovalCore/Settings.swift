@@ -5,6 +5,7 @@ public struct Settings: Sendable, Equatable {
   public var graceSeconds: Double
   public var handoffApps: [String]
   public var snoozeMinutes: [Int]
+  public var quietHours: [QuietWindow]
   public var checkForUpdates: Bool
   public var quitBehavior: QuitBehavior
   public var modeAfterPlan: PlanApprovalMode
@@ -21,6 +22,7 @@ public struct Settings: Sendable, Equatable {
     graceSeconds: Double,
     handoffApps: [String],
     snoozeMinutes: [Int],
+    quietHours: [QuietWindow] = Settings.defaultQuietHours,
     checkForUpdates: Bool,
     quitBehavior: QuitBehavior,
     modeAfterPlan: PlanApprovalMode,
@@ -36,6 +38,7 @@ public struct Settings: Sendable, Equatable {
     self.graceSeconds = graceSeconds
     self.handoffApps = handoffApps
     self.snoozeMinutes = snoozeMinutes
+    self.quietHours = quietHours
     self.checkForUpdates = checkForUpdates
     self.quitBehavior = quitBehavior
     self.modeAfterPlan = modeAfterPlan
@@ -53,6 +56,7 @@ public struct Settings: Sendable, Equatable {
   public static let defaultGraceSeconds: Double = 0
   public static let defaultHandoffApps: [String] = []
   public static let defaultSnoozeMinutes: [Int] = [1, 5, 15, 30]
+  public static let defaultQuietHours: [QuietWindow] = []
   public static let defaultCheckForUpdates = false
   public static let defaultQuitBehavior = QuitBehavior.ask
   public static let defaultModeAfterPlan = PlanApprovalMode.default
@@ -70,6 +74,7 @@ public struct Settings: Sendable, Equatable {
     let chainedArmDelay =
       hostOverrides?.chainedArmDelay ?? file.chainedArmDelay ?? defaultChainedArmDelay
     let snoozeMinutes = hostOverrides?.snoozeMinutes ?? file.snoozeMinutes ?? defaultSnoozeMinutes
+    let quietHours = file.quietHours ?? defaultQuietHours
     let checkForUpdates = file.checkForUpdates ?? defaultCheckForUpdates
     let quitBehavior = file.quitBehavior ?? defaultQuitBehavior
     let modeAfterPlan = file.modeAfterPlan ?? defaultModeAfterPlan
@@ -87,6 +92,7 @@ public struct Settings: Sendable, Equatable {
       graceSeconds: graceSeconds,
       handoffApps: handoffApps,
       snoozeMinutes: snoozeMinutes,
+      quietHours: quietHours,
       checkForUpdates: checkForUpdates,
       quitBehavior: quitBehavior,
       modeAfterPlan: modeAfterPlan,

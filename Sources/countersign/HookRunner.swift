@@ -91,7 +91,8 @@ enum HookRunner {
       ? ResolutionWatcher(request: request, sessionsDirectory: paths.claudeSessionsDirectory)
       : nil
     let pauseSwitch = PauseSwitch(file: paths.pauseFile)
-    let quietTime = QuietTime(file: paths.quietFile)
+    let quietState = QuietState(
+      paths: paths, schedule: QuietSchedule(windows: settings.quietHours))
     func abandonReason() -> String? {
       if let reason = watcher?.poll() {
         return reason.rawValue
@@ -173,7 +174,7 @@ enum HookRunner {
     let activityGate = ActivityGate(idleSeconds: settings.idleSeconds)
     let displayWatch = DisplayWatch(
       app: app, request: request, mode: mode, queue: queue, ticket: ticket, lease: lease,
-      log: log, activityGate: activityGate, quietTime: quietTime, settings: settings,
+      log: log, activityGate: activityGate, quietState: quietState, settings: settings,
       subagentChain: subagentChain, waitingEntries: initialWaitingEntries,
       sessionsDirectory: paths.claudeSessionsDirectory, history: DecisionHistory(paths: paths),
       hostApp: hostApp, checkpoint: checkpoint, abandonReason: abandonReason,
@@ -273,7 +274,7 @@ private final class DisplayWatch: NSObject {
   private let ticket: Ticket
   private let log: EventLog
   private let activityGate: ActivityGate
-  private let quietTime: QuietTime
+  private let quietState: QuietState
   private let settings: Settings
   private let systemActivity = SystemActivity()
   private let abandonReason: () -> String?
@@ -300,7 +301,7 @@ private final class DisplayWatch: NSObject {
   init(
     app: PanelApplication, request: ApprovalRequest, mode: PanelRunMode, queue: TicketQueue,
     ticket: Ticket, lease: DisplayLease?, log: EventLog, activityGate: ActivityGate,
-    quietTime: QuietTime, settings: Settings, subagentChain: [SubagentChainLink]?,
+    quietState: QuietState, settings: Settings, subagentChain: [SubagentChainLink]?,
     waitingEntries: [WaitingEntry], sessionsDirectory: URL, history: DecisionHistory,
     hostApp: HostApp?,
     checkpoint: ContextCheckpointSession?,
@@ -315,7 +316,7 @@ private final class DisplayWatch: NSObject {
     self.lease = lease
     self.log = log
     self.activityGate = activityGate
-    self.quietTime = quietTime
+    self.quietState = quietState
     self.settings = settings
     self.subagentChain = subagentChain
     self.lastWaitingEntries = waitingEntries
@@ -383,7 +384,7 @@ private final class DisplayWatch: NSObject {
   }
 
   private func quietTimeHoldsPanels() -> Bool {
-    mode.honorsQuietTime && quietTime.activeUntil() != nil
+    mode.honorsQuietTime && quietState.activeUntil() != nil
   }
 
   private func makeController(handoffBackdrop: BackdropWindow?, afterHandoff: Bool)
@@ -792,7 +793,7 @@ private final class DisplayWatch: NSObject {
     }
     let until = Date().addingTimeInterval(seconds)
     do {
-      try quietTime.quiet(until: until)
+      try quietState.quietTime.quiet(until: until)
     } catch {
       log.write("failed to set quiet time: \(error)")
       return

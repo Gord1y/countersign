@@ -287,6 +287,7 @@ The window edits top-level keys only:
 | Panels | Arm delay after an answer, a slider | `chainedArmDelay` | `0` to `3` s, in 0.1 s steps |
 | Panels | Hand off when frontmost, a list | `handoffApps` | bundle IDs, added and removed one at a time |
 | Panels | Snooze presets, a text field | `snoozeMinutes` | `1, 5, 15, 30`: 1 to 6 whole numbers, each `1` to `1440` |
+| Panels | Quiet hours, a list with day toggles and two `HH:mm` fields | `quietHours` | up to 7 windows, each with at least one day and different start and end times; the whole array is rewritten on every add or remove; errors `Pick at least one day` and `Enter a start and end time, like 19:00` |
 | Panels | Notes on answers, a switch | `questionNotes` | on or off |
 | Panels | Mode after a plan, a menu | `modeAfterPlan` | "Ask before edits", "Accept edits" or "Auto" |
 | App | Launch at login, a switch | none, `SMAppService.mainApp` | see below |
