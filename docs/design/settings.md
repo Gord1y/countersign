@@ -492,7 +492,7 @@ here or in the file, while Context is showing selects Panels. Its rows, in order
 (Wired, Not wired or Needs an update, from `ContextHookRun.status`, with "Update" for the last two,
 which shows the same popup as the switch and never touches the config), Checkpoint
 style, the 200K and 1M ladders, the per-model ladders, Start over below, Handoff file, Notes (one
-row with an "Edit Notes…" button), Context in the menu bar, a button that shows a context test panel, and Restore Defaults.
+row with an "Edit Notes…" button), Context in the menu bar, a button that shows a context test panel, and a last row with "Turn Off Context Checkpoints" left of Restore Defaults. That button calls `requestContextCheckpoints(false)` and so shows the same "Turn off context checkpoints?" popup as the Panels switch (the row presents it for the `.toggle` origin, and only one tab is on screen at a time, so one `contextChange` shows one alert); it is disabled while a change is pending or Claude Code isn't installed.
 
 Write rules follow the table above. The two ladder fields take three ascending whole numbers of
 thousands, 1 to 2000 (`PreferenceRules.contextLadder`), checked on each keystroke, and are written

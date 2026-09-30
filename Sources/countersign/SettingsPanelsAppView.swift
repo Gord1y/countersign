@@ -406,7 +406,7 @@ extension View {
   }
 }
 
-private struct RestoreDefaultsButton: View {
+struct RestoreDefaultsButton: View {
   let pane: SettingsPane
   let model: SettingsModel
 

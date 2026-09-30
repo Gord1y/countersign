@@ -253,6 +253,10 @@ session's context has grown and adds a note asking it to wrap up, compact or han
 A key with a mistake uses its default and the rest of the block is read as usual, like every other
 key on this page.
 
+To turn the feature off, use the "Context checkpoints (Claude Code)" switch in Settings > Panels or
+the "Turn Off Context Checkpoints" button at the bottom of the Context tab. Both show what changes
+in Claude Code's `settings.json` before anything is written.
+
 #### Ask your coding agent
 
 Advanced also has a prompt you can copy into a coding agent, naming the file's path and its

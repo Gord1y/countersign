@@ -62,9 +62,28 @@ struct ContextSection: View {
         SettingsDivider()
         ContextTestPanelRow(model: model)
         SettingsDivider()
-        RestoreDefaultsRow(pane: .context, model: model)
+        ContextFooterRow(model: model)
       }
     }
+  }
+}
+
+private struct ContextFooterRow: View {
+  static let turnOff = "Turn Off Context Checkpoints"
+
+  let model: SettingsModel
+
+  var body: some View {
+    HStack(spacing: 8) {
+      Spacer(minLength: 0)
+      Button(Self.turnOff) { model.requestContextCheckpoints(false) }
+        .buttonStyle(SecondaryButtonStyle())
+        .disabled(model.contextChange != nil || !model.claudeIsInstalled)
+      RestoreDefaultsButton(pane: .context, model: model)
+    }
+    .padding(.horizontal, SettingsMetrics.rowPadding)
+    .padding(.vertical, 11)
+    .presentsContextHookPrompt(model: model, origin: .toggle)
   }
 }
 
