@@ -39,6 +39,7 @@ public struct ConfigFile: Sendable, Equatable {
   public var checkForUpdates: Bool?
   public var quitBehavior: QuitBehavior?
   public var modeAfterPlan: PlanApprovalMode?
+  public var panelSound: String?
   public var includeHeadlessSessions: Bool?
   public var questionNotes: Bool?
   public var appearance: AppearanceChoice?
@@ -62,6 +63,7 @@ public struct ConfigFile: Sendable, Equatable {
     checkForUpdates: Bool? = nil,
     quitBehavior: QuitBehavior? = nil,
     modeAfterPlan: PlanApprovalMode? = nil,
+    panelSound: String? = nil,
     includeHeadlessSessions: Bool? = nil,
     questionNotes: Bool? = nil,
     appearance: AppearanceChoice? = nil,
@@ -84,6 +86,7 @@ public struct ConfigFile: Sendable, Equatable {
     self.checkForUpdates = checkForUpdates
     self.quitBehavior = quitBehavior
     self.modeAfterPlan = modeAfterPlan
+    self.panelSound = panelSound
     self.includeHeadlessSessions = includeHeadlessSessions
     self.questionNotes = questionNotes
     self.appearance = appearance
@@ -112,14 +115,16 @@ public struct ConfigFile: Sendable, Equatable {
 }
 
 public enum ConfigFileLoader {
-  public static func load(paths: AppPaths) -> (file: ConfigFile, logLines: [String]) {
+  public static func load(
+    paths: AppPaths, soundNames: [String] = PanelSound.systemNames
+  ) -> (file: ConfigFile, logLines: [String]) {
     guard FileManager.default.fileExists(atPath: paths.configFile.path) else {
       return (ConfigFile(), [])
     }
     guard let data = try? Data(contentsOf: paths.configFile) else {
       return (ConfigFile(), ["config.json could not be read, using defaults"])
     }
-    return ConfigFileParser.parse(data)
+    return ConfigFileParser.parse(data, soundNames: soundNames)
   }
 }
 
@@ -127,7 +132,7 @@ public enum ConfigFileParser {
   static let topLevelKeys: Set<String> = [
     "armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds", "handoffApps",
     "snoozeMinutes", "quietHours", "checkForUpdates", "quitBehavior", "modeAfterPlan",
-    "includeHeadlessSessions", "questionNotes", "editorApp", "hosts",
+    "panelSound", "includeHeadlessSessions", "questionNotes", "editorApp", "hosts",
     "appearance", "accentColor", "contextCheckpoints",
     "$schema",
   ]
@@ -140,7 +145,9 @@ public enum ConfigFileParser {
     "snoozeMinutes", "includeHeadlessSessions",
   ]
 
-  public static func parse(_ data: Data) -> (file: ConfigFile, logLines: [String]) {
+  public static func parse(_ data: Data, soundNames: [String] = PanelSound.systemNames) -> (
+    file: ConfigFile, logLines: [String]
+  ) {
     let decoded: JSONValue
     do {
       decoded = try JSONDecoder().decode(JSONValue.self, from: data)
@@ -183,6 +190,8 @@ public enum ConfigFileParser {
       root["quitBehavior"], path: "quitBehavior", logLines: &logLines)
     file.modeAfterPlan = readModeAfterPlan(
       root["modeAfterPlan"], path: "modeAfterPlan", logLines: &logLines)
+    file.panelSound = readPanelSound(
+      root["panelSound"], path: "panelSound", soundNames: soundNames, logLines: &logLines)
     file.includeHeadlessSessions = readBool(
       root["includeHeadlessSessions"], path: "includeHeadlessSessions",
       defaultValue: Settings.defaultIncludeHeadlessSessions, logLines: &logLines)
@@ -526,6 +535,20 @@ public enum ConfigFileParser {
       return nil
     }
     return mode
+  }
+
+  private static func readPanelSound(
+    _ value: JSONValue?, path: String, soundNames: [String], logLines: inout [String]
+  ) -> String? {
+    guard let value else { return nil }
+    guard let name = value.stringValue, PanelSound.isSilent(name) || soundNames.contains(name)
+    else {
+      logLines.append(
+        "\(path): expected \"\(PanelSound.none)\" or the name of a system sound, using default"
+          + " \"\(Settings.defaultPanelSound)\"")
+      return nil
+    }
+    return name
   }
 
   private static func readAppearance(

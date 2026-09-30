@@ -180,7 +180,7 @@ since the sidebar already names it:
 | Group | Holds | What it changes |
 | --- | --- | --- |
 | Agents | a row per agent (Wire, Update, Remove, Show changes), the notice about a second copy, on each row the values `hosts.<agent>` sets, and, once wired, its follow-up line and Codex's "Mark as done" (`AgentFollowUp`; see "Follow-up lines" and "The Codex hook trust record" in [setup.md](setup.md)) | each agent's own hook file; the Codex hook trust record, never `config.json` |
-| Panels | Wait for idle, Grace period, Arm delay, Arm delay after an answer, Hand off when frontmost, Snooze presets, Notes on answers, Mode after a plan, then Show a test panel | `config.json`, for every agent |
+| Panels | Wait for idle, Grace period, Arm delay, Arm delay after an answer, Hand off when frontmost, Snooze presets, Notes on answers, Mode after a plan, Sound, then Show a test panel | `config.json`, for every agent |
 | App | Launch at login, Check for updates, When Countersign quits, Appearance, Accent colour, the offer to link Countersign.app, then Advanced… | macOS's login items, `config.json`, `~/Applications` |
 | Help | the tour, documentation, ask a question, report a problem, contact the developer, updates, then support links | nothing in `config.json`; never `update-check.json` |
 | Advanced | the config file's path, Open in Editor, Copy Path, Open with, the schema, what only the file can set, and the prompt for a coding agent | `config.json` for Open with; otherwise nothing beyond creating a missing `config.json` to open it |
@@ -299,6 +299,7 @@ The window edits top-level keys only:
 | Panels | Quiet hours, a list with day toggles and two `HH:mm` fields | `quietHours` | up to 7 windows, each with at least one day and different start and end times; the whole array is rewritten on every add or remove; errors `Pick at least one day` and `Enter a start and end time, like 19:00` |
 | Panels | Notes on answers, a switch | `questionNotes` | on or off |
 | Panels | Mode after a plan, a menu | `modeAfterPlan` | "Ask before edits", "Accept edits" or "Auto" |
+| Panels | Sound, a menu and a play button | `panelSound` | None, then the names in `/System/Library/Sounds`; the button (`speaker.wave.2`, label `Play <name>`) is disabled for None |
 | App | Launch at login, a switch | none, `SMAppService.mainApp` | see below |
 | App | Check for updates, a switch | `checkForUpdates` | on or off |
 | App | When Countersign quits, a menu | `quitBehavior` | "Ask", "Keep showing panels" or "Pause panels" |

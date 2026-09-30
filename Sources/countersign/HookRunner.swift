@@ -17,7 +17,8 @@ enum HookRunner {
       exit(0)
     }
 
-    let (configFile, configLogLines) = ConfigFileLoader.load(paths: paths)
+    let (configFile, configLogLines) = ConfigFileLoader.load(
+      paths: paths, soundNames: SystemSounds.installedNames)
     for line in configLogLines {
       log.write("config: \(line)")
     }
@@ -405,7 +406,7 @@ private final class DisplayWatch: NSObject {
       request: request, waitingEntries: waitingEntries,
       armDuration: afterHandoff ? settings.chainedArmDelay : settings.armDelay,
       snoozeMinutes: settings.snoozeMinutes, questionNotes: settings.questionNotes,
-      modeAfterPlan: settings.modeAfterPlan,
+      modeAfterPlan: settings.modeAfterPlan, panelSound: settings.panelSound,
       appearance: settings.appearance, accentColor: settings.accentColor,
       chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
       isTestPanel: mode.isTest, handoffBackdrop: handoffBackdrop, afterHandoff: afterHandoff,

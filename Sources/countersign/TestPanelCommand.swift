@@ -11,7 +11,8 @@ enum TestPanelCommand {
     let paths = AppPaths.standard
     let log = EventLog(file: paths.logFile)
     log.rotateIfNeeded()
-    let (configFile, configLogLines) = ConfigFileLoader.load(paths: paths)
+    let (configFile, configLogLines) = ConfigFileLoader.load(
+      paths: paths, soundNames: SystemSounds.installedNames)
     for line in configLogLines {
       log.write("config: \(line)")
     }

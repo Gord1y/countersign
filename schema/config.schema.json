@@ -311,6 +311,28 @@
       "default": "default",
       "description": "What Claude Code switches to when you approve its plan."
     },
+    "panelSound": {
+      "type": "string",
+      "enum": [
+        "none",
+        "Basso",
+        "Blow",
+        "Bottle",
+        "Frog",
+        "Funk",
+        "Glass",
+        "Hero",
+        "Morse",
+        "Ping",
+        "Pop",
+        "Purr",
+        "Sosumi",
+        "Submarine",
+        "Tink"
+      ],
+      "default": "none",
+      "description": "A system sound played once when a panel appears, except the next panel in a chain of answers; none plays nothing; top level only."
+    },
     "includeHeadlessSessions": {
       "type": "boolean",
       "default": false,

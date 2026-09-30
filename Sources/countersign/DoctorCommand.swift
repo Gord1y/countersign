@@ -30,7 +30,8 @@ enum DoctorCommand {
     }
 
     let configExists = FileManager.default.fileExists(atPath: paths.configFile.path)
-    let (configFile, configLogLines) = ConfigFileLoader.load(paths: paths)
+    let (configFile, configLogLines) = ConfigFileLoader.load(
+      paths: paths, soundNames: SystemSounds.installedNames)
 
     let queue = TicketQueue(directory: paths.queueDirectory, lockFile: paths.displayLockFile)
     let liveTicketCount = queue.liveTickets().count

@@ -319,6 +319,27 @@ where a plain borderless `NSWindow` gets the document-window animation and a tit
 the utility-window one. Setting it explicitly keeps a later macOS from animating the head's
 `orderOut` or the next panel's `orderFront` between two chained panels.
 
+## Sound when a panel appears
+
+`show()` plays the `panelSound` config value once, through `NSSound(named:)`, right after the panel
+is ordered front and before the fade starts. The name is `none` or a file name without extension in
+`/System/Library/Sounds`; `none`, the default, plays nothing. Only `PanelController` plays it, so
+the result card and notices, which are not panels, stay silent, while real requests, context
+checkpoints and test panels all sound: a test panel is how someone hears their choice, next to the
+play button in Settings' Panels tab.
+
+A panel shown after a queue handoff (`isAfterHandoff`) does not play it. That panel is the next
+question in a run of answers the user is already working through, arriving at full opacity with no
+fade for the same reason: one panel replaces the other, and a chime per panel across a burst of
+requests would turn into noise. The sound marks the start of a chain, when the user's attention is
+elsewhere.
+
+The config parser validates the name against a list it is handed, never the disk. The app passes
+the names it finds in `/System/Library/Sounds` (falling back to the fourteen macOS ships when the
+folder cannot be read), so an unknown name logs one line and falls back to `none`. Haptics are not
+an option: macOS plays them only on a Force Touch trackpad during a touch, so they cannot serve as
+an alert.
+
 ## Click outside answers in chat, once armed
 
 The backdrop's content view forwards `mouseDown` to `onClickOutside`, which `PanelController` wires

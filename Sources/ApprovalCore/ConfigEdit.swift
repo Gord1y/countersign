@@ -15,6 +15,7 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
   case appearance
   case accentColor
   case editorApp
+  case panelSound
   case contextCheckpointsEnabled
   case contextMode
   case contextStandardThresholds
@@ -69,6 +70,7 @@ public enum PreferenceEdit: Sendable, Equatable {
   case checkForUpdates(Bool)
   case quitBehavior(QuitBehavior)
   case modeAfterPlan(PlanApprovalMode)
+  case panelSound(String)
   case questionNotes(Bool)
   case appearance(AppearanceChoice)
   case accentColor(HexColor)
@@ -98,6 +100,7 @@ public enum PreferenceEdit: Sendable, Equatable {
     case .checkForUpdates: return .checkForUpdates
     case .quitBehavior: return .quitBehavior
     case .modeAfterPlan: return .modeAfterPlan
+    case .panelSound: return .panelSound
     case .questionNotes: return .questionNotes
     case .appearance: return .appearance
     case .accentColor: return .accentColor
@@ -175,6 +178,8 @@ public enum ConfigEdit {
       try set(key, to: .string(mode.rawValue), in: &document) {
         $0.stringValue == mode.rawValue
       }
+    case .panelSound(let name):
+      try set(key, to: .string(name), in: &document) { $0.stringValue == name }
     case .questionNotes(let enabled):
       try set(key, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
     case .appearance(let appearance):

@@ -14,6 +14,7 @@ extension PreferenceName {
     case .questionNotes: return "Notes on answers"
     case .quitBehavior: return "When Countersign quits"
     case .modeAfterPlan: return "Mode after a plan"
+    case .panelSound: return "Sound"
     case .appearance: return "Appearance"
     case .accentColor: return "Accent colour"
     case .editorApp: return "Open with"
@@ -47,6 +48,7 @@ extension PreferenceName {
       return "Offer a note under Claude's questions, sent with the option you pick."
     case .quitBehavior: return "Whether panels keep appearing after you quit the menu-bar app."
     case .modeAfterPlan: return "What Claude Code switches to when you approve its plan."
+    case .panelSound: return "A macOS sound played when a panel appears."
     case .appearance: return "Light or dark for panels and Settings, or follow macOS."
     case .accentColor: return "The colour of Approve and highlights on panels and in Settings."
     case .editorApp: return "The app Open in Editor uses for config.json."
@@ -153,6 +155,12 @@ extension PreferenceName {
         + " without asking, and Auto hands the decisions to Claude Code's auto mode. The plan"
         + " panel's \"then:\" menu starts on this choice, and you can still pick another there"
         + " for a single plan. Only Claude Code sends plans, so the other agents are unaffected."
+    case .panelSound:
+      return
+        "A system sound played once when an approval panel, a context checkpoint or a test panel"
+        + " appears. It stays silent for the next panel in a chain you are already answering,"
+        + " after the result card, and for notices. None, the default, plays nothing; the play"
+        + " button next to the menu lets you hear a sound before you pick it."
     case .appearance:
       return
         "Whether approval panels and this Settings window are light or dark. System follows the"
@@ -262,6 +270,7 @@ extension PreferenceName {
     case .questionNotes: return Self.boolText(Settings.defaultQuestionNotes)
     case .quitBehavior: return Settings.defaultQuitBehavior.title
     case .modeAfterPlan: return Settings.defaultModeAfterPlan.title
+    case .panelSound: return PanelSound.title(Settings.defaultPanelSound)
     case .appearance: return Settings.defaultAppearance.title
     case .accentColor: return AccentPreset.name(of: Settings.defaultAccentColor)
     case .editorApp: return "Default app"

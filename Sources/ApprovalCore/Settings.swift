@@ -9,6 +9,7 @@ public struct Settings: Sendable, Equatable {
   public var checkForUpdates: Bool
   public var quitBehavior: QuitBehavior
   public var modeAfterPlan: PlanApprovalMode
+  public var panelSound: String
   public var includeHeadlessSessions: Bool
   public var questionNotes: Bool
   public var appearance: AppearanceChoice
@@ -26,6 +27,7 @@ public struct Settings: Sendable, Equatable {
     checkForUpdates: Bool,
     quitBehavior: QuitBehavior,
     modeAfterPlan: PlanApprovalMode,
+    panelSound: String = Settings.defaultPanelSound,
     includeHeadlessSessions: Bool,
     questionNotes: Bool,
     appearance: AppearanceChoice,
@@ -42,6 +44,7 @@ public struct Settings: Sendable, Equatable {
     self.checkForUpdates = checkForUpdates
     self.quitBehavior = quitBehavior
     self.modeAfterPlan = modeAfterPlan
+    self.panelSound = panelSound
     self.includeHeadlessSessions = includeHeadlessSessions
     self.questionNotes = questionNotes
     self.appearance = appearance
@@ -60,6 +63,7 @@ public struct Settings: Sendable, Equatable {
   public static let defaultCheckForUpdates = false
   public static let defaultQuitBehavior = QuitBehavior.ask
   public static let defaultModeAfterPlan = PlanApprovalMode.default
+  public static let defaultPanelSound = PanelSound.none
   public static let defaultIncludeHeadlessSessions = false
   public static let defaultQuestionNotes = false
   public static let defaultAppearance = AppearanceChoice.system
@@ -78,6 +82,7 @@ public struct Settings: Sendable, Equatable {
     let checkForUpdates = file.checkForUpdates ?? defaultCheckForUpdates
     let quitBehavior = file.quitBehavior ?? defaultQuitBehavior
     let modeAfterPlan = file.modeAfterPlan ?? defaultModeAfterPlan
+    let panelSound = file.panelSound ?? defaultPanelSound
     let includeHeadlessSessions =
       hostOverrides?.includeHeadlessSessions ?? file.includeHeadlessSessions
       ?? defaultIncludeHeadlessSessions
@@ -96,6 +101,7 @@ public struct Settings: Sendable, Equatable {
       checkForUpdates: checkForUpdates,
       quitBehavior: quitBehavior,
       modeAfterPlan: modeAfterPlan,
+      panelSound: panelSound,
       includeHeadlessSessions: includeHeadlessSessions,
       questionNotes: questionNotes,
       appearance: appearance,

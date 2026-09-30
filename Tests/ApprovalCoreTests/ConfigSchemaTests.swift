@@ -97,6 +97,17 @@ import Testing
         == Settings.defaultModeAfterPlan.rawValue)
   }
 
+  @Test func panelSoundListsNoneAndTheSystemSounds() throws {
+    let schema = try Self.loadSchema()
+    guard case .array(let choices)? = schema["properties"]?["panelSound"]?["enum"] else {
+      Issue.record("schema has no \"properties.panelSound.enum\" array")
+      return
+    }
+    #expect(choices.map(\.stringValue) == PanelSound.choices(installed: PanelSound.systemNames))
+    #expect(
+      schema["properties"]?["panelSound"]?["default"]?.stringValue == Settings.defaultPanelSound)
+  }
+
   @Test func appearanceAndAccentColorMatchWhatTheParserKnows() throws {
     let schema = try Self.loadSchema()
     guard case .array(let choices)? = schema["properties"]?["appearance"]?["enum"] else {

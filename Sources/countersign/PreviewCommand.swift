@@ -29,7 +29,8 @@ enum PreviewCommand {
     let diagnosticLog: (String) -> Void = { FileHandle.standardError.write(Data("\($0)\n".utf8)) }
     let app = PanelApplication(log: diagnosticLog)
 
-    let (configFile, configLogLines) = ConfigFileLoader.load(paths: AppPaths.standard)
+    let (configFile, configLogLines) = ConfigFileLoader.load(
+      paths: AppPaths.standard, soundNames: SystemSounds.installedNames)
     for line in configLogLines {
       diagnosticLog(line)
     }
@@ -50,7 +51,7 @@ enum PreviewCommand {
     let controller = PanelController(
       request: request, waitingEntries: waitingEntries, armDuration: settings.armDelay,
       snoozeMinutes: settings.snoozeMinutes, questionNotes: settings.questionNotes,
-      modeAfterPlan: settings.modeAfterPlan,
+      modeAfterPlan: settings.modeAfterPlan, panelSound: settings.panelSound,
       appearance: settings.appearance, accentColor: settings.accentColor,
       chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
       onFinish: { outcome in

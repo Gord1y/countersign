@@ -234,6 +234,7 @@ final class SettingsModel {
   var checkForUpdates: Bool { preferences.checkForUpdates }
   var quitBehavior: QuitBehavior { preferences.quitBehavior }
   var modeAfterPlan: PlanApprovalMode { preferences.modeAfterPlan }
+  var panelSound: String { preferences.panelSound }
   var questionNotes: Bool { preferences.questionNotes }
   var appearance: AppearanceChoice { preferences.appearance }
   var accentColor: HexColor { customAccentColor ?? preferences.accentColor }
@@ -490,7 +491,10 @@ final class SettingsModel {
     }
     knownConfigBytes = bytes
     configProblem = ConfigEdit.problem(in: bytes)
-    let parsedFile = bytes.map { ConfigFileParser.parse(Data($0)).file } ?? ConfigFile()
+    let parsedFile =
+      bytes.map {
+        ConfigFileParser.parse(Data($0), soundNames: SystemSounds.installedNames).file
+      } ?? ConfigFile()
     configFileContents = parsedFile
     preferences = PreferenceValues(file: parsedFile)
     CountersignPalette.use(accentColor)
@@ -632,6 +636,10 @@ final class SettingsModel {
 
   func setModeAfterPlan(_ mode: PlanApprovalMode) {
     write(.modeAfterPlan(mode))
+  }
+
+  func setPanelSound(_ name: String) {
+    write(.panelSound(name))
   }
 
   func setQuestionNotes(_ enabled: Bool) {

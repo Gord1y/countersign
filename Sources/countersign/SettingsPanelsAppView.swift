@@ -82,6 +82,34 @@ struct PanelsSection: View {
             .fixedSize()
           }
           SettingsDivider()
+          PreferenceRow(.panelSound, model: model, problem: model.writeErrors[.panelSound]) {
+            HStack(spacing: 8) {
+              Picker(
+                PreferenceName.panelSound.title,
+                selection: Binding(get: { model.panelSound }, set: { model.setPanelSound($0) })
+              ) {
+                ForEach(PanelSound.choices(installed: SystemSounds.installedNames), id: \.self) {
+                  name in
+                  Text(PanelSound.title(name)).tag(name)
+                }
+              }
+              .pickerStyle(.menu)
+              .controlSize(.small)
+              .labelsHidden()
+              .fixedSize()
+              Button {
+                SystemSounds.play(model.panelSound)
+              } label: {
+                Image(systemName: "speaker.wave.2")
+              }
+              .buttonStyle(.borderless)
+              .foregroundStyle(.secondary)
+              .disabled(PanelSound.isSilent(model.panelSound))
+              .help("Play \(PanelSound.title(model.panelSound))")
+              .accessibilityLabel("Play \(PanelSound.title(model.panelSound))")
+            }
+          }
+          SettingsDivider()
           ContextToggleRow(model: model)
         }
         .disabled(model.configProblem != nil)

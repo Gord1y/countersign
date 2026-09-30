@@ -112,6 +112,7 @@ final class PanelController {
   private var armTask: Task<Void, Never>?
   private let onStepAside: (@MainActor (StepAsideReason) -> Void)?
   private let isAfterHandoff: Bool
+  private let panelSound: String
   private var keyMonitor: Any?
   private var keyWindowObserver: (any NSObjectProtocol)?
   private var workspaceObserver: (any NSObjectProtocol)?
@@ -137,6 +138,7 @@ final class PanelController {
     snoozeMinutes: [Int] = Settings.defaultSnoozeMinutes,
     questionNotes: Bool = Settings.defaultQuestionNotes,
     modeAfterPlan: PlanApprovalMode = Settings.defaultModeAfterPlan,
+    panelSound: String = Settings.defaultPanelSound,
     appearance: AppearanceChoice = Settings.defaultAppearance,
     accentColor: HexColor = Settings.defaultAccentColor,
     chatTrackingDrift: ChatTrackingDrift? = nil,
@@ -175,6 +177,7 @@ final class PanelController {
     self.targetScreen = targetScreen
     self.onStepAside = onStepAside
     self.isAfterHandoff = afterHandoff
+    self.panelSound = panelSound
 
     panel.contentViewController = hostingController
     model.onFinish = { [weak self] outcome in
@@ -219,6 +222,9 @@ final class PanelController {
     installKeyMonitor()
     installStepAsideTriggers()
     announcePresentation()
+    if !isAfterHandoff {
+      SystemSounds.play(panelSound)
+    }
     if fadesIn {
       NSAnimationContext.runAnimationGroup { context in
         context.duration = 0.15

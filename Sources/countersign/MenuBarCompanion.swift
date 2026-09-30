@@ -191,7 +191,8 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   }
 
   private func loadConfigFile() -> ConfigFile {
-    let (configFile, configLogLines) = ConfigFileLoader.load(paths: paths)
+    let (configFile, configLogLines) = ConfigFileLoader.load(
+      paths: paths, soundNames: SystemSounds.installedNames)
     if configLogLines != lastConfigLogLines {
       for line in configLogLines {
         log.write("config: \(line)")

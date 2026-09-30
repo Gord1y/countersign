@@ -28,6 +28,7 @@ public struct PreferenceValues: Sendable, Equatable {
   public var checkForUpdates: Bool
   public var quitBehavior: QuitBehavior
   public var modeAfterPlan: PlanApprovalMode
+  public var panelSound: String
   public var questionNotes: Bool
   public var appearance: AppearanceChoice
   public var accentColor: HexColor
@@ -45,6 +46,7 @@ public struct PreferenceValues: Sendable, Equatable {
     checkForUpdates: Bool = Settings.defaultCheckForUpdates,
     quitBehavior: QuitBehavior = Settings.defaultQuitBehavior,
     modeAfterPlan: PlanApprovalMode = Settings.defaultModeAfterPlan,
+    panelSound: String = Settings.defaultPanelSound,
     questionNotes: Bool = Settings.defaultQuestionNotes,
     appearance: AppearanceChoice = Settings.defaultAppearance,
     accentColor: HexColor = Settings.defaultAccentColor,
@@ -61,6 +63,7 @@ public struct PreferenceValues: Sendable, Equatable {
     self.checkForUpdates = checkForUpdates
     self.quitBehavior = quitBehavior
     self.modeAfterPlan = modeAfterPlan
+    self.panelSound = panelSound
     self.questionNotes = questionNotes
     self.appearance = appearance
     self.accentColor = accentColor
@@ -80,6 +83,7 @@ public struct PreferenceValues: Sendable, Equatable {
       checkForUpdates: file.checkForUpdates ?? Settings.defaultCheckForUpdates,
       quitBehavior: file.quitBehavior ?? Settings.defaultQuitBehavior,
       modeAfterPlan: file.modeAfterPlan ?? Settings.defaultModeAfterPlan,
+      panelSound: file.panelSound ?? Settings.defaultPanelSound,
       questionNotes: file.questionNotes ?? Settings.defaultQuestionNotes,
       appearance: file.appearance ?? Settings.defaultAppearance,
       accentColor: file.accentColor ?? Settings.defaultAccentColor,
@@ -109,6 +113,8 @@ public struct PreferenceValues: Sendable, Equatable {
       values.quitBehavior = behavior
     case .modeAfterPlan(let mode):
       values.modeAfterPlan = mode
+    case .panelSound(let name):
+      values.panelSound = name
     case .questionNotes(let enabled):
       values.questionNotes = enabled
     case .appearance(let appearance):
@@ -162,6 +168,7 @@ public struct PreferenceValues: Sendable, Equatable {
     case .checkForUpdates: values.checkForUpdates = Settings.defaultCheckForUpdates
     case .quitBehavior: values.quitBehavior = Settings.defaultQuitBehavior
     case .modeAfterPlan: values.modeAfterPlan = Settings.defaultModeAfterPlan
+    case .panelSound: values.panelSound = Settings.defaultPanelSound
     case .questionNotes: values.questionNotes = Settings.defaultQuestionNotes
     case .appearance: values.appearance = Settings.defaultAppearance
     case .accentColor: values.accentColor = Settings.defaultAccentColor
