@@ -40,6 +40,8 @@ How each answer plays out, agent by agent, is in [agents.md](agents.md); the des
 - With context checkpoints on, the tail of the session transcript Claude Code names in the hook
   input, for the token counts, the model name and compaction markers only. Message text is not
   used.
+- With waiting-agent notices on, the growth of the session's transcript, to tell when the agent
+  works again (see [below](#what-it-writes)). Message text is not used.
 - The chain of parent processes, to tell which app a request came from.
 - The agents' hook config files, when you run setup, doctor or the Settings window.
 - Codex's `config.toml`, at the same times, for one thing only: the trust Codex stores for its hooks,
@@ -60,6 +62,7 @@ None of this leaves your Mac, and none of it is written to the log.
 | Queue and display lock | `~/Library/Application Support/Countersign/queue/` |
 | Context checkpoint state, one small file per Claude Code session | ~/Library/Application Support/Countersign/context/ |
 | Decision history, the last 200 answers | `~/Library/Application Support/Countersign/history.jsonl` |
+| Waiting-agent records, one per waiting session, and their `*.lock` and `slot-<n>.lock` files | `~/Library/Application Support/Countersign/waiting/` |
 | Pause switch | `~/Library/Application Support/Countersign/paused` |
 | Quiet time | `~/Library/Application Support/Countersign/quiet-until` |
 | Menu-bar app lock | `~/Library/Application Support/Countersign/companion.lock` |
@@ -91,6 +94,17 @@ resolved in the chat while it waits or is shown gets one too; test panels never 
 the last 200 lines: once the file passes 250, it is trimmed to 200. **Clear History** in the menu
 deletes them all, and so does removing the file. A failed write is logged and never affects the
 answer.
+
+A waiting-agent record exists only with waiting-agent notices on, and only while a notice is
+pending. It is a small JSON file named after the agent and session, holding the agent, the session
+id, the project's name and path, the path of the session's transcript, the agent's app (bundle id,
+process id and name), the agent's process id and a time. It never holds message text. It is deleted
+when the notice closes, which it does when the agent works again, and a notice gives up and deletes
+it after 12 hours. The lock files next to it only keep one notice per session and place the cards
+apart; they hold nothing. To find a Codex session's transcript, Countersign looks in
+`~/.codex/sessions` for a file named after the session id, in the last 14 day folders. A notice
+then watches the session's transcript, only to see whether it has grown with a real message: it
+reads the type of each new row, not its text. Turning notices off stops all of this.
 
 The log records metadata only: time, agent, tool name, project, subagent type, the app the request
 came from, and what became of the request. Commands, file contents, answers and deny reasons are never written. When it passes

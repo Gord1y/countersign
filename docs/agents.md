@@ -158,6 +158,27 @@ in its own prompt until Google fixes
 (see "Approve isn't enough yet" above). Antigravity's own docs don't say whether it reloads
 `hooks.json` on its own, so restart it after wiring or updating if a request still gets no panel.
 
+## The waiting-agent notice
+
+Off by default. Turn it on in Settings ▸ Panels ▸ Waiting-agent notices; the toggle shows the
+change and then adds one more entry, for the end of an agent's turn, to each wired agent's hook
+file. Setup never adds it: `countersign setup` only refreshes an entry that is already there, and
+`countersign setup --remove` takes it out. Each entry only records that the turn ended and exits,
+so it never holds the agent up. When you have been away from the agent for the notice delay, a
+corner card says it is waiting. What it does, and when it closes, is in
+[configuration.md](configuration.md#panels) and [design/notice.md](design/notice.md).
+
+| Agent | The entry |
+| --- | --- |
+| Claude Code | A `Stop` entry in `~/.claude/settings.json`, run in the background |
+| Codex | A `Stop` entry in `~/.codex/hooks.json`. Codex runs a new hook only once you trust it: run `/hooks` in a Codex session and trust the new Stop entry |
+| Cursor | A `stop` entry in `~/.cursor/hooks.json` |
+| Antigravity | A second hook named `countersign-waiting`, on `Stop`, in `~/.gemini/config/hooks.json`, beside the `countersign` hook |
+
+The notice also appears when you hand a request back to the agent's own prompt, since the agent is
+then waiting for you just the same. Doctor checks each entry (`claude waiting` and the matching
+lines for the other agents), and for Codex it says when the Stop entry is not trusted yet.
+
 ## When Countersign gives no answer
 
 These are the cases where no panel shows, or a panel goes away without your answer. Unless the

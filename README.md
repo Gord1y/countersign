@@ -131,6 +131,20 @@ writes and sends: [Safety and privacy](docs/safety-and-privacy.md).
   continues in.
 - **Snooze.** Quiet for a preset duration. Requests answered in their chats meanwhile drop out, the
   rest come back one at a time.
+- **Scheduled quiet hours.** Recurring windows, such as weekday evenings, in which panels wait
+  like a snooze. Set them in Settings ▸ Panels; see
+  [Quiet hours](docs/configuration.md#panels).
+- **A sound cue (optional).** One macOS sound when a panel appears, off by default; see
+  [Sound](docs/configuration.md#panels).
+- **Waiting-agent notices (optional).** When an agent has finished a turn, or handed a request back
+  to its own prompt, and you have been away from it for a few minutes, a small corner card says
+  which agent is waiting, with a **Go there** button. Off by default, and it never takes focus; see
+  [Waiting-agent notices](docs/configuration.md#panels).
+- **Decision history and menu answers.** The menu-bar app lists your last ten answers, and lets you
+  deny a pending request or hand it back to its chat without opening its panel; see
+  [the menu-bar app](docs/menu-bar-app.md#pause-snooze-and-pending-requests).
+- **Accessible.** Panels announce themselves to VoiceOver, read shortcuts and diff lines aloud, and
+  honour Reduce Motion and Increase Contrast; see [design/panel.md](docs/design/panel.md#accessibility).
 - **Context checkpoints (optional, Claude Code).** Turn it on and Countersign asks, at three
   context sizes, whether to compact or hand off before your session gets too long, without ever
   making a prompt wait. Off by default; see [Context checkpoints](docs/configuration.md#context-checkpoints-claude-code).

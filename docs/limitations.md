@@ -8,6 +8,15 @@ for something specific, or when it behaves differently from what you expected an
 
 - Countersign cannot tell which chat tab you are looking at. The idle rule and the fast "answered
   in chat" detection are what keep it out of the way for the chat you are reading.
+- The waiting-agent notice cannot bring a specific terminal tab or window forward, only the app
+  the agent runs in: **Go there** opens that app, and you find the session yourself.
+- The notice cannot tell a turn that ends with a question in the chat from any other finished
+  turn, so both look the same: the agent is waiting for you.
+- Headless sessions, such as `claude -p`, never get a notice, since nobody is at a chat to answer
+  them.
+- The panel has no Tab loop. It owns the keyboard through its own key handling, so VoiceOver
+  navigates it with its own cursor and presses controls with VoiceOver's press command, and every
+  action also has its shortcut. Dynamic Type is not supported.
 
 ## Claude Code
 

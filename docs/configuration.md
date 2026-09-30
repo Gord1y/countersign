@@ -152,8 +152,9 @@ keys below.
 - **Waiting-agent notices** (`waitingNotices`): `true` shows a corner card, "Claude Code is
   waiting for you", once an agent has finished a turn and waited for you. `false` unless you change
   it. Turn it on from Settings, not by editing the file: the toggle also adds Countersign's `Stop`
-  hook to Claude Code's `settings.json`, after showing you the change, and turning it off removes
-  that hook again. Only Claude Code is wired so far.
+  hook to each wired agent's hook file (Claude Code, Codex, Cursor and Antigravity), after showing
+  you the change, and turning it off removes those hooks again. Codex asks you to trust its new
+  hook once; see [agents.md](agents.md#the-waiting-agent-notice).
 - **Notice after** (`waitingNoticeMinutes`): how many minutes an agent has been waiting before the
   notice appears, an integer from 1 to 60, `2` unless you change it. A value outside the range or
   of another type logs one line and falls back to `2`. Settings offers 1, 2, 5, 10, 15 and 30

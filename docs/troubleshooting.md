@@ -82,6 +82,32 @@ request starts with a `start host=… tool=… project=…` line and ends with w
 `resolved during grace: registry` or `outcome: allow`; a paused Countersign logs just `paused`. If
 the agent asks and nothing at all is logged, the agent never ran the hook: check its wiring.
 
+## No waiting-agent notice appears
+
+Go through these in order:
+
+1. **Is the feature on?** It is off by default: Settings ▸ Panels ▸ Waiting-agent notices.
+2. **Is the agent wired for it?** `countersign doctor` reports each agent's Stop entry on its
+   `claude waiting`, `codex waiting`, `cursor waiting` and `antigravity waiting` lines; if one is
+   not `ok`, turn the notices off and on again in Settings, which shows the change before it
+   writes the entry.
+3. **Codex:** has Codex trusted the new Stop entry? Doctor says `Codex has not trusted
+   Countersign's Stop entry yet` until you run `/hooks` in a Codex session and trust it.
+4. **Paused or in quiet time?** Both hold a notice back and show it when they end; see
+   [No panel appears](#no-panel-appears).
+5. **Were you in the agent's app?** Being there counts as having seen it, so leaving it restarts
+   the wait: the card comes after the delay (2 minutes by default, `waitingNoticeMinutes`), counted
+   from when you left.
+6. **Is a Countersign panel for that session open?** The panel is its own notice, so the card waits
+   for it.
+7. **Did the agent resume first?** A notice closes as soon as the agent works again, such as when
+   you answered it in its chat, so one that was answered before the delay never shows.
+8. **A headless session?** Non-interactive runs such as `claude -p` never get a notice.
+
+A notice that nobody dismisses gives up after 12 hours. The log,
+`~/Library/Logs/Countersign/countersign.log`, says why one did not show, on lines starting with
+`waiting:` and `notice:`.
+
 ## No context checkpoint appears
 
 Go through these in order:

@@ -48,7 +48,8 @@ panel shows up in the icon within two seconds.
 - **Snooze** starts quiet time for one of your presets (the top-level `snoozeMinutes` in the
   [config file](configuration.md)), like `countersign snooze`. Requests wait and come back one at a
   time when it ends. Once quiet time is running, **Snooze** is replaced by a single **End Quiet
-  Time (until …)** entry that ends it early.
+  Time (until …)** entry that ends it early. The same entry appears during a quiet-hours window
+  from your config file, and ending it skips that window.
 - The menu lists the requests waiting for a panel, in the order they will show, by agent, project
   and tool. Each one opens a submenu:
   - **Show Now** brings that request up next. With no panel on screen it appears at once, without
@@ -79,8 +80,9 @@ panel shows up in the icon within two seconds.
 ## Settings
 
 **Settings…** (<kbd>⌘</kbd><kbd>,</kbd> while the menu is open) opens the Settings window. Under
-the header, which holds Pause and Snooze buttons and shows when Countersign is paused or quiet, its five groups are **Agents**, where you
-[connect your agents](setup.md), **Panels**, for how panels behave, **App**, for what this app
+the header, which holds Pause and Snooze buttons and shows when Countersign is paused or quiet,
+including during a [quiet-hours window](configuration.md#panels), its five groups are **Agents**,
+where you [connect your agents](setup.md), **Panels**, for how panels behave, **App**, for what this app
 does, **Help**, for guides, updates and ways to support Countersign, and **Advanced**, for where
 the [config file](configuration.md) is. Closing the window leaves the app running.
 
