@@ -895,3 +895,104 @@ private func stopHook(
       ])
   }
 }
+
+private func codexWaitingLines(
+  trust: CodexHookTrustRecord?, config: Doctor.FileState
+) -> [DoctorLine] {
+  let text = """
+    {"hooks": {"PermissionRequest": [{"matcher": "", "hooks": [{"type": "command", "command": "\(stablePath) hook --host codex", "timeout": 3600}]}], "Stop": [{"hooks": [{"type": "command", "command": "\(stablePath) hook --host codex --event waiting", "timeout": 30}]}]}}
+    """
+  var host = missingHost(.codex)
+  host.directoryExists = true
+  host.fileState = .bytes(Array(text.utf8))
+  host.executableChecks = [stablePath: true]
+  var input = baseInput(hosts: [missingHost(.claude), host])
+  input.waitingNoticesEnabled = true
+  input.codexWaitingHookTrustRecord = trust
+  input.codexConfigFile = config
+  return Doctor.report(input).filter { $0.check == "codex waiting" }
+}
+
+private func cursorWaitingLines(stop: String?, enabled: Bool) -> [DoctorLine] {
+  let stopText = stop.map { ", \"stop\": [\($0)]" } ?? ""
+  let text = """
+    {"version": 1, "hooks": {"beforeShellExecution": [{"command": "\(stablePath) hook --host cursor", "timeout": 3600}]\(stopText)}}
+    """
+  var host = missingHost(.cursor)
+  host.directoryExists = true
+  host.fileState = .bytes(Array(text.utf8))
+  host.executableChecks = [stablePath: true]
+  var input = baseInput(hosts: [missingHost(.claude), host])
+  input.waitingNoticesEnabled = enabled
+  return Doctor.report(input).filter { $0.check == "cursor waiting" }
+}
+
+@Suite struct DoctorOtherHostsWaitingTests {
+  private let codexFilePath = "/missing/codex/file.json"
+  private let cursorFilePath = "/missing/cursor/file.json"
+
+  @Test func codexWarnsWhileCodexHasNotTrustedTheStopEntry() {
+    let key = "\(codexFilePath):stop:0:0"
+    let lines = codexWaitingLines(
+      trust: CodexHookTrustRecord(
+        hookKey: key, command: "\(stablePath) hook --host codex --event waiting",
+        hashAtWrite: .absent),
+      config: .bytes(Array("model = \"o3\"\n".utf8)))
+    #expect(
+      lines == [
+        DoctorLine(
+          status: .ok, check: "codex waiting", detail: "Stop entry in \(codexFilePath)"),
+        DoctorLine(
+          status: .warn, check: "codex waiting",
+          detail:
+            "Codex has not trusted Countersign's Stop entry yet; run /hooks in a Codex session and trust it"
+        ),
+      ])
+  }
+
+  @Test func codexSaysNothingExtraOnceCodexTrustsTheStopEntry() {
+    let key = "\(codexFilePath):stop:0:0"
+    let lines = codexWaitingLines(
+      trust: CodexHookTrustRecord(
+        hookKey: key, command: "\(stablePath) hook --host codex --event waiting",
+        learnedHash: "sha256:stop"),
+      config: .bytes(Array("[hooks.state.\"\(key)\"]\ntrusted_hash = \"sha256:stop\"\n".utf8)))
+    #expect(
+      lines == [
+        DoctorLine(
+          status: .ok, check: "codex waiting", detail: "Stop entry in \(codexFilePath)")
+      ])
+  }
+
+  @Test func codexCannotTellWithoutARecord() {
+    let lines = codexWaitingLines(trust: nil, config: .missing)
+    #expect(
+      lines.last
+        == DoctorLine(
+          status: .info, check: "codex waiting",
+          detail:
+            "cannot tell whether Codex trusts Countersign's Stop entry; run /hooks in a Codex session to check"
+        ))
+  }
+
+  @Test func cursorReportsAFineEntryWithoutTheAsyncLine() {
+    let entry =
+      "{\"command\": \"\(stablePath) hook --host cursor --event waiting\", \"timeout\": 30}"
+    #expect(
+      cursorWaitingLines(stop: entry, enabled: true) == [
+        DoctorLine(
+          status: .ok, check: "cursor waiting", detail: "stop entry in \(cursorFilePath)")
+      ])
+  }
+
+  @Test func cursorWarnsWhenNoticesAreOnButTheEntryIsMissing() {
+    #expect(
+      cursorWaitingLines(stop: nil, enabled: true) == [
+        DoctorLine(
+          status: .warn, check: "cursor waiting",
+          detail:
+            "waiting-agent notices are on in config.json, but \(cursorFilePath) has no stop entry of Countersign's; turn Waiting-agent notices off and on again in countersign settings"
+        )
+      ])
+  }
+}

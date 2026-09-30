@@ -47,9 +47,11 @@ enum AntigravityHookSetup {
     root.member(named: hookName) != nil
   }
 
-  static func entry(inSetupShape namedHook: JSONSpanNode) -> JSONSpanNode? {
+  static func entry(inSetupShape namedHook: JSONSpanNode, event: String = AntigravityAdapter.event)
+    -> JSONSpanNode?
+  {
     guard let events = namedHook.members, events.count == 1,
-      events[0].key == AntigravityAdapter.event,
+      events[0].key == event,
       let groups = events[0].value.elements, groups.count == 1,
       let groupMembers = groups[0].members, groupMembers.count == 2,
       groups[0].member(named: "matcher")?.value.stringValue == matcher,

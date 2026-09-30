@@ -6,6 +6,8 @@ enum WaitingHookPrompt {
   static let cancelTitle = "Cancel"
   static let okTitle = "OK"
   static let nothingToChange = "Nothing to change."
+  static let codexTrustSentence =
+    " Codex then asks you to trust the new Stop hook: run /hooks in a Codex session."
 
   static func message(for change: WaitingHookChange) -> String {
     change.enable ? "Turn on waiting-agent notices?" : "Turn off waiting-agent notices?"
@@ -16,7 +18,8 @@ enum WaitingHookPrompt {
     let paths = change.preview.changedFiles
       .map { HomePath.abbreviating($0.path, relativeTo: home) }
       .joined(separator: ", ")
-    return "Countersign changes \(paths) and keeps a backup."
+    let base = "Countersign changes \(paths) and keeps a backup."
+    return change.asksCodexTrust ? base + codexTrustSentence : base
   }
 
   static func makeAlert(change: WaitingHookChange, home: URL) -> NSAlert {

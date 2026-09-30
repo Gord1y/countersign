@@ -134,6 +134,7 @@ struct ContextHookChange {
 struct WaitingHookChange {
   let enable: Bool
   let preview: SetupPreview
+  let asksCodexTrust: Bool
 
   var canApply: Bool {
     preview.failures.isEmpty
@@ -467,7 +468,8 @@ final class SettingsModel {
     else { return }
     var run = SetupRun(
       executablePath: stablePath ?? "", uninstall: action.uninstalls,
-      codexHookTrustFile: environment.paths.codexHookTrustFile, now: now,
+      codexHookTrustFile: environment.paths.codexHookTrustFile,
+      codexWaitingHookTrustFile: environment.paths.codexWaitingHookTrustFile, now: now,
       output: { _ in }, confirm: { _ in true })
     _ = run.apply(hostRows[index].location)
     hostRows[index].error = run.failures.first
@@ -693,10 +695,12 @@ final class SettingsModel {
       waitingHookFailure = Self.unresolvedExecutable
       return
     }
+    let preview = WaitingHookRun.preview(
+      locations: locations, executablePath: stablePath ?? "", enable: enable)
+    let codexFile = locations.first { $0.host == .codex }?.file
     waitingChange = WaitingHookChange(
-      enable: enable,
-      preview: WaitingHookRun.preview(
-        locations: locations, executablePath: stablePath ?? "", enable: enable))
+      enable: enable, preview: preview,
+      asksCodexTrust: enable && codexFile.map { preview.changedFiles.contains($0) } == true)
   }
 
   func cancelWaitingChange() {
@@ -708,7 +712,7 @@ final class SettingsModel {
     waitingChange = nil
     let failures = WaitingHookRun.apply(
       locations: waitingLocations, executablePath: stablePath ?? "", enable: change.enable,
-      now: now())
+      now: now(), codexWaitingTrustFile: environment.paths.codexWaitingHookTrustFile)
     guard failures.isEmpty else {
       waitingHookFailure = failures.joined(separator: "\n")
       refreshHosts()

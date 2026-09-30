@@ -199,15 +199,8 @@ private let ownStopOnly = """
     #expect(WaitingHookSetup.entries(in: Array("nope".utf8), host: .claude).isEmpty)
   }
 
-  @Test func anUnsupportedHostReturnsItsInputUnchanged() throws {
-    for host in [ApprovalCore.Host.codex, .cursor, .antigravity] {
-      #expect(!WaitingHookSetup.supportedHosts.contains(host))
-      #expect(try install(ourEntries, host: host) == ourEntries)
-      #expect(try refresh(ourEntries, host: host) == ourEntries)
-      #expect(try uninstall(freshWaiting, host: host) == freshWaiting)
-      #expect(
-        WaitingHookSetup.entries(in: Array(freshWaiting.utf8), host: host).isEmpty)
-    }
+  @Test func supportsAllFourHosts() {
+    #expect(Set(WaitingHookSetup.supportedHosts) == Set(ApprovalCore.Host.allCases))
   }
 
   @Test func rejectsAnExecutableThatIsNotCountersign() {

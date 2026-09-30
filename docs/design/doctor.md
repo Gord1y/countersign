@@ -105,6 +105,18 @@ or config file's content, only paths and our own hook entry's command.
      include `--event waiting`; the 600 second minimum timeout does not apply, since the entry
      runs for 30 seconds.
    - enabled and fine: one `ok` line, `Stop entry in <path>, async`.
+
+   Lines named **`codex waiting`**, **`cursor waiting`** and **`antigravity waiting`** cover the
+   other hosts' entries (`hooks.Stop`, `hooks.stop` and the `countersign-waiting` hook) with the
+   same three cases and the same path, executable and arguments checks, without the async line:
+   the `ok` line is `<event> entry in <path>` (`stop` for Cursor), since only Claude Code's entry
+   is async. For Codex, while the notices are on and the entry exists, one more line is the trust
+   verdict for the `Stop` entry, judged from `Doctor.Input.codexWaitingHookTrustRecord`
+   (`codex-waiting-hook-trust.json`) the way the approval entry is (see "The verdict" in
+   [setup.md](setup.md)): pending is a `warn`, `Codex has not trusted Countersign's Stop entry yet;
+   run /hooks in a Codex session and trust it`; unknown is an `info`, `cannot tell whether Codex
+   trusts Countersign's Stop entry; run /hooks in a Codex session to check`; trusted or marked as
+   done adds nothing.
 3. Right after each host's lines, only when that host ends up wired and up to date (the same gate
    the Agents rows use for "Wired"; see "Follow-up lines" in [setup.md](setup.md)): for Codex, one
    line for the state `CodexTrustVerdict.judge` gives (see "The verdict" in [setup.md](setup.md)),

@@ -44,6 +44,7 @@ enum SetupCommand {
     var setup = SetupRun(
       executablePath: executablePath, uninstall: options.uninstall,
       codexHookTrustFile: AppPaths(home: home).codexHookTrustFile,
+      codexWaitingHookTrustFile: AppPaths(home: home).codexWaitingHookTrustFile,
       output: { print($0, terminator: "") },
       confirm: { confirmed(options: options, interactive: interactive, path: $0) })
     var failed = false

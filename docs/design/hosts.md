@@ -74,6 +74,24 @@ to load such a file too. A missing file is "cannot tell" for the verdict; for th
 writes, it means no hash was stored yet, while a file that cannot be read or understood leaves the
 record's hash at write unknown (`CodexHashAtWrite.unread`).
 
+## Stop hooks
+
+Waiting-agent notices hook each host's end-of-turn event. No payload of the Codex, Cursor and
+Antigravity events has been captured yet, so none is parsed and each entry's shape follows that
+host's existing Countersign entry; the unconfirmed details are named constants (see "The waiting
+entries of Codex, Cursor and Antigravity" in [setup.md](setup.md)). Every entry runs
+`<exe> hook --host <host> --event waiting` with a 30 second timeout and no `async`, which only
+Claude Code has.
+
+- Claude Code: `hooks.Stop` in `settings.json`, `async`.
+- Codex: `hooks.Stop` in `$CODEX_HOME/hooks.json`, in one group without a matcher. Codex runs it
+  only after the person trusts it with `/hooks` in a Codex session, recorded under
+  `<hooks.json path>:stop:<group>:<hook>` in `config.toml` (the label `stop` is unconfirmed), so
+  the entry has its own trust record and Doctor line.
+- Cursor: `hooks.stop` in `~/.cursor/hooks.json`, outside `CursorAdapter.events`.
+- Antigravity: the named hook `countersign-waiting` in `~/.gemini/config/hooks.json`, with `Stop`
+  as its one event and the `*` matcher (unconfirmed for `Stop`), beside the `countersign` hook.
+
 ## The deny message default
 
 A denial with no reason, or one that is only whitespace, is silently unhelpful on the other end

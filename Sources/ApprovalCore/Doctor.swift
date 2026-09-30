@@ -66,6 +66,7 @@ public enum Doctor {
     public var duplicateInstall: DuplicateInstall?
     public var installVersionMismatch: InstallVersionMismatch?
     public var codexHookTrustRecord: CodexHookTrustRecord?
+    public var codexWaitingHookTrustRecord: CodexHookTrustRecord?
     public var codexConfigFile: FileState
     public var contextCheckpointsEnabled: Bool
     public var waitingNoticesEnabled: Bool
@@ -140,8 +141,8 @@ public enum Doctor {
       lines.append(contentsOf: followUpLines(hostInput, input: input))
       if hostInput.host == .claude {
         lines.append(contentsOf: contextLines(hostInput, input: input))
-        lines.append(contentsOf: waitingLines(hostInput, input: input))
       }
+      lines.append(contentsOf: waitingLines(hostInput, input: input))
     }
     lines.append(contentsOf: configLines(input))
     lines.append(
@@ -354,13 +355,13 @@ public enum Doctor {
   }
 
   private static func waitingLines(_ hostInput: HostInput, input: Input) -> [DoctorLine] {
-    let check = "claude waiting"
-    let event = WaitingHookSetup.eventName
+    let check = "\(hostInput.host.rawValue) waiting"
+    let event = WaitingHookSetup.eventName(for: hostInput.host)
     guard case .bytes(let bytes) = hostInput.fileState, !HookSetup.isBlank(bytes),
       let root = try? JSONSpanReader.parse(bytes)
     else { return [] }
-    let sites = HookSetup.sites(in: root, event: event)
-    guard !sites.isEmpty else {
+    let hooks = WaitingHookSetup.hookNodes(in: root, host: hostInput.host)
+    guard !hooks.isEmpty else {
       guard input.waitingNoticesEnabled else { return [] }
       return [
         DoctorLine(
@@ -379,13 +380,14 @@ public enum Doctor {
             "\(hostInput.filePath) still has Countersign's \(event) entry although waiting-agent notices are off; turning Waiting-agent notices off in countersign settings removes it"
         ))
     }
-    let entries = sites.map { entry(for: $0.hook, event: event) }
-    for (offset, site) in sites.enumerated() {
+    let entries = hooks.map { entry(for: $0, event: event) }
+    let isClaude = hostInput.host == .claude
+    for (offset, hook) in hooks.enumerated() {
       let label = label(for: entries[offset], at: offset, in: entries)
       var issues = issueLines(
         entries[offset], label: label, check: check, hostInput: hostInput,
         stablePath: input.stableExecutablePath, event: .waiting)
-      if !ContextHookSetup.isAsync(site.hook) {
+      if isClaude, !ContextHookSetup.isAsync(hook) {
         issues.append(
           DoctorLine(
             status: .warn, check: check,
@@ -396,11 +398,46 @@ public enum Doctor {
       if issues.isEmpty, input.waitingNoticesEnabled {
         lines.append(
           DoctorLine(
-            status: .ok, check: check, detail: "\(label) in \(hostInput.filePath), async"))
+            status: .ok, check: check,
+            detail: "\(label) in \(hostInput.filePath)" + (isClaude ? ", async" : "")))
       }
       lines.append(contentsOf: issues)
     }
+    if hostInput.host == .codex, input.waitingNoticesEnabled {
+      lines.append(contentsOf: codexWaitingTrustLines(bytes, hostInput: hostInput, input: input))
+    }
     return lines
+  }
+
+  private static func codexWaitingTrustLines(
+    _ bytes: [UInt8], hostInput: HostInput, input: Input
+  ) -> [DoctorLine] {
+    let check = "\(hostInput.host.rawValue) waiting"
+    let verdict = CodexTrustVerdict.judge(
+      record: input.codexWaitingHookTrustRecord,
+      current: CodexHookTrust.currentWaiting(
+        hooksFileBytes: bytes, hooksFilePath: hostInput.filePath),
+      table: CodexTrustTable.read(input.codexConfigFile))
+    switch verdict.state {
+    case .trusted, .markedDone:
+      return []
+    case .pending(_, _):
+      return [
+        DoctorLine(
+          status: .warn, check: check,
+          detail:
+            "Codex has not trusted Countersign's Stop entry yet; run /hooks in a Codex session and trust it"
+        )
+      ]
+    case .unknown:
+      return [
+        DoctorLine(
+          status: .info, check: check,
+          detail:
+            "cannot tell whether Codex trusts Countersign's Stop entry; run /hooks in a Codex session to check"
+        )
+      ]
+    }
   }
 
   private static func issueLines(

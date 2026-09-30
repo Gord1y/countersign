@@ -171,6 +171,45 @@ whitespace is treated like a missing one. An empty `CLAUDE_CONFIG_DIR` or `CODEX
 unset; Cursor and Antigravity have no variable for their directories. When no host is detected,
 setup says so and exits 0.
 
+### The waiting entries of Codex, Cursor and Antigravity
+
+The waiting-agent toggle wires the other three hosts the same way it wires Claude Code: setup
+refreshes an existing entry and never adds one, the toggle adds and removes it through
+`WaitingHookRun` (every wired host's file appears in one diff), and `countersign setup --remove`
+and `HookSetup.uninstall` remove it. No `Stop` payload of these hosts has been captured yet, so
+each shape follows the host's existing Countersign entry, and each unconfirmed detail lives in one
+named constant of `WaitingHookSetup` (`cursorEventName`, `antigravityHookName`,
+`antigravityMatcher`, and `CodexHookTrust.waitingEventLabel`) so a fix after the captures is one
+line. None of the three has `async`, which only Claude Code has: the hook exits at once, with a
+30 second timeout.
+
+- Codex, `hooks.Stop`, the layout of Claude's entry without `async`: one group with no `matcher`
+  and no `statusMessage`, holding `{"type": "command", "command": "<exe> hook --host codex --event
+  waiting", "timeout": 30}`.
+- Cursor, `hooks.stop`, a plain entry like the others: `{"command": "<exe> hook --host cursor
+  --event waiting", "timeout": 30}`. `stop` is never added to `CursorAdapter.events`: setup adds
+  every event in that list, and waiting notices are off by default. `CursorHookSetup.sites`, which
+  scans only that list, never sees the `stop` key, so Cursor's own install and uninstall leave the
+  entry alone; `WaitingHookSetup` owns it and recognises it with `CursorHookSetup.isCountersignEntry`.
+- Antigravity, a second named hook, `countersign-waiting`, with `Stop` as its one event and the
+  `*` matcher of the `PreToolUse` group. Antigravity rejects the whole file when any entry is
+  invalid, so the entry must keep the exact shape `AntigravityHookSetup.entry(inSetupShape:event:)`
+  checks, and anything else under that name is replaced on install. A second name is the point: the
+  `countersign` hook keeps its one-event shape, and its install, uninstall and doctor code stay
+  untouched, where adding `Stop` to it would have broken the rule that the name holds exactly one
+  event.
+
+Codex runs a new hook only once the person trusts it, so the `Stop` entry has its own trust record,
+`AppPaths.codexWaitingHookTrustFile` (`codex-waiting-hook-trust.json`), the same format as the
+approval entry's record with the key `<hooks.json path>:stop:<group>:<hook>`
+(`CodexHookTrust.current(hooksFileBytes:hooksFilePath:event:label:)`; the label `stop` is Codex's
+snake_case of the event name and is unconfirmed). `WaitingHookRun.apply` and `SetupRun` save that
+record whenever they write Codex's file and the `Stop` entry exists afterwards, and delete it
+otherwise. Nothing persists a learned hash for it: `countersign doctor` judges it from what was
+stored at write time, so a change of the stored hash still reads as trusted. Turning the
+notices on in Settings for a Codex file that changes adds one sentence to the confirmation: Codex
+then asks you to trust the new Stop hook, in `/hooks` in a Codex session.
+
 ## How our entry is recognised
 
 Our entry is a hook object whose `type` is `command` and whose `command` has, as its first word,

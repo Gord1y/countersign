@@ -71,6 +71,10 @@ public struct AppPaths: Sendable, Equatable {
     supportDirectory.appendingPathComponent("codex-hook-trust.json")
   }
 
+  public var codexWaitingHookTrustFile: URL {
+    supportDirectory.appendingPathComponent("codex-waiting-hook-trust.json")
+  }
+
   public var tourShownFile: URL {
     supportDirectory.appendingPathComponent("tour-shown")
   }

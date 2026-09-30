@@ -38,20 +38,22 @@ public enum HookSetup {
     guard HookCommand.isCountersignExecutable(executablePath) else {
       throw HookSetupError.unrecognizableExecutable(executablePath)
     }
+    let installed: [UInt8]
     switch host {
-    case .claude, .codex:
-      break
+    case .claude:
+      let permission = try installPermissionEntry(
+        into: original, host: host, executablePath: executablePath)
+      installed = try ContextHookSetup.refresh(into: permission, executablePath: executablePath)
+    case .codex:
+      installed = try installPermissionEntry(
+        into: original, host: host, executablePath: executablePath)
     case .cursor:
-      return try CursorHookSetup.install(into: original, executablePath: executablePath)
+      installed = try CursorHookSetup.install(into: original, executablePath: executablePath)
     case .antigravity:
-      return try AntigravityHookSetup.install(into: original, executablePath: executablePath)
+      installed = try AntigravityHookSetup.install(into: original, executablePath: executablePath)
     }
-    let installed = try installPermissionEntry(
-      into: original, host: host, executablePath: executablePath)
-    guard host == .claude else { return installed }
-    let withContext = try ContextHookSetup.refresh(into: installed, executablePath: executablePath)
     return try WaitingHookSetup.refresh(
-      into: withContext, host: host, executablePath: executablePath)
+      into: installed, host: host, executablePath: executablePath)
   }
 
   private static func installPermissionEntry(
@@ -100,18 +102,19 @@ public enum HookSetup {
   }
 
   public static func uninstall(from original: [UInt8]?, host: Host) throws -> [UInt8]? {
+    let withoutPermission: [UInt8]?
     switch host {
     case .claude:
       let removed = try removeEntries(from: original, event: eventName)
-      let withoutContext = try ContextHookSetup.uninstall(from: removed)
-      return try WaitingHookSetup.uninstall(from: withoutContext, host: host)
+      withoutPermission = try ContextHookSetup.uninstall(from: removed)
     case .codex:
-      return try removeEntries(from: original, event: eventName)
+      withoutPermission = try removeEntries(from: original, event: eventName)
     case .cursor:
-      return try CursorHookSetup.uninstall(from: original)
+      withoutPermission = try CursorHookSetup.uninstall(from: original)
     case .antigravity:
-      return try AntigravityHookSetup.uninstall(from: original)
+      withoutPermission = try AntigravityHookSetup.uninstall(from: original)
     }
+    return try WaitingHookSetup.uninstall(from: withoutPermission, host: host)
   }
 
   static func removeEntries(from original: [UInt8]?, event: String) throws -> [UInt8]? {

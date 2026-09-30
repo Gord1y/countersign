@@ -61,7 +61,8 @@ public enum WaitingHookRun {
   }
 
   public static func apply(
-    locations: [HookConfigLocation], executablePath: String, enable: Bool, now: Date
+    locations: [HookConfigLocation], executablePath: String, enable: Bool, now: Date,
+    codexWaitingTrustFile: URL? = nil
   ) -> [String] {
     var failures: [String] = []
     for location in locations {
@@ -74,6 +75,10 @@ public enum WaitingHookRun {
         try FileManager.default.createDirectory(
           at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
         _ = try ConfigFileStore.write(change.updated, to: file, date: now, backingUp: true)
+        if location.host == .codex, let codexWaitingTrustFile {
+          CodexHookTrust.recordWrittenWaiting(
+            change.updated, at: location, in: codexWaitingTrustFile)
+        }
       } catch {
         failures.append(errorLine(error, in: file))
       }

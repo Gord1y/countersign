@@ -21,6 +21,7 @@ public struct SetupRun {
   private let uninstall: Bool
   private let writesFiles: Bool
   private let codexHookTrustFile: URL?
+  private let codexWaitingHookTrustFile: URL?
   private let now: () -> Date
   private let output: (String) -> Void
   private let confirm: (String) -> Bool
@@ -29,7 +30,7 @@ public struct SetupRun {
 
   public init(
     executablePath: String, uninstall: Bool, writesFiles: Bool = true,
-    codexHookTrustFile: URL? = nil,
+    codexHookTrustFile: URL? = nil, codexWaitingHookTrustFile: URL? = nil,
     now: @escaping () -> Date = { Date() },
     output: @escaping (String) -> Void, confirm: @escaping (String) -> Bool
   ) {
@@ -37,6 +38,7 @@ public struct SetupRun {
     self.uninstall = uninstall
     self.writesFiles = writesFiles
     self.codexHookTrustFile = codexHookTrustFile
+    self.codexWaitingHookTrustFile = codexWaitingHookTrustFile
     self.now = now
     self.output = output
     self.confirm = confirm
@@ -68,28 +70,16 @@ public struct SetupRun {
       report(error, in: file)
       return false
     }
-    if location.host == .codex, writesFiles, let codexHookTrustFile {
-      recordCodexHookTrust(written: uninstall ? nil : updated, at: location, in: codexHookTrustFile)
+    if location.host == .codex, writesFiles {
+      let written = uninstall ? nil : updated
+      if let codexHookTrustFile {
+        CodexHookTrust.recordWritten(written, at: location, in: codexHookTrustFile)
+      }
+      if let codexWaitingHookTrustFile {
+        CodexHookTrust.recordWrittenWaiting(written, at: location, in: codexWaitingHookTrustFile)
+      }
     }
     return true
-  }
-
-  private func recordCodexHookTrust(
-    written: [UInt8]?, at location: HookConfigLocation, in recordFile: URL
-  ) {
-    guard let written,
-      let record = CodexHookTrust.writtenRecord(
-        hooksFileBytes: written, hooksFilePath: location.file.path,
-        config: ConfigFileStore.fileState(CodexHookTrust.configFile(for: location)))
-    else {
-      CodexHookTrustRecordStore.delete(file: recordFile)
-      return
-    }
-    do {
-      try CodexHookTrustRecordStore.save(record, to: recordFile)
-    } catch {
-      CodexHookTrustRecordStore.delete(file: recordFile)
-    }
   }
 
   private mutating func offer(_ updated: [UInt8]?, replacing original: [UInt8]?, in file: URL)

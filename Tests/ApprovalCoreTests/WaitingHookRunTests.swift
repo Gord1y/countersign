@@ -152,6 +152,30 @@ private struct Sandbox {
     #expect(sandbox.text == "not json")
   }
 
+  @Test func applySavesTheCodexStopTrustRecordAndTurningOffDeletesIt() throws {
+    let sandbox = try Sandbox(contents: nil)
+    defer { sandbox.remove() }
+    try Data(
+      try HookSetup.install(into: nil, host: .codex, executablePath: brewPath)
+    ).write(to: sandbox.file)
+    let location = HookConfigLocation(
+      host: .codex, directory: sandbox.directory, file: sandbox.file)
+    let recordFile = sandbox.directory.appendingPathComponent("waiting-trust.json")
+    let failures = WaitingHookRun.apply(
+      locations: [location], executablePath: brewPath, enable: true, now: firstMoment,
+      codexWaitingTrustFile: recordFile)
+    #expect(failures.isEmpty)
+    let record = try #require(CodexHookTrustRecordStore.load(file: recordFile))
+    #expect(record.hookKey == "\(sandbox.file.path):stop:0:0")
+    #expect(record.command == "\(brewPath) hook --host codex --event waiting")
+    #expect(
+      WaitingHookRun.apply(
+        locations: [location], executablePath: brewPath, enable: false, now: secondMoment,
+        codexWaitingTrustFile: recordFile
+      ).isEmpty)
+    #expect(CodexHookTrustRecordStore.load(file: recordFile) == nil)
+  }
+
   @Test func statusIsWiredOnlyWhenEveryLocationHasTheEntry() throws {
     let wired = try Sandbox(contents: permissionOnly)
     let bare = try Sandbox(contents: permissionOnly)
