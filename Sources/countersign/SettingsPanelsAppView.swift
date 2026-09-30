@@ -25,13 +25,17 @@ struct PanelsSection: View {
           }
           SettingsDivider()
           PreferenceRow(.armDelay, model: model, problem: model.writeErrors[.armDelay]) {
-            DelaySlider(value: model.armDelay) { model.setArmDelay($0) }
+            DelaySlider(title: PreferenceName.armDelay.title, value: model.armDelay) {
+              model.setArmDelay($0)
+            }
           }
           SettingsDivider()
           PreferenceRow(
             .chainedArmDelay, model: model, problem: model.writeErrors[.chainedArmDelay]
           ) {
-            DelaySlider(value: model.chainedArmDelay) { model.setChainedArmDelay($0) }
+            DelaySlider(title: PreferenceName.chainedArmDelay.title, value: model.chainedArmDelay) {
+              model.setChainedArmDelay($0)
+            }
           }
           SettingsDivider()
           HandoffAppsRow(model: model)
@@ -488,6 +492,7 @@ struct ValueText: View {
 }
 
 private struct DelaySlider: View {
+  let title: String
   let value: Double
   let commit: (Double) -> Void
 
@@ -503,7 +508,10 @@ private struct DelaySlider: View {
       )
       .controlSize(.small)
       .frame(width: 150)
+      .accessibilityLabel(title)
+      .accessibilityValue(PreferenceRules.secondsText(shownValue))
       ValueText(PreferenceRules.secondsText(shownValue))
+        .accessibilityHidden(true)
     }
   }
 
@@ -784,6 +792,7 @@ private struct AppLinkRow: View {
           .font(.system(size: 15))
           .foregroundStyle(.secondary)
           .frame(width: SettingsMetrics.glyphWidth)
+          .accessibilityHidden(true)
         VStack(alignment: .leading, spacing: 2) {
           Text(AppBundleLink.bundleName)
             .font(.system(size: 13, weight: .semibold))

@@ -608,6 +608,29 @@ alone, at its natural width, since a `.popover`'s chrome and arrow can't be draw
 needs no `--home`, since both `explanation` and `defaultText` are pure functions of the name and
 the built-in defaults, never of a config file.
 
+### Accessibility
+
+- **Header caption.** The `Paused` and `Paused until Countersign opens` captions use
+  `HeaderControlTint.amber`, not `.yellow`. System yellow is about 1.3:1 on the light window
+  background; amber is `sRGB(0.55, 0.36, 0)` on light, about 4.8:1, and system yellow on dark,
+  where it already clears 4.5:1. The Pause icon keeps `.yellow`, since an icon needs only 3:1. The
+  Pause button also reads its state through `SettingsHeaderControls.pauseAccessibilityValue`
+  (`Paused` or `Not paused`), so VoiceOver does not depend on the colour.
+- **Sliders.** `DelaySlider` and `ContextRearmSlider` take the row title as their accessibility
+  label and the shown text (`0.8 s`, `60%`) as their value; the separate value text is hidden so
+  it is not read twice. A VoiceOver adjustment arrives while no drag is in progress, so it takes
+  the non-dragging branch and commits at once, the same as a drag end.
+- **Sidebar.** The selected pane's row carries the `.isSelected` trait, Advanced counting as
+  selected under App, as it does visually. The row icons are hidden; the pane title names the row.
+- **Decorative glyphs and status rows.** Icons that repeat the text beside them are hidden from
+  VoiceOver: the agent status glyph, the inline message, note and follow-up symbols, the
+  disclosure chevron, the app-link glyph and the installed-copy radio glyph (the row carries
+  `.isSelected` instead). An agent row reads its name and its status line as one element, and an
+  inline message reads as one element.
+- **Increase Contrast.** The header rule, `SettingsDivider` and the `SettingsGroup` border use
+  `SettingsHairline` and the group stroke, which switch from `Color.primary` at 8 to 12 percent
+  opacity to the solid `separatorColor` when `colorSchemeContrast` is `.increased`.
+
 ### Help
 
 Unlike Advanced, Help sits in the sidebar as a normal `SettingsPane` case, since it needs no config

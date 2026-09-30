@@ -11,6 +11,7 @@ import Testing
     let controls = SettingsHeaderControls(status: .active)
     #expect(controls.pauseTint == .secondary)
     #expect(controls.pauseHelp == "Pause Countersign")
+    #expect(controls.pauseAccessibilityValue == "Not paused")
     #expect(controls.snoozeTint == .secondary)
     #expect(controls.snoozeIsEnabled)
     #expect(controls.caption(timeZone: utc) == nil)
@@ -24,7 +25,8 @@ import Testing
     #expect(!controls.snoozeIsEnabled)
     #expect(controls.snoozeTint == .secondary)
     #expect(controls.caption(timeZone: utc)?.text == "Paused")
-    #expect(controls.caption(timeZone: utc)?.tint == .yellow)
+    #expect(controls.caption(timeZone: utc)?.tint == .amber)
+    #expect(controls.pauseAccessibilityValue == "Paused")
   }
 
   @Test func namesAPauseThatLastsUntilCountersignOpens() {
@@ -32,6 +34,7 @@ import Testing
     #expect(controls.pauseTint == .yellow)
     #expect(!controls.snoozeIsEnabled)
     #expect(controls.caption(timeZone: utc)?.text == "Paused until Countersign opens")
+    #expect(controls.caption(timeZone: utc)?.tint == .amber)
   }
 
   @Test func tintsSnoozeBlueDuringQuietTime() {

@@ -39,7 +39,10 @@ struct ContextSection: View {
           PreferenceRow(
             .contextRearmBelow, model: model, problem: model.writeErrors[.contextRearmBelow]
           ) {
-            ContextRearmSlider(value: model.contextCheckpoints.rearmBelow) {
+            ContextRearmSlider(
+              title: PreferenceName.contextRearmBelow.title,
+              value: model.contextCheckpoints.rearmBelow
+            ) {
               model.setContextRearmBelow($0)
             }
           }
@@ -282,6 +285,7 @@ private struct ContextModelsRow: View {
 }
 
 private struct ContextRearmSlider: View {
+  let title: String
   let value: Double
   let commit: (Double) -> Void
 
@@ -298,7 +302,10 @@ private struct ContextRearmSlider: View {
       )
       .controlSize(.small)
       .frame(width: 150)
+      .accessibilityLabel(title)
+      .accessibilityValue("\(Int(shownPercent))%")
       ValueText("\(Int(shownPercent))%")
+        .accessibilityHidden(true)
     }
   }
 

@@ -107,9 +107,7 @@ struct SettingsHeader: View {
     .frame(maxWidth: .infinity)
     .background(Color(nsColor: .windowBackgroundColor))
     .overlay(alignment: .bottom) {
-      Rectangle()
-        .fill(Color.primary.opacity(0.12))
-        .frame(height: 1)
+      SettingsHairline(opacity: 0.12)
     }
     .zIndex(1)
   }
@@ -120,6 +118,14 @@ extension HeaderControlTint {
     switch self {
     case .secondary: return .secondary
     case .yellow: return Color(nsColor: .systemYellow)
+    case .amber:
+      return Color(
+        nsColor: NSColor(name: nil) { appearance in
+          if appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua {
+            return .systemYellow
+          }
+          return NSColor(srgbRed: 0.55, green: 0.36, blue: 0, alpha: 1)
+        })
     case .blue: return Color(nsColor: .systemBlue)
     }
   }
@@ -159,6 +165,7 @@ private struct HeaderPauseButton: View {
     ) {
       model.togglePause()
     }
+    .accessibilityValue(controls.pauseAccessibilityValue)
   }
 }
 
@@ -268,6 +275,7 @@ private struct SettingsSidebarRow: View {
         Image(systemName: icon)
           .font(.system(size: 13))
           .frame(width: 18)
+          .accessibilityHidden(true)
         Text(pane.title)
           .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
         Spacer(minLength: 0)
@@ -282,6 +290,7 @@ private struct SettingsSidebarRow: View {
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
+    .accessibilityAddTraits(isSelected ? .isSelected : [])
   }
 
   private var icon: String {
@@ -344,8 +353,24 @@ struct SettingsSection<Content: View>: View {
   }
 }
 
+struct SettingsHairline: View {
+  let opacity: Double
+
+  @Environment(\.colorSchemeContrast) private var contrast
+
+  var body: some View {
+    Rectangle()
+      .fill(
+        contrast == .increased ? Color(nsColor: .separatorColor) : Color.primary.opacity(opacity)
+      )
+      .frame(height: 1)
+  }
+}
+
 struct SettingsGroup<Content: View>: View {
   let content: Content
+
+  @Environment(\.colorSchemeContrast) private var contrast
 
   init(@ViewBuilder content: () -> Content) {
     self.content = content()
@@ -362,16 +387,16 @@ struct SettingsGroup<Content: View>: View {
     )
     .overlay(
       RoundedRectangle(cornerRadius: SettingsMetrics.cornerRadius, style: .continuous)
-        .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        .stroke(
+          contrast == .increased ? Color(nsColor: .separatorColor) : Color.primary.opacity(0.08),
+          lineWidth: 1)
     )
   }
 }
 
 struct SettingsDivider: View {
   var body: some View {
-    Rectangle()
-      .fill(Color.primary.opacity(0.08))
-      .frame(height: 1)
+    SettingsHairline(opacity: 0.08)
       .padding(.leading, SettingsMetrics.rowPadding)
   }
 }
@@ -397,6 +422,7 @@ struct InlineMessage: View {
       Image(systemName: symbol)
         .font(.system(size: 11))
         .foregroundStyle(color)
+        .accessibilityHidden(true)
       Text(text)
         .font(PanelTypography.secondary)
         .foregroundStyle(textColor)
@@ -405,6 +431,7 @@ struct InlineMessage: View {
         .textSelection(.enabled)
         .help(text)
     }
+    .accessibilityElement(children: .combine)
   }
 
   private var symbol: String {
@@ -467,6 +494,7 @@ private struct HostRowView: View {
           .font(.system(size: 15))
           .foregroundStyle(glyphColor)
           .frame(width: SettingsMetrics.glyphWidth)
+          .accessibilityHidden(true)
         VStack(alignment: .leading, spacing: 2) {
           Text(row.location.host.displayName)
             .font(.system(size: 13, weight: .semibold))
@@ -479,6 +507,7 @@ private struct HostRowView: View {
           .truncationMode(.middle)
           .textSelection(.enabled)
         }
+        .accessibilityElement(children: .combine)
         Spacer(minLength: 12)
         actionButton
       }
@@ -561,6 +590,7 @@ private struct OwnValuesNote: View {
         Image(systemName: "doc.text")
           .font(.system(size: 11))
           .foregroundStyle(.secondary)
+          .accessibilityHidden(true)
         Text(note)
           .font(PanelTypography.secondary)
           .foregroundStyle(.secondary)
@@ -589,6 +619,7 @@ private struct AgentFollowUpView: View {
         Image(systemName: symbol)
           .font(.system(size: 11))
           .foregroundStyle(symbolColor)
+          .accessibilityHidden(true)
         (Text(label).font(.system(size: 12, weight: .semibold)).foregroundStyle(labelColor)
           + Text(" " + followUp.text).font(PanelTypography.secondary).foregroundStyle(.secondary))
           .textSelection(.enabled)
@@ -629,6 +660,7 @@ struct ChangesDisclosure: View {
         Image(systemName: "chevron.right")
           .font(.system(size: 9, weight: .semibold))
           .rotationEffect(.degrees(isExpanded ? 90 : 0))
+          .accessibilityHidden(true)
         Text(isExpanded ? "Hide \(subject)" : "Show \(subject)")
       }
       .font(PanelTypography.secondary)

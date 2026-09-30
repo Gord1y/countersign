@@ -3,6 +3,7 @@ import Foundation
 public enum HeaderControlTint: Sendable, Equatable {
   case secondary
   case yellow
+  case amber
   case blue
 }
 
@@ -29,6 +30,10 @@ public struct SettingsHeaderControls: Sendable, Equatable {
     isPaused ? .yellow : .secondary
   }
 
+  public var pauseAccessibilityValue: String {
+    isPaused ? "Paused" : "Not paused"
+  }
+
   public var pauseHelp: String {
     isPaused ? "Resume Countersign" : "Pause Countersign"
   }
@@ -50,9 +55,9 @@ public struct SettingsHeaderControls: Sendable, Equatable {
     case .active:
       return nil
     case .paused:
-      return ("Paused", .yellow)
+      return ("Paused", .amber)
     case .pausedUntilAppOpens:
-      return ("Paused until Countersign opens", .yellow)
+      return ("Paused until Countersign opens", .amber)
     case .quiet(let until):
       return ("Until \(TimeOfDayText.describe(until, timeZone: timeZone))", .blue)
     }
