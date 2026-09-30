@@ -20,6 +20,12 @@ Antigravity.
 A deny with an empty reason sends "Denied in the approval panel." The exact output behind every
 cell, and the line each one leaves in the log, are in [design/answers.md](design/answers.md).
 
+The menu bar's list of pending requests offers **Deny** and **Answer in Chat** too, without
+opening the panel (see [menu-bar-app.md](menu-bar-app.md#pause-snooze-and-pending-requests)).
+Each sends exactly what the panel's button sends, for every agent: **Deny** from the menu is a
+plain **Deny** with the default reason, never **Deny & stop**, and **Answer in Chat** from the
+menu is the same as <kbd>Esc</kbd>. There is no Approve from the menu.
+
 ## Claude Code
 
 **What gets a panel:** every permission prompt Claude Code would otherwise show you, including its

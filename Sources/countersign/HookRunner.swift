@@ -130,7 +130,7 @@ enum HookRunner {
       waitUntilNoApprovalIsQueued(queue: queue, log: log, abandonReason: abandonReason)
     }
     let subagentChain = SubagentDescription.chain(for: request)
-    let ticket: Ticket
+    var ticket: Ticket
     do {
       ticket = try queue.enqueue(
         TicketSummary(
@@ -143,10 +143,28 @@ enum HookRunner {
     }
     queue.removeOnTermination(ticket)
 
+    var menuOutcome: ApprovalOutcome?
+    var showsWithoutIdle = false
+    func shouldStopWaiting() -> Bool {
+      if abandonReason() != nil || handBackIsDue() {
+        return true
+      }
+      guard let answer = queue.takeMenuAnswer(for: ticket) else { return false }
+      switch receiveMenuAnswer(answer, ticket: ticket, queue: queue, log: log) {
+      case .finish(let outcome):
+        menuOutcome = outcome
+        return true
+      case .moved(let moved):
+        ticket = moved.ticket
+        showsWithoutIdle = moved.place == .front
+        return false
+      case .ignored:
+        return false
+      }
+    }
     let turn =
       mode.waitsItsTurn
-      ? queue.waitForTurn(
-        ticket, pollInterval: 0.25, shouldAbandon: { abandonReason() != nil || handBackIsDue() })
+      ? queue.waitForTurn(ticket, pollInterval: 0.25, shouldAbandon: shouldStopWaiting)
       : TestPanelCommand.takeDisplay(queue: queue, ticket: ticket, log: log)
     let lease: DisplayLease?
     switch turn {
@@ -155,6 +173,17 @@ enum HookRunner {
     case .nextInLine:
       lease = nil
     case .abandoned:
+      if let menuOutcome {
+        writeReply(menuOutcome, host: host)
+        log.write("outcome: \(describe(menuOutcome))")
+        recordDecision(
+          request: request,
+          answer: DecisionAnswer.answer(
+            for: menuOutcome, checkpointChoice: nil, isCheckpoint: false),
+          history: DecisionHistory(paths: paths), log: log)
+        queue.remove(ticket)
+        exit(0)
+      }
       let reason = abandonReason()
       queue.remove(ticket)
       if reason == nil, handBackIsDue() {
@@ -178,8 +207,8 @@ enum HookRunner {
       log: log, activityGate: activityGate, quietState: quietState, settings: settings,
       subagentChain: subagentChain, waitingEntries: initialWaitingEntries,
       sessionsDirectory: paths.claudeSessionsDirectory, history: DecisionHistory(paths: paths),
-      hostApp: hostApp, checkpoint: checkpoint, abandonReason: abandonReason,
-      handBackIsDue: handBackIsDue)
+      hostApp: hostApp, checkpoint: checkpoint, showsWithoutIdle: showsWithoutIdle,
+      abandonReason: abandonReason, handBackIsDue: handBackIsDue)
     let timer = Timer(
       timeInterval: 0.25, target: displayWatch, selector: #selector(DisplayWatch.tick),
       userInfo: nil, repeats: true)
@@ -203,6 +232,37 @@ enum HookRunner {
         exit(0)
       }
       Thread.sleep(forTimeInterval: 0.25)
+    }
+  }
+
+  enum MenuAnswerEffect {
+    case finish(ApprovalOutcome)
+    case moved(ShowNowResult)
+    case ignored
+  }
+
+  static func receiveMenuAnswer(
+    _ answer: MenuAnswer, ticket: Ticket, queue: TicketQueue, log: EventLog
+  ) -> MenuAnswerEffect {
+    guard MenuAnswer.offered(for: ticket.summary).contains(answer) else {
+      log.write("answered from the menu: \(answer.rawValue), not offered for this request")
+      return .ignored
+    }
+    log.write("answered from the menu: \(answer.rawValue)")
+    if let outcome = answer.outcome {
+      return .finish(outcome)
+    }
+    do {
+      let moved = try queue.showNow(
+        ticket, isOnScreen: { QueueHandoffChannel(ticket: $0).shownDisplayID() != nil })
+      switch moved.place {
+      case .front: log.write("show now: moved to the front")
+      case .behindShownPanel: log.write("show now: next after the panel on screen")
+      }
+      return .moved(moved)
+    } catch {
+      log.write("show now: failed to move: \(error)")
+      return .ignored
     }
   }
 
@@ -272,7 +332,8 @@ private final class DisplayWatch: NSObject {
   private let host: ApprovalCore.Host
   private let mode: PanelRunMode
   private let queue: TicketQueue
-  private let ticket: Ticket
+  private var ticket: Ticket
+  private var showsWithoutIdle: Bool
   private let log: EventLog
   private let activityGate: ActivityGate
   private let quietState: QuietState
@@ -305,7 +366,7 @@ private final class DisplayWatch: NSObject {
     quietState: QuietState, settings: Settings, subagentChain: [SubagentChainLink]?,
     waitingEntries: [WaitingEntry], sessionsDirectory: URL, history: DecisionHistory,
     hostApp: HostApp?,
-    checkpoint: ContextCheckpointSession?,
+    checkpoint: ContextCheckpointSession?, showsWithoutIdle: Bool,
     abandonReason: @escaping () -> String?, handBackIsDue: @escaping () -> Bool
   ) {
     self.app = app
@@ -314,6 +375,7 @@ private final class DisplayWatch: NSObject {
     self.mode = mode
     self.queue = queue
     self.ticket = ticket
+    self.showsWithoutIdle = showsWithoutIdle
     self.lease = lease
     self.log = log
     self.activityGate = activityGate
@@ -351,6 +413,7 @@ private final class DisplayWatch: NSObject {
     if anotherRequestWaits() {
       yieldToAnotherRequest()
     }
+    takeMenuAnswer()
 
     switch state {
     case .queued:
@@ -358,11 +421,16 @@ private final class DisplayWatch: NSObject {
       followHeadDisplay()
 
     case .waitingForIdle:
+      if queue.isOvertakenFromMenu(ticket) {
+        giveWayToRequestShownFromMenu()
+        return
+      }
       guard !quietTimeHoldsPanels() else { return }
       guard
-        activityGate.isIdle(
-          secondsSinceLastInput: systemActivity.secondsSinceLastInput(),
-          modifiersHeld: systemActivity.modifiersHeld())
+        showsWithoutIdle
+          || activityGate.isIdle(
+            secondsSinceLastInput: systemActivity.secondsSinceLastInput(),
+            modifiersHeld: systemActivity.modifiersHeld())
       else { return }
       showAfterIdle()
 
@@ -387,6 +455,41 @@ private final class DisplayWatch: NSObject {
 
   private func quietTimeHoldsPanels() -> Bool {
     mode.honorsQuietTime && quietState.activeUntil() != nil
+  }
+
+  private func takeMenuAnswer() {
+    let isShown: Bool
+    switch state {
+    case .queued, .waitingForIdle: isShown = false
+    case .shown: isShown = true
+    case .showingResult: return
+    }
+    guard let answer = queue.takeMenuAnswer(for: ticket) else { return }
+    if answer == .show, isShown {
+      log.write("answered from the menu: show, already on screen")
+      return
+    }
+    switch HookRunner.receiveMenuAnswer(answer, ticket: ticket, queue: queue, log: log) {
+    case .finish(let outcome):
+      if case .queued = state {
+        discardHandoff()
+        discardPreparedPanel("answered from the menu")
+      }
+      finish(outcome)
+    case .moved(let moved):
+      ticket = moved.ticket
+      showsWithoutIdle = moved.place == .front
+    case .ignored:
+      break
+    }
+  }
+
+  private func giveWayToRequestShownFromMenu() {
+    lease?.release()
+    lease = nil
+    state = .queued
+    log.write("gave way to a request shown from the menu")
+    startWarmStandby()
   }
 
   private func makeController(handoffBackdrop: BackdropWindow?, afterHandoff: Bool)
@@ -438,6 +541,7 @@ private final class DisplayWatch: NSObject {
     app.show(controller)
     publishShownDisplay(of: controller)
     log.write("displayed")
+    showsWithoutIdle = false
     state = .shown(controller: controller)
   }
 
@@ -477,6 +581,7 @@ private final class DisplayWatch: NSObject {
     let milliseconds =
       (ProcessInfo.processInfo.systemUptime - handedOff.handoff.receivedAt) * 1000
     log.write("displayed after queue handoff in \(String(format: "%.1f", milliseconds)) ms")
+    showsWithoutIdle = false
     state = .shown(controller: handedOff.controller)
   }
 

@@ -373,6 +373,90 @@ import Testing
       ])
   }
 
+  @Test func aPendingRequestWithATicketOffersShowNowDenyAndAnswerInChat() throws {
+    let summary = TicketSummary(host: .claude, project: "shop-api", tool: "Bash", agentType: nil)
+    let pending = try entry(
+      1, of: input(pendingEntries: [WaitingEntry(summary: summary, ticketID: "0001-42")]))
+
+    #expect(
+      pending.submenu == [
+        .entry(
+          CompanionMenuEntry(
+            title: "Claude Code · shop-api · Bash",
+            submenu: [
+              .entry(
+                CompanionMenuEntry(
+                  title: "Show Now", action: .answerPending(ticketID: "0001-42", answer: .show))),
+              .entry(
+                CompanionMenuEntry(
+                  title: "Deny", action: .answerPending(ticketID: "0001-42", answer: .deny))),
+              .entry(
+                CompanionMenuEntry(
+                  title: "Answer in Chat",
+                  action: .answerPending(ticketID: "0001-42", answer: .chat))),
+            ]))
+      ])
+  }
+
+  @Test func checkpointsAndUnreadableTicketsOfferOnlyShowNow() throws {
+    let checkpoint = TicketSummary(
+      host: .claude, project: "shop-api", tool: "Context checkpoint", agentType: nil,
+      isContextCheckpoint: true)
+    let pending = try entry(
+      1,
+      of: input(pendingEntries: [
+        WaitingEntry(summary: checkpoint, ticketID: "0001-42"),
+        WaitingEntry(summary: nil, ticketID: "0002-43"),
+      ]))
+
+    #expect(
+      pending.submenu == [
+        .entry(
+          CompanionMenuEntry(
+            title: "Claude Code · shop-api · Context checkpoint",
+            submenu: [
+              .entry(
+                CompanionMenuEntry(
+                  title: "Show Now", action: .answerPending(ticketID: "0001-42", answer: .show)))
+            ])),
+        .entry(
+          CompanionMenuEntry(
+            title: "Unknown request",
+            submenu: [
+              .entry(
+                CompanionMenuEntry(
+                  title: "Show Now", action: .answerPending(ticketID: "0002-43", answer: .show)))
+            ])),
+      ])
+  }
+
+  @Test func pendingRowsFollowTheQueueOrderAndKeepEachTicketsID() throws {
+    let first = TicketSummary(host: .codex, project: "a", tool: "Bash", agentType: nil)
+    let second = TicketSummary(host: .cursor, project: "b", tool: "Shell", agentType: nil)
+    let pending = try entry(
+      1,
+      of: input(pendingEntries: [
+        WaitingEntry(summary: second, ticketID: "0002-2"),
+        WaitingEntry(summary: first, ticketID: "0001-1"),
+      ]))
+
+    let rows = pending.submenu.compactMap { item -> CompanionMenuEntry? in
+      guard case .entry(let row) = item else { return nil }
+      return row
+    }
+    #expect(rows.map(\.title) == ["Cursor · b · Shell", "Codex · a · Bash"])
+    #expect(rows.allSatisfy { $0.isEnabled && $0.action == nil })
+    let ids = rows.map { row in
+      row.submenu.compactMap { item -> String? in
+        guard case .entry(let action) = item,
+          case .answerPending(let ticketID, _)? = action.action
+        else { return nil }
+        return ticketID
+      }
+    }
+    #expect(ids == [["0002-2", "0002-2", "0002-2"], ["0001-1", "0001-1", "0001-1"]])
+  }
+
   @Test func showATestPanelSitsRightAfterSettingsAndAsksForACommand() throws {
     let settings = try entry(4, of: input())
     let testPanel = try entry(5, of: input())

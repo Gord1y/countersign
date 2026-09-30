@@ -127,6 +127,16 @@ prompt for that request, the same fallback as every row in "No answer at all" be
 "Antigravity" below). Why no decision rather than a deny is in "Why "Answer in chat" returns no
 decision" in [panel.md](panel.md).
 
+## Deny and Answer in Chat from the menu bar
+
+The menu bar's pending list offers **Deny** and **Answer in Chat** for each request (see
+"Answering from the menu bar" in [queue.md](queue.md)). They send exactly the outcomes above:
+**Deny** is `ApprovalOutcome.deny(reason: "", interrupt: false)`, the "Deny, with or without a
+reason" body with the default message for every host, and **Answer in Chat** is `.noDecision`,
+empty stdout for Claude Code and Codex, `ask` for Cursor and Antigravity. The log shows
+`answered from the menu: deny` or `answered from the menu: chat`, then the same `outcome: deny` or
+`outcome: no decision` a panel answer leaves.
+
 ## A question submitted (Claude `AskUserQuestion` only)
 
 Answering every tab and choosing **Submit** calls `ApprovalCore.QuestionResponse.outcome`, which

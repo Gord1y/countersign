@@ -49,8 +49,20 @@ panel shows up in the icon within two seconds.
   [config file](configuration.md)), like `countersign snooze`. Requests wait and come back one at a
   time when it ends. Once quiet time is running, **Snooze** is replaced by a single **End Quiet
   Time (until …)** entry that ends it early.
-- The menu lists the requests waiting for a panel, oldest first, by agent, project and tool. The
-  list is for reading only; each request is answered in its own panel.
+- The menu lists the requests waiting for a panel, in the order they will show, by agent, project
+  and tool. Each one opens a submenu:
+  - **Show Now** brings that request up next. With no panel on screen it appears at once, without
+    waiting for a pause in your typing; with a panel on screen it becomes the next one, right
+    after you answer that panel. Quiet time still holds it until it ends.
+  - **Deny** denies it without opening the panel, exactly like the panel's **Deny** with no
+    reason: the agent gets "Denied in the approval panel."
+  - **Answer in Chat** hands it to the agent's own prompt, exactly like <kbd>Esc</kbd> in the
+    panel.
+
+  A context checkpoint offers only **Show Now**, and so does a request Countersign can't read.
+  There is no Approve: a menu line can't show you the command or the change, and an approval is
+  the one answer that lets something run. Answers given from the menu show up in **Recent
+  Decisions** like any other.
 - **Context in live sessions** appears right below it, only when context checkpoints and the
   menu-bar meter are both on and at least one Claude Code session is running. Its submenu has one
   read-only line per session, such as `shop-api · 212K tokens`, largest first, up to eight. Sessions

@@ -187,17 +187,24 @@ import Testing
       agentDescription: "Fix the tests")
     let encoder = JSONEncoder()
 
-    _ = try temporary.writeTicket(
+    let first = try temporary.writeTicket(
       timestamp: 100, pid: own,
       content: encoder.encode(TicketContent(processStart: nil, summary: firstSummary)))
-    _ = try temporary.writeTicket(
+    let second = try temporary.writeTicket(
       timestamp: 200, pid: own,
       content: encoder.encode(TicketContent(processStart: nil, summary: secondSummary)))
     let ownTicket = try temporary.queue.enqueue(.probe)
 
     #expect(
       temporary.queue.waitingEntries(excluding: ownTicket)
-        == [WaitingEntry(summary: firstSummary), WaitingEntry(summary: secondSummary)])
+        == [
+          WaitingEntry(summary: firstSummary, ticketID: Self.id(first)),
+          WaitingEntry(summary: secondSummary, ticketID: Self.id(second)),
+        ])
+  }
+
+  private static func id(_ fileName: String) -> String {
+    String(fileName.dropLast(Ticket.fileSuffix.count))
   }
 
   @Test func waitingEntriesRepresentAnUnreadableSummaryAsUnknownRatherThanDroppingIt() throws {
@@ -206,8 +213,9 @@ import Testing
     let own = getpid()
     let summary = TicketSummary(host: .claude, project: "shop-api", tool: "Bash", agentType: nil)
 
-    _ = try temporary.writeTicket(timestamp: 1, pid: own, content: Data("not json".utf8))
-    _ = try temporary.writeTicket(
+    let unreadable = try temporary.writeTicket(
+      timestamp: 1, pid: own, content: Data("not json".utf8))
+    let readable = try temporary.writeTicket(
       timestamp: 2, pid: own,
       content: JSONEncoder().encode(TicketContent(processStart: nil, summary: summary)))
     let ownTicket = try temporary.queue.enqueue(.probe)
@@ -215,7 +223,10 @@ import Testing
     #expect(temporary.queue.waitingCount(excluding: ownTicket) == 2)
     #expect(
       temporary.queue.waitingEntries(excluding: ownTicket)
-        == [WaitingEntry(summary: nil), WaitingEntry(summary: summary)])
+        == [
+          WaitingEntry(summary: nil, ticketID: Self.id(unreadable)),
+          WaitingEntry(summary: summary, ticketID: Self.id(readable)),
+        ])
   }
 
   @Test func waitingEntriesWithoutExclusionListEveryLiveTicketOldestFirst() throws {
@@ -229,11 +240,12 @@ import Testing
       host: .codex, project: "other-api", tool: "apply_patch", agentType: "Explore")
     let encoder = JSONEncoder()
 
-    _ = try temporary.writeTicket(
+    let last = try temporary.writeTicket(
       timestamp: 300, pid: own,
       content: encoder.encode(TicketContent(processStart: nil, summary: lastSummary)))
-    _ = try temporary.writeTicket(timestamp: 200, pid: own, content: Data("not json".utf8))
-    _ = try temporary.writeTicket(
+    let unreadable = try temporary.writeTicket(
+      timestamp: 200, pid: own, content: Data("not json".utf8))
+    let first = try temporary.writeTicket(
       timestamp: 100, pid: own,
       content: encoder.encode(TicketContent(processStart: nil, summary: firstSummary)))
     let deadName = try temporary.writeTicket(timestamp: 50, pid: dead, processStart: nil)
@@ -241,10 +253,10 @@ import Testing
 
     #expect(
       temporary.queue.waitingEntries() == [
-        WaitingEntry(summary: firstSummary),
-        WaitingEntry(summary: nil),
-        WaitingEntry(summary: lastSummary),
-        WaitingEntry(summary: .probe),
+        WaitingEntry(summary: firstSummary, ticketID: Self.id(first)),
+        WaitingEntry(summary: nil, ticketID: Self.id(unreadable)),
+        WaitingEntry(summary: lastSummary, ticketID: Self.id(last)),
+        WaitingEntry(summary: .probe, ticketID: ownTicket.id),
       ])
     #expect(temporary.queue.waitingEntries().count == temporary.queue.liveTickets().count)
     #expect(temporary.queue.waitingEntries(excluding: ownTicket).count == 3)

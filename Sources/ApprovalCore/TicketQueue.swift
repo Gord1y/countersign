@@ -68,10 +68,46 @@ public struct TicketSummary: Codable, Sendable, Equatable {
 
 public struct WaitingEntry: Sendable, Equatable {
   public var summary: TicketSummary?
+  public var ticketID: String?
 
-  public init(summary: TicketSummary?) {
+  public init(summary: TicketSummary?, ticketID: String? = nil) {
     self.summary = summary
+    self.ticketID = ticketID
   }
+}
+
+public struct QueuePosition: Codable, Sendable, Comparable {
+  public let keys: [UInt64]
+
+  static func arrival(timestamp: UInt64, pid: Int32) -> QueuePosition {
+    QueuePosition(keys: [timestamp, UInt64(clamping: pid)])
+  }
+
+  static func front(at time: UInt64) -> QueuePosition {
+    QueuePosition(keys: [0, newestFirst(time)])
+  }
+
+  func behind(at time: UInt64) -> QueuePosition {
+    QueuePosition(keys: keys + [Self.newestFirst(time)])
+  }
+
+  private static func newestFirst(_ time: UInt64) -> UInt64 {
+    UInt64.max - time
+  }
+
+  public static func < (lhs: QueuePosition, rhs: QueuePosition) -> Bool {
+    lhs.keys.lexicographicallyPrecedes(rhs.keys)
+  }
+}
+
+public enum ShowNowPlace: Sendable, Equatable {
+  case front
+  case behindShownPanel
+}
+
+public struct ShowNowResult: Sendable, Equatable {
+  public let ticket: Ticket
+  public let place: ShowNowPlace
 }
 
 public struct Ticket: Sendable, Equatable {
@@ -80,9 +116,37 @@ public struct Ticket: Sendable, Equatable {
   public let pid: Int32
   public let processStart: UInt64?
   public let summary: TicketSummary?
+  public let menuPosition: QueuePosition?
 
   static let timestampDigits = 20
   static let fileSuffix = ".json"
+
+  init(
+    fileName: String, timestamp: UInt64, pid: Int32, processStart: UInt64?,
+    summary: TicketSummary?, menuPosition: QueuePosition? = nil
+  ) {
+    self.fileName = fileName
+    self.timestamp = timestamp
+    self.pid = pid
+    self.processStart = processStart
+    self.summary = summary
+    self.menuPosition = menuPosition
+  }
+
+  public var id: String {
+    fileName.hasSuffix(Self.fileSuffix)
+      ? String(fileName.dropLast(Self.fileSuffix.count)) : fileName
+  }
+
+  public var position: QueuePosition {
+    menuPosition ?? .arrival(timestamp: timestamp, pid: pid)
+  }
+
+  func moved(to position: QueuePosition) -> Ticket {
+    Ticket(
+      fileName: fileName, timestamp: timestamp, pid: pid, processStart: processStart,
+      summary: summary, menuPosition: position)
+  }
 
   static func fileName(timestamp: UInt64, pid: Int32) -> String {
     let digits = String(timestamp)
@@ -109,6 +173,7 @@ public struct Ticket: Sendable, Equatable {
 struct TicketContent: Codable, Equatable {
   var processStart: UInt64?
   var summary: TicketSummary?
+  var menuPosition: QueuePosition?
 }
 
 public struct TicketQueue: Sendable {
@@ -136,12 +201,18 @@ public struct TicketQueue: Sendable {
 
   public func remove(_ ticket: Ticket) {
     unlink(url(for: ticket).path)
+    unlink(answerURL(ticketID: ticket.id).path)
   }
 
   public func liveTickets() -> [Ticket] {
     let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
     var live: [Ticket] = []
+    var answeredIDs: [String] = []
     for name in names where name != lockFile.lastPathComponent {
+      if let answeredID = MenuAnswer.ticketID(ofFileName: name) {
+        answeredIDs.append(answeredID)
+        continue
+      }
       guard let ticket = readTicket(named: name) else { continue }
       if ProcessLiveness.isAlive(pid: ticket.pid, processStart: ticket.processStart) {
         live.append(ticket)
@@ -149,7 +220,27 @@ public struct TicketQueue: Sendable {
         unlink(url(for: ticket).path)
       }
     }
-    return live.sorted { ($0.timestamp, $0.pid) < ($1.timestamp, $1.pid) }
+    removeAnswers(of: answeredIDs, keeping: Set(live.map(\.id)))
+    return live.sorted { ($0.position, $0.timestamp, $0.pid) < ($1.position, $1.timestamp, $1.pid) }
+  }
+
+  public func isOvertakenFromMenu(_ ticket: Ticket) -> Bool {
+    guard let head = liveTickets().first, head.fileName != ticket.fileName else { return false }
+    return head.menuPosition != nil
+  }
+
+  public func showNow(_ ticket: Ticket, isOnScreen: (Ticket) -> Bool) throws -> ShowNowResult {
+    let now = clock_gettime_nsec_np(CLOCK_REALTIME)
+    let others = liveTickets().filter { $0.fileName != ticket.fileName }
+    let result: ShowNowResult
+    if let shown = others.first(where: isOnScreen) {
+      result = ShowNowResult(
+        ticket: ticket.moved(to: shown.position.behind(at: now)), place: .behindShownPanel)
+    } else {
+      result = ShowNowResult(ticket: ticket.moved(to: .front(at: now)), place: .front)
+    }
+    try write(result.ticket)
+    return result
   }
 
   public func isHead(_ ticket: Ticket) -> Bool {
@@ -174,12 +265,12 @@ public struct TicketQueue: Sendable {
 
   public func waitingEntries(excluding ticket: Ticket) -> [WaitingEntry] {
     liveTickets().filter { $0.fileName != ticket.fileName }.map {
-      WaitingEntry(summary: $0.summary)
+      WaitingEntry(summary: $0.summary, ticketID: $0.id)
     }
   }
 
   public func waitingEntries() -> [WaitingEntry] {
-    liveTickets().map { WaitingEntry(summary: $0.summary) }
+    liveTickets().map { WaitingEntry(summary: $0.summary, ticketID: $0.id) }
   }
 
   public func acquireDisplayIfHead(_ ticket: Ticket) -> DisplayLease? {
@@ -219,7 +310,8 @@ public struct TicketQueue: Sendable {
       timestamp: parsed.timestamp,
       pid: parsed.pid,
       processStart: content?.processStart,
-      summary: content?.summary
+      summary: content?.summary,
+      menuPosition: content?.menuPosition
     )
   }
 
@@ -230,14 +322,19 @@ public struct TicketQueue: Sendable {
   }
 
   private func write(_ ticket: Ticket) throws {
-    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     let encoder = JSONEncoder()
     encoder.outputFormatting = [.sortedKeys]
-    let content = TicketContent(processStart: ticket.processStart, summary: ticket.summary)
-    let data = try encoder.encode(content)
-    let temporary = directory.appendingPathComponent(".\(ticket.fileName).tmp")
+    let content = TicketContent(
+      processStart: ticket.processStart, summary: ticket.summary,
+      menuPosition: ticket.menuPosition)
+    try writeAtomically(encoder.encode(content), named: ticket.fileName)
+  }
+
+  func writeAtomically(_ data: Data, named name: String) throws {
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let temporary = directory.appendingPathComponent(".\(name).tmp")
     try data.write(to: temporary)
-    guard rename(temporary.path, url(for: ticket).path) == 0 else {
+    guard rename(temporary.path, directory.appendingPathComponent(name).path) == 0 else {
       let code = errno
       unlink(temporary.path)
       throw POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO)

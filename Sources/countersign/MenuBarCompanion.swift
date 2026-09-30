@@ -361,8 +361,22 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
       attempt("cleared the decision history", failure: "failed to clear the decision history") {
         try DecisionHistory(paths: paths).clear()
       }
+    case .answerPending(let ticketID, let answer):
+      answerPending(ticketID: ticketID, answer: answer)
     case .quit:
       quitFromMenu()
+    }
+  }
+
+  private func answerPending(ticketID: String, answer: MenuAnswer) {
+    do {
+      guard try queue.sendMenuAnswer(answer, toTicketID: ticketID) else {
+        log.write("companion: request \(ticketID) was already gone")
+        return
+      }
+      log.write("companion: answered request \(ticketID) from the menu: \(answer.rawValue)")
+    } catch {
+      log.write("companion: failed to answer request \(ticketID) from the menu: \(error)")
     }
   }
 

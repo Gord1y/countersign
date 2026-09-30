@@ -45,6 +45,7 @@ public enum CompanionMenuAction: Sendable, Equatable {
   case checkForUpdatesNow
   case copyUpgradeCommand(String)
   case clearDecisionHistory
+  case answerPending(ticketID: String, answer: MenuAnswer)
   case quit
 }
 
@@ -272,7 +273,19 @@ public enum CompanionMenu {
   }
 
   private static func pendingRows(_ entries: [WaitingEntry]) -> [CompanionMenuItem] {
-    entries.map { .entry(CompanionMenuEntry(title: pendingRowTitle(for: $0), isEnabled: false)) }
+    entries.map { .entry(pendingRow($0)) }
+  }
+
+  private static func pendingRow(_ entry: WaitingEntry) -> CompanionMenuEntry {
+    let title = pendingRowTitle(for: entry)
+    guard let ticketID = entry.ticketID else {
+      return CompanionMenuEntry(title: title, isEnabled: false)
+    }
+    let answers: [CompanionMenuItem] = MenuAnswer.offered(for: entry.summary).map {
+      .entry(
+        CompanionMenuEntry(title: $0.title, action: .answerPending(ticketID: ticketID, answer: $0)))
+    }
+    return CompanionMenuEntry(title: title, submenu: answers)
   }
 
   private static func pauseEntry(isPaused: Bool) -> CompanionMenuEntry {

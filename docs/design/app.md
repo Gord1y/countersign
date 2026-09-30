@@ -231,7 +231,7 @@ transcripts. See [checkpoints.md](checkpoints.md#the-menu-bar-meter).
 | Item | What it does | File |
 | --- | --- | --- |
 | "Countersign is on", "Paused" or "Quiet until 14:05" | Disabled status line; paused wins over quiet time. The time is local, `HH:mm`, from `TimeOfDayText`, the same formatter `countersign status` uses | reads `paused`, `quiet-until` |
-| "N requests pending" | Submenu listing every live ticket oldest first, read-only. "No requests pending", disabled, when there are none | reads `queue/` |
+| "N requests pending" | Submenu listing every live ticket in queue order. Each row is a submenu of "Show Now", "Deny" and "Answer in Chat", or "Show Now" alone for a checkpoint or an unreadable ticket, each writing that ticket's answer file (see "Answering from the menu bar" in [queue.md](queue.md)). "No requests pending", disabled, when there are none | reads `queue/`, writes `queue/<id>.answer` |
 | "Recent Decisions" | Submenu of the last ten `DecisionHistory` entries, newest first, disabled rows like `✓ Bash · ai-approval · 14:05 — git status`, then a separator and "Clear History" (`DecisionHistory.clear()`). One disabled "No decisions yet" row when empty | reads and clears `history.jsonl` |
 | "Pause Countersign" / "Resume Countersign" | `StateSwitches.pause()` ends quiet time then pauses, exactly `countersign pause`; "Resume Countersign" is `PauseSwitch.resume()`, exactly `countersign resume` | writes `paused`, `quiet-until` |
 | "Snooze" | Disabled with no submenu while paused; while quiet time is active, replaced by a single "End Quiet Time (until 14:05)" entry (`QuietTime.clear()`); otherwise quiet time for each preset (`StateSwitches.snooze(until:)`) | writes `quiet-until` |
@@ -273,7 +273,11 @@ to its agent type, when the ticket has one (`TicketSummary.agentLabel`, shared b
 whose content cannot be decoded still gets a row, "Unknown request", so the count in the title and
 the number of rows always agree. The list comes from `TicketQueue.waitingEntries()` (see "Listing
 waiters, not just counting them" in [queue.md](queue.md)), which prunes dead tickets exactly as
-`countersign status` does; the companion never takes the display lock.
+`countersign status` does; the companion never takes the display lock. Each entry carries its
+ticket's id, and the row's actions (`CompanionMenuAction.answerPending(ticketID:answer:)`) hand it
+to `TicketQueue.sendMenuAnswer`, which writes `queue/<id>.answer` for the hook to act on; the
+companion logs `companion: answered request <id> from the menu: <answer>`, or
+`companion: request <id> was already gone` when the ticket has left in the meantime.
 
 The Snooze presets are the top-level `snoozeMinutes` from the config file, falling back to
 `Settings.defaultSnoozeMinutes`; the `hosts.*` blocks never apply, since the companion acts for no

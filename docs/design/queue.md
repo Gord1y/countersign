@@ -11,7 +11,9 @@ panels appear or the next panel is slow.
 Every waiting hook writes a ticket named `<realtime ns, 20 digits>-<pid>.json`. Sorting the live
 tickets by (timestamp, pid) gives FIFO order, and any process can compute it from a directory
 listing. On macOS `CLOCK_REALTIME` ticks in microseconds, so two hooks can get equal timestamps,
-and the pid then breaks the tie. The sort compares numbers, not file names.
+and the pid then breaks the tie. The sort compares numbers, not file names. The one exception is
+a request moved with **Show Now** from the menu bar, whose ticket carries its new place (see
+"Answering from the menu bar" below).
 
 A listing is a snapshot, not a lock. Two processes can act on listings taken at different
 moments, and a clock step can reorder new tickets. So mutual exclusion comes from somewhere
@@ -72,7 +74,9 @@ drops the lock and the dead ticket is pruned.
 ## What a listing ignores and repairs
 
 - Dotfiles (including in-flight temp files), names not ending in `.json`, `display.lock`, and
-  `.json` names that do not parse as `<20 digits>-<pid>` are ignored and never deleted.
+  `.json` names that do not parse as `<20 digits>-<pid>` are ignored and never deleted. The one
+  other name a listing deletes is a menu answer, `<20 digits>-<pid>.answer`, once its ticket is
+  gone (see "Answering from the menu bar" below).
 - Pruning ignores `ENOENT`, since two processes can prune the same ticket.
 - If a process's own ticket has vanished, `acquireDisplayIfHead` rewrites it under the same name,
   so the process keeps its place. It never rewrites another process's ticket.
@@ -111,7 +115,10 @@ the row it renders as is `WaitingListView`'s concern, not the queue's (see "The 
 order. It exists for the menu-bar companion's "N requests pending" submenu (see "Menu-bar
 companion" in [app.md](app.md)): the companion holds no ticket of its own, so there is nothing to
 leave out. Like every listing it prunes the tickets of dead processes on the way; it never writes
-a ticket and never touches `display.lock`.
+a ticket and never touches `display.lock`. Both listings fill `WaitingEntry.ticketID` with the
+ticket's id, its file name without `.json` (`Ticket.id`), which is how a menu answer finds its
+hook. "Oldest first" is the queue order, so a request moved with Show Now is listed in its new
+place.
 
 `TicketSummary`'s fourth field, `agentDescription`, is filled at enqueue time in `HookRunner` from
 the requesting agent's own subagent chain (see "Walking the subagent chain" in
@@ -276,7 +283,8 @@ the prepared panel cannot be reused (see "Limits"). Without a prepared panel the
 all of that gap, and during it key focus goes back to the person's app, so someone with nothing
 else to approve could start typing there before the next panel arrives.
 
-**What never chains.** A head only signals from the three answers above. A step-aside, a snooze,
+**What never chains.** A head only signals from the three answers above, given in the panel or,
+for Deny and answer in chat, from the menu bar. A step-aside, a snooze,
 quiet time, a request handed off to the asking app and a request resolved elsewhere or paused all
 leave the head without signalling, so the next request waits for the idle gate as usual. The
 hand-off is decided only when a panel would appear, so a request from an app on `handoffApps`
@@ -318,6 +326,81 @@ Measured with `ticket-probe` over 20 rounds: the handoff request to the ready si
 most of it the probe's 5 ms lease poll. The window work on screen, AppKit's launch time, the frame
 timing and the time a prepared panel saves on screen have not been measured, since builders never
 put a window on screen.
+
+## Answering from the menu bar
+
+Each row of the companion's "N requests pending" submenu opens a submenu of its own: "Show Now",
+"Deny" and "Answer in Chat", or "Show Now" alone for a context checkpoint and for a ticket whose
+content cannot be read (`MenuAnswer.offered(for:)`). There is no Approve. A menu row shows the
+host, project, tool and agent, never the command, the diff or the question, and an approval is
+the one answer that lets something run, so it is given only where the whole request is on screen.
+Deny blocks the call, and Answer in Chat hands it to the agent's own prompt, as Esc does in the
+panel. A checkpoint's choices are about the session and need the panel's explanation, so it gets
+Show Now only; an unreadable ticket gets Show Now only because the menu cannot tell whether it is
+a checkpoint.
+
+**The answer file.** The companion never talks to a hook directly; it leaves a file next to the
+ticket, the same file-signal pattern as the pause switch. A ticket's id is its file name without
+`.json` (`Ticket.id`), and `WaitingEntry.ticketID` carries it to the menu. Choosing an action
+writes `queue/<id>.answer` (`TicketQueue.sendMenuAnswer`) holding `show`, `deny` or `chat` and a
+newline, atomically like a ticket (a dotfile temp in the same directory, then `rename`), and only
+while `<id>.json` exists; an answer for a request that has already gone writes nothing and logs
+`companion: request <id> was already gone`. A second choice before the hook reads the first
+replaces it. The hook that owns the ticket checks for the file in the 250 ms polls it already
+runs wherever it has a ticket: each `waitForTurn` poll, and each `DisplayWatch` tick while queued,
+waiting for idle or shown (`takeMenuAnswer`). It reads the file and deletes it, so an answer acts
+once. Content that is not exactly one of the three words (surrounding whitespace aside) is deleted
+and ignored, and so is an answer the request is not offered, logged
+`answered from the menu: <answer>, not offered for this request`. Before `enqueue` there is
+nothing to answer: the grace period and a checkpoint's wait for approvals run before the ticket
+exists, and the menu lists only tickets. The abandon checks run first on every poll, so a request
+resolved in the chat, paused or due for its timeout hand-back in the same tick ends that way.
+
+**Deny and Answer in Chat** finish the request exactly as the panel's buttons do. `deny` is
+`ApprovalOutcome.deny(reason: "", interrupt: false)`, so the agent gets `"Denied in the approval
+panel."` and never Deny & stop; `chat` is `.noDecision`. The hook logs
+`answered from the menu: deny` (or `chat`), then the usual `outcome: …` line, records the decision
+in the history as the panel would (`DecisionAnswer.answer(for:checkpointChoice:isCheckpoint:)`),
+removes its ticket and exits. A panel on screen hands off to the next in line first, like any
+answer, then closes; its main thread is blocked in the ready wait meanwhile, so no key or click
+reaches it, as with a timeout hand-back. A request still queued or waiting for idle never shows.
+
+**Show Now** moves the request to the front, but never ahead of a panel already on screen:
+
+- The hook reads the other tickets' `Countersign.display` state, the check the test panel uses
+  (`TicketQueue.showNow(_:isOnScreen:)`). If one of them has a panel on screen, the request goes
+  right behind it and becomes next in line (`show now: next after the panel on screen`), and
+  chains through warm standby when that panel is answered. Otherwise it goes to the very front
+  (`show now: moved to the front`) and skips the idle gate the next time it would wait for it.
+  Quiet time still holds it, as it holds every panel. A request already on screen ignores `show`
+  (`answered from the menu: show, already on screen`).
+- The new place is stored in the ticket, `TicketContent.menuPosition`, which the owning process
+  rewrites atomically as ever, so every process computes the same order from a listing. A place
+  (`Ticket.position`, a `QueuePosition`) is a list of numbers compared element by element:
+  `[timestamp, pid]` in arrival order, `[0, max − t]` at the front, and the on-screen ticket's
+  place followed by `max − t` right behind it, where `t` is the realtime nanoseconds of the Show
+  Now. The listing sorts by place, then timestamp and pid. So the newest Show Now wins, at the
+  front and right behind a panel on screen alike. A ticket without the key, such as one written by
+  another build, keeps its arrival place.
+- A process that holds the lease while waiting for idle has no panel on screen, and must not keep
+  a request shown from the menu waiting. On each tick in that state it checks
+  `isOvertakenFromMenu`: the head of the listing is another ticket with a menu place. If so it
+  releases the lease, keeps its ticket, goes back to queued with warm standby, and logs
+  `gave way to a request shown from the menu`. Only a menu place triggers this, so an older
+  ticket that reappears ahead (see "What a listing ignores and repairs") still takes no lease
+  away. The removal-order invariant still holds: the lock is free only while the head, the ticket
+  shown from the menu, is trying to take it.
+- Skipping the idle gate happens once: it ends when the panel is displayed, so after a step-aside
+  or a snooze the request goes through the gate like any panel. A request placed behind a panel on
+  screen never skips it: when that panel steps aside instead of being answered, the request waits
+  for the gate, as "What never chains" above describes.
+
+**Clean-up.** `remove(_:)` deletes the answer file with the ticket. A listing deletes every
+`<id>.answer` whose `<id>.json` is gone, including the tickets of dead processes it has just
+pruned. It checks for the ticket file itself rather than trusting the listing's snapshot, since
+`readdir` may miss a file created while it runs, so the answer of a live ticket is never deleted.
+A hook killed by a signal, or an answer written just after its hook finished, leaves nothing
+behind past the next listing.
 
 ## Checkpoint tickets
 

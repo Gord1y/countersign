@@ -147,9 +147,7 @@ public struct QueueHandoffChannel: Sendable, Equatable {
   public let displayName: String
 
   public init(ticket: Ticket) {
-    let stem =
-      ticket.fileName.hasSuffix(Ticket.fileSuffix)
-      ? String(ticket.fileName.dropLast(Ticket.fileSuffix.count)) : ticket.fileName
+    let stem = ticket.id
     requestName = "Countersign.handoff.\(stem)"
     readyName = "Countersign.ready.\(stem)"
     preparingName = "Countersign.preparing.\(stem)"

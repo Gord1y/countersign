@@ -356,7 +356,10 @@ holds off in a `waitingForIdle` state after the lease is acquired instead of sho
 right away. Each 250 ms tick asks `ActivityGate.isIdle(secondsSinceLastInput:modifiersHeld:)`,
 fed by the `SystemActivity` that `DisplayWatch` owns. Only once idle does a `PanelController` get
 created and shown, moving the state to `shown(controller:)`. Every other queued request waits for
-the same idle gate once it reaches the head in turn.
+the same idle gate once it reaches the head in turn. The one exception is a request moved to the
+front with Show Now from the menu bar while no panel is on screen: the person has just asked for
+it, so it skips the gate once, until it is displayed, and quiet time still holds it (see
+"Answering from the menu bar" in [queue.md](queue.md)).
 
 Every kind of input counts as activity:
 
@@ -836,7 +839,8 @@ The waiting chip reads just "+N", not "+N waiting" — the one-row header needs 
 the word does — and what is actually waiting is listed in its dropdown. `WaitingChipView` (`WaitingListView.swift`) wraps the same `Chip` and adds a
 read-only dropdown that lists it: host, project, tool, and the subagent (its task description,
 falling back to its agent type, `TicketSummary.agentLabel`, which the menu-bar companion's pending
-list reuses) when the ticket has one, oldest first — one row per `WaitingEntry`
+list reuses) when the ticket has one, in queue order (oldest first unless a Show Now from the menu
+bar moved one) — one row per `WaitingEntry`
 in `PanelModel.waitingEntries`, the same array the chip's own count comes from (see "Listing
 waiters, not just counting them" in [queue.md](queue.md)). An entry whose ticket could not be
 decoded still gets a row, "Unknown request", rather than vanishing from the list: the count and the
