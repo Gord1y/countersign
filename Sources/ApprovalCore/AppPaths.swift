@@ -51,6 +51,10 @@ public struct AppPaths: Sendable, Equatable {
     supportDirectory.appendingPathComponent("context")
   }
 
+  public var waitingDirectory: URL {
+    supportDirectory.appendingPathComponent("waiting")
+  }
+
   public var displayLockFile: URL {
     queueDirectory.appendingPathComponent("display.lock")
   }

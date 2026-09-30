@@ -17,11 +17,6 @@ enum HookRunner {
       exit(0)
     }
 
-    if options.event == .waiting {
-      log.write("waiting: \(options.host.rawValue) not handled yet")
-      exit(0)
-    }
-
     let (configFile, configLogLines) = ConfigFileLoader.load(
       paths: paths, soundNames: SystemSounds.installedNames)
     for line in configLogLines {
@@ -30,6 +25,13 @@ enum HookRunner {
     let settings = Settings.resolve(file: configFile, host: options.host)
 
     let input = FileHandle.standardInput.readDataToEndOfFile()
+
+    if options.event == .waiting {
+      WaitingRecorder.recordTurnEnded(
+        input: input, host: options.host, settings: settings, paths: paths, log: log)
+    }
+
+    WaitingRecorder.clearRecord(input: input, host: options.host, paths: paths, log: log)
 
     if PauseSwitch(file: paths.pauseFile).isPaused {
       log.write("paused")
@@ -92,6 +94,8 @@ enum HookRunner {
   ) -> Never {
     let clock = ContinuousClock()
     let host = request.host
+    let waitingHandBack = WaitingHandBack(
+      request: request, mode: mode, settings: settings, hostApp: hostApp, paths: paths, log: log)
     let watcher =
       mode.followsChat
       ? ResolutionWatcher(request: request, sessionsDirectory: paths.claudeSessionsDirectory)
@@ -124,7 +128,7 @@ enum HookRunner {
         exit(0)
       }
       if handBackIsDue() {
-        handBack(host: host, log: log)
+        handBack(host: host, log: log, waiting: waitingHandBack)
       }
       guard clock.now < graceDeadline else { break }
       Thread.sleep(forTimeInterval: 0.25)
@@ -187,12 +191,15 @@ enum HookRunner {
             for: menuOutcome, checkpointChoice: nil, isCheckpoint: false),
           history: DecisionHistory(paths: paths), log: log)
         queue.remove(ticket)
+        if menuOutcome == .noDecision {
+          waitingHandBack.record()
+        }
         exit(0)
       }
       let reason = abandonReason()
       queue.remove(ticket)
       if reason == nil, handBackIsDue() {
-        handBack(host: host, log: log)
+        handBack(host: host, log: log, waiting: waitingHandBack)
       }
       log.write("resolved while queued: \(reason ?? "unknown")")
       if !mode.isTest, let reason, reason != "paused" {
@@ -213,7 +220,8 @@ enum HookRunner {
       subagentChain: subagentChain, waitingEntries: initialWaitingEntries,
       sessionsDirectory: paths.claudeSessionsDirectory, history: DecisionHistory(paths: paths),
       hostApp: hostApp, checkpoint: checkpoint, showsWithoutIdle: showsWithoutIdle,
-      abandonReason: abandonReason, handBackIsDue: handBackIsDue)
+      waitingHandBack: waitingHandBack, abandonReason: abandonReason,
+      handBackIsDue: handBackIsDue)
     let timer = Timer(
       timeInterval: 0.25, target: displayWatch, selector: #selector(DisplayWatch.tick),
       userInfo: nil, repeats: true)
@@ -287,9 +295,12 @@ enum HookRunner {
     FileHandle.standardOutput.write(Data("\n".utf8))
   }
 
-  private static func handBack(host: ApprovalCore.Host, log: EventLog) -> Never {
+  private static func handBack(
+    host: ApprovalCore.Host, log: EventLog, waiting: WaitingHandBack
+  ) -> Never {
     writeReply(.noDecision, host: host)
     log.write(TimeoutHandBack.logLine(for: host))
+    waiting.record()
     exit(0)
   }
 
@@ -350,6 +361,7 @@ private final class DisplayWatch: NSObject {
   private let history: DecisionHistory
   private let hostApp: HostApp?
   private let checkpoint: ContextCheckpointSession?
+  private let waitingHandBack: WaitingHandBack
   private var checkpointChoice: ContextCheckpointChoice?
   private var lease: DisplayLease?
   private var state: State
@@ -372,6 +384,7 @@ private final class DisplayWatch: NSObject {
     waitingEntries: [WaitingEntry], sessionsDirectory: URL, history: DecisionHistory,
     hostApp: HostApp?,
     checkpoint: ContextCheckpointSession?, showsWithoutIdle: Bool,
+    waitingHandBack: WaitingHandBack,
     abandonReason: @escaping () -> String?, handBackIsDue: @escaping () -> Bool
   ) {
     self.app = app
@@ -392,6 +405,7 @@ private final class DisplayWatch: NSObject {
     self.history = history
     self.hostApp = hostApp
     self.checkpoint = checkpoint
+    self.waitingHandBack = waitingHandBack
     self.abandonReason = abandonReason
     self.handBackIsDue = handBackIsDue
     self.state = lease == nil ? .queued : .waitingForIdle
@@ -618,6 +632,7 @@ private final class DisplayWatch: NSObject {
     discardPreparedPanel("handed off")
     queue.remove(ticket)
     lease?.release()
+    waitingHandBack.record()
     exit(0)
   }
 
@@ -662,6 +677,7 @@ private final class DisplayWatch: NSObject {
     }
     queue.remove(ticket)
     lease?.release()
+    waitingHandBack.record()
     exit(0)
   }
 
@@ -692,6 +708,9 @@ private final class DisplayWatch: NSObject {
     queue.remove(ticket)
     lease?.release()
     lease = nil
+    if outcome == .noDecision {
+      waitingHandBack.record()
+    }
     guard case .test(let kind) = mode, let panelFrame else { exit(0) }
     showResult(of: outcome, kind: kind, around: panelFrame)
   }

@@ -53,6 +53,10 @@ would appear, not when the request arrives (see "Handing off to the asking app" 
   gets the same treatment: a panel only for commands and MCP tools, `ask` for "Answer in chat" and a
   minute before its timeout. It still asks the person itself after an Approve until it fixes
   google-antigravity/antigravity-cli#1053. Details in [hosts](hosts.md).
+- **Waiting notices.** When an agent's turn ends, or a request goes back to its own prompt, the
+  hook writes a record and starts a detached `countersign notice` process. After a few minutes
+  away from the agent's app, it shows a small corner card that never takes focus, and closes when
+  the agent resumes. Details in [notice](notice.md).
 
 The app icon is outside this flow; how it was drawn, why its accent is amber and how the panel's
 header draws the same mark in code are in [icon](icon.md).

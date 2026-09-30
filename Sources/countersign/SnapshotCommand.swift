@@ -21,13 +21,17 @@ enum SnapshotCommand {
     + " [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --tour 1|2|3|4 [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --menu-bar-icon active|paused|quiet"
-    + " [--appearance light|dark] -o <out.png>"
+    + " [--appearance light|dark] -o <out.png>\n"
+    + "       countersign snapshot --waiting-notice claude|codex|cursor|antigravity"
+    + " [--project <name>] [--no-app] [--appearance light|dark] -o <out.png>"
   private static let quietSnapshotMinutes: TimeInterval = 15
   private static let settingsFlag = "--settings"
   private static let quitPromptFlag = "--quit-prompt"
   private static let updateAnswerFlag = "--update-answer"
   private static let tourFlag = "--tour"
   private static let menuBarIconFlag = "--menu-bar-icon"
+  private static let waitingNoticeFlag = "--waiting-notice"
+  private static let waitingNoticeSampleProject = "shop-api"
   private static let menuBarIconStripPadding: CGFloat = 6
   private static let scale: CGFloat = 2
   private static let settleTurnLimit = 50
@@ -49,6 +53,9 @@ enum SnapshotCommand {
     }
     if arguments.contains(menuBarIconFlag) {
       runMenuBarIcon(arguments)
+    }
+    if arguments.contains(waitingNoticeFlag) {
+      runWaitingNotice(arguments)
     }
     guard let options = parse(arguments) else { CommandLineOutput.fail(usage) }
 
@@ -303,6 +310,26 @@ enum SnapshotCommand {
     hostingView.setFrameSize(size)
     guard let png = render(hostingView, background: .windowBackgroundColor) else {
       CommandLineOutput.fail("error: could not render the tour")
+    }
+    write(png, to: options.outputPath)
+  }
+
+  @MainActor
+  private static func runWaitingNotice(_ arguments: [String]) -> Never {
+    guard let options = parseWaitingNotice(arguments) else { CommandLineOutput.fail(usage) }
+
+    NSApplication.shared.setActivationPolicy(.prohibited)
+
+    let model = WaitingNoticeModel(
+      hostName: options.host.displayName, projectName: options.project,
+      offersGoThere: options.offersGoThere)
+    let hostingView = NSHostingView(
+      rootView: WaitingNoticeView(model: model).environment(\.panelSurface, .solid))
+    hostingView.appearance = options.appearance?.appearance
+    let height = settledHeight(of: hostingView, maxHeight: .greatestFiniteMagnitude)
+    hostingView.setFrameSize(NSSize(width: WaitingNoticeView.width, height: height))
+    guard let png = render(hostingView) else {
+      CommandLineOutput.fail("error: could not render the waiting notice")
     }
     write(png, to: options.outputPath)
   }
@@ -689,6 +716,57 @@ enum SnapshotCommand {
 
     guard let kind, let outputPath else { return nil }
     return UpdateAnswerOptions(kind: kind, outputPath: outputPath, appearance: appearance)
+  }
+
+  private struct WaitingNoticeOptions {
+    let host: ApprovalCore.Host
+    let project: String
+    let offersGoThere: Bool
+    let outputPath: String
+    let appearance: Appearance?
+  }
+
+  private static func parseWaitingNotice(_ arguments: [String]) -> WaitingNoticeOptions? {
+    var host: ApprovalCore.Host?
+    var project = waitingNoticeSampleProject
+    var offersGoThere = true
+    var outputPath: String?
+    var appearance: Appearance?
+    var index = arguments.startIndex
+
+    while index < arguments.count {
+      switch arguments[index] {
+      case waitingNoticeFlag:
+        index += 1
+        guard index < arguments.count, let parsed = ApprovalCore.Host(rawValue: arguments[index])
+        else { return nil }
+        host = parsed
+      case "--project":
+        index += 1
+        guard index < arguments.count, !arguments[index].isEmpty else { return nil }
+        project = arguments[index]
+      case "--no-app":
+        offersGoThere = false
+      case "--appearance":
+        index += 1
+        guard index < arguments.count, let parsed = Appearance(rawValue: arguments[index]) else {
+          return nil
+        }
+        appearance = parsed
+      case "-o":
+        index += 1
+        guard index < arguments.count else { return nil }
+        outputPath = arguments[index]
+      default:
+        return nil
+      }
+      index += 1
+    }
+
+    guard let host, let outputPath else { return nil }
+    return WaitingNoticeOptions(
+      host: host, project: project, offersGoThere: offersGoThere, outputPath: outputPath,
+      appearance: appearance)
   }
 
   private struct TourOptions {

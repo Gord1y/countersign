@@ -1,17 +1,17 @@
 import Darwin
 
-enum ProcessLiveness {
+public enum ProcessLiveness {
   struct Snapshot {
     let startTime: UInt64
     let isZombie: Bool
     let parentPID: Int32
   }
 
-  static func startTime(of pid: Int32) -> UInt64? {
+  public static func startTime(of pid: Int32) -> UInt64? {
     snapshot(of: pid)?.startTime
   }
 
-  static func isAlive(pid: Int32, processStart: UInt64?) -> Bool {
+  public static func isAlive(pid: Int32, processStart: UInt64?) -> Bool {
     guard pid > 0 else { return false }
     guard kill(pid, 0) == 0 || errno == EPERM else { return false }
     guard let snapshot = snapshot(of: pid) else { return true }

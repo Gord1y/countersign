@@ -148,6 +148,28 @@ the text a person typed never leaves the parser. It returns a `ContextCheckpoint
 `Context checkpoint` and an empty tool input, so the panel and the queue treat it like any other
 request.
 
+## The waiting record's envelope
+
+A waiting entry (`hook --event waiting`, see [notice.md](notice.md)) reads only the envelope each
+host sends with every hook, never a Stop-specific field: only Claude Code's Stop payload is captured
+(`claude-stop.json`), and fields such as `stop_hook_active` wait for the other hosts' captures.
+`WaitingEnvelope.parse(_:host:)` reads, treating an empty string as missing:
+
+| Host | Session id | Project path | Transcript |
+| --- | --- | --- | --- |
+| Claude Code | `session_id` | `cwd` | `transcript_path` |
+| Codex | `session_id` | `cwd` | `transcript_path` (`null` in `codex-bash.json`) |
+| Cursor | `conversation_id`, else `session_id` | `workspace_roots[0]`, else `cwd` | `transcript_path` |
+| Antigravity | `conversationId` | `workspacePaths[0]` | `transcriptPath` |
+
+No session id or no project path means no record. The project name is the path's last component,
+as `ApprovalRequest.projectName` derives it.
+
+Codex keeps each session's transcript at
+`$CODEX_HOME/sessions/YYYY/MM/DD/rollout-<local time>-<session id>.jsonl` (day folder = start day),
+which `CodexRolloutLocator` finds when the payload's `transcript_path` is `null`; see "Codex rollout
+lookup" in [notice.md](notice.md).
+
 ## How suggestion labels are built
 
 `permission_suggestions` entries are structured data meant for a settings file, not for display.

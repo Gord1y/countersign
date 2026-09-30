@@ -15,6 +15,10 @@ public struct SubagentChainLink: Sendable, Equatable {
 public enum SubagentChainReader {
   static let maxDepth = 10
 
+  public static func transcriptPath(mainTranscriptPath: String, agentID: String) -> String {
+    (mainTranscriptPath as NSString).deletingPathExtension + "/subagents/agent-\(agentID).jsonl"
+  }
+
   public static func chain(transcriptPath: String, agentID: String) -> [SubagentChainLink]? {
     let sessionDirectory = URL(
       fileURLWithPath: (transcriptPath as NSString).deletingPathExtension)

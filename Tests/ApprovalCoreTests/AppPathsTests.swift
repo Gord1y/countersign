@@ -18,6 +18,10 @@ import Testing
         == "/Users/dev/Library/Application Support/Countersign/context"
     )
     #expect(
+      paths.waitingDirectory.path
+        == "/Users/dev/Library/Application Support/Countersign/waiting"
+    )
+    #expect(
       paths.displayLockFile.path
         == "/Users/dev/Library/Application Support/Countersign/queue/display.lock"
     )

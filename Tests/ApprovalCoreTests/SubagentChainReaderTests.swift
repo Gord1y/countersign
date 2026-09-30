@@ -281,6 +281,18 @@ private struct ChainFixture {
       SubagentChainReader.chain(transcriptPath: fixture.transcriptPath, agentID: leafID) == nil)
   }
 
+  @Test func theSubagentTranscriptLivesBesideTheMainTranscript() throws {
+    let data = try FixtureLoader.data("claude-bash-subagent")
+    let request = try ClaudeAdapter.parse(data)
+    let mainTranscriptPath = try #require(request.transcriptPath)
+    let agentID = try #require(request.agentID)
+
+    #expect(
+      SubagentChainReader.transcriptPath(mainTranscriptPath: mainTranscriptPath, agentID: agentID)
+        == "/Users/dev/.claude/projects/shop-api/b7e1c2a4-9f3d-4e2a-8c1b-5a6d7e8f9012/subagents/agent-a1b2c3d4.jsonl"
+    )
+  }
+
   @Test func anEmptyParentTranscriptNeverMatchesByAccident() throws {
     let fixture = try ChainFixture()
     defer { fixture.remove() }
