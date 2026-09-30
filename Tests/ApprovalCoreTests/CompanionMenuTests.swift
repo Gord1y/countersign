@@ -32,9 +32,96 @@ import Testing
     _ input: CompanionMenuInput, timeZone: TimeZone = .gmt
   ) -> [CompanionMenuEntry] {
     CompanionMenu.items(for: input, timeZone: timeZone).compactMap { item in
-      guard case .entry(let entry) = item else { return nil }
+      guard case .entry(let entry) = item, entry.title != "Recent Decisions" else { return nil }
       return entry
     }
+  }
+
+  private func decisionsEntry(
+    _ input: CompanionMenuInput, timeZone: TimeZone = .gmt
+  ) throws -> CompanionMenuEntry {
+    let found = CompanionMenu.items(for: input, timeZone: timeZone).compactMap {
+      item -> CompanionMenuEntry? in
+      guard case .entry(let entry) = item, entry.title == "Recent Decisions" else { return nil }
+      return entry
+    }
+    return try #require(found.first)
+  }
+
+  private func decision(
+    _ index: Int, answer: DecisionAnswer, tool: String = "Bash", title: String = "git status"
+  ) -> DecisionHistoryEntry {
+    DecisionHistoryEntry(
+      date: Date(timeIntervalSince1970: TimeInterval(14 * 3600 + 5 * 60 + index)), host: .claude,
+      project: "ai-approval", tool: tool, title: title, answer: answer)
+  }
+
+  @Test func recentDecisionsShowsOneDisabledRowWhenThereIsNoHistory() throws {
+    let entry = try decisionsEntry(input())
+    #expect(entry.isEnabled)
+    #expect(
+      entry.submenu == [.entry(CompanionMenuEntry(title: "No decisions yet", isEnabled: false))])
+  }
+
+  @Test func recentDecisionsListsDisabledRowsThenAClearHistoryAction() throws {
+    var withHistory = input()
+    withHistory.recentDecisions = [
+      decision(0, answer: .approved),
+      decision(1, answer: .denied, tool: "Edit", title: "App.swift"),
+      decision(2, answer: .answeredInChat),
+      decision(3, answer: .resolvedElsewhere),
+      decision(
+        4, answer: .compactAfterStep, tool: "Context checkpoint", title: "Context at 240K"),
+    ]
+    let entry = try decisionsEntry(withHistory)
+    #expect(
+      entry.submenu == [
+        .entry(
+          CompanionMenuEntry(
+            title: "✓ Bash · ai-approval · 14:05 — git status", isEnabled: false)),
+        .entry(
+          CompanionMenuEntry(
+            title: "✕ Edit · ai-approval · 14:05 — App.swift", isEnabled: false)),
+        .entry(
+          CompanionMenuEntry(
+            title: "↩ Bash · ai-approval · 14:05 — git status", isEnabled: false)),
+        .entry(
+          CompanionMenuEntry(
+            title: "↩ Bash · ai-approval · 14:05 — git status", isEnabled: false)),
+        .entry(
+          CompanionMenuEntry(
+            title: "• Context checkpoint · ai-approval · 14:05 — Context at 240K",
+            isEnabled: false)),
+        .separator,
+        .entry(CompanionMenuEntry(title: "Clear History", action: .clearDecisionHistory)),
+      ])
+  }
+
+  @Test func recentDecisionsShowsAtMostTenRows() throws {
+    var withHistory = input()
+    withHistory.recentDecisions = (0..<15).map { decision($0, answer: .approved) }
+    let entry = try decisionsEntry(withHistory)
+    #expect(entry.submenu.count == 12)
+  }
+
+  @Test func everyCheckpointAnswerGetsTheBullet() {
+    for answer in [
+      DecisionAnswer.continued, .compactAfterStep, .handOff, .notThisSession, .dismissed,
+    ] {
+      let title = CompanionMenu.decisionRowTitle(
+        for: decision(0, answer: answer), timeZone: .gmt)
+      #expect(title.hasPrefix("• "))
+    }
+  }
+
+  @Test func recentDecisionsSitsBetweenPendingAndPause() {
+    let titles = CompanionMenu.items(for: input(), timeZone: .gmt).compactMap { item -> String? in
+      guard case .entry(let entry) = item else { return nil }
+      return entry.title
+    }
+    #expect(titles[1] == "No requests pending")
+    #expect(titles[2] == "Recent Decisions")
+    #expect(titles[3] == "Pause Countersign")
   }
 
   private func entry(
@@ -79,6 +166,10 @@ import Testing
       items == [
         .entry(CompanionMenuEntry(title: "Countersign is on", isEnabled: false)),
         .entry(CompanionMenuEntry(title: "No requests pending", isEnabled: false)),
+        .entry(
+          CompanionMenuEntry(
+            title: "Recent Decisions",
+            submenu: [.entry(CompanionMenuEntry(title: "No decisions yet", isEnabled: false))])),
         .separator,
         .entry(CompanionMenuEntry(title: "Pause Countersign", action: .pause)),
         .entry(

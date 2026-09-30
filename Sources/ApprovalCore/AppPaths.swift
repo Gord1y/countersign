@@ -79,6 +79,14 @@ public struct AppPaths: Sendable, Equatable {
     supportDirectory.appendingPathComponent("update-check.json")
   }
 
+  public var decisionHistoryFile: URL {
+    supportDirectory.appendingPathComponent("history.jsonl")
+  }
+
+  public var decisionHistoryLockFile: URL {
+    supportDirectory.appendingPathComponent("history.lock")
+  }
+
   public var logFile: URL {
     logsDirectory.appendingPathComponent("countersign.log")
   }

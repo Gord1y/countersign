@@ -232,6 +232,7 @@ transcripts. See [checkpoints.md](checkpoints.md#the-menu-bar-meter).
 | --- | --- | --- |
 | "Countersign is on", "Paused" or "Quiet until 14:05" | Disabled status line; paused wins over quiet time. The time is local, `HH:mm`, from `TimeOfDayText`, the same formatter `countersign status` uses | reads `paused`, `quiet-until` |
 | "N requests pending" | Submenu listing every live ticket oldest first, read-only. "No requests pending", disabled, when there are none | reads `queue/` |
+| "Recent Decisions" | Submenu of the last ten `DecisionHistory` entries, newest first, disabled rows like `✓ Bash · ai-approval · 14:05 — git status`, then a separator and "Clear History" (`DecisionHistory.clear()`). One disabled "No decisions yet" row when empty | reads and clears `history.jsonl` |
 | "Pause Countersign" / "Resume Countersign" | `StateSwitches.pause()` ends quiet time then pauses, exactly `countersign pause`; "Resume Countersign" is `PauseSwitch.resume()`, exactly `countersign resume` | writes `paused`, `quiet-until` |
 | "Snooze" | Disabled with no submenu while paused; while quiet time is active, replaced by a single "End Quiet Time (until 14:05)" entry (`QuietTime.clear()`); otherwise quiet time for each preset (`StateSwitches.snooze(until:)`) | writes `quiet-until` |
 | "Settings…" (⌘,) | Opens the settings window, or brings it to the front | through the window |
@@ -241,6 +242,26 @@ transcripts. See [checkpoints.md](checkpoints.md#the-menu-bar-meter).
 | "Support the Developer" | "Sponsor on GitHub" opens `https://github.com/sponsors/Gord1y`, "Buy Me a Coffee" opens `https://buymeacoffee.com/gord1y` | none |
 | "Countersign 0.1.0" | Disabled, from `CountersignVersion.current` | none |
 | "Quit Countersign" (⌘Q) | Asks whether panels keep appearing, then quits the companion, and only the companion (see "Quit" below) | may write `quitBehavior`, `paused` |
+
+`ApprovalCore.DecisionHistory` is the store behind "Recent Decisions": `history.jsonl` in the
+support directory, one `DecisionHistoryEntry` per line (`date`, `host`, `project`, `tool`,
+`title`, `answer`), written by the hook process, read by the companion. A file was chosen over
+the log because the log rotates by size and is free text, and over one file per entry because the
+menu wants the newest ten in one read. The hook that finishes a real panel appends its own line
+(`DecisionAnswer.answer(for:checkpointChoice:isCheckpoint:)` maps the outcome), and so does a hook
+that stops because the chat resolved its request while it was queued, waiting for idle or shown
+(`resolvedElsewhere`); a pause ending a request is not a decision and writes nothing, and test
+panels never write. Several hooks can finish at once, so `append` takes an exclusive `flock` on
+`history.lock` (retrying for about two seconds, since `ExclusiveFileLock.acquire` never blocks),
+rewrites the file atomically, and trims to the last 200 lines only once it passes 250, so most
+appends stay a plain append-and-replace of a small file instead of a trim every time. `recent`
+skips any line that does not decode, so a hand-edited or half-written file costs a row, never the
+menu. A failed append is logged as `history: failed to record` and ignored; the reply to the
+agent has already been written by then, so it can never change an answer. The `title` is the one
+place a fragment of the request is kept: `DecisionTitle` reduces it to a command's first line, a
+file name, an MCP tool name or a question header, cut to 80 characters, so a multi-line script, a
+diff or an answer never lands on disk. The menu reads the file when it opens, like the context
+meter, and never refreshes it while closed.
 
 `TimeOfDayText` pins the `en_US_POSIX` locale, Apple's advice for fixed-format dates, so the
 person's own locale and 12/24-hour preference never rewrite `HH:mm`; `countersign status` and

@@ -44,6 +44,7 @@ public enum CompanionMenuAction: Sendable, Equatable {
   case reportProblem
   case checkForUpdatesNow
   case copyUpgradeCommand(String)
+  case clearDecisionHistory
   case quit
 }
 
@@ -106,6 +107,7 @@ public struct CompanionMenuInput: Sendable, Equatable {
   public var updateAvailable: UpdateAvailability?
   public var manualCheckResult: ManualUpdateCheckResult?
   public var contextRows: [ContextMeterRow]
+  public var recentDecisions: [DecisionHistoryEntry]
 
   public init(
     isPaused: Bool,
@@ -118,9 +120,11 @@ public struct CompanionMenuInput: Sendable, Equatable {
     version: String = CountersignVersion.current,
     updateAvailable: UpdateAvailability? = nil,
     manualCheckResult: ManualUpdateCheckResult? = nil,
-    contextRows: [ContextMeterRow] = []
+    contextRows: [ContextMeterRow] = [],
+    recentDecisions: [DecisionHistoryEntry] = []
   ) {
     self.contextRows = contextRows
+    self.recentDecisions = recentDecisions
     self.isPaused = isPaused
     self.quietUntil = quietUntil
     self.pendingEntries = pendingEntries
@@ -160,6 +164,8 @@ public enum CompanionMenu {
     if !input.contextRows.isEmpty {
       items.append(.entry(contextEntry(input.contextRows)))
     }
+    items.append(
+      .entry(decisionsEntry(input.recentDecisions, timeZone: timeZone)))
     items += [
       .separator,
       .entry(pauseEntry(isPaused: input.isPaused)),
@@ -225,6 +231,44 @@ public enum CompanionMenu {
     CompanionMenuEntry(
       title: "Context in live sessions",
       submenu: rows.map { .entry(CompanionMenuEntry(title: $0.title, isEnabled: false)) })
+  }
+
+  public static let recentDecisionLimit = 10
+
+  public static func decisionRowTitle(
+    for entry: DecisionHistoryEntry, timeZone: TimeZone = .current
+  ) -> String {
+    let time = TimeOfDayText.describe(entry.date, timeZone: timeZone)
+    return
+      "\(decisionGlyph(entry.answer)) \(entry.tool) · \(entry.project) · \(time) — \(entry.title)"
+  }
+
+  private static func decisionGlyph(_ answer: DecisionAnswer) -> String {
+    switch answer {
+    case .approved: return "✓"
+    case .denied: return "✕"
+    case .answeredInChat, .resolvedElsewhere: return "↩"
+    case .continued, .compactAfterStep, .handOff, .notThisSession, .dismissed: return "•"
+    }
+  }
+
+  private static func decisionsEntry(_ entries: [DecisionHistoryEntry], timeZone: TimeZone)
+    -> CompanionMenuEntry
+  {
+    guard !entries.isEmpty else {
+      return CompanionMenuEntry(
+        title: "Recent Decisions",
+        submenu: [.entry(CompanionMenuEntry(title: "No decisions yet", isEnabled: false))])
+    }
+    var submenu: [CompanionMenuItem] = entries.prefix(recentDecisionLimit).map {
+      .entry(
+        CompanionMenuEntry(
+          title: decisionRowTitle(for: $0, timeZone: timeZone), isEnabled: false))
+    }
+    submenu.append(.separator)
+    submenu.append(
+      .entry(CompanionMenuEntry(title: "Clear History", action: .clearDecisionHistory)))
+    return CompanionMenuEntry(title: "Recent Decisions", submenu: submenu)
   }
 
   private static func pendingRows(_ entries: [WaitingEntry]) -> [CompanionMenuItem] {

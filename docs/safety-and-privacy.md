@@ -59,6 +59,7 @@ None of this leaves your Mac, and none of it is written to the log.
 | Config file | `~/.config/countersign/config.json` (or `$XDG_CONFIG_HOME/countersign/config.json`) |
 | Queue and display lock | `~/Library/Application Support/Countersign/queue/` |
 | Context checkpoint state, one small file per Claude Code session | ~/Library/Application Support/Countersign/context/ |
+| Decision history, the last 200 answers | `~/Library/Application Support/Countersign/history.jsonl` |
 | Pause switch | `~/Library/Application Support/Countersign/paused` |
 | Quiet time | `~/Library/Application Support/Countersign/quiet-until` |
 | Menu-bar app lock | `~/Library/Application Support/Countersign/companion.lock` |
@@ -77,6 +78,17 @@ is written only when you change a preference in
 Settings or click its **Open in Editor**, and by **Don't ask again** in the menu-bar app's
 [quit question](menu-bar-app.md#quit). The first-run tour's empty marker file is written when you
 skip or finish it, so it won't show again on its own; it holds no content, only its own existence.
+
+The decision history is a JSON Lines file that feeds the menu-bar app's **Recent Decisions**
+submenu. Each line holds the time, the agent, the project, the tool, your answer (approved, denied,
+answered in the chat, resolved elsewhere, or a context checkpoint choice) and a one-line title:
+the first line of a command, the name of a file, an MCP tool's name, a question's header, `Plan`,
+or `Context at 240K`, cut to 80 characters. It never holds a whole command, a file's contents, a
+question's answer or a deny reason. A panel writes its line when it finishes, and a request that is
+resolved in the chat while it waits or is shown gets one too; test panels never write. It keeps
+the last 200 lines: once the file passes 250, it is trimmed to 200. **Clear History** in the menu
+deletes them all, and so does removing the file. A failed write is logged and never affects the
+answer.
 
 The log records metadata only: time, agent, tool name, project, subagent type, the app the request
 came from, and what became of the request. Commands, file contents, answers and deny reasons are never written. When it passes

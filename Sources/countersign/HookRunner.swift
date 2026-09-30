@@ -159,6 +159,11 @@ enum HookRunner {
         handBack(host: host, log: log)
       }
       log.write("resolved while queued: \(reason ?? "unknown")")
+      if !mode.isTest, let reason, reason != "paused" {
+        recordDecision(
+          request: request, answer: .resolvedElsewhere,
+          history: DecisionHistory(paths: paths), log: log)
+      }
       exit(0)
     }
 
@@ -170,7 +175,7 @@ enum HookRunner {
       app: app, request: request, mode: mode, queue: queue, ticket: ticket, lease: lease,
       log: log, activityGate: activityGate, quietTime: quietTime, settings: settings,
       subagentChain: subagentChain, waitingEntries: initialWaitingEntries,
-      sessionsDirectory: paths.claudeSessionsDirectory,
+      sessionsDirectory: paths.claudeSessionsDirectory, history: DecisionHistory(paths: paths),
       hostApp: hostApp, checkpoint: checkpoint, abandonReason: abandonReason,
       handBackIsDue: handBackIsDue)
     let timer = Timer(
@@ -196,6 +201,16 @@ enum HookRunner {
         exit(0)
       }
       Thread.sleep(forTimeInterval: 0.25)
+    }
+  }
+
+  static func recordDecision(
+    request: ApprovalRequest, answer: DecisionAnswer, history: DecisionHistory, log: EventLog
+  ) {
+    do {
+      try history.append(DecisionHistoryEntry(request: request, answer: answer))
+    } catch {
+      log.write("history: failed to record: \(error)")
     }
   }
 
@@ -264,6 +279,7 @@ private final class DisplayWatch: NSObject {
   private let abandonReason: () -> String?
   private let handBackIsDue: () -> Bool
   private let sessionsDirectory: URL
+  private let history: DecisionHistory
   private let hostApp: HostApp?
   private let checkpoint: ContextCheckpointSession?
   private var checkpointChoice: ContextCheckpointChoice?
@@ -285,7 +301,8 @@ private final class DisplayWatch: NSObject {
     app: PanelApplication, request: ApprovalRequest, mode: PanelRunMode, queue: TicketQueue,
     ticket: Ticket, lease: DisplayLease?, log: EventLog, activityGate: ActivityGate,
     quietTime: QuietTime, settings: Settings, subagentChain: [SubagentChainLink]?,
-    waitingEntries: [WaitingEntry], sessionsDirectory: URL, hostApp: HostApp?,
+    waitingEntries: [WaitingEntry], sessionsDirectory: URL, history: DecisionHistory,
+    hostApp: HostApp?,
     checkpoint: ContextCheckpointSession?,
     abandonReason: @escaping () -> String?, handBackIsDue: @escaping () -> Bool
   ) {
@@ -303,6 +320,7 @@ private final class DisplayWatch: NSObject {
     self.subagentChain = subagentChain
     self.lastWaitingEntries = waitingEntries
     self.sessionsDirectory = sessionsDirectory
+    self.history = history
     self.hostApp = hostApp
     self.checkpoint = checkpoint
     self.abandonReason = abandonReason
@@ -395,6 +413,11 @@ private final class DisplayWatch: NSObject {
       sessionIdle: checkpoint?.isIdle() ?? false,
       onCheckpointChoice: checkpoint == nil && !mode.isTest
         ? nil : { [weak self] choice in self?.handleCheckpointChoice(choice) })
+  }
+
+  private var isCheckpoint: Bool {
+    guard case .contextCheckpoint = request.kind else { return false }
+    return true
   }
 
   private func handleCheckpointChoice(_ choice: ContextCheckpointChoice) {
@@ -504,6 +527,10 @@ private final class DisplayWatch: NSObject {
     queue.remove(ticket)
     lease?.release()
     log.write("\(wording): \(reason)")
+    if !mode.isTest, reason != "paused" {
+      HookRunner.recordDecision(
+        request: request, answer: .resolvedElsewhere, history: history, log: log)
+    }
     exit(0)
   }
 
@@ -535,6 +562,13 @@ private final class DisplayWatch: NSObject {
       log.write("outcome: context \(checkpointChoice?.rawValue ?? "dismissed")")
     case .test(let kind):
       log.write(TestPanelLog.outcome(outcome, kind: kind))
+    }
+    if !mode.isTest {
+      HookRunner.recordDecision(
+        request: request,
+        answer: DecisionAnswer.answer(
+          for: outcome, checkpointChoice: checkpointChoice, isCheckpoint: isCheckpoint),
+        history: history, log: log)
     }
     var panelFrame: NSRect?
     if case .shown(let controller) = state {

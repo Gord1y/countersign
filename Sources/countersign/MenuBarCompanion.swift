@@ -185,7 +185,9 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
       launchAtLogin: launchAtLoginState(),
       updateAvailable: currentUpdateAvailability(),
       manualCheckResult: manualCheckResult,
-      contextRows: contextRows)
+      contextRows: contextRows,
+      recentDecisions: DecisionHistory(paths: paths).recent(
+        limit: CompanionMenu.recentDecisionLimit))
   }
 
   private func loadConfigFile() -> ConfigFile {
@@ -352,6 +354,10 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
       performUpdateCheck(manual: true)
     case .copyUpgradeCommand(let command):
       copyToPasteboard(command)
+    case .clearDecisionHistory:
+      attempt("cleared the decision history", failure: "failed to clear the decision history") {
+        try DecisionHistory(paths: paths).clear()
+      }
     case .quit:
       quitFromMenu()
     }
