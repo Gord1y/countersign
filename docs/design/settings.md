@@ -159,6 +159,15 @@ and the window opens at the default size, centered, so it never opens too small 
 `SettingsWindowController` restores and checks the frame first and sets the autosave name last, so
 setting the name cannot bring back a frame that was just rejected.
 
+The check at open is not enough on its own: a display unplugged or rearranged while the window is
+open can leave it on a screen that is gone or partly off every screen. So each time the window is
+shown, and on every `NSApplication.didChangeScreenParametersNotification` while it is open, the
+controller runs its frame through `ScreenPlacement` (see "Centered on the mouse's display, over a
+blurred backdrop" in [panel.md](panel.md)): the window moves onto the screen holding its centre,
+else the one it overlaps most, else the first, and is clamped into that screen's visible frame. It
+keeps its size unless it is larger than that visible frame, and the frame autosave records where it
+ends up.
+
 ### Groups and layout
 
 The header's pause and snooze controls (see "Status" below) sit at the top, outside every group:

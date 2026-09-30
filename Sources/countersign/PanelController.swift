@@ -108,7 +108,7 @@ final class PanelController {
   private let backdrop: BackdropWindow?
   private let model: PanelModel
   private let hostingController: NSHostingController<PanelRootView>
-  private let targetScreen: NSScreen?
+  private var targetScreen: NSScreen?
   private var armTask: Task<Void, Never>?
   private let onStepAside: (@MainActor (StepAsideReason) -> Void)?
   private let isAfterHandoff: Bool
@@ -245,6 +245,19 @@ final class PanelController {
     stopResponding()
     panel.orderOut(nil)
     backdrop?.orderOut(nil)
+  }
+
+  func followScreenChange() {
+    guard let placed = NSScreen.placement(for: panel.frame) else { return }
+    let screen = placed.screen
+    let maxHeight = Self.maxContentHeight(screen: screen)
+    targetScreen = screen
+    hostingController.rootView = PanelRootView(
+      model: model, width: Self.panelWidth(screen: screen), maxHeight: maxHeight)
+    backdrop?.cover(screen)
+    lastAppliedHeight = nil
+    topEdgeY = nil
+    applyHeight(min(panel.frame.height, maxHeight))
   }
 
   private func announcePresentation() {

@@ -328,6 +328,7 @@ private final class DisplayWatch: NSObject {
     self.handBackIsDue = handBackIsDue
     self.state = lease == nil ? .queued : .waitingForIdle
     super.init()
+    observeScreenChanges()
     if lease == nil {
       log.write("next in line")
       app.afterLaunch { [weak self] in self?.startWarmStandby() }
@@ -615,7 +616,6 @@ private final class DisplayWatch: NSObject {
     guard case .queued = state else { return }
     preparation = QueueHandoffChannel(ticket: ticket).publishPreparation()
     listenForHandoff()
-    observeScreenChanges()
     preparePanel()
   }
 
@@ -627,19 +627,26 @@ private final class DisplayWatch: NSObject {
   }
 
   private func observeScreenChanges() {
-    guard case .queued = state, screenObserver == nil else { return }
+    guard screenObserver == nil else { return }
     screenObserver = NotificationCenter.default.addObserver(
       forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
     ) { [weak self] _ in
-      MainActor.assumeIsolated { self?.prepareAgainForNewScreens() }
+      MainActor.assumeIsolated { self?.followScreenChange() }
     }
   }
 
-  private func stopObservingScreenChanges() {
-    if let screenObserver {
-      NotificationCenter.default.removeObserver(screenObserver)
+  private func followScreenChange() {
+    switch state {
+    case .queued:
+      prepareAgainForNewScreens()
+    case .waitingForIdle:
+      break
+    case .shown(let controller):
+      controller.followScreenChange()
+      publishShownDisplay(of: controller)
+    case .showingResult(let card):
+      card.followScreenChange()
     }
-    screenObserver = nil
   }
 
   private func preparePanel() {
@@ -756,7 +763,6 @@ private final class DisplayWatch: NSObject {
     handoffListener = nil
     preparation?.cancel()
     preparation = nil
-    stopObservingScreenChanges()
     guard let handedOff = pendingHandoff,
       handedOff.handoff.isFresh(at: ProcessInfo.processInfo.systemUptime),
       !quietTimeHoldsPanels()

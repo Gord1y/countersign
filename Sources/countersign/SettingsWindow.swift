@@ -53,6 +53,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
   private let window: NSWindow
   private let onClose: @MainActor () -> Void
   private var statusTimer: Timer?
+  private var screenObserver: (any NSObjectProtocol)?
   private var tourWindow: NSWindow?
   private var tourHostingController: NSHostingController<FirstRunTourView>?
 
@@ -102,7 +103,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
   func show(forceTour: Bool = false) {
     model.beginVisit()
     NSApplication.shared.setActivationPolicy(.regular)
-    Self.configurePlaceholderIconIfNeeded()
+    keepOnUsableScreen()
+    observeScreenChanges()
+    Self.configurePlaceholderIconIfNeeded(
+      scale: (window.screen ?? NSScreen.main)?.backingScaleFactor ?? 2)
     window.makeKeyAndOrderFront(nil)
     window.orderFrontRegardless()
     NSApplication.shared.activate()
@@ -172,18 +176,37 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     model.commitEditing()
     statusTimer?.invalidate()
     statusTimer = nil
+    if let screenObserver {
+      NotificationCenter.default.removeObserver(screenObserver)
+    }
+    screenObserver = nil
     NSApplication.shared.setActivationPolicy(.accessory)
     onClose()
   }
 
   private static var didConfigurePlaceholderIcon = false
 
-  private static func configurePlaceholderIconIfNeeded() {
+  private func observeScreenChanges() {
+    guard screenObserver == nil else { return }
+    screenObserver = NotificationCenter.default.addObserver(
+      forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
+    ) { [weak self] _ in
+      MainActor.assumeIsolated { self?.keepOnUsableScreen() }
+    }
+  }
+
+  private func keepOnUsableScreen() {
+    guard let placed = NSScreen.placement(for: window.frame), placed.frame != window.frame
+    else { return }
+    window.setFrame(placed.frame, display: true)
+  }
+
+  private static func configurePlaceholderIconIfNeeded(scale: CGFloat) {
     guard !didConfigurePlaceholderIcon else { return }
     didConfigurePlaceholderIcon = true
     guard Bundle.main.object(forInfoDictionaryKey: "CFBundleIconFile") == nil else { return }
     let renderer = ImageRenderer(content: CountersignMark().frame(width: 256, height: 256))
-    renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
+    renderer.scale = scale
     guard let image = renderer.nsImage else { return }
     NSApplication.shared.applicationIconImage = image
   }

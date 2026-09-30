@@ -58,9 +58,9 @@ switches the app to `NSApplication.ActivationPolicy.regular` while its window is
 `.accessory` when it closes, so Settings gets a Dock icon and a ⌘-Tab entry for exactly as long as
 it needs one. This applies whether Settings was opened from the menu-bar companion or from the bare
 `countersign settings` CLI binary; the CLI binary has no bundle and so no `CFBundleIconFile`, which
-is why `SettingsWindowController` also renders `CountersignMark` at 256pt into
-`NSApplication.applicationIconImage` the first time it needs to show a Dock icon, rather than
-leaving the Dock to fall back to a generic one.
+is why `SettingsWindowController` also renders `CountersignMark` at 256pt, at the backing scale of
+the screen the Settings window is on, into `NSApplication.applicationIconImage` the first time it
+needs to show a Dock icon, rather than leaving the Dock to fall back to a generic one.
 
 ## Why ad-hoc signing
 

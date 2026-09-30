@@ -69,7 +69,7 @@ final class TestPanelResultCard {
 
   private let panel: ApprovalPanel
   private let hostingController: NSHostingController<TestPanelResultCardView>
-  private let center: NSPoint
+  private var center: NSPoint
   private let onClose: @MainActor () -> Void
   private var dismissTask: Task<Void, Never>?
   private var keyMonitor: Any?
@@ -132,9 +132,15 @@ final class TestPanelResultCard {
     onClose()
   }
 
+  func followScreenChange() {
+    guard let placed = NSScreen.placement(for: panel.frame) else { return }
+    center = NSPoint(x: placed.frame.midX, y: placed.frame.midY)
+    applyHeight(placed.frame.height)
+  }
+
   private func applyHeight(_ height: CGFloat) {
-    let frame = NSRect(
+    let centred = NSRect(
       x: center.x - Self.width / 2, y: center.y - height / 2, width: Self.width, height: height)
-    panel.setFrame(frame, display: true)
+    panel.setFrame(NSScreen.placement(for: centred)?.frame ?? centred, display: true)
   }
 }

@@ -290,6 +290,28 @@ put up and appears at full opacity with no fade, so one panel replaces the other
 (see "Why no fade between chained panels" in [queue.md](queue.md)). Only the target screen gets a
 backdrop — a second display, if any, is untouched.
 
+A panel on screen follows the displays when they change. The screen used to be fixed when the
+panel was built, and the hook watched `NSApplication.didChangeScreenParametersNotification` only
+while it was queued, so a panel whose display was unplugged, rearranged or changed resolution kept
+a stale `NSScreen`: its width, its 80% height cap and its centre came from a visible frame that no
+longer existed, and its backdrop covered empty space or the wrong part of a display. `DisplayWatch`
+now observes that notification in every state. Queued, it rebuilds the prepared panel as before
+(see "Warm standby and the queue handoff" in [queue.md](queue.md)). Shown, it calls
+`PanelController.followScreenChange()`, which gives the panel's current frame to `ScreenPlacement`
+in `ApprovalCore`: the screen to use is the one holding the frame's centre, else the one the frame
+overlaps most, else the first screen, the one with the menu bar. The controller then re-applies
+the width and the height cap against that screen, re-centers the panel in its `visibleFrame` at
+its current height (lower if the new screen is shorter), and moves the backdrop onto that screen's
+full frame, and the hook publishes the display again so a request next in line prepares for the
+display the panel is on now. The frame is the input, not the display the panel was built for,
+because a display that is gone cannot be looked up and AppKit may already have moved the window
+onto a remaining one. After a rearrangement the panel lands on whichever display now holds its
+centre; whether AppKit carries a borderless panel along with its display when the arrangement
+changes has not been checked on screen. Re-centering drops the settled top edge that keeps the
+panel still while its content changes (see "Keeping the layout still when the content changes"):
+that edge is in coordinates the new arrangement may not have. Which display a new panel picks is
+unchanged: the mouse's.
+
 Neither window uses AppKit's own ordering animations: both set `animationBehavior = .none`. That
 changes nothing today. AppKit's private `_effectiveAnimationBehaviorIfModal:`, called offscreen on
 a borderless `.nonactivatingPanel` `NSPanel` configured like each window, already answers `.none`,
@@ -585,7 +607,10 @@ The card is `TestPanelResultCard`, an `ApprovalPanel` (borderless, non-activatin
 the panel's material, corner radius, border and typography: the title, then the detail, which
 scrolls past eight lines, and nothing else. It is 420 pt wide and centred on the frame the test
 panel had when it closed (`PanelController.frame`), and it takes the height its content reports,
-the same way the panel does. It closes on a click, on Esc or after 8 seconds, and the process exits
+the same way the panel does. Every frame it takes goes through `ScreenPlacement` first, so it is
+clamped into the visible frame of the screen that holds it, and on a display change `DisplayWatch`
+moves it the same way it moves a shown panel (see "Centered on the mouse's display, over a blurred
+backdrop"): the card never waits out its 8 seconds on a display that is gone. It closes on a click, on Esc or after 8 seconds, and the process exits
 when it closes, so the card never outlives its use. It is key like the panel was, which is what
 lets Esc reach it, but as a non-activating panel it takes no focus from the app the person is in
 beyond what the test panel already had.

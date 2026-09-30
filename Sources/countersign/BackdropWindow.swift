@@ -1,4 +1,5 @@
 import AppKit
+import ApprovalCore
 
 private final class BackdropContentView: NSView {
   var onClick: (() -> Void)?
@@ -38,7 +39,7 @@ final class BackdropWindow: NSPanel {
     didSet { backdropContentView.onClick = onClickOutside }
   }
 
-  let targetScreen: NSScreen
+  private(set) var targetScreen: NSScreen
   private let backdropContentView: BackdropContentView
 
   init(screen: NSScreen) {
@@ -80,6 +81,11 @@ final class BackdropWindow: NSPanel {
     display()
     CATransaction.flush()
   }
+
+  func cover(_ screen: NSScreen) {
+    targetScreen = screen
+    setFrame(screen.frame, display: true)
+  }
 }
 
 extension NSScreen {
@@ -89,5 +95,16 @@ extension NSScreen {
 
   static func screen(displayID: UInt32) -> NSScreen? {
     screens.first { $0.displayID == displayID }
+  }
+
+  static func placement(for window: NSRect) -> (screen: NSScreen, frame: NSRect)? {
+    let screens = screens
+    let areas = screens.map {
+      ScreenPlacement.Screen(frame: $0.frame, visibleFrame: $0.visibleFrame)
+    }
+    guard let placement = ScreenPlacement.place(window, on: areas),
+      screens.indices.contains(placement.screenIndex)
+    else { return nil }
+    return (screens[placement.screenIndex], placement.frame)
   }
 }
