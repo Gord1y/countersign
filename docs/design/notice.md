@@ -192,8 +192,8 @@ transcript location, so it relies on signal 2.
 
 ## The card
 
-`WaitingNoticeCard` is a borderless, non-activating `NSPanel` (`WaitingNoticePanel`) that cannot
-become key or main, at the approval panel's level (`ApprovalPanel.floatingLevel`) with
+The notice is a `CornerCard` (`Sources/countersign/CornerCard.swift`), a borderless,
+non-activating `NSPanel` (`CornerCardPanel`) that cannot become key or main, at the approval panel's level (`ApprovalPanel.floatingLevel`) with
 `.canJoinAllSpaces` and `.fullScreenAuxiliary`, so it shows over full-screen apps on every Space.
 It draws the panel's surface (the regular material), corner radius, border (stronger under Increase
 Contrast) and body type, 340 pt wide. Its hosting view accepts the first mouse click, so `Go there`
@@ -209,6 +209,24 @@ Placement: the top-right corner of `PanelController.resolveTargetScreen()`'s vis
 unshown and tries again each tick; it releases its slot when it hides or closes. On a display
 change it moves to the top-right corner of the screen that now holds it, the way the result card
 follows (see "The result card" in [panel.md](panel.md)).
+
+### The shared corner card
+
+The waiting notice and the approval card (see "The approval card" in [panel.md](panel.md)) are
+the same `CornerCard` with different content, so they look alike, stack in one column and never
+overlap. Everything above is the shared part: the panel, the view, the fade, the announcement,
+the placement, following screen changes and the slots. `CornerCard.inFreeSlot(of:...)` takes the
+lowest free `slot-<n>.lock` in `AppPaths.waitingDirectory` and returns nil when all four are taken;
+the card owns that lock and releases it in `close()`, so closing a card always frees its slot and
+an exiting process frees it with its file descriptor. The slots are shared across every notice
+process and every hook process, so a notice and an approval card on screen at once take different
+slots.
+
+Only `CornerCardModel` differs: a lead text, the project name, and an optional action title.
+`CornerCardModel.waitingNotice` gives `<Host.displayName> is waiting for you · ` and `Go there`
+(none without a recorded app); `CornerCardModel.approval` gives `<Host.displayName> needs your
+approval · ` and `Show`. Each caller passes its own accessibility title, `Countersign notice` or
+`Countersign approval`.
 
 Content: one line, `<Host.displayName> is waiting for you · <projectName>`, where only the project
 truncates, in the middle, so the start and the end of a long name stay readable. `Go there` is
@@ -243,6 +261,13 @@ Names only, never message text:
   [--project <name>] [--no-app] [--appearance light|dark] -o <out.png>
 ```
 
-It draws `WaitingNoticeView` with the solid surface, offscreen, the same way the tour snapshot does
+It draws `CornerCardView` with the solid surface, offscreen, the same way the tour snapshot does
 (see "Snapshots" in [panel.md](panel.md)). The project defaults to `shop-api`; `--no-app` renders
 the card without `Go there`, as for a record with no app.
+
+```sh
+.build/debug/countersign snapshot --approval-card claude|codex|cursor|antigravity \
+  [--project <name>] [--appearance light|dark] -o <out.png>
+```
+
+draws the approval card the same way, with `Show`.

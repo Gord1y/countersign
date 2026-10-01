@@ -391,7 +391,9 @@ reaches it, as with a timeout hand-back. A request still queued or waiting for i
   away. The removal-order invariant still holds: the lock is free only while the head, the ticket
   shown from the menu, is trying to take it.
 - Skipping the idle gate happens once: it ends when the panel is displayed, so after a step-aside
-  or a snooze the request goes through the gate like any panel. A request placed behind a panel on
+  or a snooze the request goes through the gate like any panel. `Show` on the approval card sets
+  the same skip for the request holding the lease (see "The approval card" in
+  [panel.md](panel.md)), and giving way to a request shown from the menu closes that card. A request placed behind a panel on
   screen never skips it: when that panel steps aside instead of being answered, the request waits
   for the gate, as "What never chains" above describes.
 

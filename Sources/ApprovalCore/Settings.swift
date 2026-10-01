@@ -12,6 +12,8 @@ public struct Settings: Sendable, Equatable {
   public var panelSound: String
   public var waitingNotices: Bool
   public var waitingNoticeMinutes: Int
+  public var approvalCard: Bool
+  public var approvalCardDelay: Double
   public var includeHeadlessSessions: Bool
   public var questionNotes: Bool
   public var appearance: AppearanceChoice
@@ -32,6 +34,8 @@ public struct Settings: Sendable, Equatable {
     panelSound: String = Settings.defaultPanelSound,
     waitingNotices: Bool = Settings.defaultWaitingNotices,
     waitingNoticeMinutes: Int = Settings.defaultWaitingNoticeMinutes,
+    approvalCard: Bool,
+    approvalCardDelay: Double = Settings.defaultApprovalCardDelay,
     includeHeadlessSessions: Bool,
     questionNotes: Bool,
     appearance: AppearanceChoice,
@@ -51,6 +55,8 @@ public struct Settings: Sendable, Equatable {
     self.panelSound = panelSound
     self.waitingNotices = waitingNotices
     self.waitingNoticeMinutes = waitingNoticeMinutes
+    self.approvalCard = approvalCard
+    self.approvalCardDelay = approvalCardDelay
     self.includeHeadlessSessions = includeHeadlessSessions
     self.questionNotes = questionNotes
     self.appearance = appearance
@@ -74,10 +80,16 @@ public struct Settings: Sendable, Equatable {
   public static let defaultWaitingNoticeMinutes = 2
   public static let waitingNoticeMinutesRange = 1...60
   public static let waitingNoticeMinuteChoices = [1, 2, 5, 10, 15, 30]
+  public static let defaultApprovalCardDelay: Double = 5
+  public static let approvalCardDelayRange: ClosedRange<Double> = 1...600
   public static let defaultIncludeHeadlessSessions = false
   public static let defaultQuestionNotes = false
   public static let defaultAppearance = AppearanceChoice.system
   public static let defaultAccentColor = AccentPreset.amber.color
+
+  public static func defaultApprovalCard(for host: Host) -> Bool {
+    host != .claude
+  }
 
   public static func resolve(file: ConfigFile, host: Host) -> Settings {
     let hostOverrides = file.overrides(for: host)
@@ -95,6 +107,10 @@ public struct Settings: Sendable, Equatable {
     let panelSound = file.panelSound ?? defaultPanelSound
     let waitingNotices = file.waitingNotices ?? defaultWaitingNotices
     let waitingNoticeMinutes = file.waitingNoticeMinutes ?? defaultWaitingNoticeMinutes
+    let approvalCard =
+      hostOverrides?.approvalCard ?? file.approvalCard ?? defaultApprovalCard(for: host)
+    let approvalCardDelay =
+      hostOverrides?.approvalCardDelay ?? file.approvalCardDelay ?? defaultApprovalCardDelay
     let includeHeadlessSessions =
       hostOverrides?.includeHeadlessSessions ?? file.includeHeadlessSessions
       ?? defaultIncludeHeadlessSessions
@@ -116,6 +132,8 @@ public struct Settings: Sendable, Equatable {
       panelSound: panelSound,
       waitingNotices: waitingNotices,
       waitingNoticeMinutes: waitingNoticeMinutes,
+      approvalCard: approvalCard,
+      approvalCardDelay: approvalCardDelay,
       includeHeadlessSessions: includeHeadlessSessions,
       questionNotes: questionNotes,
       appearance: appearance,

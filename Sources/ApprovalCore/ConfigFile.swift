@@ -9,6 +9,8 @@ public struct ConfigFile: Sendable, Equatable {
     public var handoffApps: [String]?
     public var snoozeMinutes: [Int]?
     public var includeHeadlessSessions: Bool?
+    public var approvalCard: Bool?
+    public var approvalCardDelay: Double?
 
     public init(
       armDelay: Double? = nil,
@@ -17,7 +19,9 @@ public struct ConfigFile: Sendable, Equatable {
       graceSeconds: Double? = nil,
       handoffApps: [String]? = nil,
       snoozeMinutes: [Int]? = nil,
-      includeHeadlessSessions: Bool? = nil
+      includeHeadlessSessions: Bool? = nil,
+      approvalCard: Bool? = nil,
+      approvalCardDelay: Double? = nil
     ) {
       self.armDelay = armDelay
       self.chainedArmDelay = chainedArmDelay
@@ -26,6 +30,8 @@ public struct ConfigFile: Sendable, Equatable {
       self.handoffApps = handoffApps
       self.snoozeMinutes = snoozeMinutes
       self.includeHeadlessSessions = includeHeadlessSessions
+      self.approvalCard = approvalCard
+      self.approvalCardDelay = approvalCardDelay
     }
   }
 
@@ -42,6 +48,8 @@ public struct ConfigFile: Sendable, Equatable {
   public var panelSound: String?
   public var waitingNotices: Bool?
   public var waitingNoticeMinutes: Int?
+  public var approvalCard: Bool?
+  public var approvalCardDelay: Double?
   public var includeHeadlessSessions: Bool?
   public var questionNotes: Bool?
   public var appearance: AppearanceChoice?
@@ -68,6 +76,8 @@ public struct ConfigFile: Sendable, Equatable {
     panelSound: String? = nil,
     waitingNotices: Bool? = nil,
     waitingNoticeMinutes: Int? = nil,
+    approvalCard: Bool? = nil,
+    approvalCardDelay: Double? = nil,
     includeHeadlessSessions: Bool? = nil,
     questionNotes: Bool? = nil,
     appearance: AppearanceChoice? = nil,
@@ -93,6 +103,8 @@ public struct ConfigFile: Sendable, Equatable {
     self.panelSound = panelSound
     self.waitingNotices = waitingNotices
     self.waitingNoticeMinutes = waitingNoticeMinutes
+    self.approvalCard = approvalCard
+    self.approvalCardDelay = approvalCardDelay
     self.includeHeadlessSessions = includeHeadlessSessions
     self.questionNotes = questionNotes
     self.appearance = appearance
@@ -138,8 +150,8 @@ public enum ConfigFileParser {
   static let topLevelKeys: Set<String> = [
     "armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds", "handoffApps",
     "snoozeMinutes", "quietHours", "checkForUpdates", "quitBehavior", "modeAfterPlan",
-    "panelSound", "waitingNotices", "waitingNoticeMinutes", "includeHeadlessSessions",
-    "questionNotes", "editorApp", "hosts",
+    "panelSound", "waitingNotices", "waitingNoticeMinutes", "approvalCard", "approvalCardDelay",
+    "includeHeadlessSessions", "questionNotes", "editorApp", "hosts",
     "appearance", "accentColor", "contextCheckpoints",
     "$schema",
   ]
@@ -149,7 +161,7 @@ public enum ConfigFileParser {
   ]
   static let hostKeys: Set<String> = [
     "armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds", "handoffApps",
-    "snoozeMinutes", "includeHeadlessSessions",
+    "snoozeMinutes", "includeHeadlessSessions", "approvalCard", "approvalCardDelay",
   ]
 
   public static func parse(_ data: Data, soundNames: [String] = PanelSound.systemNames) -> (
@@ -204,6 +216,10 @@ public enum ConfigFileParser {
       defaultValue: Settings.defaultWaitingNotices, logLines: &logLines)
     file.waitingNoticeMinutes = readWaitingNoticeMinutes(
       root["waitingNoticeMinutes"], path: "waitingNoticeMinutes", logLines: &logLines)
+    file.approvalCard = readApprovalCard(
+      root["approvalCard"], path: "approvalCard", logLines: &logLines)
+    file.approvalCardDelay = readApprovalCardDelay(
+      root["approvalCardDelay"], path: "approvalCardDelay", logLines: &logLines)
     file.includeHeadlessSessions = readBool(
       root["includeHeadlessSessions"], path: "includeHeadlessSessions",
       defaultValue: Settings.defaultIncludeHeadlessSessions, logLines: &logLines)
@@ -458,7 +474,11 @@ public enum ConfigFileParser {
         object["snoozeMinutes"], path: "\(path).snoozeMinutes", logLines: &logLines),
       includeHeadlessSessions: readBool(
         object["includeHeadlessSessions"], path: "\(path).includeHeadlessSessions",
-        defaultValue: Settings.defaultIncludeHeadlessSessions, logLines: &logLines))
+        defaultValue: Settings.defaultIncludeHeadlessSessions, logLines: &logLines),
+      approvalCard: readApprovalCard(
+        object["approvalCard"], path: "\(path).approvalCard", logLines: &logLines),
+      approvalCardDelay: readApprovalCardDelay(
+        object["approvalCardDelay"], path: "\(path).approvalCardDelay", logLines: &logLines))
   }
 
   private static func numberValue(_ value: JSONValue) -> Double? {
@@ -562,6 +582,33 @@ public enum ConfigFileParser {
       return nil
     }
     return minutes
+  }
+
+  private static func readApprovalCard(
+    _ value: JSONValue?, path: String, logLines: inout [String]
+  ) -> Bool? {
+    guard let value else { return nil }
+    guard let bool = value.boolValue else {
+      logLines.append("\(path): not a boolean, using the agent's default")
+      return nil
+    }
+    return bool
+  }
+
+  private static func readApprovalCardDelay(
+    _ value: JSONValue?, path: String, logLines: inout [String]
+  ) -> Double? {
+    guard let value else { return nil }
+    guard let seconds = numberValue(value), Settings.approvalCardDelayRange.contains(seconds)
+    else {
+      logLines.append(
+        "\(path): expected a number of seconds from"
+          + " \(formatNumber(Settings.approvalCardDelayRange.lowerBound)) to"
+          + " \(formatNumber(Settings.approvalCardDelayRange.upperBound)), using default"
+          + " \(formatNumber(Settings.defaultApprovalCardDelay))")
+      return nil
+    }
+    return seconds
   }
 
   private static func readPanelSound(

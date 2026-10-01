@@ -450,6 +450,54 @@ approval panel" in the meantime. A test panel never hands off (see "The test pan
 does a context checkpoint, which Claude Code has no prompt of its own for (see "The hook path" in
 [checkpoints.md](checkpoints.md)).
 
+### The approval card
+
+The gate has a cost for a person who never stops: while they keep typing or moving the mouse,
+`ActivityGate.isIdle` never turns true, and a request sits in `waitingForIdle` until
+`TimeoutHandBack` gives it back (3540 s for Cursor and Antigravity, never for Claude Code and
+Codex). Cursor shows no prompt of its own while its hook runs, so the agent simply stops and the
+person does not know it is waiting. The approval card tells them without taking anything from
+them: a corner card, `<Host.displayName> needs your approval · <projectName>`, with a `Show`
+button and the close button. It is the waiting notice's card with its own content (see "The card"
+and "The shared corner card" in [notice.md](notice.md)): non-activating and never key, so it takes
+no keystroke, at the top right of `PanelController.resolveTargetScreen()` in the lowest free
+notice slot, and it posts an accessibility announcement with its line and plays no sound.
+
+`DisplayWatch` records `waitingForIdleSince` (`systemUptime`) on every entry into
+`waitingForIdle`: on arrival with the lease, after `takeDisplayIfFree` wins the lease without a
+fresh handoff, and after a shown panel steps aside, for quiet time, a snooze or the panel's own
+reasons. A tick in `waitingForIdle` that does not show the panel asks
+`ApprovalCardTiming.shouldShow(enabled:mode:secondsWaiting:delay:quiet:paused:stage:)`. It is true
+only when `approvalCard` is on for the request's agent, the run is `.hook` (never a test panel or a
+context checkpoint), quiet time does not hold panels, the pause switch is off, no card has been
+shown or dismissed for this request (`ApprovalCardStage.notShown`), and `approvalCardDelay`
+seconds (5 by default) have passed since `waitingForIdleSince`. With all four slots taken the card
+stays unshown and the next tick tries again. The panel check runs first in the tick, so a request
+that turns idle in the same tick shows its panel and never flashes a card.
+
+`Show` does what the menu's Show Now does for a request at the front: it sets `showsWithoutIdle`,
+closes the card, and the next tick shows the panel with the usual `armDelay`, quiet time still
+holding it. The close button (`Dismiss`) closes the card and leaves the request waiting for a
+pause; it gets no second card. Neither does a request whose card was shown and that comes back to
+`waitingForIdle` after a step-aside, so a person sees the card at most once per request. The
+card also closes, and releases its slot, whenever the request leaves `waitingForIdle`: its panel
+shows (Show Now from the menu bar included), it is answered from the menu bar, it gives way to a
+request shown from the menu,
+it is resolved elsewhere or paused, handed back, handed off to the asking app, or yields to a real
+request. Quiet time that starts while the card is up leaves it up: the request is still waiting,
+and `Show` then shows the panel once quiet time ends. Log lines: `approval card: shown`,
+`approval card: show`, `approval card: dismissed`.
+
+The card is per agent (`approvalCard` and `approvalCardDelay`, top level and under
+`hosts.<agent>`, see [configuration.md](../configuration.md)) because the hosts differ in what a
+waiting request costs. Cursor, Codex and Antigravity are on by default: Cursor and Antigravity
+show nothing of their own while the hook runs, and Codex only says "Waiting for the approval
+panel". Claude Code is off by default, a product decision: its request also sits in the chat,
+where the person can answer it while they work and Countersign notices the answer (see
+`ResolutionWatcher` and "Why "Answer in chat" returns no decision"), so it is not stuck the way
+the others are. Turning it on is one key, `hosts.claude.approvalCard` or the top-level
+`approvalCard`.
+
 ## Quiet time
 
 `QuietTime` stores a single epoch-seconds deadline at `AppPaths.quietFile`, written atomically
@@ -1840,6 +1888,9 @@ and `#2B2B2B` for `--appearance dark`, tinted black or white to match: no `NSSta
 `NSWindow`, and no dependence on the real menu bar's own appearance, so the two states can be
 compared side by side without switching System Settings. Like the other snapshots, it renders at
 2×.
+
+The corner cards, the waiting notice and the approval card (see "The approval card"), have
+`--waiting-notice` and `--approval-card`, described in "Snapshots" in [notice.md](notice.md).
 
 ### Never on screen
 

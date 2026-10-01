@@ -48,8 +48,7 @@ private final class WaitingNoticeWatch: NSObject {
   private var lock: ExclusiveFileLock
   private var record: WaitingRecord
   private var transcript: TranscriptWatch
-  private var card: WaitingNoticeCard?
-  private var slotLock: ExclusiveFileLock?
+  private var card: CornerCard?
   private var lastAgentAppFrontmostAt: Date?
   private var loggedHold: WaitingNoticeHold?
   private var isLeaving = false
@@ -132,32 +131,21 @@ private final class WaitingNoticeWatch: NSObject {
   }
 
   private func show() {
-    guard card == nil, let slot = takeSlot() else { return }
-    let card = WaitingNoticeCard(
-      record: record, slot: slot, appearance: appearance,
-      onGoThere: { [weak self] in self?.goThere() },
-      onDismiss: { [weak self] in self?.close(.dismissed) })
+    guard card == nil,
+      let card = CornerCard.inFreeSlot(
+        of: store, model: .waitingNotice(record: record), accessibilityTitle: "Countersign notice",
+        appearance: appearance, onAction: { [weak self] in self?.goThere() },
+        onDismiss: { [weak self] in self?.close(.dismissed) })
+    else { return }
     self.card = card
     card.show()
     loggedHold = nil
     log.write("notice: shown")
   }
 
-  private func takeSlot() -> Int? {
-    for slot in 0..<WaitingStore.slotCount {
-      if let acquired = try? ExclusiveFileLock.acquire(store.slotLockFile(slot)) {
-        slotLock = acquired
-        return slot
-      }
-    }
-    return nil
-  }
-
   private func hide() {
     card?.close()
     card = nil
-    slotLock?.release()
-    slotLock = nil
   }
 
   private func note(_ hold: WaitingNoticeHold?) {

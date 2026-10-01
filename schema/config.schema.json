@@ -206,6 +206,17 @@
           "type": "boolean",
           "default": false,
           "description": "Whether a non-interactive Claude Code session, such as claude -p, still gets a panel instead of being skipped, for this host; no effect for Codex, Cursor or Antigravity."
+        },
+        "approvalCard": {
+          "type": "boolean",
+          "description": "Whether a corner card with a Show button appears when this host's approval has been waiting approvalCardDelay seconds while you keep working. Defaults to the top-level approvalCard, then on for Codex, Cursor and Antigravity and off for Claude Code."
+        },
+        "approvalCardDelay": {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 600,
+          "default": 5,
+          "description": "Seconds an approval waits for a pause in your typing before its card appears, for this host."
         }
       }
     }
@@ -344,6 +355,17 @@
       "maximum": 60,
       "default": 2,
       "description": "How many minutes an agent has been waiting before the notice appears; top level only."
+    },
+    "approvalCard": {
+      "type": "boolean",
+      "description": "Whether a corner card with a Show button appears when an approval has been waiting approvalCardDelay seconds while you keep working. Unset, it is on for Codex, Cursor and Antigravity and off for Claude Code; hosts.<agent>.approvalCard overrides it per agent."
+    },
+    "approvalCardDelay": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 600,
+      "default": 5,
+      "description": "Seconds an approval waits for a pause in your typing before its card appears."
     },
     "includeHeadlessSessions": {
       "type": "boolean",

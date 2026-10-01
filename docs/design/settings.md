@@ -721,8 +721,8 @@ plain open failure shows, since both origins are `ConfigEditorOrigin.advanced`. 
 "Open in Editor" link on its row (`ConfigEditorOrigin.host`) goes through the same method, so it
 opens with the same chosen app and falls back the same way.
 
-The line reads "Only the file can set values for one agent, under hosts, and
-includeHeadlessSessions." (`PreferenceOverrides.fileOnlyNote`). Its keys are computed, not listed
+The line reads "Only the file can set values for one agent, under hosts, and approvalCard,
+approvalCardDelay, includeHeadlessSessions." (`PreferenceOverrides.fileOnlyNote`). Its keys are computed, not listed
 by hand: the parser's top-level keys minus every key a row writes anywhere in the window
 (`PreferenceName`) and minus `hosts` and `$schema`, so a key added to the file without a row is
 named here without anyone remembering to, and a test pins today's list. The prompt:

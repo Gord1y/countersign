@@ -235,6 +235,25 @@ profile. If you set `XDG_CONFIG_HOME` only there, its Settings window edits
   is at a chat to answer it; it gets Claude Code's own handling instead. Set it to `true` to see
   panels for those runs as well. It has no effect for Codex, Cursor or Antigravity. It can be set
   at the top level or per agent, under `hosts.<agent>`, like the Panels keys above.
+- **`approvalCard`** (default: on for Codex, Cursor and Antigravity, off for Claude Code): a small
+  corner card, "Cursor needs your approval · shop-api", with a **Show** button, when a request has
+  waited `approvalCardDelay` seconds for **Wait for idle** while you keep typing or moving the
+  mouse. A panel waits for a pause so it never takes keys meant for something else, but if you
+  never pause, Cursor and Antigravity just stop and wait, with no prompt of their own, and Codex
+  only says "Waiting for the approval panel". The card never takes focus, so your typing is safe.
+  **Show** brings the panel up at once, still with the arm delay; the close button dismisses the
+  card and the panel waits for a pause as before. You get at most one card per request, never
+  during quiet time or while paused, and never for a test panel or a context checkpoint; it goes
+  away when the panel appears or the request ends. Claude Code is off by default because its
+  request also waits in the chat, where you can answer it while you work. Set it at the top level
+  for every agent, or per agent under `hosts.<agent>`, which wins: for example
+  `"hosts": { "claude": { "approvalCard": true } }` turns it on for Claude Code alone. A value
+  that isn't `true` or `false` logs one line and the agent's default applies.
+- **`approvalCardDelay`** (default `5`): how many seconds a request waits for a pause before its
+  card appears, any number from `1` to `600`. Counted from when the request's turn comes and it
+  starts waiting for your pause, or from when its panel stepped aside, not from when it arrived. A value outside the
+  range or of another type logs one line and falls back to `5`. It can be set at the top level or
+  per agent, under `hosts.<agent>`.
 - **`hosts.claude`, `hosts.codex`, `hosts.cursor`, `hosts.antigravity`**: per-agent values; see
   "Settings for one agent" below.
 

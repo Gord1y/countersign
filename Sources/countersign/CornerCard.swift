@@ -4,37 +4,47 @@ import SwiftUI
 
 @MainActor
 @Observable
-final class WaitingNoticeModel {
-  let hostName: String
+final class CornerCardModel {
+  let leadText: String
   let projectName: String
-  let offersGoThere: Bool
-  var onGoThere: (() -> Void)?
+  let actionTitle: String?
+  var onAction: (() -> Void)?
   var onDismiss: (() -> Void)?
   var onHeight: ((CGFloat) -> Void)?
 
-  init(hostName: String, projectName: String, offersGoThere: Bool) {
-    self.hostName = hostName
+  init(leadText: String, projectName: String, actionTitle: String?) {
+    self.leadText = leadText
     self.projectName = projectName
-    self.offersGoThere = offersGoThere
+    self.actionTitle = actionTitle
   }
 
-  convenience init(record: WaitingRecord) {
-    self.init(
+  static func waitingNotice(hostName: String, projectName: String, offersGoThere: Bool)
+    -> CornerCardModel
+  {
+    CornerCardModel(
+      leadText: "\(hostName) is waiting for you · ", projectName: projectName,
+      actionTitle: offersGoThere ? "Go there" : nil)
+  }
+
+  static func waitingNotice(record: WaitingRecord) -> CornerCardModel {
+    waitingNotice(
       hostName: record.host.displayName, projectName: record.projectName,
       offersGoThere: record.appBundleID != nil)
   }
 
-  var waitingText: String {
-    "\(hostName) is waiting for you · "
+  static func approval(hostName: String, projectName: String) -> CornerCardModel {
+    CornerCardModel(
+      leadText: "\(hostName) needs your approval · ", projectName: projectName,
+      actionTitle: "Show")
   }
 
   var line: String {
-    waitingText + projectName
+    leadText + projectName
   }
 }
 
-struct WaitingNoticeView: View {
-  let model: WaitingNoticeModel
+struct CornerCardView: View {
+  let model: CornerCardModel
 
   @Environment(\.panelSurface) private var surface
 
@@ -45,7 +55,7 @@ struct WaitingNoticeView: View {
     VStack(alignment: .trailing, spacing: 12) {
       HStack(alignment: .center, spacing: 8) {
         HStack(spacing: 0) {
-          Text(model.waitingText)
+          Text(model.leadText)
             .fixedSize()
           Text(model.projectName)
             .truncationMode(.middle)
@@ -67,9 +77,9 @@ struct WaitingNoticeView: View {
         .buttonStyle(.plain)
         .accessibilityLabel("Dismiss")
       }
-      if model.offersGoThere {
-        Button("Go there") {
-          model.onGoThere?()
+      if let actionTitle = model.actionTitle {
+        Button(actionTitle) {
+          model.onAction?()
         }
         .buttonStyle(PrimaryButtonStyle())
       }
@@ -87,10 +97,10 @@ struct WaitingNoticeView: View {
   }
 }
 
-final class WaitingNoticePanel: NSPanel {
+final class CornerCardPanel: NSPanel {
   init() {
     super.init(
-      contentRect: NSRect(x: 0, y: 0, width: WaitingNoticeView.width, height: 80),
+      contentRect: NSRect(x: 0, y: 0, width: CornerCardView.width, height: 80),
       styleMask: [.borderless, .nonactivatingPanel],
       backing: .buffered,
       defer: false)
@@ -106,7 +116,7 @@ final class WaitingNoticePanel: NSPanel {
   }
 
   required init?(coder: NSCoder) {
-    fatalError("WaitingNoticePanel does not support NSCoding")
+    fatalError("CornerCardPanel does not support NSCoding")
   }
 
   override var canBecomeKey: Bool { false }
@@ -118,32 +128,49 @@ final class FirstClickHostingView<Content: View>: NSHostingView<Content> {
 }
 
 @MainActor
-final class WaitingNoticeCard {
+final class CornerCard {
   static let screenInset: CGFloat = 16
   static let stackGap: CGFloat = 8
   private static let fallbackHeight: CGFloat = 94
   private static let fadeDuration: TimeInterval = 0.15
 
-  private let panel = WaitingNoticePanel()
-  private let model: WaitingNoticeModel
-  private let hostingView: FirstClickHostingView<WaitingNoticeView>
+  private let panel = CornerCardPanel()
+  private let model: CornerCardModel
+  private let hostingView: FirstClickHostingView<CornerCardView>
   private let slot: Int
+  private let slotLock: ExclusiveFileLock
   private var screen: NSScreen?
   private var height: CGFloat = 0
   private var isClosed = false
 
-  init(
-    record: WaitingRecord, slot: Int, appearance: AppearanceChoice,
-    onGoThere: @escaping @MainActor () -> Void, onDismiss: @escaping @MainActor () -> Void
+  static func inFreeSlot(
+    of store: WaitingStore, model: CornerCardModel, accessibilityTitle: String,
+    appearance: AppearanceChoice, onAction: @escaping @MainActor () -> Void,
+    onDismiss: @escaping @MainActor () -> Void
+  ) -> CornerCard? {
+    for slot in 0..<WaitingStore.slotCount {
+      if let slotLock = try? ExclusiveFileLock.acquire(store.slotLockFile(slot)) {
+        return CornerCard(
+          model: model, slot: slot, slotLock: slotLock, accessibilityTitle: accessibilityTitle,
+          appearance: appearance, onAction: onAction, onDismiss: onDismiss)
+      }
+    }
+    return nil
+  }
+
+  private init(
+    model: CornerCardModel, slot: Int, slotLock: ExclusiveFileLock, accessibilityTitle: String,
+    appearance: AppearanceChoice, onAction: @escaping @MainActor () -> Void,
+    onDismiss: @escaping @MainActor () -> Void
   ) {
-    let model = WaitingNoticeModel(record: record)
     self.model = model
     self.slot = slot
-    hostingView = FirstClickHostingView(rootView: WaitingNoticeView(model: model))
+    self.slotLock = slotLock
+    hostingView = FirstClickHostingView(rootView: CornerCardView(model: model))
     panel.appearance = appearance.windowAppearance
     panel.contentView = hostingView
-    panel.setAccessibilityTitle("Countersign notice")
-    model.onGoThere = onGoThere
+    panel.setAccessibilityTitle(accessibilityTitle)
+    model.onAction = onAction
     model.onDismiss = onDismiss
     model.onHeight = { [weak self] height in self?.applyHeight(height) }
   }
@@ -173,10 +200,11 @@ final class WaitingNoticeCard {
   func close() {
     guard !isClosed else { return }
     isClosed = true
-    model.onGoThere = nil
+    model.onAction = nil
     model.onDismiss = nil
     model.onHeight = nil
     panel.orderOut(nil)
+    slotLock.release()
   }
 
   func followScreenChange() {
@@ -195,7 +223,7 @@ final class WaitingNoticeCard {
   private func place() {
     guard height > 0, let visible = (screen ?? PanelController.resolveTargetScreen())?.visibleFrame
     else { return }
-    let width = WaitingNoticeView.width
+    let width = CornerCardView.width
     let top = visible.maxY - Self.screenInset - CGFloat(slot) * (height + Self.stackGap)
     let frame = NSRect(
       x: visible.maxX - Self.screenInset - width, y: top - height, width: width, height: height)

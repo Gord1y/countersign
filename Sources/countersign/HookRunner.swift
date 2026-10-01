@@ -103,6 +103,9 @@ enum HookRunner {
     let pauseSwitch = PauseSwitch(file: paths.pauseFile)
     let quietState = QuietState(
       paths: paths, schedule: QuietSchedule(windows: settings.quietHours))
+    func isPaused() -> Bool {
+      mode.honorsPause && pauseSwitch.isPaused
+    }
     func abandonReason() -> String? {
       if let reason = watcher?.poll() {
         return reason.rawValue
@@ -110,7 +113,7 @@ enum HookRunner {
       if let reason = checkpoint?.abandonReason() {
         return reason
       }
-      if mode.honorsPause, pauseSwitch.isPaused {
+      if isPaused() {
         return "paused"
       }
       return nil
@@ -220,8 +223,9 @@ enum HookRunner {
       subagentChain: subagentChain, waitingEntries: initialWaitingEntries,
       sessionsDirectory: paths.claudeSessionsDirectory, history: DecisionHistory(paths: paths),
       hostApp: hostApp, checkpoint: checkpoint, showsWithoutIdle: showsWithoutIdle,
-      waitingHandBack: waitingHandBack, abandonReason: abandonReason,
-      handBackIsDue: handBackIsDue)
+      waitingHandBack: waitingHandBack,
+      cardSlots: WaitingStore(directory: paths.waitingDirectory),
+      abandonReason: abandonReason, handBackIsDue: handBackIsDue, isPaused: isPaused)
     let timer = Timer(
       timeInterval: 0.25, target: displayWatch, selector: #selector(DisplayWatch.tick),
       userInfo: nil, repeats: true)
@@ -362,6 +366,11 @@ private final class DisplayWatch: NSObject {
   private let hostApp: HostApp?
   private let checkpoint: ContextCheckpointSession?
   private let waitingHandBack: WaitingHandBack
+  private let cardSlots: WaitingStore
+  private let isPaused: () -> Bool
+  private var waitingForIdleSince = ProcessInfo.processInfo.systemUptime
+  private var approvalCard: CornerCard?
+  private var approvalCardStage = ApprovalCardStage.notShown
   private var checkpointChoice: ContextCheckpointChoice?
   private var lease: DisplayLease?
   private var state: State
@@ -384,8 +393,9 @@ private final class DisplayWatch: NSObject {
     waitingEntries: [WaitingEntry], sessionsDirectory: URL, history: DecisionHistory,
     hostApp: HostApp?,
     checkpoint: ContextCheckpointSession?, showsWithoutIdle: Bool,
-    waitingHandBack: WaitingHandBack,
-    abandonReason: @escaping () -> String?, handBackIsDue: @escaping () -> Bool
+    waitingHandBack: WaitingHandBack, cardSlots: WaitingStore,
+    abandonReason: @escaping () -> String?, handBackIsDue: @escaping () -> Bool,
+    isPaused: @escaping () -> Bool
   ) {
     self.app = app
     self.request = request
@@ -406,8 +416,10 @@ private final class DisplayWatch: NSObject {
     self.hostApp = hostApp
     self.checkpoint = checkpoint
     self.waitingHandBack = waitingHandBack
+    self.cardSlots = cardSlots
     self.abandonReason = abandonReason
     self.handBackIsDue = handBackIsDue
+    self.isPaused = isPaused
     self.state = lease == nil ? .queued : .waitingForIdle
     super.init()
     observeScreenChanges()
@@ -444,21 +456,23 @@ private final class DisplayWatch: NSObject {
         giveWayToRequestShownFromMenu()
         return
       }
-      guard !quietTimeHoldsPanels() else { return }
-      guard
+      let quiet = quietTimeHoldsPanels()
+      if !quiet,
         showsWithoutIdle
           || activityGate.isIdle(
             secondsSinceLastInput: systemActivity.secondsSinceLastInput(),
             modifiersHeld: systemActivity.modifiersHeld())
-      else { return }
-      showAfterIdle()
+      {
+        showAfterIdle()
+        return
+      }
+      showApprovalCardIfDue(quiet: quiet)
 
     case .shown(let controller):
       if quietTimeHoldsPanels() {
         closeShownPanel(controller)
         log.write("stepped aside: quiet time")
-        state = .waitingForIdle
-        log.write("waiting for idle")
+        waitForIdle()
         return
       }
       let waitingEntries = queue.waitingEntries(excluding: ticket)
@@ -474,6 +488,50 @@ private final class DisplayWatch: NSObject {
 
   private func quietTimeHoldsPanels() -> Bool {
     mode.honorsQuietTime && quietState.activeUntil() != nil
+  }
+
+  private func waitForIdle() {
+    state = .waitingForIdle
+    waitingForIdleSince = ProcessInfo.processInfo.systemUptime
+    log.write("waiting for idle")
+  }
+
+  private func showApprovalCardIfDue(quiet: Bool) {
+    guard
+      ApprovalCardTiming.shouldShow(
+        enabled: settings.approvalCard, mode: mode,
+        secondsWaiting: ProcessInfo.processInfo.systemUptime - waitingForIdleSince,
+        delay: settings.approvalCardDelay, quiet: quiet, paused: isPaused(),
+        stage: approvalCardStage),
+      let card = CornerCard.inFreeSlot(
+        of: cardSlots,
+        model: .approval(hostName: host.displayName, projectName: request.projectName),
+        accessibilityTitle: "Countersign approval", appearance: settings.appearance,
+        onAction: { [weak self] in self?.showFromApprovalCard() },
+        onDismiss: { [weak self] in self?.dismissApprovalCard() })
+    else { return }
+    approvalCard = card
+    approvalCardStage = .shown
+    card.show()
+    log.write("approval card: shown")
+  }
+
+  private func showFromApprovalCard() {
+    guard case .waitingForIdle = state else { return }
+    closeApprovalCard()
+    showsWithoutIdle = true
+    log.write("approval card: show")
+  }
+
+  private func dismissApprovalCard() {
+    closeApprovalCard()
+    approvalCardStage = .dismissed
+    log.write("approval card: dismissed")
+  }
+
+  private func closeApprovalCard() {
+    approvalCard?.close()
+    approvalCard = nil
   }
 
   private func takeMenuAnswer() {
@@ -504,6 +562,7 @@ private final class DisplayWatch: NSObject {
   }
 
   private func giveWayToRequestShownFromMenu() {
+    closeApprovalCard()
     lease?.release()
     lease = nil
     state = .queued
@@ -555,6 +614,7 @@ private final class DisplayWatch: NSObject {
   }
 
   private func showAfterIdle() {
+    closeApprovalCard()
     handOffIfAskingAppIsFrontmost()
     let controller = makeController(handoffBackdrop: nil, afterHandoff: false)
     app.show(controller)
@@ -582,7 +642,9 @@ private final class DisplayWatch: NSObject {
       closeShownPanel(controller)
     case .showingResult(let card):
       card.close()
-    case .queued, .waitingForIdle:
+    case .waitingForIdle:
+      closeApprovalCard()
+    case .queued:
       break
     }
     queue.remove(ticket)
@@ -628,6 +690,7 @@ private final class DisplayWatch: NSObject {
     if let outcome = host.handoffOutcome {
       HookRunner.writeReply(outcome, host: host)
     }
+    closeApprovalCard()
     discardHandoff()
     discardPreparedPanel("handed off")
     queue.remove(ticket)
@@ -644,6 +707,7 @@ private final class DisplayWatch: NSObject {
       discardPreparedPanel("resolved")
       wording = "resolved while queued"
     case .waitingForIdle:
+      closeApprovalCard()
       wording = "resolved while waiting for idle"
     case .shown(let controller):
       closeShownPanel(controller)
@@ -669,7 +733,9 @@ private final class DisplayWatch: NSObject {
     case .queued:
       discardHandoff()
       discardPreparedPanel("handed back")
-    case .waitingForIdle, .showingResult:
+    case .waitingForIdle:
+      closeApprovalCard()
+    case .showingResult:
       break
     case .shown(let controller):
       handOffToNextInLine(from: controller)
@@ -699,6 +765,7 @@ private final class DisplayWatch: NSObject {
           for: outcome, checkpointChoice: checkpointChoice, isCheckpoint: isCheckpoint),
         history: history, log: log)
     }
+    closeApprovalCard()
     var panelFrame: NSRect?
     if case .shown(let controller) = state {
       panelFrame = controller.frame
@@ -770,7 +837,7 @@ private final class DisplayWatch: NSObject {
     case .queued:
       prepareAgainForNewScreens()
     case .waitingForIdle:
-      break
+      approvalCard?.followScreenChange()
     case .shown(let controller):
       controller.followScreenChange()
       publishShownDisplay(of: controller)
@@ -899,8 +966,7 @@ private final class DisplayWatch: NSObject {
     else {
       discardHandoff()
       discardPreparedPanel("no handoff")
-      state = .waitingForIdle
-      log.write("waiting for idle")
+      waitForIdle()
       return
     }
     if let reason = abandonReason() {
@@ -937,8 +1003,7 @@ private final class DisplayWatch: NSObject {
     guard case .shown(let controller) = state else { return }
     closeShownPanel(controller)
     log.write("quiet time until \(Self.formattedTime(until)) (\(DurationText.describe(seconds)))")
-    state = .waitingForIdle
-    log.write("waiting for idle")
+    waitForIdle()
   }
 
   private func endTestPanelOnSnooze(_ seconds: TimeInterval) -> Never {
@@ -955,8 +1020,7 @@ private final class DisplayWatch: NSObject {
     guard case .shown(let controller) = state else { return }
     closeShownPanel(controller)
     log.write("stepped aside: \(reason.rawValue)")
-    state = .waitingForIdle
-    log.write("waiting for idle")
+    waitForIdle()
   }
 
   private static func formattedTime(_ date: Date) -> String {

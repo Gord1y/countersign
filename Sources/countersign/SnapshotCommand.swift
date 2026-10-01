@@ -23,7 +23,9 @@ enum SnapshotCommand {
     + "       countersign snapshot --menu-bar-icon active|paused|quiet"
     + " [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --waiting-notice claude|codex|cursor|antigravity"
-    + " [--project <name>] [--no-app] [--appearance light|dark] -o <out.png>"
+    + " [--project <name>] [--no-app] [--appearance light|dark] -o <out.png>\n"
+    + "       countersign snapshot --approval-card claude|codex|cursor|antigravity"
+    + " [--project <name>] [--appearance light|dark] -o <out.png>"
   private static let quietSnapshotMinutes: TimeInterval = 15
   private static let settingsFlag = "--settings"
   private static let quitPromptFlag = "--quit-prompt"
@@ -31,6 +33,7 @@ enum SnapshotCommand {
   private static let tourFlag = "--tour"
   private static let menuBarIconFlag = "--menu-bar-icon"
   private static let waitingNoticeFlag = "--waiting-notice"
+  private static let approvalCardFlag = "--approval-card"
   private static let waitingNoticeSampleProject = "shop-api"
   private static let menuBarIconStripPadding: CGFloat = 6
   private static let scale: CGFloat = 2
@@ -55,7 +58,10 @@ enum SnapshotCommand {
       runMenuBarIcon(arguments)
     }
     if arguments.contains(waitingNoticeFlag) {
-      runWaitingNotice(arguments)
+      runCornerCard(arguments, flag: waitingNoticeFlag)
+    }
+    if arguments.contains(approvalCardFlag) {
+      runCornerCard(arguments, flag: approvalCardFlag)
     }
     guard let options = parse(arguments) else { CommandLineOutput.fail(usage) }
 
@@ -315,21 +321,28 @@ enum SnapshotCommand {
   }
 
   @MainActor
-  private static func runWaitingNotice(_ arguments: [String]) -> Never {
-    guard let options = parseWaitingNotice(arguments) else { CommandLineOutput.fail(usage) }
+  private static func runCornerCard(_ arguments: [String], flag: String) -> Never {
+    guard let options = parseCornerCard(arguments, flag: flag) else {
+      CommandLineOutput.fail(usage)
+    }
 
     NSApplication.shared.setActivationPolicy(.prohibited)
 
-    let model = WaitingNoticeModel(
-      hostName: options.host.displayName, projectName: options.project,
-      offersGoThere: options.offersGoThere)
+    let isApprovalCard = flag == approvalCardFlag
+    let model =
+      isApprovalCard
+      ? CornerCardModel.approval(hostName: options.host.displayName, projectName: options.project)
+      : CornerCardModel.waitingNotice(
+        hostName: options.host.displayName, projectName: options.project,
+        offersGoThere: options.offersGoThere)
     let hostingView = NSHostingView(
-      rootView: WaitingNoticeView(model: model).environment(\.panelSurface, .solid))
+      rootView: CornerCardView(model: model).environment(\.panelSurface, .solid))
     hostingView.appearance = options.appearance?.appearance
     let height = settledHeight(of: hostingView, maxHeight: .greatestFiniteMagnitude)
-    hostingView.setFrameSize(NSSize(width: WaitingNoticeView.width, height: height))
+    hostingView.setFrameSize(NSSize(width: CornerCardView.width, height: height))
     guard let png = render(hostingView) else {
-      CommandLineOutput.fail("error: could not render the waiting notice")
+      CommandLineOutput.fail(
+        "error: could not render the \(isApprovalCard ? "approval card" : "waiting notice")")
     }
     write(png, to: options.outputPath)
   }
@@ -718,7 +731,7 @@ enum SnapshotCommand {
     return UpdateAnswerOptions(kind: kind, outputPath: outputPath, appearance: appearance)
   }
 
-  private struct WaitingNoticeOptions {
+  private struct CornerCardOptions {
     let host: ApprovalCore.Host
     let project: String
     let offersGoThere: Bool
@@ -726,7 +739,7 @@ enum SnapshotCommand {
     let appearance: Appearance?
   }
 
-  private static func parseWaitingNotice(_ arguments: [String]) -> WaitingNoticeOptions? {
+  private static func parseCornerCard(_ arguments: [String], flag: String) -> CornerCardOptions? {
     var host: ApprovalCore.Host?
     var project = waitingNoticeSampleProject
     var offersGoThere = true
@@ -736,7 +749,7 @@ enum SnapshotCommand {
 
     while index < arguments.count {
       switch arguments[index] {
-      case waitingNoticeFlag:
+      case flag:
         index += 1
         guard index < arguments.count, let parsed = ApprovalCore.Host(rawValue: arguments[index])
         else { return nil }
@@ -745,7 +758,7 @@ enum SnapshotCommand {
         index += 1
         guard index < arguments.count, !arguments[index].isEmpty else { return nil }
         project = arguments[index]
-      case "--no-app":
+      case "--no-app" where flag == waitingNoticeFlag:
         offersGoThere = false
       case "--appearance":
         index += 1
@@ -764,7 +777,7 @@ enum SnapshotCommand {
     }
 
     guard let host, let outputPath else { return nil }
-    return WaitingNoticeOptions(
+    return CornerCardOptions(
       host: host, project: project, offersGoThere: offersGoThere, outputPath: outputPath,
       appearance: appearance)
   }
