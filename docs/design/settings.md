@@ -632,7 +632,7 @@ text beyond its title and caption, both defined once and reused everywhere they'
 `PreferenceName.explanation` (2 to 4 plain sentences: what the setting does, when you'd change it,
 and how it relates to a neighbouring setting, such as arm delay against arm delay after an answer,
 or wait for idle against grace period) and `PreferenceName.defaultText` (the built-in default,
-spelled out — "0.8 seconds", "1, 5, 15 and 30 minutes", "No apps" — read from `Settings.default*`
+spelled out — "0.5 seconds", "1, 5, 15 and 30 minutes", "No apps" — read from `Settings.default*`
 through the same formatters the rest of the module uses, so a changed default changes the text
 without anyone hand-editing a string). Launch at Login isn't a `PreferenceName`, so its explanation
 and default text ("Off") are constants next to its caption in `LaunchAtLoginRow` instead.
@@ -660,7 +660,7 @@ the built-in defaults, never of a config file.
   Pause button also reads its state through `SettingsHeaderControls.pauseAccessibilityValue`
   (`Paused` or `Not paused`), so VoiceOver does not depend on the colour.
 - **Sliders.** `DelaySlider` and `ContextRearmSlider` take the row title as their accessibility
-  label and the shown text (`0.8 s`, `60%`) as their value; the separate value text is hidden so
+  label and the shown text (`0.5 s`, `60%`) as their value; the separate value text is hidden so
   it is not read twice. A VoiceOver adjustment arrives while no drag is in progress, so it takes
   the non-dragging branch and commits at once, the same as a drag end.
 - **Sidebar.** The selected pane's row carries the `.isSelected` trait, Advanced counting as
@@ -838,7 +838,7 @@ Restore Defaults never flips it.
 `countersign snapshot` renders `PanelModel`/`PanelRootView` directly, with no `PanelController`
 and no config read, so its PNGs stay identical on every machine regardless of what settings a
 person or a CI runner happens to have on disk. `PanelController`'s and `PanelModel`'s `armDuration`,
-`snoozePresets` and `questionNotes` parameters default to the built-in values (`0.8`,
+`snoozePresets` and `questionNotes` parameters default to the built-in values (`0.5`,
 `[60, 300, 900, 1800]` seconds and `false`), and `SnapshotCommand` passes none of them unless asked, so it stays
 config-independent. `--question-notes` is the one way to see the question view with notes on in a
 snapshot, since there is no config file to flip a switch in, and `--accent #RRGGBB` the one way to

@@ -152,7 +152,7 @@ import Testing
       snoozePresets: [120, 600], handoffApps: ["com.x", "com.y"], checkForUpdates: true,
       quitBehavior: .pause, modeAfterPlan: .acceptEdits, questionNotes: true, appearance: .dark,
       accentColor: AccentPreset.blue.color)
-    #expect(PreferenceReset.line(for: .armDelay, current: values) == "Arm delay: 1 s → 0.8 s")
+    #expect(PreferenceReset.line(for: .armDelay, current: values) == "Arm delay: 1 s → 0.5 s")
     #expect(PreferenceReset.line(for: .appearance, current: values) == "Appearance: Dark → System")
     #expect(
       PreferenceReset.line(for: .accentColor, current: values) == "Accent colour: Blue → Amber")

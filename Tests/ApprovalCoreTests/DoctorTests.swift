@@ -428,11 +428,11 @@ private func entryJSON(command: String, timeout: String? = "3600") -> [UInt8] {
     let lines = Doctor.report(
       baseInput(
         hosts: [missingHost(.claude), missingHost(.codex)], configFileExists: true,
-        configLogLines: ["armDelay: not a number, using default 0.8"]))
+        configLogLines: ["armDelay: not a number, using default 0.5"]))
     #expect(
       lines.contains(
         DoctorLine(
-          status: .warn, check: "config", detail: "armDelay: not a number, using default 0.8")))
+          status: .warn, check: "config", detail: "armDelay: not a number, using default 0.5")))
   }
 
   @Test func queueReportsTheLiveTicketCount() {

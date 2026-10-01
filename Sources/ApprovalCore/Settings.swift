@@ -67,7 +67,7 @@ public struct Settings: Sendable, Equatable {
   }
 
   public static let armDelayRange: ClosedRange<Double> = 0...3
-  public static let defaultArmDelay: Double = 0.8
+  public static let defaultArmDelay: Double = 0.5
   public static let defaultChainedArmDelay: Double = 0.1
   public static let defaultIdleSeconds: Double = 5
   public static let defaultGraceSeconds: Double = 0

@@ -283,7 +283,7 @@ import Testing
   @Test func armDelayWrongTypeFallsBackToDefault() {
     let (file, logLines) = parse(#"{ "armDelay": "soon" }"#)
     #expect(file.armDelay == nil)
-    #expect(logLines == ["armDelay: not a number, using default 0.8"])
+    #expect(logLines == ["armDelay: not a number, using default 0.5"])
   }
 
   @Test func chainedArmDelayOutOfRangeClampsAndLogs() {
@@ -448,7 +448,7 @@ import Testing
     #expect(
       Set(typoLines)
         == [
-          "hosts.cursor.armDelay: not a number, using default 0.8",
+          "hosts.cursor.armDelay: not a number, using default 0.5",
           "unknown key \"hosts.cursor.bogus\", ignored",
         ])
   }

@@ -27,7 +27,7 @@ How each answer plays out, agent by agent, is in [agents.md](agents.md); the des
   activation straight back if macOS ever tries. It never grabs the keyboard back: when focus leaves
   it, for another app or the lock screen, it steps aside until your next pause.
 - Keys and clicks in the first moments after a panel appears are swallowed, never passed through:
-  0.8 seconds by default (`armDelay`), 0.1 seconds for a panel that follows one you just answered
+  0.5 seconds by default (`armDelay`), 0.1 seconds for a panel that follows one you just answered
   (`chainedArmDelay`).
 
 ## What it reads

@@ -98,7 +98,7 @@ import Testing
   }
 
   @Test func defaultTextMatchesTheBuiltInDefaults() {
-    #expect(PreferenceName.armDelay.defaultText == "0.8 seconds")
+    #expect(PreferenceName.armDelay.defaultText == "0.5 seconds")
     #expect(PreferenceName.chainedArmDelay.defaultText == "0.1 seconds")
     #expect(PreferenceName.idleSeconds.defaultText == "5 seconds")
     #expect(PreferenceName.graceSeconds.defaultText == "0 seconds")

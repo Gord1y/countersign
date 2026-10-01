@@ -51,7 +51,8 @@ final class PanelModel {
   var onPreferredHeightChange: ((CGFloat) -> Void)?
 
   init(
-    request: ApprovalRequest, waitingEntries: [WaitingEntry], armDuration: TimeInterval = 0.8,
+    request: ApprovalRequest, waitingEntries: [WaitingEntry],
+    armDuration: TimeInterval = Settings.defaultArmDelay,
     snoozePresets: [TimeInterval] = Settings.defaultSnoozePresets,
     questionNotes: Bool = Settings.defaultQuestionNotes,
     modeAfterPlan: PlanApprovalMode = Settings.defaultModeAfterPlan,
@@ -128,7 +129,7 @@ final class PanelController {
   private static let rightArrowKeyCode: UInt16 = 124
   private static let downArrowKeyCode: UInt16 = 125
   private static let upArrowKeyCode: UInt16 = 126
-  private static let defaultArmDuration: TimeInterval = 0.8
+  private static let defaultArmDuration: TimeInterval = Settings.defaultArmDelay
   private static let armDurationRange: ClosedRange<TimeInterval> = 0...3
 
   init(

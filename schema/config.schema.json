@@ -172,7 +172,7 @@
               "$ref": "#/$defs/durationText"
             }
           ],
-          "default": 0.8,
+          "default": 0.5,
           "description": "Time the panel ignores input after appearing, for this host: a number of seconds, or a string with a unit such as \"500ms\"; out-of-range values are clamped to 0...3 seconds."
         },
         "chainedArmDelay": {
@@ -279,7 +279,7 @@
           "$ref": "#/$defs/durationText"
         }
       ],
-      "default": 0.8,
+      "default": 0.5,
       "description": "Time the panel ignores input after appearing: a number of seconds, or a string with a unit such as \"500ms\"; out-of-range values are clamped to 0...3 seconds."
     },
     "chainedArmDelay": {

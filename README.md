@@ -115,7 +115,7 @@ writes and sends: [Safety and privacy](docs/safety-and-privacy.md).
 - **Behaves like an alert.** <kbd>Return</kbd> approves, <kbd>⌫</kbd> opens the deny step (Keep
   planning for a plan), <kbd>Esc</kbd> hands the prompt back to the chat, and nothing you type
   leaks into the app underneath, even after <kbd>⌘</kbd><kbd>Tab</kbd>. Keys and clicks in its
-  first 800 ms are ignored.
+  first 500 ms are ignored.
 - **Leaves your place alone.** It takes the keyboard without activating its own app; when it
   closes, your editor or chat gets its caret and selection back exactly where they were.
 - **Knows when you already answered.** Reply in Claude Code's chat and the panel, or the queued

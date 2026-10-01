@@ -64,7 +64,7 @@ How approval panels behave, for every agent unless a key is overridden for one u
 | --- | --- | --- |
 | Wait for idle | `idleSeconds` | `5` |
 | Grace period | `graceSeconds` | `0` |
-| Arm delay | `armDelay` | `0.8` |
+| Arm delay | `armDelay` | `0.5` |
 | Arm delay after an answer | `chainedArmDelay` | `0.1` |
 | Hand off when frontmost | `handoffApps` | `[]` |
 | Snooze presets | `snoozeMinutes` | `[1, 5, 15, 30]` |
