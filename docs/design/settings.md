@@ -798,7 +798,8 @@ that opened an editor the person had never been asked about. With no `editorApp`
 `SettingsPage` presents it as one sheet (`EditorChoiceSheet`), so Advanced's button and an agent's
 own "Open in Editor" link (`ConfigEditorOrigin.host`) share it. The sheet is titled "Open
 config.json with" and lists the installed apps that open `config.json` (icon and name, the
-system's default first and marked "(default)"), an "Other…" button (the same `NSOpenPanel`; the
+system's default first and marked "(default)"; the name is Finder's display name without a trailing
+`.app`, which Finder adds when "Show all filename extensions" is on), an "Other…" button (the same `NSOpenPanel`; the
 picked app joins the list and is selected), an "Always use this app" checkbox that starts ticked,
 and Cancel and Open, with Open the default action and disabled until a row is selected;
 double-clicking a row opens with it. `SettingsModel.chooseEditor(bundleID:always:)` opens the file

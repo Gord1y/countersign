@@ -21,8 +21,13 @@ enum EditorApps {
   static func option(at url: URL) -> EditorAppOption? {
     guard let bundleID = Bundle(url: url)?.bundleIdentifier else { return nil }
     return EditorAppOption(
-      id: bundleID, name: FileManager.default.displayName(atPath: url.path),
-      icon: NSWorkspace.shared.icon(forFile: url.path))
+      id: bundleID, name: name(of: url), icon: NSWorkspace.shared.icon(forFile: url.path))
+  }
+
+  static func name(of url: URL) -> String {
+    let name = FileManager.default.displayName(atPath: url.path)
+    let suffix = ".app"
+    return name.hasSuffix(suffix) ? String(name.dropLast(suffix.count)) : name
   }
 
   @MainActor
