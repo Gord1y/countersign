@@ -685,8 +685,12 @@ panel had when it closed (`PanelController.frame`), and it takes the height its 
 the same way the panel does. Every frame it takes goes through `ScreenPlacement` first, so it is
 clamped into the visible frame of the screen that holds it, and on a display change `DisplayWatch`
 moves it the same way it moves a shown panel (see "Centered on the mouse's display, over a blurred
-backdrop"): the card never waits out its 8 seconds on a display that is gone. It closes on a click, on Esc or after 8 seconds, and the process exits
-when it closes, so the card never outlives its use. It is key like the panel was, which is what
+backdrop"): the card never waits out its 4 seconds on a display that is gone. It closes on a click,
+on its close button (a borderless `xmark` in the top-right corner, labelled and helped `Dismiss`),
+on Esc or after 4 seconds, and the process exits when it closes, so the card never outlives its use.
+The countdown is short because the card only explains an answer already given. While the pointer is
+over the card the countdown stops, so a long detail can be read at leisure; when the pointer leaves,
+a fresh 4 seconds start. It is key like the panel was, which is what
 lets Esc reach it, but as a non-activating panel it takes no focus from the app the person is in
 beyond what the test panel already had.
 

@@ -9,6 +9,7 @@ final class TestPanelResultCardModel {
   let detail: String
   var onHeight: ((CGFloat) -> Void)?
   var onDismiss: (() -> Void)?
+  var onHover: ((Bool) -> Void)?
 
   init(title: String, detail: String) {
     self.title = title
@@ -24,6 +25,7 @@ struct TestPanelResultCardView: View {
   @Environment(\.panelSurface) private var surface
 
   static let visibleLines: CGFloat = 8
+  static let closeButtonReserve: CGFloat = 24
   static let detailFont = NSFont.systemFont(ofSize: 13)
 
   private static var maximumDetailHeight: CGFloat {
@@ -36,6 +38,7 @@ struct TestPanelResultCardView: View {
       Text(model.title)
         .font(PanelTypography.title)
         .fixedSize(horizontal: false, vertical: true)
+        .padding(.trailing, Self.closeButtonReserve)
       ScrollView(.vertical) {
         Text(model.detail)
           .font(PanelTypography.body)
@@ -54,16 +57,32 @@ struct TestPanelResultCardView: View {
       RoundedRectangle(cornerRadius: PanelMetrics.cornerRadius, style: .continuous)
         .stroke(Color.primary.opacity(0.1), lineWidth: 1)
     )
+    .overlay(alignment: .topTrailing) {
+      Button {
+        model.onDismiss?()
+      } label: {
+        Image(systemName: "xmark")
+          .font(.system(size: 11, weight: .semibold))
+          .foregroundStyle(.secondary)
+          .frame(width: 24, height: 24)
+          .contentShape(Rectangle())
+      }
+      .buttonStyle(.borderless)
+      .accessibilityLabel("Dismiss")
+      .help("Dismiss")
+      .padding(6)
+    }
     .reportHeight { model.onHeight?($0) }
     .contentShape(Rectangle())
     .onTapGesture { model.onDismiss?() }
+    .onHover { model.onHover?($0) }
   }
 }
 
 @MainActor
 final class TestPanelResultCard {
   static let width: CGFloat = 420
-  static let dismissDelay: Duration = .seconds(8)
+  static let dismissDelay: Duration = .seconds(4)
   private static let escapeKeyCode: UInt16 = 53
   private static let initialHeight: CGFloat = 100
 
@@ -92,6 +111,13 @@ final class TestPanelResultCard {
     panel.contentViewController = hostingController
     panel.onEscape = { [weak self] in self?.dismiss() }
     model.onDismiss = { [weak self] in self?.dismiss() }
+    model.onHover = { [weak self] hovering in
+      if hovering {
+        self?.dismissTask?.cancel()
+      } else {
+        self?.startCountdown()
+      }
+    }
     model.onHeight = { [weak self] height in self?.applyHeight(height) }
     applyHeight(Self.initialHeight)
   }
@@ -108,6 +134,12 @@ final class TestPanelResultCard {
       self.dismiss()
       return nil
     }
+    startCountdown()
+  }
+
+  private func startCountdown() {
+    guard !isClosed else { return }
+    dismissTask?.cancel()
     dismissTask = Task { [weak self] in
       try? await Task.sleep(for: Self.dismissDelay)
       guard !Task.isCancelled else { return }
