@@ -8,17 +8,19 @@ import Testing
   private let delay: TimeInterval = 120
 
   private func sample(
-    after seconds: TimeInterval, isShown: Bool = false, agentAlive: Bool = true,
-    paused: Bool = false, quiet: Bool = false, agentAppFrontmost: Bool = false,
-    lastAgentAppFrontmostAfter: TimeInterval? = nil, sessionHasLiveTicket: Bool = false,
-    resumed: Bool = false
+    after seconds: TimeInterval, isShown: Bool = false, slot: Int? = nil,
+    agentAlive: Bool = true, paused: Bool = false, quiet: Bool = false,
+    agentAppFrontmost: Bool = false, lastAgentAppFrontmostAfter: TimeInterval? = nil,
+    sessionHasLiveTicket: Bool = false, panelOnScreen: Bool = false,
+    approvalWaiting: Bool = false, resumed: Bool = false
   ) -> WaitingNoticeSample {
     WaitingNoticeSample(
       now: recordedAt.addingTimeInterval(seconds), recordedAt: recordedAt, delay: delay,
-      isShown: isShown, agentAlive: agentAlive, paused: paused, quiet: quiet,
+      isShown: isShown, slot: slot, agentAlive: agentAlive, paused: paused, quiet: quiet,
       agentAppFrontmost: agentAppFrontmost,
       lastAgentAppFrontmostAt: lastAgentAppFrontmostAfter.map { recordedAt.addingTimeInterval($0) },
-      sessionHasLiveTicket: sessionHasLiveTicket, resumed: resumed)
+      sessionHasLiveTicket: sessionHasLiveTicket, panelOnScreen: panelOnScreen,
+      approvalWaiting: approvalWaiting, resumed: resumed)
   }
 
   @Test func showsOnceTheDelayHasPassed() {
@@ -59,6 +61,38 @@ import Testing
     #expect(WaitingNoticeClock.decide(sample(after: 300, isShown: true)) == .wait(nil))
     let shownWithTicket = sample(after: 300, isShown: true, sessionHasLiveTicket: true)
     #expect(WaitingNoticeClock.decide(shownWithTicket) == .wait(nil))
+  }
+
+  @Test func aPanelOnScreenHidesAShownNotice() {
+    let shown = sample(after: 300, isShown: true, slot: 0, panelOnScreen: true)
+    #expect(WaitingNoticeClock.decide(shown) == .hide(.panelOnScreen))
+  }
+
+  @Test func aPanelOnScreenHoldsAnUnshownNotice() {
+    let unshown = sample(after: 300, panelOnScreen: true)
+    #expect(WaitingNoticeClock.decide(unshown) == .wait(.panelOnScreen))
+  }
+
+  @Test func pauseStillWinsOverAPanelOnScreen() {
+    let unshown = sample(after: 300, paused: true, panelOnScreen: true)
+    #expect(WaitingNoticeClock.decide(unshown) == .wait(.paused))
+    let shown = sample(after: 300, isShown: true, slot: 0, paused: true, panelOnScreen: true)
+    #expect(WaitingNoticeClock.decide(shown) == .hide(.paused))
+  }
+
+  @Test func aWaitingApprovalHidesTheNoticeInTheLastSlot() {
+    let lastSlot = sample(after: 300, isShown: true, slot: 1, approvalWaiting: true)
+    #expect(WaitingNoticeClock.decide(lastSlot) == .hide(.approvalWaiting))
+  }
+
+  @Test func aWaitingApprovalLeavesTheNoticeInTheFirstSlot() {
+    let firstSlot = sample(after: 300, isShown: true, slot: 0, approvalWaiting: true)
+    #expect(WaitingNoticeClock.decide(firstSlot) == .wait(nil))
+  }
+
+  @Test func aWaitingApprovalHoldsAnUnshownNotice() {
+    let unshown = sample(after: 300, approvalWaiting: true)
+    #expect(WaitingNoticeClock.decide(unshown) == .wait(.approvalWaiting))
   }
 
   @Test func theAgentsAppClosesAShownNotice() {

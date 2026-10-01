@@ -168,7 +168,9 @@ keys below.
   Antigravity), in the same diff. Turn it off from Settings, not by editing the file: that removes
   those hooks, after showing you the change, and writes `false`, and setup then leaves them out.
   Codex asks you to trust its new hook once; see
-  [agents.md](agents.md#the-waiting-agent-notice).
+  [agents.md](agents.md#the-waiting-agent-notice). At most two corner cards show at once; a
+  third notice waits for room. Notices hide while any Countersign panel is on screen, a test panel
+  included, and come back when it closes.
 - **Notice after** (`waitingNoticeMinutes`): how long an agent has been waiting before the
   notice appears, from 10 seconds to 60 minutes: a number of minutes or a string such as `"90s"`,
   `2` unless you change it. A value outside the range or of another type logs one line and falls
@@ -255,10 +257,13 @@ profile. If you set `XDG_CONFIG_HOME` only there, its Settings window edits
   never pause, Cursor and Antigravity just stop and wait, with no prompt of their own, and Codex
   only says "Waiting for the approval panel". The card never takes focus, so your typing is safe.
   **Show** brings the panel up at once, still with the arm delay; the close button dismisses the
-  card and the panel waits for a pause as before. You get one card per request, never during
-  quiet time or while paused (a card that is up when quiet time starts closes, and comes back
-  after it), and never for a test panel or a context checkpoint; it goes
-  away when the panel appears or the request ends. Claude Code is off by default because its
+  card and the panel waits for a pause as before. If the panel appears and steps aside because you
+  went back to work without answering, the card comes back at once, unless you dismissed it. No
+  card shows during quiet time or while paused (a card that is up when quiet time starts closes,
+  and comes back after it), and never for a test panel or a context checkpoint; it goes away when
+  the panel appears or the request ends. At most two corner cards show at once, and an approval
+  card goes first: when both places hold waiting-agent notices, the newer notice steps back until
+  there is room again. Claude Code is off by default because its
   request also waits in the chat, where you can answer it while you work. Set it at the top level
   for every agent, or per agent under `hosts.<agent>`, which wins: for example
   `"hosts": { "claude": { "approvalCard": true } }` turns it on for Claude Code alone. A value
@@ -266,7 +271,8 @@ profile. If you set `XDG_CONFIG_HOME` only there, its Settings window edits
 - **`approvalCardDelay`** (default `5`): how long a request waits for a pause before its
   card appears, from `1` second to `10` minutes: a number of seconds or a string with a unit, such
   as `"1.5s"` or `"2m"`. Counted from when the request's turn comes and it
-  starts waiting for your pause, or from when its panel stepped aside, not from when it arrived. A value outside the
+  starts waiting for your pause, not from when it arrived; after its panel steps aside unanswered
+  there is no delay. A value outside the
   range or of another type logs one line, `expected a duration from 1s to 10m, using default 5s`, and falls back to `5`. It can be set at the top level or
   per agent, under `hosts.<agent>`.
 - **`hosts.claude`, `hosts.codex`, `hosts.cursor`, `hosts.antigravity`**: per-agent values; see

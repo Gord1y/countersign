@@ -117,19 +117,23 @@ step 2, a window of microseconds; the hook's next record for that session brings
 ## The clock
 
 `WaitingNoticeClock.decide(_:)` is a pure decision from one `WaitingNoticeSample`: now,
-`recordedAt`, the delay (`waitingNoticeMinutes`, 2 by default), whether the card is shown, whether
-the agent process is alive, pause, quiet time, whether the agent's app is frontmost, when it last
-was, whether a live ticket belongs to the session, and whether the transcript shows a resume. The
-rules, in order:
+`recordedAt`, the delay (`waitingNoticeMinutes`, 2 by default), whether the card is shown and in
+which slot, whether the agent process is alive, pause, quiet time, whether the agent's app is
+frontmost, when it last was, whether a live ticket belongs to the session, whether any Countersign
+panel is on screen, whether an approval card is waiting for a slot, and whether the transcript
+shows a resume. The rules, in order:
 
 1. the agent process is gone: close, `agent exited`;
 2. the record is older than 12 hours: close, `expired`;
 3. the agent resumed: close, `resumed`;
 4. shown, and the agent's app is frontmost: close, `in the agent's app` (you got there yourself);
-5. shown, and paused or in quiet time: hide (`paused` or `quiet`). The card comes back when that
-   ends, because the notice is due by then;
-6. not shown: held while paused, in quiet time, in the agent's app, or while a Countersign ticket
-   for this session is live (a panel for the session is its own notice); otherwise shown once due.
+5. shown, and paused, in quiet time or with a panel on screen: hide (`paused`, `quiet` or
+   `panel on screen`). The card comes back when that ends, because the notice is due by then;
+6. shown in the last slot while an approval card waits for a slot: hide (`approval waiting`), see
+   "Two corner cards at most" below;
+7. not shown: held while paused, in quiet time, while a panel is on screen, in the agent's app,
+   while a Countersign ticket for this session is live (a panel for the session is its own notice),
+   or while an approval card waits for a slot; otherwise shown once due.
 
 The notice is due at `max(recordedAt, lastAgentAppFrontmostAt) + delay`. Being in the agent's app
 counts as having seen it, so leaving that app restarts the wait rather than showing the card at
@@ -139,6 +143,16 @@ could not be found counts as alive: unknown is never a decision.
 A live ticket belongs to the session when its host matches and the recorded agent pid is among the
 ticket process's ancestors (the hook that wrote the ticket runs under the same agent). With no agent
 pid recorded, the project name stands in.
+
+A panel is on screen when any live ticket, of any session or agent and test panels included, has a
+non-nil `QueueHandoffChannel(ticket:).shownDisplayID()`: the hook publishes its display there while
+its panel is up and clears it when the panel closes, the same signal `TestPanelCommand.takeDisplay`
+and Show Now read across processes. A panel already asks for the person's attention in the middle
+of the screen, so a corner card beside it is noise; the person said so after three notices showed
+next to a test panel. Notices hide while it is up and come back on their next tick once it closes,
+because they are due by then. A panel that steps aside unanswered brings back its approval card
+first if the person is still working (see "The approval card" in [panel.md](panel.md)), or the
+panel itself once they pause.
 
 ### The 12-hour cap
 
@@ -205,8 +219,9 @@ The process is launched through `PanelApplication`, which shows nothing before
 
 Placement: the top-right corner of `PanelController.resolveTargetScreen()`'s visible frame, inset
 16 pt, resolved each time the card shows. Several sessions stack: a notice takes the lowest free
-`slot-<n>.lock` for n in 0...3 and sits n × (card height + 8 pt) lower. With all four taken it stays
-unshown and tries again each tick; it releases its slot when it hides or closes. On a display
+`slot-<n>.lock` for n in 0...1 (`WaitingStore.slotCount` is 2) and sits n × (card height + 8 pt)
+lower. With both taken it stays unshown and tries again each tick; it releases its slot when it
+hides or closes. On a display
 change it moves to the top-right corner of the screen that now holds it, the way the result card
 follows (see "The result card" in [panel.md](panel.md)).
 
@@ -216,13 +231,55 @@ The waiting notice and the approval card (see "The approval card" in [panel.md](
 the same `CornerCard` with different content, so they look alike, stack in one column and never
 overlap. Everything above is the shared part: the panel, the view, the fade, the announcement,
 the placement, following screen changes and the slots. `CornerCard.inFreeSlot(of:...)` takes the
-lowest free `slot-<n>.lock` in `AppPaths.waitingDirectory` and returns nil when all four are taken;
+lowest free `slot-<n>.lock` in `AppPaths.waitingDirectory` and returns nil when both are taken;
 the card owns that lock and releases it in `close()`, so closing a card always frees its slot and
-an exiting process frees it with its file descriptor. The slots are shared across every notice
-process and every hook process, so a notice and an approval card on screen at once take different
-slots. The test cards of Settings (see "Show a test card" in [settings.md](settings.md)) are
-corner cards too and take real slots the same way, so a test card counts toward the limit and can
-leave no room for a real notice while it is up.
+an exiting process frees it with its file descriptor. `CornerCard.slot` is the slot it holds. The
+slots are shared across every notice process and every hook process, so a notice and an approval
+card on screen at once take different slots. The test cards of Settings (see "Show a test card" in
+[settings.md](settings.md)) are corner cards too and take real slots the same way, so a test card
+counts toward the limit and can leave no room for a real notice while it is up. A test card does
+not step back for an approval claim (below); it closes by itself within 20 seconds instead.
+
+### Two corner cards at most
+
+Two slots, not four: the person asked for no more than two cards in the top right at once, after
+three notices showed together beside a test panel. A taller column covers more of whatever they are
+working in. A third waiting notice stays unshown, retries each tick, and shows when a slot frees.
+
+When both slots hold cards and an approval card is due, the approval goes first: an approval blocks
+its agent until someone answers, a waiting notice is only a reminder. The hook cannot take a slot
+from another process, so it asks for one through a claim file, `WaitingStore.approvalClaimFile`
+(`approval-claim.json` in the waiting directory), holding `ApprovalClaim`: the hook's pid and
+process start time.
+
+- `DisplayWatch.showApprovalCardIfDue`: when `ApprovalCardTiming.shouldShow` is true and
+  `CornerCard.inFreeSlot` returns nil, the hook writes the claim once (temporary file and rename,
+  like a record) and logs `approval card: waiting for a slot`. It removes the claim when its card
+  shows and in `closeApprovalCard`, which runs on every exit from `waitingForIdle` and on every
+  process exit path (`finish`, `abandon`, `handBack`, the yield to a real request, the hand-off to
+  the asking app), always before the display lease is released.
+- A notice samples `WaitingStore.liveApprovalClaim()` every tick. A shown notice in the last slot
+  (`slotCount - 1`) hides with `approval waiting`; it is not closed, so it shows again on a later
+  tick when a slot is free. An unshown notice is held with `approval waiting`, so it does not take
+  the slot that just freed before the hook's next tick (every 0.25 s) does. A shown notice in slot
+  0 stays.
+
+The last slot yields because slots are taken lowest first, so the highest occupied slot usually
+holds the most recent card: the newest reminder steps back and the one the person has had longest
+stays where it was.
+
+A claim counts only while `ProcessLiveness.isAlive(pid:processStart:)` holds for it, the check the
+queue uses for tickets: a hook that crashed or was killed leaves a claim whose pid is gone, or was
+reused by a process with another start time, and that claim reads as no claim. Readers never delete
+a stale claim. Between a reader's load and its unlink, a live hook could rename a fresh claim into
+place, and deleting that would leave the hook without priority, since it writes its claim once. A
+stale file is harmless: it is ignored, and the next claim replaces it. The hook removes its own claim
+only when the file still holds exactly that claim (`removeApprovalClaim(_:)`).
+
+Only the request holding the display lease can be in `waitingForIdle`, so at most one approval card
+and at most one live claim exist at a time, and the claim is gone before the lease passes on. Quiet
+time keeps a claim in place: notices are held for quiet time anyway, and when it ends the card is
+due again after its delay, so the notices let it go first.
 
 Only `CornerCardModel` differs: a lead text, the project name, and an optional action title.
 `CornerCardModel.waitingNotice` gives `<Host.displayName> is waiting for you · ` and `Go there`
@@ -251,8 +308,9 @@ Names only, never message text:
   `waiting: failed to record: <error>` or `waiting: failed to start the notice`;
 - `notice: waiting <host> <project> (<reason>)` when a notice starts or starts over;
 - `notice: shown`;
-- `notice: held (paused|quiet|in the agent's app|panel open)`, only when the reason changes;
-- `notice: hidden (paused|quiet)`;
+- `notice: held (paused|quiet|panel on screen|in the agent's app|panel open|approval waiting)`,
+  only when the reason changes;
+- `notice: hidden (paused|quiet|panel on screen|approval waiting)`;
 - `notice: closed (resumed|go there|dismissed|agent exited|expired|in the agent's app|working again)`;
 - `waiting: <host> <project> working again` when a Countersign hook deleted the session's record.
 

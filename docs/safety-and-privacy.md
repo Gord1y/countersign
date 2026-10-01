@@ -62,7 +62,7 @@ None of this leaves your Mac, and none of it is written to the log.
 | Queue and display lock | `~/Library/Application Support/Countersign/queue/` |
 | Context checkpoint state, one small file per Claude Code session | ~/Library/Application Support/Countersign/context/ |
 | Decision history, the last 200 answers | `~/Library/Application Support/Countersign/history.jsonl` |
-| Waiting-agent records, one per waiting session, and their `*.lock` and `slot-<n>.lock` files | `~/Library/Application Support/Countersign/waiting/` |
+| Waiting-agent records, one per waiting session, their `*.lock` and `slot-<n>.lock` files, and `approval-claim.json` (the process id of a request whose approval card waits for a corner) | `~/Library/Application Support/Countersign/waiting/` |
 | Pause switch | `~/Library/Application Support/Countersign/paused` |
 | Quiet time | `~/Library/Application Support/Countersign/quiet-until` |
 | Menu-bar app lock | `~/Library/Application Support/Countersign/companion.lock` |

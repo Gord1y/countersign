@@ -5,6 +5,8 @@ public enum WaitingNoticeHold: String, Sendable, Equatable {
   case quiet
   case inAgentApp = "in the agent's app"
   case panelOpen = "panel open"
+  case panelOnScreen = "panel on screen"
+  case approvalWaiting = "approval waiting"
 }
 
 public enum WaitingNoticeClose: String, Sendable, Equatable {
@@ -28,29 +30,36 @@ public struct WaitingNoticeSample: Sendable, Equatable {
   public var recordedAt: Date
   public var delay: TimeInterval
   public var isShown: Bool
+  public var slot: Int?
   public var agentAlive: Bool
   public var paused: Bool
   public var quiet: Bool
   public var agentAppFrontmost: Bool
   public var lastAgentAppFrontmostAt: Date?
   public var sessionHasLiveTicket: Bool
+  public var panelOnScreen: Bool
+  public var approvalWaiting: Bool
   public var resumed: Bool
 
   public init(
-    now: Date, recordedAt: Date, delay: TimeInterval, isShown: Bool, agentAlive: Bool,
-    paused: Bool, quiet: Bool, agentAppFrontmost: Bool, lastAgentAppFrontmostAt: Date?,
-    sessionHasLiveTicket: Bool, resumed: Bool
+    now: Date, recordedAt: Date, delay: TimeInterval, isShown: Bool, slot: Int?,
+    agentAlive: Bool, paused: Bool, quiet: Bool, agentAppFrontmost: Bool,
+    lastAgentAppFrontmostAt: Date?, sessionHasLiveTicket: Bool, panelOnScreen: Bool,
+    approvalWaiting: Bool, resumed: Bool
   ) {
     self.now = now
     self.recordedAt = recordedAt
     self.delay = delay
     self.isShown = isShown
+    self.slot = slot
     self.agentAlive = agentAlive
     self.paused = paused
     self.quiet = quiet
     self.agentAppFrontmost = agentAppFrontmost
     self.lastAgentAppFrontmostAt = lastAgentAppFrontmostAt
     self.sessionHasLiveTicket = sessionHasLiveTicket
+    self.panelOnScreen = panelOnScreen
+    self.approvalWaiting = approvalWaiting
     self.resumed = resumed
   }
 }
@@ -74,6 +83,12 @@ public enum WaitingNoticeClock {
       if sample.quiet {
         return .hide(.quiet)
       }
+      if sample.panelOnScreen {
+        return .hide(.panelOnScreen)
+      }
+      if sample.approvalWaiting, sample.slot == WaitingStore.slotCount - 1 {
+        return .hide(.approvalWaiting)
+      }
       return .wait(nil)
     }
     if let hold = hold(sample) {
@@ -90,11 +105,17 @@ public enum WaitingNoticeClock {
     if sample.quiet {
       return .quiet
     }
+    if sample.panelOnScreen {
+      return .panelOnScreen
+    }
     if sample.agentAppFrontmost {
       return .inAgentApp
     }
     if sample.sessionHasLiveTicket {
       return .panelOpen
+    }
+    if sample.approvalWaiting {
+      return .approvalWaiting
     }
     return nil
   }

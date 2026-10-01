@@ -369,8 +369,10 @@ private final class DisplayWatch: NSObject {
   private let cardSlots: WaitingStore
   private let isPaused: () -> Bool
   private var waitingForIdleSince = ProcessInfo.processInfo.systemUptime
+  private var waitFollowsStepAside = false
   private var approvalCard: CornerCard?
   private var approvalCardStage = ApprovalCardStage.notShown
+  private var approvalClaim: ApprovalClaim?
   private var checkpointChoice: ContextCheckpointChoice?
   private var lease: DisplayLease?
   private var state: State
@@ -475,7 +477,7 @@ private final class DisplayWatch: NSObject {
       if quietTimeHoldsPanels() {
         closeShownPanel(controller)
         log.write("stepped aside: quiet time")
-        waitForIdle()
+        waitForIdle(afterStepAside: false)
         return
       }
       let waitingEntries = queue.waitingEntries(excluding: ticket)
@@ -493,9 +495,10 @@ private final class DisplayWatch: NSObject {
     mode.honorsQuietTime && quietState.activeUntil() != nil
   }
 
-  private func waitForIdle() {
+  private func waitForIdle(afterStepAside: Bool) {
     state = .waitingForIdle
     waitingForIdleSince = ProcessInfo.processInfo.systemUptime
+    waitFollowsStepAside = afterStepAside
     log.write("waiting for idle")
   }
 
@@ -504,23 +507,49 @@ private final class DisplayWatch: NSObject {
       ApprovalCardTiming.shouldShow(
         enabled: settings.approvalCard, mode: mode,
         secondsWaiting: ProcessInfo.processInfo.systemUptime - waitingForIdleSince,
-        delay: settings.approvalCardDelay, quiet: quiet, paused: isPaused(),
-        stage: approvalCardStage),
+        delay: ApprovalCardTiming.delay(
+          afterStepAside: waitFollowsStepAside, configured: settings.approvalCardDelay),
+        quiet: quiet, paused: isPaused(), stage: approvalCardStage)
+    else { return }
+    guard
       let card = CornerCard.inFreeSlot(
         of: cardSlots,
         model: .approval(hostName: host.displayName, projectName: request.projectName),
         accessibilityTitle: "Countersign approval", appearance: settings.appearance,
         onAction: { [weak self] in self?.showFromApprovalCard() },
         onDismiss: { [weak self] in self?.dismissApprovalCard() })
-    else { return }
+    else {
+      claimApprovalSlot()
+      return
+    }
+    withdrawApprovalClaim()
     approvalCard = card
     approvalCardStage = .shown
     card.show()
     log.write("approval card: shown")
   }
 
+  private func claimApprovalSlot() {
+    guard approvalClaim == nil else { return }
+    let claim = ApprovalClaim.current()
+    approvalClaim = claim
+    log.write("approval card: waiting for a slot")
+    do {
+      try cardSlots.writeApprovalClaim(claim)
+    } catch {
+      log.write("approval card: failed to claim a slot: \(error)")
+    }
+  }
+
+  private func withdrawApprovalClaim() {
+    guard let approvalClaim else { return }
+    cardSlots.removeApprovalClaim(approvalClaim)
+    self.approvalClaim = nil
+  }
+
   private func holdApprovalCardForQuietTime() {
     waitingForIdleSince = ProcessInfo.processInfo.systemUptime
+    waitFollowsStepAside = false
     guard approvalCard != nil else { return }
     closeApprovalCard()
     approvalCardStage = approvalCardStage.afterQuietTime
@@ -541,6 +570,7 @@ private final class DisplayWatch: NSObject {
   }
 
   private func closeApprovalCard() {
+    withdrawApprovalClaim()
     approvalCard?.close()
     approvalCard = nil
   }
@@ -977,7 +1007,7 @@ private final class DisplayWatch: NSObject {
     else {
       discardHandoff()
       discardPreparedPanel("no handoff")
-      waitForIdle()
+      waitForIdle(afterStepAside: false)
       return
     }
     if let reason = abandonReason() {
@@ -1014,7 +1044,7 @@ private final class DisplayWatch: NSObject {
     guard case .shown(let controller) = state else { return }
     closeShownPanel(controller)
     log.write("quiet time until \(Self.formattedTime(until)) (\(DurationText.describe(seconds)))")
-    waitForIdle()
+    waitForIdle(afterStepAside: false)
   }
 
   private func endTestPanelOnSnooze(_ seconds: TimeInterval) -> Never {
@@ -1031,7 +1061,8 @@ private final class DisplayWatch: NSObject {
     guard case .shown(let controller) = state else { return }
     closeShownPanel(controller)
     log.write("stepped aside: \(reason.rawValue)")
-    waitForIdle()
+    approvalCardStage = approvalCardStage.afterStepAside
+    waitForIdle(afterStepAside: true)
   }
 
   private static func formattedTime(_ date: Date) -> String {

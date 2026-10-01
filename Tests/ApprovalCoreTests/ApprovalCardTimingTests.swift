@@ -42,4 +42,15 @@ import Testing
     #expect(ApprovalCardStage.notShown.afterQuietTime == .notShown)
     #expect(ApprovalCardStage.dismissed.afterQuietTime == .dismissed)
   }
+
+  @Test func aStepAsideLetsTheCardComeBackButNotADismissedOne() {
+    #expect(ApprovalCardStage.shown.afterStepAside == .notShown)
+    #expect(ApprovalCardStage.notShown.afterStepAside == .notShown)
+    #expect(ApprovalCardStage.dismissed.afterStepAside == .dismissed)
+  }
+
+  @Test func aWaitAfterAStepAsideHasNoDelay() {
+    #expect(ApprovalCardTiming.delay(afterStepAside: true, configured: 5) == 0)
+    #expect(ApprovalCardTiming.delay(afterStepAside: false, configured: 5) == 5)
+  }
 }

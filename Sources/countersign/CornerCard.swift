@@ -137,7 +137,7 @@ final class CornerCard {
   private let panel = CornerCardPanel()
   private let model: CornerCardModel
   private let hostingView: FirstClickHostingView<CornerCardView>
-  private let slot: Int
+  let slot: Int
   private let slotLock: ExclusiveFileLock
   private var screen: NSScreen?
   private var height: CGFloat = 0

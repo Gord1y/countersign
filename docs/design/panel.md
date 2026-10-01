@@ -470,17 +470,25 @@ reasons. A tick in `waitingForIdle` that does not show the panel asks
 `ApprovalCardTiming.shouldShow(enabled:mode:secondsWaiting:delay:quiet:paused:stage:)`. It is true
 only when `approvalCard` is on for the request's agent, the run is `.hook` (never a test panel or a
 context checkpoint), quiet time does not hold panels, the pause switch is off, no card has been
-shown or dismissed for this request (`ApprovalCardStage.notShown`), and `approvalCardDelay`
-seconds (5 by default) have passed since `waitingForIdleSince`. With all four slots taken the card
-stays unshown and the next tick tries again. The panel check runs first in the tick, so a request
-that turns idle in the same tick shows its panel and never flashes a card.
+shown or dismissed for this request (`ApprovalCardStage.notShown`), and the delay has passed since
+`waitingForIdleSince`. `ApprovalCardTiming.delay(afterStepAside:configured:)` gives the delay:
+`approvalCardDelay` seconds (5 by default), or 0 when this wait began with the panel's own
+step-aside (below). With both slots taken the card stays unshown, writes a claim so that waiting
+notices make room for it (see "Two corner cards at most" in [notice.md](notice.md)), logs
+`approval card: waiting for a slot`, and the next tick tries again. The panel check runs first in
+the tick, so a request that turns idle in the same tick shows its panel and never flashes a card.
 
 `Show` does what the menu's Show Now does for a request at the front: it sets `showsWithoutIdle`,
 closes the card, and the next tick shows the panel with the usual `armDelay`, quiet time still
 holding it. The close button (`Dismiss`) closes the card and leaves the request waiting for a
-pause; it gets no second card. Neither does a request whose card was shown and that comes back to
-`waitingForIdle` after a step-aside, so a person sees the card once per request, apart from quiet
-time (below). The card also closes, and releases its slot, whenever the request leaves
+pause; it gets no second card, not even after a step-aside. A panel that steps aside for its own
+reasons (`handleStepAside`: an app switch, lost focus or typing) went unanswered while the person
+went back to work, so the request returns to `waitingForIdle` with
+`approvalCardStage.afterStepAside` (`shown` and `notShown` become `notShown`, `dismissed` stays)
+and no delay for this wait: the card shows again on the next tick while the person keeps working,
+and the panel itself comes back once they pause. A step-aside for quiet time or a snooze keeps the
+quiet-time rule (below). The card also closes, and releases its slot and any claim, whenever the
+request leaves
 `waitingForIdle`: its panel shows (Show Now from the menu bar included), it is answered from the
 menu bar, it gives way to a request shown from the menu, it is resolved elsewhere or paused, it is
 handed back or handed off to the asking app, or it yields to a real request. Quiet time holds the card as it holds panels and waiting notices: a card that is up when
@@ -489,7 +497,9 @@ counts from the end of quiet time. A card closed this way may show again after i
 (`ApprovalCardStage.afterQuietTime` turns `shown` back into `notShown`), because the person never
 got to act on it and the request is still waiting; a dismissed card stays dismissed. Log lines:
 `approval card: shown`, `approval card: show`, `approval card: dismissed`,
-`approval card: closed for quiet time`.
+`approval card: closed for quiet time`, `approval card: waiting for a slot`, and
+`approval card: failed to claim a slot: <error>` when the claim file cannot be written (the card
+then waits for a free slot without priority).
 
 The card is per agent (`approvalCard` and `approvalCardDelay`, top level and under
 `hosts.<agent>`, see [configuration.md](../configuration.md)) because the hosts differ in what a

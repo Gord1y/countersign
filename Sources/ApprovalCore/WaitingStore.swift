@@ -41,9 +41,28 @@ public struct WaitingRecord: Sendable, Codable, Equatable {
   }
 }
 
+public struct ApprovalClaim: Sendable, Codable, Equatable {
+  public var pid: Int32
+  public var processStart: UInt64?
+
+  public init(pid: Int32, processStart: UInt64?) {
+    self.pid = pid
+    self.processStart = processStart
+  }
+
+  public static func current() -> ApprovalClaim {
+    let pid = getpid()
+    return ApprovalClaim(pid: pid, processStart: ProcessLiveness.startTime(of: pid))
+  }
+
+  public var isLive: Bool {
+    ProcessLiveness.isAlive(pid: pid, processStart: processStart)
+  }
+}
+
 public struct WaitingStore: Sendable {
   public static let maximumKeyLength = 80
-  public static let slotCount = 4
+  public static let slotCount = 2
 
   public let directory: URL
 
@@ -75,21 +94,29 @@ public struct WaitingStore: Sendable {
     directory.appendingPathComponent("slot-\(slot).lock")
   }
 
+  public var approvalClaimFile: URL {
+    directory.appendingPathComponent("approval-claim.json")
+  }
+
   @discardableResult
   public func save(_ record: WaitingRecord) throws -> URL {
     let file = recordFile(for: record)
-    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-    let temporary = directory.appendingPathComponent(
-      ".\(file.lastPathComponent).countersign-\(UUID().uuidString).tmp")
-    let encoder = JSONEncoder()
-    encoder.outputFormatting = [.sortedKeys]
-    try encoder.encode(record).write(to: temporary)
-    guard rename(temporary.path, file.path) == 0 else {
-      let code = errno
-      unlink(temporary.path)
-      throw POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO)
-    }
+    try writeAtomically(record, to: file)
     return file
+  }
+
+  public func writeApprovalClaim(_ claim: ApprovalClaim) throws {
+    try writeAtomically(claim, to: approvalClaimFile)
+  }
+
+  public func liveApprovalClaim() -> ApprovalClaim? {
+    guard let claim = storedApprovalClaim(), claim.isLive else { return nil }
+    return claim
+  }
+
+  public func removeApprovalClaim(_ claim: ApprovalClaim) {
+    guard storedApprovalClaim() == claim else { return }
+    unlink(approvalClaimFile.path)
   }
 
   public func load(_ file: URL) -> WaitingRecord? {
@@ -104,6 +131,25 @@ public struct WaitingStore: Sendable {
   @discardableResult
   public func deleteRecord(host: Host, sessionID: String) -> Bool {
     unlink(recordFile(host: host, sessionID: sessionID).path) == 0
+  }
+
+  private func storedApprovalClaim() -> ApprovalClaim? {
+    guard let data = try? Data(contentsOf: approvalClaimFile) else { return nil }
+    return try? JSONDecoder().decode(ApprovalClaim.self, from: data)
+  }
+
+  private func writeAtomically(_ value: some Encodable, to file: URL) throws {
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let temporary = directory.appendingPathComponent(
+      ".\(file.lastPathComponent).countersign-\(UUID().uuidString).tmp")
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys]
+    try encoder.encode(value).write(to: temporary)
+    guard rename(temporary.path, file.path) == 0 else {
+      let code = errno
+      unlink(temporary.path)
+      throw POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO)
+    }
   }
 
   private static func baseName(host: Host, sessionID: String) -> String {

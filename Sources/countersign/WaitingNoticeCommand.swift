@@ -107,12 +107,15 @@ private final class WaitingNoticeWatch: NSObject {
     if agentAppFrontmost {
       lastAgentAppFrontmostAt = now
     }
+    let liveTickets = queue.liveTickets()
     return WaitingNoticeSample(
       now: now, recordedAt: record.recordedAt, delay: delay, isShown: card != nil,
-      agentAlive: isAgentAlive(), paused: pauseSwitch.isPaused,
+      slot: card?.slot, agentAlive: isAgentAlive(), paused: pauseSwitch.isPaused,
       quiet: quietState.activeUntil(now: now) != nil, agentAppFrontmost: agentAppFrontmost,
       lastAgentAppFrontmostAt: lastAgentAppFrontmostAt,
-      sessionHasLiveTicket: sessionHasLiveTicket(), resumed: transcript.resumed(now: now))
+      sessionHasLiveTicket: sessionHasLiveTicket(among: liveTickets),
+      panelOnScreen: isPanelOnScreen(among: liveTickets),
+      approvalWaiting: store.liveApprovalClaim() != nil, resumed: transcript.resumed(now: now))
   }
 
   private func apply(_ step: WaitingNoticeStep) {
@@ -228,13 +231,17 @@ private final class WaitingNoticeWatch: NSObject {
     return ProcessLiveness.isAlive(pid: pid, processStart: record.agentStart)
   }
 
-  private func sessionHasLiveTicket() -> Bool {
-    queue.liveTickets().contains { ticket in
+  private func sessionHasLiveTicket(among liveTickets: [Ticket]) -> Bool {
+    liveTickets.contains { ticket in
       guard let summary = ticket.summary, summary.host == record.host, !summary.isTestPanel
       else { return false }
       guard let agentPID = record.agentPID else { return summary.project == record.projectName }
       return ProcessAncestry.chain(from: ticket.pid).contains(agentPID)
     }
+  }
+
+  private func isPanelOnScreen(among liveTickets: [Ticket]) -> Bool {
+    liveTickets.contains { QueueHandoffChannel(ticket: $0).shownDisplayID() != nil }
   }
 }
 

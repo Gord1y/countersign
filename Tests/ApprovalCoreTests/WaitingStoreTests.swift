@@ -86,4 +86,40 @@ import Testing
 
     #expect(!store.deleteRecord(host: .codex, sessionID: "missing"))
   }
+
+  @Test func twoCornerCardsAtMost() {
+    #expect(WaitingStore.slotCount == 2)
+  }
+
+  @Test func approvalClaimReadsBackUntilItsOwnerRemovesIt() throws {
+    let store = temporaryStore()
+    defer { removeDirectory(of: store) }
+    #expect(store.liveApprovalClaim() == nil)
+    let claim = ApprovalClaim.current()
+
+    try store.writeApprovalClaim(claim)
+
+    #expect(store.approvalClaimFile.lastPathComponent == "approval-claim.json")
+    #expect(store.liveApprovalClaim() == claim)
+    store.removeApprovalClaim(ApprovalClaim(pid: claim.pid + 1, processStart: claim.processStart))
+    #expect(store.liveApprovalClaim() == claim)
+    store.removeApprovalClaim(claim)
+    #expect(store.liveApprovalClaim() == nil)
+    #expect(!FileManager.default.fileExists(atPath: store.approvalClaimFile.path))
+  }
+
+  @Test func approvalClaimOfAGoneProcessReadsAsNoClaim() throws {
+    let store = temporaryStore()
+    defer { removeDirectory(of: store) }
+
+    try store.writeApprovalClaim(ApprovalClaim(pid: try ChildProcess.deadPid(), processStart: nil))
+    #expect(store.liveApprovalClaim() == nil)
+
+    let current = ApprovalClaim.current()
+    let reusedPID = ApprovalClaim(
+      pid: current.pid, processStart: current.processStart.map { $0 + 1 } ?? 1)
+    try store.writeApprovalClaim(reusedPID)
+    #expect(store.liveApprovalClaim() == nil)
+    #expect(FileManager.default.fileExists(atPath: store.approvalClaimFile.path))
+  }
 }
