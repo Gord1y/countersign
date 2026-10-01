@@ -31,6 +31,8 @@ public struct PreferenceValues: Sendable, Equatable {
   public var panelSound: String
   public var waitingNotices: Bool
   public var waitingNoticeDelay: TimeInterval
+  public var approvalCardDelay: TimeInterval
+  public var approvalCardAgents: [Host]
   public var questionNotes: Bool
   public var appearance: AppearanceChoice
   public var accentColor: HexColor
@@ -51,6 +53,8 @@ public struct PreferenceValues: Sendable, Equatable {
     panelSound: String = Settings.defaultPanelSound,
     waitingNotices: Bool = Settings.defaultWaitingNotices,
     waitingNoticeDelay: TimeInterval = Settings.defaultWaitingNoticeDelay,
+    approvalCardDelay: TimeInterval = Settings.defaultApprovalCardDelay,
+    approvalCardAgents: [Host] = PreferenceValues.defaultApprovalCardAgents,
     questionNotes: Bool = Settings.defaultQuestionNotes,
     appearance: AppearanceChoice = Settings.defaultAppearance,
     accentColor: HexColor = Settings.defaultAccentColor,
@@ -70,11 +74,17 @@ public struct PreferenceValues: Sendable, Equatable {
     self.panelSound = panelSound
     self.waitingNotices = waitingNotices
     self.waitingNoticeDelay = waitingNoticeDelay
+    self.approvalCardDelay = approvalCardDelay
+    self.approvalCardAgents = approvalCardAgents
     self.questionNotes = questionNotes
     self.appearance = appearance
     self.accentColor = accentColor
     self.editorApp = editorApp
     self.contextCheckpoints = contextCheckpoints
+  }
+
+  public static let defaultApprovalCardAgents: [Host] = Host.allCases.filter {
+    Settings.defaultApprovalCard(for: $0)
   }
 
   public init(file: ConfigFile) {
@@ -92,6 +102,10 @@ public struct PreferenceValues: Sendable, Equatable {
       panelSound: file.panelSound ?? Settings.defaultPanelSound,
       waitingNotices: file.waitingNotices ?? Settings.defaultWaitingNotices,
       waitingNoticeDelay: file.waitingNoticeDelay ?? Settings.defaultWaitingNoticeDelay,
+      approvalCardDelay: file.approvalCardDelay ?? Settings.defaultApprovalCardDelay,
+      approvalCardAgents: Host.allCases.filter {
+        Settings.resolve(file: file, host: $0).approvalCard
+      },
       questionNotes: file.questionNotes ?? Settings.defaultQuestionNotes,
       appearance: file.appearance ?? Settings.defaultAppearance,
       accentColor: file.accentColor ?? Settings.defaultAccentColor,
@@ -127,6 +141,16 @@ public struct PreferenceValues: Sendable, Equatable {
       values.waitingNotices = enabled
     case .waitingNoticeDelay(let seconds):
       values.waitingNoticeDelay = seconds
+    case .approvalCard(let enabled):
+      values.approvalCardAgents = enabled ? Host.allCases : []
+    case .approvalCardDelay(let seconds):
+      values.approvalCardDelay = seconds
+    case .forAgent(let host, .approvalCard(let enabled)):
+      values.approvalCardAgents = Host.allCases.filter { candidate in
+        candidate == host ? enabled : values.approvalCardAgents.contains(candidate)
+      }
+    case .forAgent:
+      break
     case .questionNotes(let enabled):
       values.questionNotes = enabled
     case .appearance(let appearance):
@@ -183,6 +207,8 @@ public struct PreferenceValues: Sendable, Equatable {
     case .panelSound: values.panelSound = Settings.defaultPanelSound
     case .waitingNotices: values.waitingNotices = Settings.defaultWaitingNotices
     case .waitingNoticeMinutes: values.waitingNoticeDelay = Settings.defaultWaitingNoticeDelay
+    case .approvalCard: values.approvalCardAgents = PreferenceValues.defaultApprovalCardAgents
+    case .approvalCardDelay: values.approvalCardDelay = Settings.defaultApprovalCardDelay
     case .questionNotes: values.questionNotes = Settings.defaultQuestionNotes
     case .appearance: values.appearance = Settings.defaultAppearance
     case .accentColor: values.accentColor = Settings.defaultAccentColor

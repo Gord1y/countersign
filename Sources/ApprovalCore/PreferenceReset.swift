@@ -32,6 +32,11 @@ public enum PreferenceReset {
       return changed(file.waitingNotices, from: Settings.defaultWaitingNotices)
     case .waitingNoticeMinutes:
       return changed(file.waitingNoticeDelay, from: Settings.defaultWaitingNoticeDelay)
+    case .approvalCard:
+      return PreferenceValues(file: file).approvalCardAgents
+        != PreferenceValues.defaultApprovalCardAgents
+    case .approvalCardDelay:
+      return changed(file.approvalCardDelay, from: Settings.defaultApprovalCardDelay)
     case .questionNotes:
       return changed(file.questionNotes, from: Settings.defaultQuestionNotes)
     case .appearance:
@@ -114,6 +119,8 @@ public enum PreferenceReset {
     case .panelSound: return PanelSound.title(values.panelSound)
     case .waitingNotices: return values.waitingNotices ? "On" : "Off"
     case .waitingNoticeMinutes: return DurationText.describe(values.waitingNoticeDelay)
+    case .approvalCard: return PreferenceName.agentListText(values.approvalCardAgents)
+    case .approvalCardDelay: return PreferenceRules.secondsText(values.approvalCardDelay)
     case .appearance: return values.appearance.title
     case .accentColor: return AccentPreset.name(of: values.accentColor)
     case .editorApp: return values.editorApp ?? PreferenceName.editorApp.defaultText
@@ -164,10 +171,12 @@ public enum PreferenceReset {
     case .chainedArmDelay: return overrides.chainedArmDelay != nil
     case .idleSeconds: return overrides.idleSeconds != nil
     case .graceSeconds: return overrides.graceSeconds != nil
+    case .waitingNoticeMinutes: return overrides.waitingNoticeDelay != nil
+    case .approvalCardDelay: return overrides.approvalCardDelay != nil
     case .snoozeMinutes: return overrides.snoozePresets != nil
     case .handoffApps: return overrides.handoffApps != nil
     case .quietHours, .checkForUpdates, .questionNotes, .quitBehavior, .modeAfterPlan,
-      .panelSound, .waitingNotices, .waitingNoticeMinutes, .appearance, .accentColor,
+      .panelSound, .waitingNotices, .approvalCard, .appearance, .accentColor,
       .editorApp, .contextCheckpointsEnabled, .contextMode, .contextStandardThresholds,
       .contextMillionThresholds, .contextModelThresholds,
       .contextRearmBelow, .contextHandoffFile, .contextNoteSoft, .contextNoteStatus,

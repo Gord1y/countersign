@@ -18,6 +18,8 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
   case panelSound
   case waitingNotices
   case waitingNoticeMinutes
+  case approvalCard
+  case approvalCardDelay
   case contextCheckpointsEnabled
   case contextMode
   case contextStandardThresholds
@@ -51,6 +53,11 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
     }
   }
 
+  public static let agentDelays: [PreferenceName] = [
+    .idleSeconds, .graceSeconds, .armDelay, .chainedArmDelay, .waitingNoticeMinutes,
+    .approvalCardDelay,
+  ]
+
   public var noteName: String? {
     switch self {
     case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteCompact,
@@ -75,6 +82,8 @@ public enum PreferenceEdit: Sendable, Equatable {
   case panelSound(String)
   case waitingNotices(Bool)
   case waitingNoticeDelay(TimeInterval)
+  case approvalCard(Bool)
+  case approvalCardDelay(TimeInterval)
   case questionNotes(Bool)
   case appearance(AppearanceChoice)
   case accentColor(HexColor)
@@ -92,6 +101,7 @@ public enum PreferenceEdit: Sendable, Equatable {
   case contextNote(PreferenceName, String)
   case contextMenuBarMeter(Bool)
   case reset(PreferenceName)
+  indirect case forAgent(Host, PreferenceEdit)
 
   public var key: PreferenceName {
     switch self {
@@ -107,6 +117,8 @@ public enum PreferenceEdit: Sendable, Equatable {
     case .panelSound: return .panelSound
     case .waitingNotices: return .waitingNotices
     case .waitingNoticeDelay: return .waitingNoticeMinutes
+    case .approvalCard: return .approvalCard
+    case .approvalCardDelay: return .approvalCardDelay
     case .questionNotes: return .questionNotes
     case .appearance: return .appearance
     case .accentColor: return .accentColor
@@ -123,6 +135,34 @@ public enum PreferenceEdit: Sendable, Equatable {
     case .contextNote(let name, _): return name
     case .contextMenuBarMeter: return .contextMenuBarMeter
     case .reset(let name): return name
+    case .forAgent(_, let inner): return inner.key
+    }
+  }
+
+  var isAllowedForAgent: Bool {
+    switch self {
+    case .armDelay, .chainedArmDelay, .idleSeconds, .graceSeconds, .waitingNoticeDelay,
+      .approvalCard, .approvalCardDelay:
+      return true
+    case .reset(let name):
+      return name == .approvalCard || PreferenceName.agentDelays.contains(name)
+    default:
+      return false
+    }
+  }
+
+  public static func removingAgentDelays(in file: ConfigFile) -> [PreferenceEdit] {
+    Host.allCases.flatMap { host -> [PreferenceEdit] in
+      guard let overrides = file.overrides(for: host) else { return [] }
+      let present: [(PreferenceName, Bool)] = [
+        (.idleSeconds, overrides.idleSeconds != nil),
+        (.graceSeconds, overrides.graceSeconds != nil),
+        (.armDelay, overrides.armDelay != nil),
+        (.chainedArmDelay, overrides.chainedArmDelay != nil),
+        (.waitingNoticeMinutes, overrides.waitingNoticeDelay != nil),
+        (.approvalCardDelay, overrides.approvalCardDelay != nil),
+      ]
+      return present.filter(\.1).map { .forAgent(host, .reset($0.0)) }
     }
   }
 }
@@ -177,48 +217,59 @@ public enum ConfigEdit {
   private static func apply(_ edit: PreferenceEdit, to document: inout JSONSourceDocument)
     throws
   {
-    let path = edit.key.keyPath
-    let key = path.first ?? edit.key.rawValue
+    if case .forAgent(let host, let inner) = edit {
+      guard inner.isAllowedForAgent else { return }
+      try apply(inner, prefix: ["hosts", host.rawValue], to: &document)
+      return
+    }
+    try apply(edit, prefix: [], to: &document)
+  }
+
+  private static func apply(
+    _ edit: PreferenceEdit, prefix: [String], to document: inout JSONSourceDocument
+  ) throws {
+    let path = prefix + edit.key.keyPath
+    let key = edit.key.keyPath.first ?? edit.key.rawValue
     switch edit {
     case .armDelay(let value), .chainedArmDelay(let value), .idleSeconds(let value),
-      .graceSeconds(let value):
+      .graceSeconds(let value), .approvalCardDelay(let value):
       let written = PreferenceRules.thousandths(value)
-      try set(key, to: .number(spelling(written)), in: &document) {
+      try set(path, to: .number(spelling(written)), in: &document) {
         $0.numberValue == written
       }
     case .snoozePresets(let presets):
-      try set(key, to: .array(presets.map(minutesFragment)), in: &document) {
+      try set(path, to: .array(presets.map(minutesFragment)), in: &document) {
         $0.elements?.map { $0.durationSeconds(bareUnit: 60) }
           == presets.map { Optional(PreferenceRules.thousandths($0)) }
       }
     case .quietHours(let windows):
-      try set(key, to: .array(windows.map(quietWindowFragment)), in: &document) { _ in false }
+      try set(path, to: .array(windows.map(quietWindowFragment)), in: &document) { _ in false }
     case .checkForUpdates(let enabled):
-      try set(key, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
+      try set(path, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
     case .quitBehavior(let behavior):
-      try set(key, to: .string(behavior.rawValue), in: &document) {
+      try set(path, to: .string(behavior.rawValue), in: &document) {
         $0.stringValue == behavior.rawValue
       }
     case .modeAfterPlan(let mode):
-      try set(key, to: .string(mode.rawValue), in: &document) {
+      try set(path, to: .string(mode.rawValue), in: &document) {
         $0.stringValue == mode.rawValue
       }
     case .panelSound(let name):
-      try set(key, to: .string(name), in: &document) { $0.stringValue == name }
-    case .waitingNotices(let enabled):
-      try set(key, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
+      try set(path, to: .string(name), in: &document) { $0.stringValue == name }
+    case .waitingNotices(let enabled), .approvalCard(let enabled):
+      try set(path, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
     case .waitingNoticeDelay(let seconds):
-      try set(key, to: minutesFragment(seconds), in: &document) {
+      try set(path, to: minutesFragment(seconds), in: &document) {
         $0.durationSeconds(bareUnit: 60) == PreferenceRules.thousandths(seconds)
       }
     case .questionNotes(let enabled):
-      try set(key, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
+      try set(path, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
     case .appearance(let appearance):
-      try set(key, to: .string(appearance.rawValue), in: &document) {
+      try set(path, to: .string(appearance.rawValue), in: &document) {
         $0.stringValue == appearance.rawValue
       }
     case .accentColor(let color):
-      try set(key, to: .string(color.hex), in: &document) {
+      try set(path, to: .string(color.hex), in: &document) {
         $0.stringValue.flatMap(HexColor.init(hex:)) == color
       }
     case .addHandoffApp(let bundleID):
@@ -226,7 +277,7 @@ public enum ConfigEdit {
     case .removeHandoffApp(let bundleID):
       try remove(bundleID, key: key, in: &document)
     case .editorApp(let bundleID):
-      try set(key, to: .string(bundleID), in: &document) { $0.stringValue == bundleID }
+      try set(path, to: .string(bundleID), in: &document) { $0.stringValue == bundleID }
     case .contextCheckpointsEnabled(let enabled), .contextMenuBarMeter(let enabled):
       try set(path, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
     case .contextMode(let mode):
@@ -250,8 +301,17 @@ public enum ConfigEdit {
     case .contextNote(let name, let text):
       guard name.noteName != nil else { return }
       try set(path, to: .string(text), in: &document) { $0.stringValue == text }
+    case .reset(.approvalCard):
+      try removeMember(path, in: &document)
+      if prefix.isEmpty {
+        for host in Host.allCases {
+          try removeMember(["hosts", host.rawValue, "approvalCard"], in: &document)
+        }
+      }
     case .reset:
       try removeMember(path, in: &document)
+    case .forAgent:
+      return
     }
   }
 

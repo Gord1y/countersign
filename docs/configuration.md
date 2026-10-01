@@ -83,10 +83,10 @@ applies after the unit is converted, so `"90s"` is a valid `waitingNoticeMinutes
 of range for `idleSeconds`. Settings writes a whole number of minutes back as a number, and anything
 shorter as a string, for example `["30s", 5, 15]`.
 
-All of these except **Quiet hours**, **Notes on answers**, **Mode after a plan**, **Sound**,
-**Waiting-agent notices** and **Notice after** live at the top level of `config.json` and can
+All of these except **Quiet hours**, **Notes on answers**, **Mode after a plan**, **Sound** and
+**Waiting-agent notices** live at the top level of `config.json` and can
 also be set per agent, under `hosts.<agent>`. `quietHours`, `questionNotes`, `modeAfterPlan`,
-`panelSound`, `waitingNotices` and `waitingNoticeMinutes` are top-level only, like the App group's
+`panelSound` and `waitingNotices` are top-level only, like the App group's
 keys below.
 
 - **Wait for idle** (`idleSeconds`): how long since your last keyboard, mouse or scroll input a
@@ -170,7 +170,7 @@ keys below.
 - **Notice after** (`waitingNoticeMinutes`): how long an agent has been waiting before the
   notice appears, from 10 seconds to 60 minutes: a number of minutes or a string such as `"90s"`,
   `2` unless you change it. A value outside the range or of another type logs one line and falls
-  back to `2`. Settings offers 1, 2, 5, 10, 15 and 30
+  back to `2`. It can also be set for one agent, under `hosts.<agent>`, and wins there. Settings offers 1, 2, 5, 10, 15 and 30
   minutes and shows any other value from the file as its own item; the menu is disabled while
   notices are off.
 
@@ -260,10 +260,11 @@ profile. If you set `XDG_CONFIG_HOME` only there, its Settings window edits
   for every agent, or per agent under `hosts.<agent>`, which wins: for example
   `"hosts": { "claude": { "approvalCard": true } }` turns it on for Claude Code alone. A value
   that isn't `true` or `false` logs one line and the agent's default applies.
-- **`approvalCardDelay`** (default `5`): how many seconds a request waits for a pause before its
-  card appears, any number from `1` to `600`. Counted from when the request's turn comes and it
+- **`approvalCardDelay`** (default `5`): how long a request waits for a pause before its
+  card appears, from `1` second to `10` minutes: a number of seconds or a string with a unit, such
+  as `"1.5s"` or `"2m"`. Counted from when the request's turn comes and it
   starts waiting for your pause, or from when its panel stepped aside, not from when it arrived. A value outside the
-  range or of another type logs one line and falls back to `5`. It can be set at the top level or
+  range or of another type logs one line, `expected a duration from 1s to 10m, using default 5s`, and falls back to `5`. It can be set at the top level or
   per agent, under `hosts.<agent>`.
 - **`hosts.claude`, `hosts.codex`, `hosts.cursor`, `hosts.antigravity`**: per-agent values; see
   "Settings for one agent" below.
@@ -271,7 +272,7 @@ profile. If you set `XDG_CONFIG_HOME` only there, its Settings window edits
 #### Settings for one agent
 
 Every key except `checkForUpdates`, `questionNotes`, `quitBehavior`, `modeAfterPlan`, `panelSound`,
-`waitingNotices`, `waitingNoticeMinutes`, `appearance`, `accentColor` and `editorApp` can also be set for one agent, under
+`waitingNotices`, `appearance`, `accentColor` and `editorApp` can also be set for one agent, under
 `hosts.claude`, `hosts.codex`, `hosts.cursor` or `hosts.antigravity`:
 
 ```json
@@ -282,6 +283,10 @@ Every key except `checkForUpdates`, `questionNotes`, `quitBehavior`, `modeAfterP
   }
 }
 ```
+
+The keys an agent block takes are `armDelay`, `chainedArmDelay`, `idleSeconds`, `graceSeconds`,
+`handoffApps`, `snoozeMinutes`, `includeHeadlessSessions`, `waitingNoticeMinutes`, `approvalCard`
+and `approvalCardDelay`.
 
 For a request from an agent, its `hosts` value wins over the top-level one, which wins over the
 default. This file is the only place settings live: the hook command takes nothing but

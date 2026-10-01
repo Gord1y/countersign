@@ -78,7 +78,7 @@ import Testing
       SettingsPane.panels.preferenceNames == [
         .idleSeconds, .graceSeconds, .armDelay, .chainedArmDelay, .snoozeMinutes, .quietHours,
         .handoffApps, .questionNotes, .modeAfterPlan, .panelSound,
-        .waitingNoticeMinutes,
+        .waitingNoticeMinutes, .approvalCard, .approvalCardDelay,
       ])
     #expect(
       SettingsPane.app.preferenceNames == [

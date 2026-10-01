@@ -9,6 +9,7 @@ public struct ConfigFile: Sendable, Equatable {
     public var handoffApps: [String]?
     public var snoozePresets: [TimeInterval]?
     public var includeHeadlessSessions: Bool?
+    public var waitingNoticeDelay: TimeInterval?
     public var approvalCard: Bool?
     public var approvalCardDelay: Double?
 
@@ -20,6 +21,7 @@ public struct ConfigFile: Sendable, Equatable {
       handoffApps: [String]? = nil,
       snoozePresets: [TimeInterval]? = nil,
       includeHeadlessSessions: Bool? = nil,
+      waitingNoticeDelay: TimeInterval? = nil,
       approvalCard: Bool? = nil,
       approvalCardDelay: Double? = nil
     ) {
@@ -30,6 +32,7 @@ public struct ConfigFile: Sendable, Equatable {
       self.handoffApps = handoffApps
       self.snoozePresets = snoozePresets
       self.includeHeadlessSessions = includeHeadlessSessions
+      self.waitingNoticeDelay = waitingNoticeDelay
       self.approvalCard = approvalCard
       self.approvalCardDelay = approvalCardDelay
     }
@@ -161,7 +164,8 @@ public enum ConfigFileParser {
   ]
   static let hostKeys: Set<String> = [
     "armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds", "handoffApps",
-    "snoozeMinutes", "includeHeadlessSessions", "approvalCard", "approvalCardDelay",
+    "snoozeMinutes", "includeHeadlessSessions", "waitingNoticeMinutes", "approvalCard",
+    "approvalCardDelay",
   ]
 
   public static func parse(_ data: Data, soundNames: [String] = PanelSound.systemNames) -> (
@@ -475,6 +479,9 @@ public enum ConfigFileParser {
       includeHeadlessSessions: readBool(
         object["includeHeadlessSessions"], path: "\(path).includeHeadlessSessions",
         defaultValue: Settings.defaultIncludeHeadlessSessions, logLines: &logLines),
+      waitingNoticeDelay: readWaitingNoticeDelay(
+        object["waitingNoticeMinutes"], path: "\(path).waitingNoticeMinutes",
+        logLines: &logLines),
       approvalCard: readApprovalCard(
         object["approvalCard"], path: "\(path).approvalCard", logLines: &logLines),
       approvalCardDelay: readApprovalCardDelay(
@@ -624,13 +631,14 @@ public enum ConfigFileParser {
     _ value: JSONValue?, path: String, logLines: inout [String]
   ) -> Double? {
     guard let value else { return nil }
-    guard let seconds = numberValue(value), Settings.approvalCardDelayRange.contains(seconds)
+    guard let seconds = durationValue(value, unit: 1),
+      Settings.approvalCardDelayRange.contains(seconds)
     else {
       logLines.append(
-        "\(path): expected a number of seconds from"
-          + " \(formatNumber(Settings.approvalCardDelayRange.lowerBound)) to"
-          + " \(formatNumber(Settings.approvalCardDelayRange.upperBound)), using default"
-          + " \(formatNumber(Settings.defaultApprovalCardDelay))")
+        "\(path): expected a duration from"
+          + " \(DurationText.compact(Settings.approvalCardDelayRange.lowerBound)) to"
+          + " \(DurationText.compact(Settings.approvalCardDelayRange.upperBound)), using default"
+          + " \(DurationText.compact(Settings.defaultApprovalCardDelay))")
       return nil
     }
     return seconds

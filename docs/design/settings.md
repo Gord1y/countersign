@@ -471,6 +471,18 @@ bytes changed, then reads it back, so the controls always show what the file hol
 - A value the file already holds, however it is spelled (`0.80` for `0.8`), stays as written. A
   value equal to the built-in default is still written when the person chose it over another value
   in the file: they chose it, and a later change to the default should not change their setting.
+- `PreferenceEdit.forAgent(host, edit)` applies one of a short list of edits under
+  `hosts.<agent>`, creating `hosts` and the agent's object as needed: `armDelay`,
+  `chainedArmDelay`, `idleSeconds`, `graceSeconds`, `waitingNoticeDelay`, `approvalCard`,
+  `approvalCardDelay`, and `reset` of those names. Any other inner edit is ignored: no write, no
+  error, because those keys are top-level only. Resetting a key removes it and can leave the
+  agent's object as `{}`; that is kept, since the object is the person's and an empty one reads the
+  same as a missing one. `PreferenceEdit.removingAgentDelays(in:)` lists the resets for every
+  per-agent delay key a file sets (`PreferenceName.agentDelays`), never `approvalCard`.
+- `reset(.approvalCard)` removes the top-level `approvalCard` and every `hosts.<agent>.approvalCard`,
+  since the setting is the set of agents that show the card.
+- Restore defaults resets the shared values only: it removes no per-agent delay. Removing those is
+  a separate action built from `removingAgentDelays(in:)`.
 - A `handoffApps` that is not a list of strings is replaced by a list with the new ID, since the
   window showed the default in its place.
 - The file is backed up the way setup backs up a hook file (see "Backups and writing" in

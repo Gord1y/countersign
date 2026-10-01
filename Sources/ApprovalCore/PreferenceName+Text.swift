@@ -17,6 +17,8 @@ extension PreferenceName {
     case .panelSound: return "Sound"
     case .waitingNotices: return "Waiting-agent notices"
     case .waitingNoticeMinutes: return "Notice after"
+    case .approvalCard: return "Approval card"
+    case .approvalCardDelay: return "Show card after"
     case .appearance: return "Appearance"
     case .accentColor: return "Accent colour"
     case .editorApp: return "Open with"
@@ -54,6 +56,9 @@ extension PreferenceName {
     case .waitingNotices:
       return "A corner card when an agent has been waiting for you for a while."
     case .waitingNoticeMinutes: return "How long an agent waits before the notice appears."
+    case .approvalCard: return "A corner card when an approval waits while you work."
+    case .approvalCardDelay:
+      return "How long an approval waits for a pause before its card shows."
     case .appearance: return "Light or dark for panels and Settings, or follow macOS."
     case .accentColor: return "The colour of Approve and highlights on panels and in Settings."
     case .editorApp: return "The app Open in Editor uses for config.json."
@@ -178,7 +183,18 @@ extension PreferenceName {
       return
         "How long an agent has been waiting before the notice appears, from 10 seconds to 60"
         + " minutes. The menu offers 1, 2, 5, 10, 15 and 30 minutes; a value you set in config.json,"
-        + " like \"90s\", shows as its own item. It has no effect while Waiting-agent notices is off, and it is top-level only."
+        + " like \"90s\", shows as its own item. It has no effect while Waiting-agent notices is off. One agent can have its own value under hosts in config.json."
+    case .approvalCard:
+      return
+        "While you keep typing or moving the mouse, a panel waits for a pause, and some agents just"
+        + " stop with no prompt of their own. The approval card tells you in a corner without"
+        + " taking your keys, and Show brings the panel up at once. Pick the agents that show it:"
+        + " Claude Code is off by default because its request also waits in the chat."
+    case .approvalCardDelay:
+      return
+        "How long a request waits for a pause in your typing before its approval card appears."
+        + " Shorter tells you sooner; longer leaves room for a natural pause, which shows the"
+        + " panel with no card at all."
     case .appearance:
       return
         "Whether approval panels and this Settings window are light or dark. System follows the"
@@ -292,6 +308,9 @@ extension PreferenceName {
     case .waitingNotices: return Self.boolText(Settings.defaultWaitingNotices)
     case .waitingNoticeMinutes:
       return DurationText.describe(Settings.defaultWaitingNoticeDelay)
+    case .approvalCard:
+      return Self.agentListText(Host.allCases.filter { Settings.defaultApprovalCard(for: $0) })
+    case .approvalCardDelay: return Self.secondsText(Settings.defaultApprovalCardDelay)
     case .appearance: return Settings.defaultAppearance.title
     case .accentColor: return AccentPreset.name(of: Settings.defaultAccentColor)
     case .editorApp: return "Default app"
@@ -312,7 +331,14 @@ extension PreferenceName {
     }
   }
 
-  private static func secondsText(_ value: Double) -> String {
+  static func agentListText(_ hosts: [Host]) -> String {
+    let names = hosts.map(\.displayName)
+    guard let last = names.last else { return "No agents" }
+    guard names.count > 1 else { return last }
+    return "\(names.dropLast().joined(separator: ", ")) and \(last)"
+  }
+
+  static func secondsText(_ value: Double) -> String {
     "\(PreferenceRules.numberText(value)) second\(value == 1 ? "" : "s")"
   }
 

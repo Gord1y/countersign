@@ -110,7 +110,8 @@ public struct Settings: Sendable, Equatable {
     let modeAfterPlan = file.modeAfterPlan ?? defaultModeAfterPlan
     let panelSound = file.panelSound ?? defaultPanelSound
     let waitingNotices = file.waitingNotices ?? defaultWaitingNotices
-    let waitingNoticeDelay = file.waitingNoticeDelay ?? defaultWaitingNoticeDelay
+    let waitingNoticeDelay =
+      hostOverrides?.waitingNoticeDelay ?? file.waitingNoticeDelay ?? defaultWaitingNoticeDelay
     let approvalCard =
       hostOverrides?.approvalCard ?? file.approvalCard ?? defaultApprovalCard(for: host)
     let approvalCardDelay =

@@ -31,6 +31,15 @@ public enum PreferenceOverrides {
     if let chainedArmDelay = overrides.chainedArmDelay {
       values.append(named(.chainedArmDelay, PreferenceRules.secondsText(chainedArmDelay)))
     }
+    if let waitingNoticeDelay = overrides.waitingNoticeDelay {
+      values.append("notice after \(DurationText.describe(waitingNoticeDelay))")
+    }
+    if let approvalCard = overrides.approvalCard {
+      values.append("approval card \(approvalCard ? "on" : "off")")
+    }
+    if let approvalCardDelay = overrides.approvalCardDelay {
+      values.append("show card after \(PreferenceRules.secondsText(approvalCardDelay))")
+    }
     if let handoffApps = overrides.handoffApps {
       values.append(
         named(.handoffApps, handoffApps.isEmpty ? "none" : handoffApps.joined(separator: ", ")))
@@ -44,6 +53,15 @@ public enum PreferenceOverrides {
       values.append("headless sessions \(includeHeadlessSessions ? "on" : "off")")
     }
     return values
+  }
+
+  public static func agentsWithOwnDelays(in file: ConfigFile) -> [Host] {
+    let hostsWithEdits = PreferenceEdit.removingAgentDelays(in: file).compactMap {
+      edit -> Host? in
+      guard case .forAgent(let host, _) = edit else { return nil }
+      return host
+    }
+    return Host.allCases.filter { hostsWithEdits.contains($0) }
   }
 
   public static func note(for host: Host, in file: ConfigFile) -> String? {

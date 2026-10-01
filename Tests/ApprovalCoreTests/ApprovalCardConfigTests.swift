@@ -82,12 +82,12 @@ import Testing
   }
 
   @Test func delayOutOfRangeOrWrongTypeFallsBackToTheDefaultWithOneLine() {
-    for bad in ["0", "0.5", "601", "-3", "\"5\"", "true", "null"] {
+    for bad in ["0", "0.5", "601", "-3", "\"20m\"", "\"soon\"", "true", "null"] {
       let (file, logLines) = parse(#"{ "approvalCardDelay": \#(bad) }"#)
       #expect(file.approvalCardDelay == nil)
       #expect(
         logLines == [
-          "approvalCardDelay: expected a number of seconds from 1 to 600, using default 5"
+          "approvalCardDelay: expected a duration from 1s to 10m, using default 5s"
         ])
       #expect(Settings.resolve(file: file, host: .codex).approvalCardDelay == 5)
     }
@@ -98,8 +98,8 @@ import Testing
     #expect(file.antigravity?.approvalCardDelay == nil)
     #expect(
       logLines == [
-        "hosts.antigravity.approvalCardDelay: expected a number of seconds from 1 to 600,"
-          + " using default 5"
+        "hosts.antigravity.approvalCardDelay: expected a duration from 1s to 10m,"
+          + " using default 5s"
       ])
   }
 }
