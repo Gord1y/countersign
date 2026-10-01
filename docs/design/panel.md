@@ -619,6 +619,14 @@ how `TestPanelLauncher` learns the reason (see "Show a Test Panel" in [app.md](a
 the app has launched, without the idle gate. The gate still applies after the test panel steps
 aside, so it comes back only once the person has stopped, like a real panel.
 
+A test panel swallows a key it has no use for instead of stepping aside (`PanelController` turns
+`KeyRouter`'s `.stepAside` into nothing when `PanelModel.isTestPanel`). A real request steps aside
+because such a key is meant for the app underneath; a test panel is one the person opened on
+purpose and is trying keys on, so stepping aside would hide it behind the idle gate, for as long as
+they kept moving the mouse, with no result shown. An app switch or focus loss still steps it
+aside, as for a real panel, and Settings' test buttons bring a hidden one back with
+`MenuAnswer.show` (`TestPanelLauncher.showRunning()`, logged as `test panel: brought back`).
+
 On every tick, and once more right before it first shows, a test panel counts the other live
 tickets that are not themselves test panels (`TicketQueue.realRequestCount(excluding:)`). Any at
 all, a real request past its grace period, closes the test panel, removes its ticket, releases the

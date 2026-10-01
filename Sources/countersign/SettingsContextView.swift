@@ -387,7 +387,7 @@ private struct ContextTestPanelRow: View {
       HStack(spacing: 8) {
         Button(Self.button) { model.showTestPanel(.context) }
           .buttonStyle(SecondaryButtonStyle())
-          .disabled(model.isTestPanelRunning)
+          .help(model.isTestPanelRunning ? "Bring back the test panel" : Self.button)
       }
       .fixedSize()
     }

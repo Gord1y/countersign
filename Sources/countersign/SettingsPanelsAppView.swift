@@ -923,8 +923,9 @@ private struct TestPanelRow: View {
         ForEach(TestPanelKind.panelsTabKinds, id: \.self) { kind in
           Button(kind.title) { model.showTestPanel(kind) }
             .buttonStyle(SecondaryButtonStyle())
-            .help("Show a \(kind.rawValue) test panel")
-            .disabled(model.isTestPanelRunning)
+            .help(
+              model.isTestPanelRunning
+                ? "Bring back the test panel" : "Show a \(kind.rawValue) test panel")
         }
       }
       .fixedSize()

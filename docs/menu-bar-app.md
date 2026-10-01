@@ -113,8 +113,8 @@ Because you asked for it, it appears even while Countersign is paused or in quie
 `handoffApps` doesn't apply.
 
 In Settings, **Show a test panel** at the end of **Panels** has a button for each kind:
-**Command**, **Question** and **Plan**. They are dimmed and the row says "Showing a test panel…"
-while one is up, and a test panel that doesn't show says why on the row. From the terminal,
+**Command**, **Question** and **Plan**. While one is up, a click on any of them
+brings a hidden test panel back instead of showing another, and a test panel that doesn't show says why on the row. From the terminal,
 `countersign test-panel` does the same, and `countersign test-panel question` and
 `countersign test-panel plan` show a set of questions or a plan instead; when it can't show, it
 prints the reason, such as `countersign: a panel is already on screen; answer it first`, and

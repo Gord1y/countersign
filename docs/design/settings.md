@@ -408,7 +408,12 @@ field focused, so the model first commits a Snooze presets entry or bundle ID st
 (`commitEditing()`): the panel then shows what the window shows. The caption, "See your settings
 in a real panel, right away. Nothing reaches an agent.", says the panel skips the grace period and
 the idle wait. While the launcher's observable `isRunning` is true, whichever surface started the
-test panel, the three buttons are disabled and "Showing a test panel…" follows them. A launch that
+test panel, the buttons stay enabled and their help reads "Bring back the test panel": a click
+calls `TestPanelLauncher.showRunning()` instead of launching another. It finds the running test
+panel's ticket (a live ticket whose pid is the process's) and sends it `MenuAnswer.show`, the
+menu's Show Now, so a panel hidden by an app switch or focus loss comes back without waiting for
+idle, and nothing happens when it is already on screen. Disabling the buttons left no way back to
+a hidden test panel. A launch that
 fails shows one red line on the row, "The test panel could not start: <error>", and so does a test
 panel that refuses to show, "The test panel didn't show: <reason>", with the reason it printed
 (see "One at a time, never ahead of a real request" in [panel.md](panel.md)). The row sits outside the config-backed rows, which a config file with a problem

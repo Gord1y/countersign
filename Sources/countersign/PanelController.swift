@@ -361,7 +361,9 @@ final class PanelController {
     case .insertNewline:
       editor?.insertNewlineIgnoringFieldEditor(nil)
     case .stepAside:
-      stepAside(.typing)
+      if !model.isTestPanel {
+        stepAside(.typing)
+      }
     case .closeDropdown:
       model.dropdown.close()
     }

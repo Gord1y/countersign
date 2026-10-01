@@ -1329,6 +1329,10 @@ final class SettingsModel {
   var isTestPanelRunning: Bool { TestPanelLauncher.shared.isRunning }
 
   func showTestPanel(_ kind: TestPanelKind) {
+    if TestPanelLauncher.shared.isRunning {
+      TestPanelLauncher.shared.showRunning()
+      return
+    }
     commitEditing()
     do {
       try TestPanelLauncher.shared.launch(kind: kind) { [weak self] refusal in
