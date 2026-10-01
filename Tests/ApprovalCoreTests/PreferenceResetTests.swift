@@ -10,9 +10,10 @@ import Testing
   }
 
   @Test func detectsAChangedList() {
-    #expect(PreferenceReset.isChanged(.snoozeMinutes, in: ConfigFile(snoozeMinutes: [2, 10])))
+    #expect(PreferenceReset.isChanged(.snoozeMinutes, in: ConfigFile(snoozePresets: [120, 600])))
     #expect(
-      !PreferenceReset.isChanged(.snoozeMinutes, in: ConfigFile(snoozeMinutes: [1, 5, 15, 30])))
+      !PreferenceReset.isChanged(
+        .snoozeMinutes, in: ConfigFile(snoozePresets: [60, 300, 900, 1800])))
     #expect(PreferenceReset.isChanged(.handoffApps, in: ConfigFile(handoffApps: ["com.x"])))
     #expect(!PreferenceReset.isChanged(.handoffApps, in: ConfigFile(handoffApps: [])))
   }
@@ -148,7 +149,7 @@ import Testing
   @Test func linesFormatEveryKind() {
     let values = PreferenceValues(
       armDelay: 1, chainedArmDelay: 0.3, idleSeconds: 8, graceSeconds: 2,
-      snoozeMinutes: [2, 10], handoffApps: ["com.x", "com.y"], checkForUpdates: true,
+      snoozePresets: [120, 600], handoffApps: ["com.x", "com.y"], checkForUpdates: true,
       quitBehavior: .pause, modeAfterPlan: .acceptEdits, questionNotes: true, appearance: .dark,
       accentColor: AccentPreset.blue.color)
     #expect(PreferenceReset.line(for: .armDelay, current: values) == "Arm delay: 1 s → 0.8 s")

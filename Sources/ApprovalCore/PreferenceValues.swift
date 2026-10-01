@@ -22,7 +22,7 @@ public struct PreferenceValues: Sendable, Equatable {
   public var chainedArmDelay: Double
   public var idleSeconds: Double
   public var graceSeconds: Double
-  public var snoozeMinutes: [Int]
+  public var snoozePresets: [TimeInterval]
   public var quietHours: [QuietWindow]
   public var handoffApps: [String]
   public var checkForUpdates: Bool
@@ -30,7 +30,7 @@ public struct PreferenceValues: Sendable, Equatable {
   public var modeAfterPlan: PlanApprovalMode
   public var panelSound: String
   public var waitingNotices: Bool
-  public var waitingNoticeMinutes: Int
+  public var waitingNoticeDelay: TimeInterval
   public var questionNotes: Bool
   public var appearance: AppearanceChoice
   public var accentColor: HexColor
@@ -42,7 +42,7 @@ public struct PreferenceValues: Sendable, Equatable {
     chainedArmDelay: Double = Settings.defaultChainedArmDelay,
     idleSeconds: Double = Settings.defaultIdleSeconds,
     graceSeconds: Double = Settings.defaultGraceSeconds,
-    snoozeMinutes: [Int] = Settings.defaultSnoozeMinutes,
+    snoozePresets: [TimeInterval] = Settings.defaultSnoozePresets,
     quietHours: [QuietWindow] = Settings.defaultQuietHours,
     handoffApps: [String] = Settings.defaultHandoffApps,
     checkForUpdates: Bool = Settings.defaultCheckForUpdates,
@@ -50,7 +50,7 @@ public struct PreferenceValues: Sendable, Equatable {
     modeAfterPlan: PlanApprovalMode = Settings.defaultModeAfterPlan,
     panelSound: String = Settings.defaultPanelSound,
     waitingNotices: Bool = Settings.defaultWaitingNotices,
-    waitingNoticeMinutes: Int = Settings.defaultWaitingNoticeMinutes,
+    waitingNoticeDelay: TimeInterval = Settings.defaultWaitingNoticeDelay,
     questionNotes: Bool = Settings.defaultQuestionNotes,
     appearance: AppearanceChoice = Settings.defaultAppearance,
     accentColor: HexColor = Settings.defaultAccentColor,
@@ -61,7 +61,7 @@ public struct PreferenceValues: Sendable, Equatable {
     self.chainedArmDelay = chainedArmDelay
     self.idleSeconds = idleSeconds
     self.graceSeconds = graceSeconds
-    self.snoozeMinutes = snoozeMinutes
+    self.snoozePresets = snoozePresets
     self.quietHours = quietHours
     self.handoffApps = handoffApps
     self.checkForUpdates = checkForUpdates
@@ -69,7 +69,7 @@ public struct PreferenceValues: Sendable, Equatable {
     self.modeAfterPlan = modeAfterPlan
     self.panelSound = panelSound
     self.waitingNotices = waitingNotices
-    self.waitingNoticeMinutes = waitingNoticeMinutes
+    self.waitingNoticeDelay = waitingNoticeDelay
     self.questionNotes = questionNotes
     self.appearance = appearance
     self.accentColor = accentColor
@@ -83,7 +83,7 @@ public struct PreferenceValues: Sendable, Equatable {
       chainedArmDelay: file.chainedArmDelay ?? Settings.defaultChainedArmDelay,
       idleSeconds: file.idleSeconds ?? Settings.defaultIdleSeconds,
       graceSeconds: file.graceSeconds ?? Settings.defaultGraceSeconds,
-      snoozeMinutes: file.snoozeMinutes ?? Settings.defaultSnoozeMinutes,
+      snoozePresets: file.snoozePresets ?? Settings.defaultSnoozePresets,
       quietHours: file.quietHours ?? Settings.defaultQuietHours,
       handoffApps: file.handoffApps ?? Settings.defaultHandoffApps,
       checkForUpdates: file.checkForUpdates ?? Settings.defaultCheckForUpdates,
@@ -91,7 +91,7 @@ public struct PreferenceValues: Sendable, Equatable {
       modeAfterPlan: file.modeAfterPlan ?? Settings.defaultModeAfterPlan,
       panelSound: file.panelSound ?? Settings.defaultPanelSound,
       waitingNotices: file.waitingNotices ?? Settings.defaultWaitingNotices,
-      waitingNoticeMinutes: file.waitingNoticeMinutes ?? Settings.defaultWaitingNoticeMinutes,
+      waitingNoticeDelay: file.waitingNoticeDelay ?? Settings.defaultWaitingNoticeDelay,
       questionNotes: file.questionNotes ?? Settings.defaultQuestionNotes,
       appearance: file.appearance ?? Settings.defaultAppearance,
       accentColor: file.accentColor ?? Settings.defaultAccentColor,
@@ -111,8 +111,8 @@ public struct PreferenceValues: Sendable, Equatable {
       values.idleSeconds = value
     case .graceSeconds(let value):
       values.graceSeconds = value
-    case .snoozeMinutes(let minutes):
-      values.snoozeMinutes = minutes
+    case .snoozePresets(let presets):
+      values.snoozePresets = presets
     case .quietHours(let windows):
       values.quietHours = windows
     case .checkForUpdates(let enabled):
@@ -125,8 +125,8 @@ public struct PreferenceValues: Sendable, Equatable {
       values.panelSound = name
     case .waitingNotices(let enabled):
       values.waitingNotices = enabled
-    case .waitingNoticeMinutes(let minutes):
-      values.waitingNoticeMinutes = minutes
+    case .waitingNoticeDelay(let seconds):
+      values.waitingNoticeDelay = seconds
     case .questionNotes(let enabled):
       values.questionNotes = enabled
     case .appearance(let appearance):
@@ -174,7 +174,7 @@ public struct PreferenceValues: Sendable, Equatable {
     case .chainedArmDelay: values.chainedArmDelay = Settings.defaultChainedArmDelay
     case .idleSeconds: values.idleSeconds = Settings.defaultIdleSeconds
     case .graceSeconds: values.graceSeconds = Settings.defaultGraceSeconds
-    case .snoozeMinutes: values.snoozeMinutes = Settings.defaultSnoozeMinutes
+    case .snoozeMinutes: values.snoozePresets = Settings.defaultSnoozePresets
     case .quietHours: values.quietHours = Settings.defaultQuietHours
     case .handoffApps: values.handoffApps = Settings.defaultHandoffApps
     case .checkForUpdates: values.checkForUpdates = Settings.defaultCheckForUpdates
@@ -182,7 +182,7 @@ public struct PreferenceValues: Sendable, Equatable {
     case .modeAfterPlan: values.modeAfterPlan = Settings.defaultModeAfterPlan
     case .panelSound: values.panelSound = Settings.defaultPanelSound
     case .waitingNotices: values.waitingNotices = Settings.defaultWaitingNotices
-    case .waitingNoticeMinutes: values.waitingNoticeMinutes = Settings.defaultWaitingNoticeMinutes
+    case .waitingNoticeMinutes: values.waitingNoticeDelay = Settings.defaultWaitingNoticeDelay
     case .questionNotes: values.questionNotes = Settings.defaultQuestionNotes
     case .appearance: values.appearance = Settings.defaultAppearance
     case .accentColor: values.accentColor = Settings.defaultAccentColor

@@ -206,9 +206,9 @@ private struct SnoozePopoverView: View {
           dismiss()
         }
       } else {
-        ForEach(Array(model.snoozeChoices.enumerated()), id: \.offset) { index, minutes in
-          SnoozePopoverRow(title: SnoozeTitle.describe(minutes: minutes, isFirst: index == 0)) {
-            model.snooze(minutes: minutes)
+        ForEach(Array(model.snoozeChoices.enumerated()), id: \.offset) { index, seconds in
+          SnoozePopoverRow(title: SnoozeTitle.describe(seconds: seconds, isFirst: index == 0)) {
+            model.snooze(seconds: seconds)
             dismiss()
           }
         }

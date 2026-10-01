@@ -6,6 +6,11 @@
   "type": "object",
   "additionalProperties": false,
   "$defs": {
+    "durationText": {
+      "type": "string",
+      "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m|h)$",
+      "description": "A duration with a unit: ms, s, m or h, such as \"500ms\", \"0.5s\", \"90s\", \"2m\" or \"1h\"."
+    },
     "tokenLadder": {
       "type": "array",
       "minItems": 3,
@@ -157,30 +162,60 @@
       "additionalProperties": false,
       "properties": {
         "armDelay": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 3,
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 3
+            },
+            {
+              "$ref": "#/$defs/durationText"
+            }
+          ],
           "default": 0.8,
-          "description": "Seconds the panel ignores input after appearing, for this host; out-of-range values are clamped to 0...3."
+          "description": "Time the panel ignores input after appearing, for this host: a number of seconds, or a string with a unit such as \"500ms\"; out-of-range values are clamped to 0...3 seconds."
         },
         "chainedArmDelay": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 3,
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 3
+            },
+            {
+              "$ref": "#/$defs/durationText"
+            }
+          ],
           "default": 0.1,
-          "description": "Seconds a panel ignores input when it appears right after the previous panel was answered, for this host; every other panel uses armDelay. Out-of-range values are clamped to 0...3."
+          "description": "Time a panel ignores input when it appears right after the previous panel was answered, for this host; every other panel uses armDelay. A number of seconds, or a string with a unit such as \"100ms\"; out-of-range values are clamped to 0...3 seconds."
         },
         "idleSeconds": {
-          "type": "number",
-          "minimum": 0,
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 30
+            },
+            {
+              "$ref": "#/$defs/durationText"
+            }
+          ],
           "default": 5,
-          "description": "Seconds of no keyboard, mouse or held-modifier activity required before a panel is shown, for this host."
+          "description": "Time of no keyboard, mouse or held-modifier activity required before a panel is shown, for this host, from 1 to 30 seconds: a number of seconds, or a string with a unit such as \"500ms\" or \"2s\"."
         },
         "graceSeconds": {
-          "type": "number",
-          "minimum": 0,
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 30
+            },
+            {
+              "$ref": "#/$defs/durationText"
+            }
+          ],
           "default": 0,
-          "description": "Seconds a hook waits for its request to resolve elsewhere before it queues a panel, for this host."
+          "description": "Time a hook waits for its request to resolve elsewhere before it queues a panel, for this host, from 0 to 30 seconds: a number of seconds, or a string with a unit such as \"500ms\" or \"2s\"."
         },
         "handoffApps": {
           "type": "array",
@@ -195,12 +230,19 @@
           "minItems": 1,
           "maxItems": 6,
           "items": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 1440
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.1667,
+                "maximum": 1440
+              },
+              {
+                "$ref": "#/$defs/durationText"
+              }
+            ]
           },
           "default": [1, 5, 15, 30],
-          "description": "Durations, in minutes and in menu order, offered by the panel's Snooze menu, for this host."
+          "description": "Durations in menu order, from 10 seconds to 24 hours, offered by the panel's Snooze menu, for this host; each is a number of minutes or a string with a unit such as \"30s\" or \"1h\"."
         },
         "includeHeadlessSessions": {
           "type": "boolean",
@@ -227,30 +269,60 @@
       "description": "A JSON Schema reference for editor validation; ignored by countersign itself."
     },
     "armDelay": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 3,
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3
+        },
+        {
+          "$ref": "#/$defs/durationText"
+        }
+      ],
       "default": 0.8,
-      "description": "Seconds the panel ignores input after appearing; out-of-range values are clamped to 0...3."
+      "description": "Time the panel ignores input after appearing: a number of seconds, or a string with a unit such as \"500ms\"; out-of-range values are clamped to 0...3 seconds."
     },
     "chainedArmDelay": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 3,
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3
+        },
+        {
+          "$ref": "#/$defs/durationText"
+        }
+      ],
       "default": 0.1,
-      "description": "Seconds a panel ignores input when it appears right after the previous panel was answered; every other panel uses armDelay. Out-of-range values are clamped to 0...3."
+      "description": "Time a panel ignores input when it appears right after the previous panel was answered; every other panel uses armDelay. A number of seconds, or a string with a unit such as \"100ms\"; out-of-range values are clamped to 0...3 seconds."
     },
     "idleSeconds": {
-      "type": "number",
-      "minimum": 0,
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 30
+        },
+        {
+          "$ref": "#/$defs/durationText"
+        }
+      ],
       "default": 5,
-      "description": "Seconds of no keyboard, mouse or held-modifier activity required before a panel is shown."
+      "description": "Time of no keyboard, mouse or held-modifier activity required before a panel is shown, from 1 to 30 seconds: a number of seconds, or a string with a unit such as \"500ms\" or \"2s\"."
     },
     "graceSeconds": {
-      "type": "number",
-      "minimum": 0,
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 30
+        },
+        {
+          "$ref": "#/$defs/durationText"
+        }
+      ],
       "default": 0,
-      "description": "Seconds a hook waits for its request to resolve elsewhere before it queues a panel."
+      "description": "Time a hook waits for its request to resolve elsewhere before it queues a panel, from 0 to 30 seconds: a number of seconds, or a string with a unit such as \"500ms\" or \"2s\"."
     },
     "handoffApps": {
       "type": "array",
@@ -265,12 +337,19 @@
       "minItems": 1,
       "maxItems": 6,
       "items": {
-        "type": "integer",
-        "minimum": 1,
-        "maximum": 1440
+        "anyOf": [
+          {
+            "type": "number",
+            "minimum": 0.1667,
+            "maximum": 1440
+          },
+          {
+            "$ref": "#/$defs/durationText"
+          }
+        ]
       },
       "default": [1, 5, 15, 30],
-      "description": "Durations, in minutes and in menu order, offered by the panel's Snooze menu."
+      "description": "Durations in menu order, from 10 seconds to 24 hours, offered by the panel's Snooze menu; each is a number of minutes or a string with a unit such as \"30s\" or \"1h\"."
     },
     "quietHours": {
       "type": "array",
@@ -350,11 +429,18 @@
       "description": "Whether a corner card appears when an agent has been waiting for you; setup adds the Stop hook while it is on, and turning it off from Settings removes it; top level only."
     },
     "waitingNoticeMinutes": {
-      "type": "integer",
-      "minimum": 1,
-      "maximum": 60,
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 0.1667,
+          "maximum": 60
+        },
+        {
+          "$ref": "#/$defs/durationText"
+        }
+      ],
       "default": 2,
-      "description": "How many minutes an agent has been waiting before the notice appears; top level only."
+      "description": "How long an agent has been waiting before the notice appears, from 10 seconds to 60 minutes: a number of minutes, or a string with a unit such as \"90s\" or \"2m\"; top level only."
     },
     "approvalCard": {
       "type": "boolean",

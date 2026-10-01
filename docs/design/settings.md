@@ -21,6 +21,29 @@ The file is edited by hand, or through the settings window, which changes top-le
 never reads or writes it. The menu-bar companion resolves the path with its own environment, which
 can differ from a hook's `XDG_CONFIG_HOME` (see "Settings…" in [app.md](app.md)).
 
+## Time values and units
+
+Every time key accepts a number in its own unit or a string `^[0-9]+(\.[0-9]+)?(ms|s|m|h)$`; the
+keys and their units are unchanged (seconds for `armDelay`, `chainedArmDelay`, `idleSeconds` and
+`graceSeconds`, minutes for `snoozeMinutes` and `waitingNoticeMinutes`), so an existing file reads
+exactly as before. `ConfigFileParser.durationValue` converts either form to seconds, and every range
+check runs on those seconds: arm delays `0...3` (clamped), idle `1...30`, grace `0...30`, a snooze
+preset `10 s...24 h`, the notice delay `10 s...60 min`. The model is in seconds throughout:
+`Settings.snoozePresets` and `Settings.waitingNoticeDelay` are `TimeInterval`s, and the file keys
+keep their names because they are the contract users already have.
+
+Writing keeps the file as the person would write it. The seconds keys are written as numbers with up
+to three decimals, because a typed value keeps millisecond precision (`PreferenceRules.armDelay`
+rounds to 0.001 s; the slider rounds to 0.1 s through `sliderArmDelay`). The minutes keys are
+written as an integer when the value is whole minutes and otherwise as the `DurationText.compact`
+string, the largest unit that is exact with no space (`500ms`, `1.5s`, `90s`, `2m`, `90m`), so a
+preset list reads `["30s", 5, 15]`. A value that already holds the choice, in either form, is left
+untouched.
+
+The snooze text field accepts the same words, with a bare number as minutes, and shows whole minutes
+as bare numbers and anything else through `compact`. `SnoozeTitle` titles a preset that is not whole
+minutes in seconds (`90 seconds`), because `DurationText.describe` rounds to the nearest minute.
+
 ## Where each key is used
 
 - **`armDelay`** feeds `PanelController`'s `armDuration` (see "The arm lock" in
@@ -272,7 +295,7 @@ files as `countersign status`. What each control shows and does comes from
 | Quiet until 14:05 | "Until 14:05" in blue | secondary; click pauses, which ends quiet time first | blue; the popover reads "Quiet until 14:05" and **End now** (`QuietTime.clear()`, exactly `countersign snooze off`) |
 
 The Snooze popover, opened beside the icon like the info buttons' popovers, lists the menu bar's
-presets (`CompanionMenu.snoozeMinutes`, titled by `SnoozeTitle`) and each starts quiet time through
+presets (`CompanionMenu.snoozePresets`, titled by `SnoozeTitle`) and each starts quiet time through
 `StateSwitches.snooze(until:)`, exactly as the menu does. The Pause icon is its own control rather
 than the old status action because the old action turned into End now during quiet time, and a
 user who wants to pause during quiet time would have ended it instead.
@@ -299,7 +322,7 @@ The window edits top-level keys only:
 | Panels | Arm delay, a slider | `armDelay` | `0` to `3` s, in 0.1 s steps |
 | Panels | Arm delay after an answer, a slider | `chainedArmDelay` | `0` to `3` s, in 0.1 s steps |
 | Panels | Hand off when frontmost, a list | `handoffApps` | bundle IDs, added and removed one at a time |
-| Panels | Snooze presets, a text field | `snoozeMinutes` | `1, 5, 15, 30`: 1 to 6 whole numbers, each `1` to `1440` |
+| Panels | Snooze presets, a text field | `snoozeMinutes` | `1, 5, 15, 30`: 1 to 6 durations, each `10s` to `24h`; a bare number is minutes, `30s`, `15m` and `1h` carry a unit; error `"<word>" isn't a duration` |
 | Panels | Quiet hours, a list above one editor line: day toggles, two time fields and Add, all on one `HStack`; the fields take `H`, `HH`, `H:MM`, `HH:MM`, `HMM` or `HHMM`, and the file always gets `HH:mm` | `quietHours` | up to 7 windows, each with at least one day and different start and end times; the whole array is rewritten on every add or remove; errors `Pick at least one day` and `Enter a time like 9, 0930 or 21:30.` |
 | Panels | Notes on answers, a switch | `questionNotes` | on or off |
 | Panels | Mode after a plan, a menu | `modeAfterPlan` | "Ask before edits", "Accept edits" or "Auto" |
@@ -815,8 +838,8 @@ Restore Defaults never flips it.
 `countersign snapshot` renders `PanelModel`/`PanelRootView` directly, with no `PanelController`
 and no config read, so its PNGs stay identical on every machine regardless of what settings a
 person or a CI runner happens to have on disk. `PanelController`'s and `PanelModel`'s `armDuration`,
-`snoozeMinutes` and `questionNotes` parameters default to the built-in values (`0.8`,
-`[1, 5, 15, 30]` and `false`), and `SnapshotCommand` passes none of them unless asked, so it stays
+`snoozePresets` and `questionNotes` parameters default to the built-in values (`0.8`,
+`[60, 300, 900, 1800]` seconds and `false`), and `SnapshotCommand` passes none of them unless asked, so it stays
 config-independent. `--question-notes` is the one way to see the question view with notes on in a
 snapshot, since there is no config file to flip a switch in, and `--accent #RRGGBB` the one way to
 see another accent than amber; see "Snapshots" in [panel.md](panel.md).

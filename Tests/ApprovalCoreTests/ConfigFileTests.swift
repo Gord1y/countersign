@@ -42,7 +42,7 @@ import Testing
     #expect(file.idleSeconds == 10)
     #expect(file.graceSeconds == 2)
     #expect(file.handoffApps == ["com.apple.Terminal"])
-    #expect(file.snoozeMinutes == [2, 4, 6])
+    #expect(file.snoozePresets == [120, 240, 360])
     #expect(file.checkForUpdates == true)
     #expect(file.quitBehavior == .pause)
     #expect(file.modeAfterPlan == .acceptEdits)
@@ -54,11 +54,11 @@ import Testing
   @Test func waitingNoticesAreOnAndTwoMinutesByDefault() {
     let (file, logLines) = parse("{}")
     #expect(file.waitingNotices == nil)
-    #expect(file.waitingNoticeMinutes == nil)
+    #expect(file.waitingNoticeDelay == nil)
     #expect(logLines.isEmpty)
     let settings = Settings.resolve(file: file, host: .claude)
     #expect(settings.waitingNotices == true)
-    #expect(settings.waitingNoticeMinutes == 2)
+    #expect(settings.waitingNoticeDelay == 120)
   }
 
   @Test func readsValidWaitingNoticeValues() {
@@ -66,21 +66,76 @@ import Testing
       let (file, logLines) = parse(
         #"{ "waitingNotices": true, "waitingNoticeMinutes": \#(minutes) }"#)
       #expect(file.waitingNotices == true)
-      #expect(file.waitingNoticeMinutes == minutes)
+      #expect(file.waitingNoticeDelay == TimeInterval(minutes * 60))
       #expect(logLines.isEmpty)
       let settings = Settings.resolve(file: file, host: .codex)
       #expect(settings.waitingNotices)
-      #expect(settings.waitingNoticeMinutes == minutes)
+      #expect(settings.waitingNoticeDelay == TimeInterval(minutes * 60))
     }
   }
 
   @Test func waitingNoticeMinutesOutOfRangeOrWrongTypeFallBackToTheDefaultWithOneLine() {
-    for bad in ["0", "61", "-3", "\"2\"", "2.5", "true", "null"] {
+    for bad in ["0", "61", "-3", "\"soon\"", "\"5s\"", "\"61m\"", "true", "null"] {
       let (file, logLines) = parse(#"{ "waitingNoticeMinutes": \#(bad) }"#)
-      #expect(file.waitingNoticeMinutes == nil)
+      #expect(file.waitingNoticeDelay == nil)
       #expect(
-        logLines == ["waitingNoticeMinutes: expected an integer from 1 to 60, using default 2"])
+        logLines == ["waitingNoticeMinutes: expected a duration from 10s to 1h, using default 2m"])
     }
+  }
+
+  @Test func waitingNoticeMinutesAcceptsUnits() {
+    let (file, logLines) = parse(#"{ "waitingNoticeMinutes": "90s" }"#)
+    #expect(file.waitingNoticeDelay == 90)
+    #expect(logLines.isEmpty)
+  }
+
+  @Test func armDelayAcceptsUnits() {
+    let (file, logLines) = parse(#"{ "armDelay": "500ms", "chainedArmDelay": "0.25s" }"#)
+    #expect(file.armDelay == 0.5)
+    #expect(file.chainedArmDelay == 0.25)
+    #expect(logLines.isEmpty)
+  }
+
+  @Test func armDelayStringOutOfRangeClampsAndQuotesTheValueAsWritten() {
+    let (file, logLines) = parse(#"{ "armDelay": "9s" }"#)
+    #expect(file.armDelay == 3)
+    #expect(logLines == ["armDelay: \"9s\" is out of range 0...3, clamped to 3"])
+  }
+
+  @Test func idleAndGraceSecondsAcceptUnits() {
+    let (file, logLines) = parse(#"{ "idleSeconds": "2s", "graceSeconds": "500ms" }"#)
+    #expect(file.idleSeconds == 2)
+    #expect(file.graceSeconds == 0.5)
+    #expect(logLines.isEmpty)
+  }
+
+  @Test func idleSecondsStringOutOfRangeFallsBackAndLogsTheValueAsWritten() {
+    let (file, logLines) = parse(#"{ "idleSeconds": "2m" }"#)
+    #expect(file.idleSeconds == nil)
+    #expect(logLines == ["idleSeconds: \"2m\" is out of range 1...30, using default 5"])
+  }
+
+  @Test func snoozeMinutesAcceptUnitsAndBareMinutes() {
+    let (file, logLines) = parse(#"{ "snoozeMinutes": ["30s", 5, "1h"] }"#)
+    #expect(file.snoozePresets == [30, 300, 3600])
+    #expect(logLines.isEmpty)
+  }
+
+  @Test func snoozeMinutesStringBelowTheRangeFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "snoozeMinutes": ["5s"] }"#)
+    #expect(file.snoozePresets == nil)
+    #expect(
+      logLines == [
+        "snoozeMinutes: expected durations from 10s to 24h, using default 1m, 5m, 15m, 30m"
+      ])
+  }
+
+  @Test func hostOverridesAcceptUnits() {
+    let (file, logLines) = parse(
+      #"{ "hosts": { "cursor": { "armDelay": "250ms", "snoozeMinutes": ["45s"] } } }"#)
+    #expect(file.cursor?.armDelay == 0.25)
+    #expect(file.cursor?.snoozePresets == [45])
+    #expect(logLines.isEmpty)
   }
 
   @Test func waitingNoticesWrongTypeFallsBackToDefault() {
@@ -294,33 +349,37 @@ import Testing
 
   @Test func snoozeMinutesWrongTypeFallsBackToDefault() {
     let (file, logLines) = parse(#"{ "snoozeMinutes": "soon" }"#)
-    #expect(file.snoozeMinutes == nil)
-    #expect(logLines == ["snoozeMinutes: expected 1 to 6 integers, using default [1, 5, 15, 30]"])
+    #expect(file.snoozePresets == nil)
+    #expect(
+      logLines == ["snoozeMinutes: expected 1 to 6 durations, using default 1m, 5m, 15m, 30m"])
   }
 
   @Test func snoozeMinutesEmptyFallsBackToDefault() {
     let (file, logLines) = parse(#"{ "snoozeMinutes": [] }"#)
-    #expect(file.snoozeMinutes == nil)
-    #expect(logLines == ["snoozeMinutes: expected 1 to 6 integers, using default [1, 5, 15, 30]"])
+    #expect(file.snoozePresets == nil)
+    #expect(
+      logLines == ["snoozeMinutes: expected 1 to 6 durations, using default 1m, 5m, 15m, 30m"])
   }
 
   @Test func snoozeMinutesTooManyFallsBackToDefault() {
     let (file, logLines) = parse(#"{ "snoozeMinutes": [1, 2, 3, 4, 5, 6, 7] }"#)
-    #expect(file.snoozeMinutes == nil)
-    #expect(logLines == ["snoozeMinutes: expected 1 to 6 integers, using default [1, 5, 15, 30]"])
+    #expect(file.snoozePresets == nil)
+    #expect(
+      logLines == ["snoozeMinutes: expected 1 to 6 durations, using default 1m, 5m, 15m, 30m"])
   }
 
   @Test func snoozeMinutesOutOfRangeElementFallsBackToDefault() {
     let (file, logLines) = parse(#"{ "snoozeMinutes": [1, 1441] }"#)
-    #expect(file.snoozeMinutes == nil)
+    #expect(file.snoozePresets == nil)
     #expect(
-      logLines == ["snoozeMinutes: expected integers from 1 to 1440, using default [1, 5, 15, 30]"]
-    )
+      logLines == [
+        "snoozeMinutes: expected durations from 10s to 24h, using default 1m, 5m, 15m, 30m"
+      ])
   }
 
   @Test func snoozeMinutesKeepsGivenOrder() {
     let (file, logLines) = parse(#"{ "snoozeMinutes": [30, 1, 15] }"#)
-    #expect(file.snoozeMinutes == [30, 1, 15])
+    #expect(file.snoozePresets == [1800, 60, 900])
     #expect(logLines.isEmpty)
   }
 

@@ -20,7 +20,7 @@ import Testing
         "How long the next panel ignores keys and clicks.",
         "Quiet keyboard and mouse needed before a panel shows.",
         "Time a request may resolve elsewhere before it queues.",
-        "Minutes offered by the Snooze menu, in order.",
+        "Durations offered by the Snooze menu, in order.",
         "Recurring times when panels wait, like a snooze that repeats.",
         "No panel while the asking app is one of these and in front.",
         "Look for a newer Countersign release.",

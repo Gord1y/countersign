@@ -4,18 +4,23 @@ import Testing
 
 @Suite struct SnoozeTitleTests {
   @Test func firstOptionReadsQuietFor() {
-    #expect(SnoozeTitle.describe(minutes: 1, isFirst: true) == "Quiet for 1 minute")
-    #expect(SnoozeTitle.describe(minutes: 15, isFirst: true) == "Quiet for 15 minutes")
+    #expect(SnoozeTitle.describe(seconds: 60, isFirst: true) == "Quiet for 1 minute")
+    #expect(SnoozeTitle.describe(seconds: 900, isFirst: true) == "Quiet for 15 minutes")
   }
 
   @Test func laterOptionsAreJustTheDuration() {
-    #expect(SnoozeTitle.describe(minutes: 5, isFirst: false) == "5 minutes")
-    #expect(SnoozeTitle.describe(minutes: 1, isFirst: false) == "1 minute")
+    #expect(SnoozeTitle.describe(seconds: 300, isFirst: false) == "5 minutes")
+    #expect(SnoozeTitle.describe(seconds: 60, isFirst: false) == "1 minute")
   }
 
   @Test func wholeHoursReadAsHours() {
-    #expect(SnoozeTitle.describe(minutes: 60, isFirst: false) == "1 hour")
-    #expect(SnoozeTitle.describe(minutes: 120, isFirst: true) == "Quiet for 2 hours")
-    #expect(SnoozeTitle.describe(minutes: 90, isFirst: false) == "90 minutes")
+    #expect(SnoozeTitle.describe(seconds: 3600, isFirst: false) == "1 hour")
+    #expect(SnoozeTitle.describe(seconds: 7200, isFirst: true) == "Quiet for 2 hours")
+    #expect(SnoozeTitle.describe(seconds: 5400, isFirst: false) == "90 minutes")
+  }
+
+  @Test func subMinuteAndPartMinuteOptionsReadInSeconds() {
+    #expect(SnoozeTitle.describe(seconds: 30, isFirst: true) == "Quiet for 30 seconds")
+    #expect(SnoozeTitle.describe(seconds: 90, isFirst: false) == "90 seconds")
   }
 }

@@ -35,8 +35,10 @@ public enum PreferenceOverrides {
       values.append(
         named(.handoffApps, handoffApps.isEmpty ? "none" : handoffApps.joined(separator: ", ")))
     }
-    if let snoozeMinutes = overrides.snoozeMinutes {
-      values.append(named(.snoozeMinutes, "\(PreferenceRules.snoozeText(snoozeMinutes)) min"))
+    if let snoozePresets = overrides.snoozePresets {
+      let wholeMinutes = snoozePresets.allSatisfy { $0.truncatingRemainder(dividingBy: 60) == 0 }
+      let suffix = wholeMinutes ? " min" : ""
+      values.append(named(.snoozeMinutes, "\(PreferenceRules.snoozeText(snoozePresets))\(suffix)"))
     }
     if let includeHeadlessSessions = overrides.includeHeadlessSessions {
       values.append("headless sessions \(includeHeadlessSessions ? "on" : "off")")

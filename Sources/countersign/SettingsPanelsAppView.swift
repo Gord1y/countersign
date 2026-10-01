@@ -118,13 +118,13 @@ struct PanelsSection: View {
             Picker(
               PreferenceName.waitingNoticeMinutes.title,
               selection: Binding(
-                get: { model.waitingNoticeMinutes }, set: { model.setWaitingNoticeMinutes($0) })
+                get: { model.waitingNoticeDelay }, set: { model.setWaitingNoticeDelay($0) })
             ) {
               ForEach(
-                PreferenceRules.waitingNoticeMinuteChoices(including: model.waitingNoticeMinutes),
+                PreferenceRules.waitingNoticeDelayChoices(including: model.waitingNoticeDelay),
                 id: \.self
-              ) { minutes in
-                Text(PreferenceRules.minutesText(minutes)).tag(minutes)
+              ) { seconds in
+                Text(DurationText.describe(seconds)).tag(seconds)
               }
             }
             .pickerStyle(.menu)
@@ -607,7 +607,7 @@ private struct DelaySlider: View {
   }
 
   private func change(_ newValue: Double) {
-    let rounded = PreferenceRules.armDelay(newValue)
+    let rounded = PreferenceRules.sliderArmDelay(newValue)
     guard isDragging else {
       commit(rounded)
       return

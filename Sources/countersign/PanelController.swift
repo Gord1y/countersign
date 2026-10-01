@@ -34,7 +34,7 @@ final class PanelModel {
   var waitingEntries: [WaitingEntry]
   var waitingCount: Int { waitingEntries.count }
   let armDuration: TimeInterval
-  let snoozeMinutes: [Int]
+  let snoozePresets: [TimeInterval]
   let questionNotes: Bool
   let modeAfterPlan: PlanApprovalMode
   let isTestPanel: Bool
@@ -52,7 +52,7 @@ final class PanelModel {
 
   init(
     request: ApprovalRequest, waitingEntries: [WaitingEntry], armDuration: TimeInterval = 0.8,
-    snoozeMinutes: [Int] = Settings.defaultSnoozeMinutes,
+    snoozePresets: [TimeInterval] = Settings.defaultSnoozePresets,
     questionNotes: Bool = Settings.defaultQuestionNotes,
     modeAfterPlan: PlanApprovalMode = Settings.defaultModeAfterPlan,
     chatTrackingDrift: ChatTrackingDrift? = nil,
@@ -65,7 +65,7 @@ final class PanelModel {
     self.sessionIdle = sessionIdle
     self.waitingEntries = waitingEntries
     self.armDuration = armDuration
-    self.snoozeMinutes = snoozeMinutes
+    self.snoozePresets = snoozePresets
     self.questionNotes = questionNotes
     self.modeAfterPlan = modeAfterPlan
     self.chatTrackingDrift = chatTrackingDrift
@@ -135,7 +135,7 @@ final class PanelController {
     request: ApprovalRequest,
     waitingEntries: [WaitingEntry],
     armDuration: TimeInterval = PanelController.defaultArmDuration,
-    snoozeMinutes: [Int] = Settings.defaultSnoozeMinutes,
+    snoozePresets: [TimeInterval] = Settings.defaultSnoozePresets,
     questionNotes: Bool = Settings.defaultQuestionNotes,
     modeAfterPlan: PlanApprovalMode = Settings.defaultModeAfterPlan,
     panelSound: String = Settings.defaultPanelSound,
@@ -160,7 +160,7 @@ final class PanelController {
 
     let model = PanelModel(
       request: request, waitingEntries: waitingEntries, armDuration: clampedArmDuration,
-      snoozeMinutes: snoozeMinutes, questionNotes: questionNotes, modeAfterPlan: modeAfterPlan,
+      snoozePresets: snoozePresets, questionNotes: questionNotes, modeAfterPlan: modeAfterPlan,
       chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
       isTestPanel: isTestPanel, sessionIdle: sessionIdle)
     CountersignPalette.use(accentColor)

@@ -67,14 +67,14 @@ public enum PreferenceEdit: Sendable, Equatable {
   case chainedArmDelay(Double)
   case idleSeconds(Double)
   case graceSeconds(Double)
-  case snoozeMinutes([Int])
+  case snoozePresets([TimeInterval])
   case quietHours([QuietWindow])
   case checkForUpdates(Bool)
   case quitBehavior(QuitBehavior)
   case modeAfterPlan(PlanApprovalMode)
   case panelSound(String)
   case waitingNotices(Bool)
-  case waitingNoticeMinutes(Int)
+  case waitingNoticeDelay(TimeInterval)
   case questionNotes(Bool)
   case appearance(AppearanceChoice)
   case accentColor(HexColor)
@@ -99,14 +99,14 @@ public enum PreferenceEdit: Sendable, Equatable {
     case .chainedArmDelay: return .chainedArmDelay
     case .idleSeconds: return .idleSeconds
     case .graceSeconds: return .graceSeconds
-    case .snoozeMinutes: return .snoozeMinutes
+    case .snoozePresets: return .snoozeMinutes
     case .quietHours: return .quietHours
     case .checkForUpdates: return .checkForUpdates
     case .quitBehavior: return .quitBehavior
     case .modeAfterPlan: return .modeAfterPlan
     case .panelSound: return .panelSound
     case .waitingNotices: return .waitingNotices
-    case .waitingNoticeMinutes: return .waitingNoticeMinutes
+    case .waitingNoticeDelay: return .waitingNoticeMinutes
     case .questionNotes: return .questionNotes
     case .appearance: return .appearance
     case .accentColor: return .accentColor
@@ -124,6 +124,15 @@ public enum PreferenceEdit: Sendable, Equatable {
     case .contextMenuBarMeter: return .contextMenuBarMeter
     case .reset(let name): return name
     }
+  }
+}
+
+extension JSONSpanNode {
+  fileprivate func durationSeconds(bareUnit: TimeInterval) -> TimeInterval? {
+    let seconds =
+      stringValue.flatMap { DurationText.parse($0, bareUnit: bareUnit) }
+      ?? numberValue.map { $0 * bareUnit }
+    return seconds.map(PreferenceRules.thousandths)
   }
 }
 
@@ -157,6 +166,14 @@ public enum ConfigEdit {
     PreferenceRules.numberText(value)
   }
 
+  static func minutesFragment(_ seconds: TimeInterval) -> JSONFragment {
+    let minutes = seconds / 60
+    if minutes.truncatingRemainder(dividingBy: 1) == 0, let whole = Int(exactly: minutes) {
+      return .integer(whole)
+    }
+    return .string(DurationText.compact(seconds))
+  }
+
   private static func apply(_ edit: PreferenceEdit, to document: inout JSONSourceDocument)
     throws
   {
@@ -165,12 +182,14 @@ public enum ConfigEdit {
     switch edit {
     case .armDelay(let value), .chainedArmDelay(let value), .idleSeconds(let value),
       .graceSeconds(let value):
-      try set(key, to: .number(spelling(value)), in: &document) {
-        $0.numberValue == value
+      let written = PreferenceRules.thousandths(value)
+      try set(key, to: .number(spelling(written)), in: &document) {
+        $0.numberValue == written
       }
-    case .snoozeMinutes(let minutes):
-      try set(key, to: .array(minutes.map(JSONFragment.integer)), in: &document) {
-        $0.elements?.map(\.numberValue) == minutes.map { Double($0) }
+    case .snoozePresets(let presets):
+      try set(key, to: .array(presets.map(minutesFragment)), in: &document) {
+        $0.elements?.map { $0.durationSeconds(bareUnit: 60) }
+          == presets.map { Optional(PreferenceRules.thousandths($0)) }
       }
     case .quietHours(let windows):
       try set(key, to: .array(windows.map(quietWindowFragment)), in: &document) { _ in false }
@@ -188,8 +207,10 @@ public enum ConfigEdit {
       try set(key, to: .string(name), in: &document) { $0.stringValue == name }
     case .waitingNotices(let enabled):
       try set(key, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
-    case .waitingNoticeMinutes(let minutes):
-      try set(key, to: .integer(minutes), in: &document) { $0.numberValue == Double(minutes) }
+    case .waitingNoticeDelay(let seconds):
+      try set(key, to: minutesFragment(seconds), in: &document) {
+        $0.durationSeconds(bareUnit: 60) == PreferenceRules.thousandths(seconds)
+      }
     case .questionNotes(let enabled):
       try set(key, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
     case .appearance(let appearance):

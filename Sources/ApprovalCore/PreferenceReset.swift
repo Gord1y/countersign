@@ -15,7 +15,7 @@ public enum PreferenceReset {
     case .graceSeconds:
       return changed(file.graceSeconds, from: Settings.defaultGraceSeconds)
     case .snoozeMinutes:
-      return changed(file.snoozeMinutes, from: Settings.defaultSnoozeMinutes)
+      return changed(file.snoozePresets, from: Settings.defaultSnoozePresets)
     case .quietHours:
       return changed(file.quietHours, from: Settings.defaultQuietHours)
     case .handoffApps:
@@ -31,7 +31,7 @@ public enum PreferenceReset {
     case .waitingNotices:
       return changed(file.waitingNotices, from: Settings.defaultWaitingNotices)
     case .waitingNoticeMinutes:
-      return changed(file.waitingNoticeMinutes, from: Settings.defaultWaitingNoticeMinutes)
+      return changed(file.waitingNoticeDelay, from: Settings.defaultWaitingNoticeDelay)
     case .questionNotes:
       return changed(file.questionNotes, from: Settings.defaultQuestionNotes)
     case .appearance:
@@ -104,7 +104,7 @@ public enum PreferenceReset {
     case .chainedArmDelay: return PreferenceRules.secondsText(values.chainedArmDelay)
     case .idleSeconds: return PreferenceRules.secondsText(values.idleSeconds)
     case .graceSeconds: return PreferenceRules.secondsText(values.graceSeconds)
-    case .snoozeMinutes: return PreferenceRules.snoozeText(values.snoozeMinutes)
+    case .snoozeMinutes: return PreferenceRules.snoozeText(values.snoozePresets)
     case .quietHours: return quietHoursCountText(values.quietHours.count)
     case .handoffApps: return handoffAppsCountText(values.handoffApps.count)
     case .checkForUpdates: return values.checkForUpdates ? "On" : "Off"
@@ -113,7 +113,7 @@ public enum PreferenceReset {
     case .modeAfterPlan: return values.modeAfterPlan.title
     case .panelSound: return PanelSound.title(values.panelSound)
     case .waitingNotices: return values.waitingNotices ? "On" : "Off"
-    case .waitingNoticeMinutes: return PreferenceRules.minutesText(values.waitingNoticeMinutes)
+    case .waitingNoticeMinutes: return DurationText.describe(values.waitingNoticeDelay)
     case .appearance: return values.appearance.title
     case .accentColor: return AccentPreset.name(of: values.accentColor)
     case .editorApp: return values.editorApp ?? PreferenceName.editorApp.defaultText
@@ -164,7 +164,7 @@ public enum PreferenceReset {
     case .chainedArmDelay: return overrides.chainedArmDelay != nil
     case .idleSeconds: return overrides.idleSeconds != nil
     case .graceSeconds: return overrides.graceSeconds != nil
-    case .snoozeMinutes: return overrides.snoozeMinutes != nil
+    case .snoozeMinutes: return overrides.snoozePresets != nil
     case .handoffApps: return overrides.handoffApps != nil
     case .quietHours, .checkForUpdates, .questionNotes, .quitBehavior, .modeAfterPlan,
       .panelSound, .waitingNotices, .waitingNoticeMinutes, .appearance, .accentColor,

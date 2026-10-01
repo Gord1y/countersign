@@ -75,6 +75,14 @@ How approval panels behave, for every agent unless a key is overridden for one u
 | Waiting-agent notices | `waitingNotices` | `true` |
 | Notice after | `waitingNoticeMinutes` | `2` |
 
+Every time setting takes a number in its own unit or a string with a unit, so `"500ms"`, `"0.5s"`,
+`"90s"`, `"2m"` and `"1h"` all work (`ms`, `s`, `m` and `h`, written without a space). A bare number
+keeps the unit in the key: seconds for `idleSeconds`, `graceSeconds`, `armDelay` and
+`chainedArmDelay`, minutes for `snoozeMinutes` and `waitingNoticeMinutes`. The range of each key
+applies after the unit is converted, so `"90s"` is a valid `waitingNoticeMinutes` and `"2m"` is out
+of range for `idleSeconds`. Settings writes a whole number of minutes back as a number, and anything
+shorter as a string, for example `["30s", 5, 15]`.
+
 All of these except **Quiet hours**, **Notes on answers**, **Mode after a plan**, **Sound**,
 **Waiting-agent notices** and **Notice after** live at the top level of `config.json` and can
 also be set per agent, under `hosts.<agent>`. `quietHours`, `questionNotes`, `modeAfterPlan`,
@@ -83,11 +91,11 @@ keys below.
 
 - **Wait for idle** (`idleSeconds`): how long since your last keyboard, mouse or scroll input a
   panel needs before it appears — counted from that last input, not from when the request
-  arrives, so if you've already been away that long the panel appears at once. Any number
-  `>= 0`. Raise it if panels still appear while you pause mid-thought; lower it if you want them
+  arrives, so if you've already been away that long the panel appears at once. `1` to `30`
+  seconds. Raise it if panels still appear while you pause mid-thought; lower it if you want them
   sooner.
 - **Grace period** (`graceSeconds`): how long a request waits for you to answer it in the chat
-  before it joins the queue. Any number `>= 0`. Set it to a few seconds if you often answer Claude
+  before it joins the queue. `0` to `30` seconds. Set it to a few seconds if you often answer Claude
   Code in the chat right away — a request you answer there during the grace period never gets a
   panel at all. Only Claude Code's chat answers are noticed, so for the other agents it only
   delays the panel.
@@ -106,7 +114,8 @@ keys below.
   meanwhile). A request from any other app still gets a panel. Cursor and Antigravity show their
   own approval prompt in this case.
 - **Snooze presets** (`snoozeMinutes`): the durations the Snooze menus offer, in order. 1 to 6
-  whole numbers, each `1` to `1440`. Set the presets you actually use. The menu-bar app's own
+  durations, each from 10 seconds to 24 hours: a number of minutes, or a string such as `"30s"` or
+  `"1h"`. Set the presets you actually use. The menu-bar app's own
   Snooze menu isn't tied to one agent, so it always uses the top-level value, even when an agent's
   `hosts` block sets its own.
 - **Quiet hours** (`quietHours`): recurring windows in which panels wait, like a snooze that
@@ -158,9 +167,10 @@ keys below.
   those hooks, after showing you the change, and writes `false`, and setup then leaves them out.
   Codex asks you to trust its new hook once; see
   [agents.md](agents.md#the-waiting-agent-notice).
-- **Notice after** (`waitingNoticeMinutes`): how many minutes an agent has been waiting before the
-  notice appears, an integer from 1 to 60, `2` unless you change it. A value outside the range or
-  of another type logs one line and falls back to `2`. Settings offers 1, 2, 5, 10, 15 and 30
+- **Notice after** (`waitingNoticeMinutes`): how long an agent has been waiting before the
+  notice appears, from 10 seconds to 60 minutes: a number of minutes or a string such as `"90s"`,
+  `2` unless you change it. A value outside the range or of another type logs one line and falls
+  back to `2`. Settings offers 1, 2, 5, 10, 15 and 30
   minutes and shows any other value from the file as its own item; the menu is disabled while
   notices are off.
 
@@ -283,8 +293,9 @@ A mistake never stops a panel and never answers anything; Countersign falls back
 
 - A file that can't be read or isn't a valid JSON object: every setting uses its default.
 - A key with the wrong type or a value outside its range: that key uses its default, and every
-  other key is read as usual. `armDelay` and `chainedArmDelay` are the exception: a number outside
-  `0` to `3` is moved to the nearest end instead.
+  other key is read as usual. `armDelay` and `chainedArmDelay` are the exception: a value outside
+  `0` to `3` seconds is moved to the nearest end instead. A string that isn't a number followed by
+  `ms`, `s`, `m` or `h` counts as the wrong type; the log line quotes a value as you wrote it.
 - An unknown key: ignored.
 
 Each mistake is written to the log, `~/Library/Logs/Countersign/countersign.log`, on a line starting

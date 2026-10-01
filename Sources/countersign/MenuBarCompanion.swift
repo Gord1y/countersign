@@ -181,7 +181,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
       isPaused: pauseSwitch.isPaused,
       quietUntil: QuietState(paths: paths, schedule: configFile.quietSchedule).activeUntil(),
       pendingEntries: queue.waitingEntries(),
-      snoozeMinutes: CompanionMenu.snoozeMinutes(for: configFile),
+      snoozePresets: CompanionMenu.snoozePresets(for: configFile),
       launchAtLogin: launchAtLoginState(),
       updateAvailable: currentUpdateAvailability(),
       manualCheckResult: manualCheckResult,
@@ -321,8 +321,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
       attempt("paused", failure: "failed to pause") { try stateSwitches.pause() }
     case .resume:
       attempt("resumed", failure: "failed to resume") { try pauseSwitch.resume() }
-    case .snooze(let minutes):
-      let seconds = TimeInterval(minutes * 60)
+    case .snooze(let seconds):
       let until = Date().addingTimeInterval(seconds)
       attempt(
         "quiet time until \(TimeOfDayText.describe(until)) (\(DurationText.describe(seconds)))",

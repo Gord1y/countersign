@@ -33,7 +33,7 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
   @Test func keepsAValueThatAlreadyHoldsTheChoice() throws {
     let config = "{\"armDelay\": 0.80, \"snoozeMinutes\": [5, 10], \"checkForUpdates\": false}"
     #expect(
-      try editing(config, .armDelay(0.8), .snoozeMinutes([5, 10]), .checkForUpdates(false))
+      try editing(config, .armDelay(0.8), .snoozePresets([300, 600]), .checkForUpdates(false))
         == config)
   }
 
@@ -71,11 +71,40 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
 
   @Test func writesSnoozePresetsAndTheUpdateCheck() throws {
     #expect(
-      try editing("{\n  \"snoozeMinutes\": [5, 10]\n}\n", .snoozeMinutes([1, 60]))
+      try editing("{\n  \"snoozeMinutes\": [5, 10]\n}\n", .snoozePresets([60, 3600]))
         == "{\n  \"snoozeMinutes\": [\n    1,\n    60\n  ]\n}\n")
     #expect(
       try editing("{\n  \"checkForUpdates\": false\n}\n", .checkForUpdates(true))
         == "{\n  \"checkForUpdates\": true\n}\n")
+  }
+
+  @Test func writesSubMinuteSnoozePresetsAsUnitStrings() throws {
+    #expect(
+      try editing("{\n  \"snoozeMinutes\": [5, 10]\n}\n", .snoozePresets([30, 300]))
+        == "{\n  \"snoozeMinutes\": [\n    \"30s\",\n    5\n  ]\n}\n")
+  }
+
+  @Test func keepsSnoozePresetsThatAlreadyHoldTheChoiceInAnyUnit() throws {
+    let config = "{\"snoozeMinutes\": [\"30s\", 5, \"15m\"]}"
+    #expect(try editing(config, .snoozePresets([30, 300, 900])) == config)
+  }
+
+  @Test func writesTheWaitingNoticeDelayAsMinutesWhenWholeAndAsAUnitStringOtherwise() throws {
+    #expect(
+      try editing("{\"waitingNoticeMinutes\": 5}", .waitingNoticeDelay(120))
+        == "{\"waitingNoticeMinutes\": 2}")
+    #expect(
+      try editing("{\"waitingNoticeMinutes\": 5}", .waitingNoticeDelay(90))
+        == "{\"waitingNoticeMinutes\": \"90s\"}")
+    let config = "{\"waitingNoticeMinutes\": \"2m\"}"
+    #expect(try editing(config, .waitingNoticeDelay(120)) == config)
+  }
+
+  @Test func writesSecondsKeysWithUpToThreeDecimals() throws {
+    #expect(
+      try editing("{\"armDelay\": 1}", .armDelay(0.2504)) == "{\"armDelay\": 0.25}")
+    #expect(
+      try editing("{\"graceSeconds\": 1}", .graceSeconds(0.5)) == "{\"graceSeconds\": 0.5}")
   }
 
   @Test func writesTheQuitBehavior() throws {
@@ -301,7 +330,8 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
     #expect(PreferenceEdit.chainedArmDelay(1).key == .chainedArmDelay)
     #expect(PreferenceEdit.idleSeconds(1).key == .idleSeconds)
     #expect(PreferenceEdit.graceSeconds(1).key == .graceSeconds)
-    #expect(PreferenceEdit.snoozeMinutes([1]).key == .snoozeMinutes)
+    #expect(PreferenceEdit.snoozePresets([60]).key == .snoozeMinutes)
+    #expect(PreferenceEdit.waitingNoticeDelay(120).key == .waitingNoticeMinutes)
     #expect(PreferenceEdit.checkForUpdates(true).key == .checkForUpdates)
     #expect(PreferenceEdit.quitBehavior(.ask).key == .quitBehavior)
     #expect(PreferenceEdit.modeAfterPlan(.auto).key == .modeAfterPlan)

@@ -42,7 +42,7 @@ extension PreferenceName {
     case .chainedArmDelay: return "How long the next panel ignores keys and clicks."
     case .idleSeconds: return "Quiet keyboard and mouse needed before a panel shows."
     case .graceSeconds: return "Time a request may resolve elsewhere before it queues."
-    case .snoozeMinutes: return "Minutes offered by the Snooze menu, in order."
+    case .snoozeMinutes: return "Durations offered by the Snooze menu, in order."
     case .quietHours: return "Recurring times when panels wait, like a snooze that repeats."
     case .handoffApps: return "No panel while the asking app is one of these and in front."
     case .checkForUpdates: return "Look for a newer Countersign release."
@@ -111,7 +111,8 @@ extension PreferenceName {
       return
         "The durations offered by the panel's Snooze menu and the menu-bar app's own Snooze"
         + " submenu, in the order they're listed. Set the presets to the lengths of quiet time you"
-        + " actually use, from 1 to 6 values between 1 and 1440 minutes. It's a single, top-level"
+        + " actually use, from 1 to 6 values between 10 seconds and 24 hours, like 30s, 5, 15m, 1h"
+        + " (a bare number is minutes). It's a single, top-level"
         + " list: snoozing isn't tied to one agent, so a per-agent override here has no effect on"
         + " the menu-bar app's own menu."
     case .quietHours:
@@ -175,9 +176,9 @@ extension PreferenceName {
         + " changed here and not by editing config.json. It is top-level only."
     case .waitingNoticeMinutes:
       return
-        "How many minutes an agent has been waiting before the notice appears, from 1 to 60. The"
-        + " menu offers 1, 2, 5, 10, 15 and 30; a value you set in config.json shows as its own"
-        + " item. It has no effect while Waiting-agent notices is off, and it is top-level only."
+        "How long an agent has been waiting before the notice appears, from 10 seconds to 60"
+        + " minutes. The menu offers 1, 2, 5, 10, 15 and 30 minutes; a value you set in config.json,"
+        + " like \"90s\", shows as its own item. It has no effect while Waiting-agent notices is off, and it is top-level only."
     case .appearance:
       return
         "Whether approval panels and this Settings window are light or dark. System follows the"
@@ -280,7 +281,7 @@ extension PreferenceName {
     case .chainedArmDelay: return Self.secondsText(Settings.defaultChainedArmDelay)
     case .idleSeconds: return Self.secondsText(Settings.defaultIdleSeconds)
     case .graceSeconds: return Self.secondsText(Settings.defaultGraceSeconds)
-    case .snoozeMinutes: return Self.minutesListText(Settings.defaultSnoozeMinutes)
+    case .snoozeMinutes: return PreferenceRules.snoozeListText(Settings.defaultSnoozePresets)
     case .quietHours: return "No windows"
     case .handoffApps: return Self.handoffAppsText(Settings.defaultHandoffApps)
     case .checkForUpdates: return Self.boolText(Settings.defaultCheckForUpdates)
@@ -290,7 +291,7 @@ extension PreferenceName {
     case .panelSound: return PanelSound.title(Settings.defaultPanelSound)
     case .waitingNotices: return Self.boolText(Settings.defaultWaitingNotices)
     case .waitingNoticeMinutes:
-      return PreferenceRules.minutesText(Settings.defaultWaitingNoticeMinutes)
+      return DurationText.describe(Settings.defaultWaitingNoticeDelay)
     case .appearance: return Settings.defaultAppearance.title
     case .accentColor: return AccentPreset.name(of: Settings.defaultAccentColor)
     case .editorApp: return "Default app"
@@ -313,17 +314,6 @@ extension PreferenceName {
 
   private static func secondsText(_ value: Double) -> String {
     "\(PreferenceRules.numberText(value)) second\(value == 1 ? "" : "s")"
-  }
-
-  private static func minutesListText(_ minutes: [Int]) -> String {
-    let words = minutes.map(String.init)
-    let joined: String
-    if words.count > 1, let last = words.last {
-      joined = "\(words.dropLast().joined(separator: ", ")) and \(last)"
-    } else {
-      joined = words.first ?? ""
-    }
-    return "\(joined) minute\(minutes == [1] ? "" : "s")"
   }
 
   private static func handoffAppsText(_ apps: [String]) -> String {

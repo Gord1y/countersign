@@ -11,7 +11,7 @@ import Testing
   @Test func namesEveryValueInThePanelsOrder() {
     let overrides = ConfigFile.HostOverrides(
       armDelay: 1, chainedArmDelay: 0.2, idleSeconds: 2, graceSeconds: 3,
-      handoffApps: ["com.openai.codex", "com.todesktop.cursor"], snoozeMinutes: [5, 60],
+      handoffApps: ["com.openai.codex", "com.todesktop.cursor"], snoozePresets: [300, 3600],
       includeHeadlessSessions: true)
     #expect(
       PreferenceOverrides.values(in: overrides) == [
@@ -19,6 +19,11 @@ import Testing
         "hand off when frontmost com.openai.codex, com.todesktop.cursor",
         "snooze presets 5, 60 min", "headless sessions on",
       ])
+  }
+
+  @Test func namesSubMinuteSnoozePresetsWithTheirUnits() {
+    let overrides = ConfigFile.HostOverrides(snoozePresets: [30, 300])
+    #expect(PreferenceOverrides.values(in: overrides) == ["snooze presets 30s, 5"])
   }
 
   @Test func namesAnEmptyHandoffListAndHeadlessSessionsOff() {
@@ -42,7 +47,7 @@ import Testing
     let file = ConfigFile(
       graceSeconds: 0,
       claude: ConfigFile.HostOverrides(graceSeconds: 3),
-      codex: ConfigFile.HostOverrides(idleSeconds: 1, snoozeMinutes: [1, 5]),
+      codex: ConfigFile.HostOverrides(idleSeconds: 1, snoozePresets: [60, 300]),
       cursor: ConfigFile.HostOverrides(armDelay: 0.5),
       antigravity: ConfigFile.HostOverrides(chainedArmDelay: 0))
     #expect(

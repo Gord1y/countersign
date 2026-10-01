@@ -64,7 +64,7 @@ private final class WaitingNoticeWatch: NSObject {
     self.store = store
     self.lock = lock
     self.log = log
-    self.delay = TimeInterval(settings.waitingNoticeMinutes * 60)
+    self.delay = settings.waitingNoticeDelay
     self.appearance = settings.appearance
     self.pauseSwitch = PauseSwitch(file: paths.pauseFile)
     self.quietState = QuietState(

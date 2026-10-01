@@ -127,16 +127,33 @@ import Testing
     let schema = try Self.loadSchema()
     #expect(schema["properties"]?["waitingNotices"]?["type"]?.stringValue == "boolean")
     #expect(schema["properties"]?["waitingNotices"]?["default"]?.boolValue == true)
-    #expect(schema["properties"]?["waitingNoticeMinutes"]?["type"]?.stringValue == "integer")
-    #expect(
-      schema["properties"]?["waitingNoticeMinutes"]?["minimum"]
-        == .int(Int64(Settings.waitingNoticeMinutesRange.lowerBound)))
-    #expect(
-      schema["properties"]?["waitingNoticeMinutes"]?["maximum"]
-        == .int(Int64(Settings.waitingNoticeMinutesRange.upperBound)))
     #expect(
       schema["properties"]?["waitingNoticeMinutes"]?["default"]
-        == .int(Int64(Settings.defaultWaitingNoticeMinutes)))
+        == .int(Int64(Settings.defaultWaitingNoticeDelay / 60)))
+    #expect(
+      Self.alternatives(schema["properties"]?["waitingNoticeMinutes"]).last?["$ref"]?.stringValue
+        == "#/$defs/durationText")
+  }
+
+  private static func alternatives(_ value: JSONValue?) -> [JSONValue] {
+    value?["anyOf"]?.arrayValue ?? []
+  }
+
+  @Test func timeKeysAcceptANumberOrADurationString() throws {
+    let schema = try Self.loadSchema()
+    #expect(
+      schema["$defs"]?["durationText"]?["pattern"]?.stringValue
+        == "^[0-9]+(\\.[0-9]+)?(ms|s|m|h)$")
+    for key in ["armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds"] {
+      let topLevel = Self.alternatives(schema["properties"]?[key])
+      #expect(topLevel.first?["type"]?.stringValue == "number")
+      #expect(topLevel.last?["$ref"]?.stringValue == "#/$defs/durationText")
+      let host = Self.alternatives(schema["$defs"]?["hostOverrides"]?["properties"]?[key])
+      #expect(host.last?["$ref"]?.stringValue == "#/$defs/durationText")
+    }
+    #expect(
+      Self.alternatives(schema["properties"]?["snoozeMinutes"]?["items"]).last?["$ref"]?
+        .stringValue == "#/$defs/durationText")
   }
 
   @Test func topLevelAndHostBlocksForbidAdditionalProperties() throws {

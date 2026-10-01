@@ -175,7 +175,7 @@ final class SettingsModel {
 
   private(set) var preferences = PreferenceValues()
   private(set) var configFileContents = ConfigFile()
-  private(set) var snoozeText = PreferenceRules.snoozeText(Settings.defaultSnoozeMinutes)
+  private(set) var snoozeText = PreferenceRules.snoozeText(Settings.defaultSnoozePresets)
   private(set) var snoozeError: String?
   private(set) var newHandoffApp = ""
   private(set) var handoffError: String?
@@ -259,7 +259,7 @@ final class SettingsModel {
   var modeAfterPlan: PlanApprovalMode { preferences.modeAfterPlan }
   var panelSound: String { preferences.panelSound }
   var waitingNotices: Bool { preferences.waitingNotices }
-  var waitingNoticeMinutes: Int { preferences.waitingNoticeMinutes }
+  var waitingNoticeDelay: TimeInterval { preferences.waitingNoticeDelay }
   var questionNotes: Bool { preferences.questionNotes }
   var appearance: AppearanceChoice { preferences.appearance }
   var accentColor: HexColor { customAccentColor ?? preferences.accentColor }
@@ -341,8 +341,8 @@ final class SettingsModel {
     SettingsHeaderControls(status: status)
   }
 
-  var snoozeChoices: [Int] {
-    CompanionMenu.snoozeMinutes(for: configFileContents)
+  var snoozeChoices: [TimeInterval] {
+    CompanionMenu.snoozePresets(for: configFileContents)
   }
 
   func togglePause() {
@@ -357,9 +357,9 @@ final class SettingsModel {
     }
   }
 
-  func snooze(minutes: Int) {
+  func snooze(seconds: TimeInterval) {
     let paths = environment.paths
-    let until = now().addingTimeInterval(TimeInterval(minutes * 60))
+    let until = now().addingTimeInterval(seconds)
     changeStatus { try stateSwitches(paths).snooze(until: until) }
   }
 
@@ -562,7 +562,7 @@ final class SettingsModel {
   func setSnoozeText(_ text: String) {
     guard text != snoozeText else { return }
     snoozeText = text
-    switch PreferenceRules.snoozeMinutes(from: text) {
+    switch PreferenceRules.snoozePresets(from: text) {
     case .success:
       snoozeError = nil
     case .failure(let error):
@@ -577,10 +577,10 @@ final class SettingsModel {
   }
 
   func commitSnoozeMinutes() {
-    guard case .success(let minutes) = PreferenceRules.snoozeMinutes(from: snoozeText) else {
+    guard case .success(let presets) = PreferenceRules.snoozePresets(from: snoozeText) else {
       return
     }
-    write(.snoozeMinutes(minutes))
+    write(.snoozePresets(presets))
     showSnoozeMinutes()
   }
 
@@ -671,8 +671,8 @@ final class SettingsModel {
     write(.panelSound(name))
   }
 
-  func setWaitingNoticeMinutes(_ minutes: Int) {
-    write(.waitingNoticeMinutes(minutes))
+  func setWaitingNoticeDelay(_ seconds: TimeInterval) {
+    write(.waitingNoticeDelay(seconds))
   }
 
   var homeDirectory: URL {
@@ -1211,7 +1211,7 @@ final class SettingsModel {
   }
 
   private func showSnoozeMinutes() {
-    snoozeText = PreferenceRules.snoozeText(preferences.snoozeMinutes)
+    snoozeText = PreferenceRules.snoozeText(preferences.snoozePresets)
     snoozeError = nil
   }
 

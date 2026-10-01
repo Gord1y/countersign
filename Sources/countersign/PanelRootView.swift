@@ -227,13 +227,13 @@ struct PanelRootView: View {
   }
 
   private func toggleSnoozeDropdown() {
-    let presets = model.snoozeMinutes
-    let rows = presets.enumerated().map { index, minutes in
-      PanelDropdownRow(title: SnoozeTitle.describe(minutes: minutes, isFirst: index == 0))
+    let presets = model.snoozePresets
+    let rows = presets.enumerated().map { index, seconds in
+      PanelDropdownRow(title: SnoozeTitle.describe(seconds: seconds, isFirst: index == 0))
     }
     let menu = PanelDropdownMenu(id: .snooze, direction: .down, rows: rows) { [model] row in
       guard presets.indices.contains(row) else { return }
-      model.snooze(TimeInterval(presets[row] * 60))
+      model.snooze(presets[row])
     }
     model.dropdown.toggle(menu)
   }

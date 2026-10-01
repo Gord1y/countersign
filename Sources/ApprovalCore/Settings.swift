@@ -1,17 +1,19 @@
+import Foundation
+
 public struct Settings: Sendable, Equatable {
   public var armDelay: Double
   public var chainedArmDelay: Double
   public var idleSeconds: Double
   public var graceSeconds: Double
   public var handoffApps: [String]
-  public var snoozeMinutes: [Int]
+  public var snoozePresets: [TimeInterval]
   public var quietHours: [QuietWindow]
   public var checkForUpdates: Bool
   public var quitBehavior: QuitBehavior
   public var modeAfterPlan: PlanApprovalMode
   public var panelSound: String
   public var waitingNotices: Bool
-  public var waitingNoticeMinutes: Int
+  public var waitingNoticeDelay: TimeInterval
   public var approvalCard: Bool
   public var approvalCardDelay: Double
   public var includeHeadlessSessions: Bool
@@ -26,14 +28,14 @@ public struct Settings: Sendable, Equatable {
     idleSeconds: Double,
     graceSeconds: Double,
     handoffApps: [String],
-    snoozeMinutes: [Int],
+    snoozePresets: [TimeInterval],
     quietHours: [QuietWindow] = Settings.defaultQuietHours,
     checkForUpdates: Bool,
     quitBehavior: QuitBehavior,
     modeAfterPlan: PlanApprovalMode,
     panelSound: String = Settings.defaultPanelSound,
     waitingNotices: Bool = Settings.defaultWaitingNotices,
-    waitingNoticeMinutes: Int = Settings.defaultWaitingNoticeMinutes,
+    waitingNoticeDelay: TimeInterval = Settings.defaultWaitingNoticeDelay,
     approvalCard: Bool,
     approvalCardDelay: Double = Settings.defaultApprovalCardDelay,
     includeHeadlessSessions: Bool,
@@ -47,14 +49,14 @@ public struct Settings: Sendable, Equatable {
     self.idleSeconds = idleSeconds
     self.graceSeconds = graceSeconds
     self.handoffApps = handoffApps
-    self.snoozeMinutes = snoozeMinutes
+    self.snoozePresets = snoozePresets
     self.quietHours = quietHours
     self.checkForUpdates = checkForUpdates
     self.quitBehavior = quitBehavior
     self.modeAfterPlan = modeAfterPlan
     self.panelSound = panelSound
     self.waitingNotices = waitingNotices
-    self.waitingNoticeMinutes = waitingNoticeMinutes
+    self.waitingNoticeDelay = waitingNoticeDelay
     self.approvalCard = approvalCard
     self.approvalCardDelay = approvalCardDelay
     self.includeHeadlessSessions = includeHeadlessSessions
@@ -70,16 +72,19 @@ public struct Settings: Sendable, Equatable {
   public static let defaultIdleSeconds: Double = 5
   public static let defaultGraceSeconds: Double = 0
   public static let defaultHandoffApps: [String] = []
-  public static let defaultSnoozeMinutes: [Int] = [1, 5, 15, 30]
+  public static let idleSecondsRange: ClosedRange<Double> = 1...30
+  public static let graceSecondsRange: ClosedRange<Double> = 0...30
+  public static let snoozePresetRange: ClosedRange<TimeInterval> = 10...86400
+  public static let defaultSnoozePresets: [TimeInterval] = [60, 300, 900, 1800]
   public static let defaultQuietHours: [QuietWindow] = []
   public static let defaultCheckForUpdates = false
   public static let defaultQuitBehavior = QuitBehavior.ask
   public static let defaultModeAfterPlan = PlanApprovalMode.default
   public static let defaultPanelSound = PanelSound.none
   public static let defaultWaitingNotices = true
-  public static let defaultWaitingNoticeMinutes = 2
-  public static let waitingNoticeMinutesRange = 1...60
-  public static let waitingNoticeMinuteChoices = [1, 2, 5, 10, 15, 30]
+  public static let defaultWaitingNoticeDelay: TimeInterval = 120
+  public static let waitingNoticeDelayRange: ClosedRange<TimeInterval> = 10...3600
+  public static let waitingNoticeDelayChoices: [TimeInterval] = [60, 120, 300, 600, 900, 1800]
   public static let defaultApprovalCardDelay: Double = 5
   public static let approvalCardDelayRange: ClosedRange<Double> = 1...600
   public static let defaultIncludeHeadlessSessions = false
@@ -99,14 +104,14 @@ public struct Settings: Sendable, Equatable {
     let armDelay = hostOverrides?.armDelay ?? file.armDelay ?? defaultArmDelay
     let chainedArmDelay =
       hostOverrides?.chainedArmDelay ?? file.chainedArmDelay ?? defaultChainedArmDelay
-    let snoozeMinutes = hostOverrides?.snoozeMinutes ?? file.snoozeMinutes ?? defaultSnoozeMinutes
+    let snoozePresets = hostOverrides?.snoozePresets ?? file.snoozePresets ?? defaultSnoozePresets
     let quietHours = file.quietHours ?? defaultQuietHours
     let checkForUpdates = file.checkForUpdates ?? defaultCheckForUpdates
     let quitBehavior = file.quitBehavior ?? defaultQuitBehavior
     let modeAfterPlan = file.modeAfterPlan ?? defaultModeAfterPlan
     let panelSound = file.panelSound ?? defaultPanelSound
     let waitingNotices = file.waitingNotices ?? defaultWaitingNotices
-    let waitingNoticeMinutes = file.waitingNoticeMinutes ?? defaultWaitingNoticeMinutes
+    let waitingNoticeDelay = file.waitingNoticeDelay ?? defaultWaitingNoticeDelay
     let approvalCard =
       hostOverrides?.approvalCard ?? file.approvalCard ?? defaultApprovalCard(for: host)
     let approvalCardDelay =
@@ -124,14 +129,14 @@ public struct Settings: Sendable, Equatable {
       idleSeconds: idleSeconds,
       graceSeconds: graceSeconds,
       handoffApps: handoffApps,
-      snoozeMinutes: snoozeMinutes,
+      snoozePresets: snoozePresets,
       quietHours: quietHours,
       checkForUpdates: checkForUpdates,
       quitBehavior: quitBehavior,
       modeAfterPlan: modeAfterPlan,
       panelSound: panelSound,
       waitingNotices: waitingNotices,
-      waitingNoticeMinutes: waitingNoticeMinutes,
+      waitingNoticeDelay: waitingNoticeDelay,
       approvalCard: approvalCard,
       approvalCardDelay: approvalCardDelay,
       includeHeadlessSessions: includeHeadlessSessions,

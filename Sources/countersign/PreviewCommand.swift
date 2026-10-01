@@ -50,7 +50,7 @@ enum PreviewCommand {
       count: options.waitingCount)
     let controller = PanelController(
       request: request, waitingEntries: waitingEntries, armDuration: settings.armDelay,
-      snoozeMinutes: settings.snoozeMinutes, questionNotes: settings.questionNotes,
+      snoozePresets: settings.snoozePresets, questionNotes: settings.questionNotes,
       modeAfterPlan: settings.modeAfterPlan, panelSound: settings.panelSound,
       appearance: settings.appearance, accentColor: settings.accentColor,
       chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,

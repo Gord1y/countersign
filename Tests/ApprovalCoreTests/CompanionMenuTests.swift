@@ -8,7 +8,7 @@ import Testing
     isPaused: Bool = false,
     quietUntil: Date? = nil,
     pendingEntries: [WaitingEntry] = [],
-    snoozeMinutes: [Int] = Settings.defaultSnoozeMinutes,
+    snoozePresets: [TimeInterval] = Settings.defaultSnoozePresets,
     launchAtLogin: LaunchAtLoginState = .notRegistered,
     sponsorURL: URL? = CompanionMenu.sponsorURL,
     buyMeACoffeeURL: URL? = nil,
@@ -19,7 +19,7 @@ import Testing
       isPaused: isPaused,
       quietUntil: quietUntil,
       pendingEntries: pendingEntries,
-      snoozeMinutes: snoozeMinutes,
+      snoozePresets: snoozePresets,
       launchAtLogin: launchAtLogin,
       sponsorURL: sponsorURL,
       buyMeACoffeeURL: buyMeACoffeeURL,
@@ -176,10 +176,10 @@ import Testing
           CompanionMenuEntry(
             title: "Snooze",
             submenu: [
-              .entry(CompanionMenuEntry(title: "Quiet for 1 minute", action: .snooze(minutes: 1))),
-              .entry(CompanionMenuEntry(title: "5 minutes", action: .snooze(minutes: 5))),
-              .entry(CompanionMenuEntry(title: "15 minutes", action: .snooze(minutes: 15))),
-              .entry(CompanionMenuEntry(title: "30 minutes", action: .snooze(minutes: 30))),
+              .entry(CompanionMenuEntry(title: "Quiet for 1 minute", action: .snooze(seconds: 60))),
+              .entry(CompanionMenuEntry(title: "5 minutes", action: .snooze(seconds: 300))),
+              .entry(CompanionMenuEntry(title: "15 minutes", action: .snooze(seconds: 900))),
+              .entry(CompanionMenuEntry(title: "30 minutes", action: .snooze(seconds: 1800))),
             ])),
         .separator,
         .entry(CompanionMenuEntry(title: "Settings…", keyEquivalent: ",", action: .openSettings)),
@@ -258,7 +258,7 @@ import Testing
 
   @Test func versionDefaultsToTheBinarysOwnVersion() throws {
     let defaulted = CompanionMenuInput(
-      isPaused: false, quietUntil: nil, pendingEntries: [], snoozeMinutes: [1],
+      isPaused: false, quietUntil: nil, pendingEntries: [], snoozePresets: [60],
       launchAtLogin: .notRegistered)
     #expect(defaulted.version == CountersignVersion.current)
     #expect(defaulted.sponsorURL == CompanionMenu.sponsorURL)
@@ -506,38 +506,48 @@ import Testing
   }
 
   @Test func customSnoozePresetsKeepTheirOrderAndWording() throws {
-    let snooze = try entry(3, of: input(snoozeMinutes: [2, 60, 90]))
+    let snooze = try entry(3, of: input(snoozePresets: [120, 3600, 5400]))
 
     #expect(
       snooze.submenu == [
-        .entry(CompanionMenuEntry(title: "Quiet for 2 minutes", action: .snooze(minutes: 2))),
-        .entry(CompanionMenuEntry(title: "1 hour", action: .snooze(minutes: 60))),
-        .entry(CompanionMenuEntry(title: "90 minutes", action: .snooze(minutes: 90))),
+        .entry(CompanionMenuEntry(title: "Quiet for 2 minutes", action: .snooze(seconds: 120))),
+        .entry(CompanionMenuEntry(title: "1 hour", action: .snooze(seconds: 3600))),
+        .entry(CompanionMenuEntry(title: "90 minutes", action: .snooze(seconds: 5400))),
+      ])
+  }
+
+  @Test func subMinuteSnoozePresetsReadInSeconds() throws {
+    let snooze = try entry(3, of: input(snoozePresets: [30, 300]))
+
+    #expect(
+      snooze.submenu == [
+        .entry(CompanionMenuEntry(title: "Quiet for 30 seconds", action: .snooze(seconds: 30))),
+        .entry(CompanionMenuEntry(title: "5 minutes", action: .snooze(seconds: 300))),
       ])
   }
 
   @Test func snoozeWithNoPresetsAndNoQuietTimeIsDisabled() throws {
     #expect(
-      try entry(3, of: input(snoozeMinutes: []))
+      try entry(3, of: input(snoozePresets: []))
         == CompanionMenuEntry(title: "Snooze", isEnabled: false))
   }
 
   @Test func snoozeWithNoPresetsDuringQuietTimeOnlyEndsIt() throws {
     #expect(
-      try entry(3, of: input(quietUntil: Self.quietUntil, snoozeMinutes: []))
+      try entry(3, of: input(quietUntil: Self.quietUntil, snoozePresets: []))
         == CompanionMenuEntry(title: "End Quiet Time (until 14:05)", action: .endQuietTime))
   }
 
-  @Test func snoozeMinutesComeFromTheTopLevelOfTheConfigFileOnly() {
-    #expect(CompanionMenu.snoozeMinutes(for: ConfigFile()) == Settings.defaultSnoozeMinutes)
-    #expect(CompanionMenu.snoozeMinutes(for: ConfigFile(snoozeMinutes: [3, 7])) == [3, 7])
+  @Test func snoozePresetsComeFromTheTopLevelOfTheConfigFileOnly() {
+    #expect(CompanionMenu.snoozePresets(for: ConfigFile()) == Settings.defaultSnoozePresets)
+    #expect(CompanionMenu.snoozePresets(for: ConfigFile(snoozePresets: [180, 420])) == [180, 420])
     let hostOnly = ConfigFile(
-      claude: ConfigFile.HostOverrides(snoozeMinutes: [10]),
-      codex: ConfigFile.HostOverrides(snoozeMinutes: [20]))
-    #expect(CompanionMenu.snoozeMinutes(for: hostOnly) == Settings.defaultSnoozeMinutes)
+      claude: ConfigFile.HostOverrides(snoozePresets: [600]),
+      codex: ConfigFile.HostOverrides(snoozePresets: [1200]))
+    #expect(CompanionMenu.snoozePresets(for: hostOnly) == Settings.defaultSnoozePresets)
     let both = ConfigFile(
-      snoozeMinutes: [4], claude: ConfigFile.HostOverrides(snoozeMinutes: [10]))
-    #expect(CompanionMenu.snoozeMinutes(for: both) == [4])
+      snoozePresets: [240], claude: ConfigFile.HostOverrides(snoozePresets: [600]))
+    #expect(CompanionMenu.snoozePresets(for: both) == [240])
   }
 
   @Test func buyMeACoffeeIsHiddenUntilItHasALink() throws {

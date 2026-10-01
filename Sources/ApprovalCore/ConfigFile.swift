@@ -7,7 +7,7 @@ public struct ConfigFile: Sendable, Equatable {
     public var idleSeconds: Double?
     public var graceSeconds: Double?
     public var handoffApps: [String]?
-    public var snoozeMinutes: [Int]?
+    public var snoozePresets: [TimeInterval]?
     public var includeHeadlessSessions: Bool?
     public var approvalCard: Bool?
     public var approvalCardDelay: Double?
@@ -18,7 +18,7 @@ public struct ConfigFile: Sendable, Equatable {
       idleSeconds: Double? = nil,
       graceSeconds: Double? = nil,
       handoffApps: [String]? = nil,
-      snoozeMinutes: [Int]? = nil,
+      snoozePresets: [TimeInterval]? = nil,
       includeHeadlessSessions: Bool? = nil,
       approvalCard: Bool? = nil,
       approvalCardDelay: Double? = nil
@@ -28,7 +28,7 @@ public struct ConfigFile: Sendable, Equatable {
       self.idleSeconds = idleSeconds
       self.graceSeconds = graceSeconds
       self.handoffApps = handoffApps
-      self.snoozeMinutes = snoozeMinutes
+      self.snoozePresets = snoozePresets
       self.includeHeadlessSessions = includeHeadlessSessions
       self.approvalCard = approvalCard
       self.approvalCardDelay = approvalCardDelay
@@ -40,14 +40,14 @@ public struct ConfigFile: Sendable, Equatable {
   public var idleSeconds: Double?
   public var graceSeconds: Double?
   public var handoffApps: [String]?
-  public var snoozeMinutes: [Int]?
+  public var snoozePresets: [TimeInterval]?
   public var quietHours: [QuietWindow]?
   public var checkForUpdates: Bool?
   public var quitBehavior: QuitBehavior?
   public var modeAfterPlan: PlanApprovalMode?
   public var panelSound: String?
   public var waitingNotices: Bool?
-  public var waitingNoticeMinutes: Int?
+  public var waitingNoticeDelay: TimeInterval?
   public var approvalCard: Bool?
   public var approvalCardDelay: Double?
   public var includeHeadlessSessions: Bool?
@@ -68,14 +68,14 @@ public struct ConfigFile: Sendable, Equatable {
     idleSeconds: Double? = nil,
     graceSeconds: Double? = nil,
     handoffApps: [String]? = nil,
-    snoozeMinutes: [Int]? = nil,
+    snoozePresets: [TimeInterval]? = nil,
     quietHours: [QuietWindow]? = nil,
     checkForUpdates: Bool? = nil,
     quitBehavior: QuitBehavior? = nil,
     modeAfterPlan: PlanApprovalMode? = nil,
     panelSound: String? = nil,
     waitingNotices: Bool? = nil,
-    waitingNoticeMinutes: Int? = nil,
+    waitingNoticeDelay: TimeInterval? = nil,
     approvalCard: Bool? = nil,
     approvalCardDelay: Double? = nil,
     includeHeadlessSessions: Bool? = nil,
@@ -95,14 +95,14 @@ public struct ConfigFile: Sendable, Equatable {
     self.idleSeconds = idleSeconds
     self.graceSeconds = graceSeconds
     self.handoffApps = handoffApps
-    self.snoozeMinutes = snoozeMinutes
+    self.snoozePresets = snoozePresets
     self.quietHours = quietHours
     self.checkForUpdates = checkForUpdates
     self.quitBehavior = quitBehavior
     self.modeAfterPlan = modeAfterPlan
     self.panelSound = panelSound
     self.waitingNotices = waitingNotices
-    self.waitingNoticeMinutes = waitingNoticeMinutes
+    self.waitingNoticeDelay = waitingNoticeDelay
     self.approvalCard = approvalCard
     self.approvalCardDelay = approvalCardDelay
     self.includeHeadlessSessions = includeHeadlessSessions
@@ -191,14 +191,14 @@ public enum ConfigFileParser {
       root["chainedArmDelay"], path: "chainedArmDelay",
       defaultValue: Settings.defaultChainedArmDelay, logLines: &logLines)
     file.idleSeconds = readNonNegativeNumber(
-      root["idleSeconds"], path: "idleSeconds", defaultValue: Settings.defaultIdleSeconds,
-      logLines: &logLines)
+      root["idleSeconds"], path: "idleSeconds", range: Settings.idleSecondsRange,
+      defaultValue: Settings.defaultIdleSeconds, logLines: &logLines)
     file.graceSeconds = readNonNegativeNumber(
-      root["graceSeconds"], path: "graceSeconds", defaultValue: Settings.defaultGraceSeconds,
-      logLines: &logLines)
+      root["graceSeconds"], path: "graceSeconds", range: Settings.graceSecondsRange,
+      defaultValue: Settings.defaultGraceSeconds, logLines: &logLines)
     file.handoffApps = readHandoffApps(
       root["handoffApps"], path: "handoffApps", logLines: &logLines)
-    file.snoozeMinutes = readSnoozeMinutes(
+    file.snoozePresets = readSnoozePresets(
       root["snoozeMinutes"], path: "snoozeMinutes", logLines: &logLines)
     file.quietHours = readQuietHours(
       root["quietHours"], path: "quietHours", logLines: &logLines)
@@ -214,7 +214,7 @@ public enum ConfigFileParser {
     file.waitingNotices = readBool(
       root["waitingNotices"], path: "waitingNotices",
       defaultValue: Settings.defaultWaitingNotices, logLines: &logLines)
-    file.waitingNoticeMinutes = readWaitingNoticeMinutes(
+    file.waitingNoticeDelay = readWaitingNoticeDelay(
       root["waitingNoticeMinutes"], path: "waitingNoticeMinutes", logLines: &logLines)
     file.approvalCard = readApprovalCard(
       root["approvalCard"], path: "approvalCard", logLines: &logLines)
@@ -463,14 +463,14 @@ public enum ConfigFileParser {
         object["chainedArmDelay"], path: "\(path).chainedArmDelay",
         defaultValue: Settings.defaultChainedArmDelay, logLines: &logLines),
       idleSeconds: readNonNegativeNumber(
-        object["idleSeconds"], path: "\(path).idleSeconds",
+        object["idleSeconds"], path: "\(path).idleSeconds", range: Settings.idleSecondsRange,
         defaultValue: Settings.defaultIdleSeconds, logLines: &logLines),
       graceSeconds: readNonNegativeNumber(
-        object["graceSeconds"], path: "\(path).graceSeconds",
+        object["graceSeconds"], path: "\(path).graceSeconds", range: Settings.graceSecondsRange,
         defaultValue: Settings.defaultGraceSeconds, logLines: &logLines),
       handoffApps: readHandoffApps(
         object["handoffApps"], path: "\(path).handoffApps", logLines: &logLines),
-      snoozeMinutes: readSnoozeMinutes(
+      snoozePresets: readSnoozePresets(
         object["snoozeMinutes"], path: "\(path).snoozeMinutes", logLines: &logLines),
       includeHeadlessSessions: readBool(
         object["includeHeadlessSessions"], path: "\(path).includeHeadlessSessions",
@@ -501,35 +501,58 @@ public enum ConfigFileParser {
     value.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(value)) : String(value)
   }
 
+  static func durationValue(_ value: JSONValue, unit: TimeInterval) -> TimeInterval? {
+    switch value {
+    case .string(let text): return DurationText.parse(text, bareUnit: unit)
+    default: return numberValue(value).map { $0 * unit }
+    }
+  }
+
+  private static func writtenForm(_ value: JSONValue) -> String {
+    switch value {
+    case .string(let text): return "\"\(text)\""
+    case .int(let intValue): return String(intValue)
+    case .double(let doubleValue): return formatNumber(doubleValue)
+    default: return "value"
+    }
+  }
+
   private static func readArmDelay(
     _ value: JSONValue?, path: String, defaultValue: Double, logLines: inout [String]
   ) -> Double? {
     guard let value else { return nil }
-    guard let number = numberValue(value) else {
+    guard let seconds = durationValue(value, unit: 1) else {
       logLines.append("\(path): not a number, using default \(formatNumber(defaultValue))")
       return nil
     }
-    if !Settings.armDelayRange.contains(number) {
+    if !Settings.armDelayRange.contains(seconds) {
       let clamped = min(
-        max(number, Settings.armDelayRange.lowerBound), Settings.armDelayRange.upperBound)
+        max(seconds, Settings.armDelayRange.lowerBound), Settings.armDelayRange.upperBound)
       logLines.append(
-        "\(path): \(formatNumber(number)) is out of range 0...3, clamped to \(formatNumber(clamped))"
+        "\(path): \(writtenForm(value)) is out of range 0...3, clamped to \(formatNumber(clamped))"
       )
       return clamped
     }
-    return number
+    return seconds
   }
 
   private static func readNonNegativeNumber(
-    _ value: JSONValue?, path: String, defaultValue: Double, logLines: inout [String]
+    _ value: JSONValue?, path: String, range: ClosedRange<Double>, defaultValue: Double,
+    logLines: inout [String]
   ) -> Double? {
     guard let value else { return nil }
-    guard let number = numberValue(value), number >= 0 else {
+    guard let seconds = durationValue(value, unit: 1), seconds >= 0 else {
       logLines.append(
         "\(path): not a non-negative number, using default \(formatNumber(defaultValue))")
       return nil
     }
-    return number
+    guard range.contains(seconds) else {
+      logLines.append(
+        "\(path): \(writtenForm(value)) is out of range \(formatNumber(range.lowerBound))...\(formatNumber(range.upperBound)),"
+          + " using default \(formatNumber(defaultValue))")
+      return nil
+    }
+    return seconds
   }
 
   private static func readBool(
@@ -569,19 +592,21 @@ public enum ConfigFileParser {
     return mode
   }
 
-  private static func readWaitingNoticeMinutes(
+  private static func readWaitingNoticeDelay(
     _ value: JSONValue?, path: String, logLines: inout [String]
-  ) -> Int? {
+  ) -> TimeInterval? {
     guard let value else { return nil }
-    guard let minutes = integerValue(value), Settings.waitingNoticeMinutesRange.contains(minutes)
+    guard let seconds = durationValue(value, unit: 60),
+      Settings.waitingNoticeDelayRange.contains(seconds)
     else {
       logLines.append(
-        "\(path): expected an integer from \(Settings.waitingNoticeMinutesRange.lowerBound) to"
-          + " \(Settings.waitingNoticeMinutesRange.upperBound), using default"
-          + " \(Settings.defaultWaitingNoticeMinutes)")
+        "\(path): expected a duration from"
+          + " \(DurationText.compact(Settings.waitingNoticeDelayRange.lowerBound)) to"
+          + " \(DurationText.compact(Settings.waitingNoticeDelayRange.upperBound)), using default"
+          + " \(DurationText.compact(Settings.defaultWaitingNoticeDelay))")
       return nil
     }
-    return minutes
+    return seconds
   }
 
   private static func readApprovalCard(
@@ -739,23 +764,29 @@ public enum ConfigFileParser {
     return window
   }
 
-  private static func readSnoozeMinutes(
+  private static func readSnoozePresets(
     _ value: JSONValue?, path: String, logLines: inout [String]
-  ) -> [Int]? {
+  ) -> [TimeInterval]? {
     guard let value else { return nil }
-    let fallback = "\(Settings.defaultSnoozeMinutes)"
+    let fallback = Settings.defaultSnoozePresets.map(DurationText.compact).joined(separator: ", ")
     guard case .array(let array) = value, (1...6).contains(array.count) else {
-      logLines.append("\(path): expected 1 to 6 integers, using default \(fallback)")
+      logLines.append("\(path): expected 1 to 6 durations, using default \(fallback)")
       return nil
     }
-    var minutes: [Int] = []
+    var presets: [TimeInterval] = []
     for element in array {
-      guard let intValue = integerValue(element), (1...1440).contains(intValue) else {
-        logLines.append("\(path): expected integers from 1 to 1440, using default \(fallback)")
+      guard let seconds = durationValue(element, unit: 60),
+        Settings.snoozePresetRange.contains(seconds)
+      else {
+        logLines.append(
+          "\(path): expected durations from"
+            + " \(DurationText.compact(Settings.snoozePresetRange.lowerBound)) to"
+            + " \(DurationText.compact(Settings.snoozePresetRange.upperBound)), using default"
+            + " \(fallback)")
         return nil
       }
-      minutes.append(intValue)
+      presets.append(seconds)
     }
-    return minutes
+    return presets
   }
 }

@@ -32,7 +32,7 @@ public enum LaunchAtLoginState: Sendable, Equatable {
 public enum CompanionMenuAction: Sendable, Equatable {
   case pause
   case resume
-  case snooze(minutes: Int)
+  case snooze(seconds: TimeInterval)
   case endQuietTime
   case openSettings
   case showTestPanel(TestPanelKind)
@@ -100,7 +100,7 @@ public struct CompanionMenuInput: Sendable, Equatable {
   public var isPaused: Bool
   public var quietUntil: Date?
   public var pendingEntries: [WaitingEntry]
-  public var snoozeMinutes: [Int]
+  public var snoozePresets: [TimeInterval]
   public var launchAtLogin: LaunchAtLoginState
   public var sponsorURL: URL?
   public var buyMeACoffeeURL: URL?
@@ -114,7 +114,7 @@ public struct CompanionMenuInput: Sendable, Equatable {
     isPaused: Bool,
     quietUntil: Date?,
     pendingEntries: [WaitingEntry],
-    snoozeMinutes: [Int],
+    snoozePresets: [TimeInterval],
     launchAtLogin: LaunchAtLoginState,
     sponsorURL: URL? = CompanionMenu.sponsorURL,
     buyMeACoffeeURL: URL? = CompanionMenu.buyMeACoffeeURL,
@@ -129,7 +129,7 @@ public struct CompanionMenuInput: Sendable, Equatable {
     self.isPaused = isPaused
     self.quietUntil = quietUntil
     self.pendingEntries = pendingEntries
-    self.snoozeMinutes = snoozeMinutes
+    self.snoozePresets = snoozePresets
     self.launchAtLogin = launchAtLogin
     self.sponsorURL = sponsorURL
     self.buyMeACoffeeURL = buyMeACoffeeURL
@@ -151,8 +151,8 @@ public enum CompanionMenu {
     CountersignStatus.current(pause: isPaused ? .paused : .active, quietUntil: quietUntil).icon
   }
 
-  public static func snoozeMinutes(for file: ConfigFile) -> [Int] {
-    file.snoozeMinutes ?? Settings.defaultSnoozeMinutes
+  public static func snoozePresets(for file: ConfigFile) -> [TimeInterval] {
+    file.snoozePresets ?? Settings.defaultSnoozePresets
   }
 
   public static func items(
@@ -172,7 +172,7 @@ public enum CompanionMenu {
       .entry(pauseEntry(isPaused: input.isPaused)),
       .entry(
         snoozeEntry(
-          minutes: input.snoozeMinutes, isPaused: input.isPaused, quietUntil: input.quietUntil,
+          presets: input.snoozePresets, isPaused: input.isPaused, quietUntil: input.quietUntil,
           timeZone: timeZone)),
       .separator,
       .entry(CompanionMenuEntry(title: "Settings…", keyEquivalent: ",", action: .openSettings)),
@@ -295,7 +295,7 @@ public enum CompanionMenu {
   }
 
   private static func snoozeEntry(
-    minutes: [Int], isPaused: Bool, quietUntil: Date?, timeZone: TimeZone
+    presets: [TimeInterval], isPaused: Bool, quietUntil: Date?, timeZone: TimeZone
   ) -> CompanionMenuEntry {
     if isPaused {
       return CompanionMenuEntry(title: "Snooze", isEnabled: false)
@@ -305,11 +305,11 @@ public enum CompanionMenu {
         title: "End Quiet Time (until \(TimeOfDayText.describe(quietUntil, timeZone: timeZone)))",
         action: .endQuietTime)
     }
-    let submenu: [CompanionMenuItem] = minutes.enumerated().map { index, value in
+    let submenu: [CompanionMenuItem] = presets.enumerated().map { index, value in
       .entry(
         CompanionMenuEntry(
-          title: SnoozeTitle.describe(minutes: value, isFirst: index == 0),
-          action: .snooze(minutes: value)))
+          title: SnoozeTitle.describe(seconds: value, isFirst: index == 0),
+          action: .snooze(seconds: value)))
     }
     return CompanionMenuEntry(title: "Snooze", isEnabled: !submenu.isEmpty, submenu: submenu)
   }
