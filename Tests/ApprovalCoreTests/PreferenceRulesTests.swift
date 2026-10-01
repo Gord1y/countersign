@@ -84,7 +84,7 @@ import Testing
       SnoozeTextError.empty.description
         == "Enter 1 to 6 presets, like 30s, 5, 15m, 1h (a bare number is minutes)")
     #expect(SnoozeTextError.notADuration("x").description == "\"x\" isn't a duration")
-    #expect(SnoozeTextError.outOfRange(0).description == "0ms is outside 10s to 24h")
+    #expect(SnoozeTextError.outOfRange(0).description == "0s is outside 10s to 24h")
     #expect(SnoozeTextError.tooMany(7).description == "7 presets, at most 6 fit the menu")
   }
 
@@ -107,6 +107,60 @@ import Testing
     #expect(HandoffAppError.empty.description == "Enter a bundle ID, like com.openai.codex")
     #expect(HandoffAppError.containsWhitespace.description == "A bundle ID has no spaces")
     #expect(HandoffAppError.duplicate("com.x").description == "com.x is already in the list")
+  }
+
+  @Test func readsDurationFieldText() {
+    let arm = PreferenceName.armDelay.durationField
+    let idle = PreferenceName.idleSeconds.durationField
+    let grace = PreferenceName.graceSeconds.durationField
+    let notice = PreferenceName.waitingNoticeMinutes.durationField
+    #expect(arm.map { PreferenceRules.duration(from: "250ms", spec: $0) } == .success(0.25))
+    #expect(idle.map { PreferenceRules.duration(from: "2.5", spec: $0) } == .success(2.5))
+    #expect(notice.map { PreferenceRules.duration(from: "5", spec: $0) } == .success(300))
+    #expect(notice.map { PreferenceRules.duration(from: "90s", spec: $0) } == .success(90))
+    #expect(grace.map { PreferenceRules.duration(from: "0", spec: $0) } == .success(0))
+    #expect(
+      idle.map { PreferenceRules.duration(from: "", spec: $0) } == .failure(.empty(bareUnit: 1)))
+    #expect(
+      idle.map { PreferenceRules.duration(from: "soon", spec: $0) }
+        == .failure(.notADuration("soon")))
+    #expect(
+      idle.map { PreferenceRules.duration(from: "45s", spec: $0) }
+        == .failure(.outOfRange(45, 1...30))
+    )
+    #expect(idle.map { PreferenceRules.duration(from: "1.23456s", spec: $0) } == .success(1.235))
+  }
+
+  @Test func describesDurationFieldErrors() {
+    #expect(
+      DurationFieldError.empty(bareUnit: 1).description
+        == "Enter a duration, like 500ms, 5s or 2m (a bare number is seconds)")
+    #expect(
+      DurationFieldError.empty(bareUnit: 60).description
+        == "Enter a duration, like 90s, 5 or 1h (a bare number is minutes)")
+    #expect(DurationFieldError.notADuration("soon").description == "\"soon\" isn't a duration")
+    #expect(
+      DurationFieldError.outOfRange(45, 1...30).description == "45s is outside 1s to 30s")
+  }
+
+  @Test func namesTheDurationFields() {
+    #expect(
+      PreferenceName.idleSeconds.durationField
+        == DurationFieldSpec(bareUnit: 1, range: Settings.idleSecondsRange))
+    #expect(
+      PreferenceName.graceSeconds.durationField
+        == DurationFieldSpec(bareUnit: 1, range: Settings.graceSecondsRange))
+    #expect(
+      PreferenceName.armDelay.durationField
+        == DurationFieldSpec(bareUnit: 1, range: Settings.armDelayRange))
+    #expect(
+      PreferenceName.chainedArmDelay.durationField
+        == DurationFieldSpec(bareUnit: 1, range: Settings.armDelayRange))
+    #expect(
+      PreferenceName.waitingNoticeMinutes.durationField
+        == DurationFieldSpec(bareUnit: 60, range: Settings.waitingNoticeDelayRange))
+    #expect(PreferenceName.snoozeMinutes.durationField == nil)
+    #expect(PreferenceName.questionNotes.durationField == nil)
   }
 
   @Test func writesSecondsWithoutATrailingZero() {

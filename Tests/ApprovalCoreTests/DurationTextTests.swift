@@ -96,6 +96,10 @@ import Testing
     #expect(DurationText.compact(5400) == "90m")
   }
 
+  @Test func compactWritesZeroInSeconds() {
+    #expect(DurationText.compact(0) == "0s")
+  }
+
   @Test func describesOneMinute() {
     #expect(DurationText.describe(60) == "1 minute")
   }

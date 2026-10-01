@@ -23,6 +23,50 @@ public enum SnoozeTextError: Error, Sendable, Equatable, CustomStringConvertible
   }
 }
 
+public struct DurationFieldSpec: Sendable, Equatable {
+  public let bareUnit: TimeInterval
+  public let range: ClosedRange<TimeInterval>
+}
+
+extension PreferenceName {
+  public var durationField: DurationFieldSpec? {
+    switch self {
+    case .idleSeconds:
+      return DurationFieldSpec(bareUnit: 1, range: Settings.idleSecondsRange)
+    case .graceSeconds:
+      return DurationFieldSpec(bareUnit: 1, range: Settings.graceSecondsRange)
+    case .armDelay, .chainedArmDelay:
+      return DurationFieldSpec(bareUnit: 1, range: Settings.armDelayRange)
+    case .waitingNoticeMinutes:
+      return DurationFieldSpec(bareUnit: 60, range: Settings.waitingNoticeDelayRange)
+    default:
+      return nil
+    }
+  }
+}
+
+public enum DurationFieldError: Error, Sendable, Equatable, CustomStringConvertible {
+  case empty(bareUnit: TimeInterval)
+  case notADuration(String)
+  case outOfRange(TimeInterval, ClosedRange<TimeInterval>)
+
+  public var description: String {
+    switch self {
+    case .empty(let bareUnit):
+      if bareUnit == 60 {
+        return "Enter a duration, like 90s, 5 or 1h (a bare number is minutes)"
+      }
+      return "Enter a duration, like 500ms, 5s or 2m (a bare number is seconds)"
+    case .notADuration(let word):
+      return "\"\(word)\" isn't a duration"
+    case .outOfRange(let seconds, let range):
+      return
+        "\(DurationText.compact(seconds)) is outside"
+        + " \(DurationText.compact(range.lowerBound)) to \(DurationText.compact(range.upperBound))"
+    }
+  }
+}
+
 public enum HandoffAppError: Error, Sendable, Equatable, CustomStringConvertible {
   case empty
   case containsWhitespace
@@ -168,10 +212,16 @@ public enum PreferenceRules {
     "\(minutes) minute\(minutes == 1 ? "" : "s")"
   }
 
-  public static func waitingNoticeDelayChoices(including current: TimeInterval) -> [TimeInterval] {
-    let choices = Settings.waitingNoticeDelayChoices
-    guard !choices.contains(current) else { return choices }
-    return (choices + [current]).sorted()
+  public static func duration(from text: String, spec: DurationFieldSpec)
+    -> Result<TimeInterval, DurationFieldError>
+  {
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return .failure(.empty(bareUnit: spec.bareUnit)) }
+    guard let seconds = DurationText.parse(trimmed, bareUnit: spec.bareUnit) else {
+      return .failure(.notADuration(trimmed))
+    }
+    guard spec.range.contains(seconds) else { return .failure(.outOfRange(seconds, spec.range)) }
+    return .success(thousandths(seconds))
   }
 
   public static func secondsText(_ value: Double) -> String {

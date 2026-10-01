@@ -40,7 +40,7 @@ string, the largest unit that is exact with no space (`500ms`, `1.5s`, `90s`, `2
 preset list reads `["30s", 5, 15]`. A value that already holds the choice, in either form, is left
 untouched.
 
-The snooze text field accepts the same words, with a bare number as minutes, and shows whole minutes
+The duration fields in Settings accept the same words. The snooze text field accepts them too, with a bare number as minutes, and shows whole minutes
 as bare numbers and anything else through `compact`. `SnoozeTitle` titles a preset that is not whole
 minutes in seconds (`90 seconds`), because `DurationText.describe` rounds to the nearest minute.
 
@@ -317,10 +317,10 @@ The window edits top-level keys only:
 
 | Group | Control | Key | In the window |
 | --- | --- | --- | --- |
-| Panels | Wait for idle, a stepper | `idleSeconds` | `1` to `30` s, in 1 s steps |
-| Panels | Grace period, a stepper | `graceSeconds` | `0` to `30` s, in 1 s steps |
-| Panels | Arm delay, a slider | `armDelay` | `0` to `3` s, in 0.1 s steps |
-| Panels | Arm delay after an answer, a slider | `chainedArmDelay` | `0` to `3` s, in 0.1 s steps |
+| Panels | Wait for idle, a duration field and a stepper | `idleSeconds` | `1s` to `30s`, a bare number is seconds; the stepper moves in 1 s steps |
+| Panels | Grace period, a duration field and a stepper | `graceSeconds` | `0s` to `30s`, a bare number is seconds; the stepper moves in 1 s steps |
+| Panels | Arm delay, a slider and a duration field | `armDelay` | `0` to `3` s, a bare number is seconds; the slider moves in 0.1 s steps, typed values keep milliseconds |
+| Panels | Arm delay after an answer, a slider and a duration field | `chainedArmDelay` | `0` to `3` s, a bare number is seconds; the slider moves in 0.1 s steps, typed values keep milliseconds |
 | Panels | Hand off when frontmost, a list | `handoffApps` | bundle IDs, added and removed one at a time |
 | Panels | Snooze presets, a text field | `snoozeMinutes` | `1, 5, 15, 30`: 1 to 6 durations, each `10s` to `24h`; a bare number is minutes, `30s`, `15m` and `1h` carry a unit; error `"<word>" isn't a duration` |
 | Panels | Quiet hours, a list above one editor line: day toggles, two time fields and Add, all on one `HStack`; the fields take `H`, `HH`, `H:MM`, `HH:MM`, `HMM` or `HHMM`, and the file always gets `HH:mm` | `quietHours` | up to 7 windows, each with at least one day and different start and end times; the whole array is rewritten on every add or remove; errors `Pick at least one day` and `Enter a time like 9, 0930 or 21:30.` |
@@ -328,7 +328,7 @@ The window edits top-level keys only:
 | Panels | Mode after a plan, a menu | `modeAfterPlan` | "Ask before edits", "Accept edits" or "Auto" |
 | Panels | Sound, a menu and a play button | `panelSound` | None, then the names in `/System/Library/Sounds`; the button (`speaker.wave.2`, label `Play <name>`) is disabled for None |
 | Panels | Waiting-agent notices, a switch | `waitingNotices` | on or off; never written directly, see below |
-| Panels | Notice after, a menu | `waitingNoticeMinutes` | 1, 2, 5, 10, 15 and 30 minutes, plus the file's own value when it is outside that list; disabled while notices are off |
+| Panels | Notice after, a duration field | `waitingNoticeMinutes` | `10s` to `60m`, a bare number is minutes (the key's own unit); disabled while notices are off |
 | App | Launch at login, a switch | none, `SMAppService.mainApp` | see below |
 | App | Check for updates, a switch | `checkForUpdates` | on or off |
 | App | When Countersign quits, a menu | `quitBehavior` | "Ask", "Keep showing panels" or "Pause panels" |
@@ -341,12 +341,19 @@ field, the test panel's buttons) and the row's write error. For a config key the
 come from `ApprovalCore.PreferenceName.title` and `caption`, so a row's words are defined in one
 place, and the note on an agent's row (below) names its values with the same titles.
 
-`ApprovalCore.PreferenceRules` holds the bounds and the parsing. The steppers are narrower than the
-file, which takes any number `>= 0`: a stepper needs bounds, and these cover every useful value. A
-value from the file outside them is shown as it is and clamped on the first step. Snooze presets are
-separated by commas or spaces. Text that breaks the schema's rules shows one red line under the
-field as it is typed and is never written (see "Writing a change" below). A new bundle ID is
-trimmed and must be non-empty, without spaces and not already listed.
+`ApprovalCore.PreferenceRules` holds the bounds and the parsing. Since U25, an idle or grace value
+in the file outside the stepper bounds is logged and read as the default, so a stepper never shows
+a value it cannot reach. The five time rows (`PreferenceName.durationField`: idle, grace, both arm
+delays and the notice delay) are duration fields. A field shows its value through
+`DurationText.compact` (`500ms`, `1.5s`, `2m`), takes a bare number in the key's own unit (seconds,
+minutes for the notice delay) or a number with `ms`, `s`, `m` or `h`, and commits on Return or when
+it loses focus (`PreferenceRules.duration(from:spec:)`, rounded to a millisecond). While the text is
+not a valid duration inside the key's range the field shows one red line under it, and nothing is
+written until it is valid: typed input is rejected, never clamped. On the arm delay rows, dragging
+the slider shows the dragged value in the field, and typing never moves the slider until the text
+is committed. Snooze presets are separated by commas or spaces. Text that breaks the schema's rules
+shows one red line under the field as it is typed and is never written (see "Writing a change"
+below). A new bundle ID is trimmed and must be non-empty, without spaces and not already listed.
 
 When `hosts.claude`, `hosts.codex`, `hosts.cursor` or `hosts.antigravity` sets a value, that
 agent's row under Agents shows it in one quiet line, named the way the Panels rows name it, with
@@ -418,6 +425,7 @@ asks about settings. A preference is written at the moment its control is done c
 | When Countersign quits, Open with (menus) | when an item is chosen |
 | Wait for idle, Grace period (steppers) | on each step |
 | Arm delay, Arm delay after an answer (sliders) | when the drag ends |
+| Wait for idle, Grace period, Arm delays, Notice after (duration fields) | on Return, or when the field loses focus, and only while the text is valid |
 | Snooze presets (text field) | on Return, or when the field loses focus or disappears |
 | Hand off when frontmost (add field) | on Return, on Add, or when the field loses focus or disappears |
 | Hand off when frontmost (a bundle ID's remove button) | when clicked |
@@ -570,7 +578,7 @@ waiting-agent notices?", with "Countersign changes <paths> and keeps a backup." 
 On / Turn Off and Cancel, or OK alone with the failure lines when a file cannot be changed. On
 confirm, `WaitingHookRun.apply` writes the hook file with a backup and only then is `waitingNotices`
 written. With no wired Claude Code the popup shows "Nothing to change." and confirming writes only
-the config. The Notice after menu is an ordinary row. Restore Defaults for Panels resets Notice
+the config. The Notice after field is an ordinary row. Restore Defaults for Panels resets Notice
 after and never the switch, since flipping it needs the popup; the switch has no reset button.
 
 ### Resetting to defaults

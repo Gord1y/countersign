@@ -12,28 +12,44 @@ struct PanelsSection: View {
       ConfigProblemMessage(model: model)
       SettingsGroup {
         VStack(alignment: .leading, spacing: 0) {
-          PreferenceRow(.idleSeconds, model: model, problem: model.writeErrors[.idleSeconds]) {
-            SecondsStepper(
-              value: Binding(get: { model.idleSeconds }, set: { model.setIdleSeconds($0) }),
-              range: PreferenceRules.idleSecondsRange)
+          PreferenceRow(.idleSeconds, model: model, problem: model.durationProblem(.idleSeconds)) {
+            HStack(spacing: 6) {
+              DurationField(name: .idleSeconds, model: model)
+              Stepper(
+                PreferenceName.idleSeconds.title,
+                value: Binding(get: { model.idleSeconds }, set: { model.setIdleSeconds($0) }),
+                in: PreferenceRules.idleSecondsRange, step: 1
+              )
+              .labelsHidden()
+              .controlSize(.small)
+            }
           }
           SettingsDivider()
-          PreferenceRow(.graceSeconds, model: model, problem: model.writeErrors[.graceSeconds]) {
-            SecondsStepper(
-              value: Binding(get: { model.graceSeconds }, set: { model.setGraceSeconds($0) }),
-              range: PreferenceRules.graceSecondsRange)
+          PreferenceRow(
+            .graceSeconds, model: model, problem: model.durationProblem(.graceSeconds)
+          ) {
+            HStack(spacing: 6) {
+              DurationField(name: .graceSeconds, model: model)
+              Stepper(
+                PreferenceName.graceSeconds.title,
+                value: Binding(get: { model.graceSeconds }, set: { model.setGraceSeconds($0) }),
+                in: PreferenceRules.graceSecondsRange, step: 1
+              )
+              .labelsHidden()
+              .controlSize(.small)
+            }
           }
           SettingsDivider()
-          PreferenceRow(.armDelay, model: model, problem: model.writeErrors[.armDelay]) {
-            DelaySlider(title: PreferenceName.armDelay.title, value: model.armDelay) {
+          PreferenceRow(.armDelay, model: model, problem: model.durationProblem(.armDelay)) {
+            DelaySlider(name: .armDelay, model: model, value: model.armDelay) {
               model.setArmDelay($0)
             }
           }
           SettingsDivider()
           PreferenceRow(
-            .chainedArmDelay, model: model, problem: model.writeErrors[.chainedArmDelay]
+            .chainedArmDelay, model: model, problem: model.durationProblem(.chainedArmDelay)
           ) {
-            DelaySlider(title: PreferenceName.chainedArmDelay.title, value: model.chainedArmDelay) {
+            DelaySlider(name: .chainedArmDelay, model: model, value: model.chainedArmDelay) {
               model.setChainedArmDelay($0)
             }
           }
@@ -113,25 +129,11 @@ struct PanelsSection: View {
           WaitingNoticesRow(model: model)
           SettingsDivider()
           PreferenceRow(
-            .waitingNoticeMinutes, model: model, problem: model.writeErrors[.waitingNoticeMinutes]
+            .waitingNoticeMinutes, model: model,
+            problem: model.durationProblem(.waitingNoticeMinutes)
           ) {
-            Picker(
-              PreferenceName.waitingNoticeMinutes.title,
-              selection: Binding(
-                get: { model.waitingNoticeDelay }, set: { model.setWaitingNoticeDelay($0) })
-            ) {
-              ForEach(
-                PreferenceRules.waitingNoticeDelayChoices(including: model.waitingNoticeDelay),
-                id: \.self
-              ) { seconds in
-                Text(DurationText.describe(seconds)).tag(seconds)
-              }
-            }
-            .pickerStyle(.menu)
-            .controlSize(.small)
-            .labelsHidden()
-            .fixedSize()
-            .disabled(!model.waitingNotices)
+            DurationField(name: .waitingNoticeMinutes, model: model)
+              .disabled(!model.waitingNotices)
           }
           SettingsDivider()
           ContextToggleRow(model: model)
@@ -578,8 +580,37 @@ struct ValueText: View {
   }
 }
 
+private struct DurationField: View {
+  let name: PreferenceName
+  let model: SettingsModel
+  var shownText: String?
+
+  @FocusState private var isFocused: Bool
+
+  var body: some View {
+    TextField(
+      name.title,
+      text: Binding(
+        get: { shownText ?? model.durationText(name) },
+        set: { model.setDurationText($0, for: name) })
+    )
+    .textFieldStyle(.roundedBorder)
+    .labelsHidden()
+    .font(PanelTypography.body.monospacedDigit())
+    .multilineTextAlignment(.trailing)
+    .frame(width: 72)
+    .focused($isFocused)
+    .onChange(of: isFocused) { _, focused in
+      guard !focused else { return }
+      model.commitDuration(name)
+    }
+    .onSubmit { model.commitDuration(name) }
+  }
+}
+
 private struct DelaySlider: View {
-  let title: String
+  let name: PreferenceName
+  let model: SettingsModel
   let value: Double
   let commit: (Double) -> Void
 
@@ -595,10 +626,11 @@ private struct DelaySlider: View {
       )
       .controlSize(.small)
       .frame(width: 150)
-      .accessibilityLabel(title)
+      .accessibilityLabel(name.title)
       .accessibilityValue(PreferenceRules.secondsText(shownValue))
-      ValueText(PreferenceRules.secondsText(shownValue))
-        .accessibilityHidden(true)
+      DurationField(
+        name: name, model: model,
+        shownText: draggedValue.map { DurationText.compact($0) })
     }
   }
 
@@ -620,22 +652,6 @@ private struct DelaySlider: View {
     guard !editing, let draggedValue else { return }
     self.draggedValue = nil
     commit(draggedValue)
-  }
-}
-
-private struct SecondsStepper: View {
-  let value: Binding<Double>
-  let range: ClosedRange<Double>
-
-  var body: some View {
-    HStack(spacing: 6) {
-      ValueText(PreferenceRules.secondsText(value.wrappedValue))
-      Stepper(
-        PreferenceRules.secondsText(value.wrappedValue), value: value, in: range, step: 1
-      )
-      .labelsHidden()
-      .controlSize(.small)
-    }
   }
 }
 

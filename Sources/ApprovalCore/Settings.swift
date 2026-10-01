@@ -84,7 +84,6 @@ public struct Settings: Sendable, Equatable {
   public static let defaultWaitingNotices = true
   public static let defaultWaitingNoticeDelay: TimeInterval = 120
   public static let waitingNoticeDelayRange: ClosedRange<TimeInterval> = 10...3600
-  public static let waitingNoticeDelayChoices: [TimeInterval] = [60, 120, 300, 600, 900, 1800]
   public static let defaultApprovalCardDelay: Double = 5
   public static let approvalCardDelayRange: ClosedRange<Double> = 1...600
   public static let defaultIncludeHeadlessSessions = false

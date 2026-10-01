@@ -27,6 +27,7 @@ public enum DurationText {
 
   public static func compact(_ seconds: TimeInterval) -> String {
     let milliseconds = (seconds * 1000).rounded()
+    if milliseconds == 0 { return "0s" }
     if milliseconds < 1000 { return "\(numberText(milliseconds))ms" }
     let rounded = milliseconds / 1000
     if rounded.truncatingRemainder(dividingBy: 3600) == 0 {

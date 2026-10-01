@@ -184,6 +184,8 @@ final class SettingsModel {
   private(set) var newQuietTo = ""
   private(set) var quietHoursError: String?
   private(set) var writeErrors: [PreferenceName: String] = [:]
+  private(set) var durationTexts: [PreferenceName: String] = [:]
+  private(set) var durationErrors: [PreferenceName: String] = [:]
   private(set) var visit = SettingsVisit()
   private(set) var launchAtLogin = LaunchAtLoginState.unavailable
   private(set) var launchAtLoginError: String?
@@ -544,19 +546,75 @@ final class SettingsModel {
   }
 
   func setArmDelay(_ value: Double) {
+    dropDurationText(.armDelay)
     write(.armDelay(PreferenceRules.armDelay(value)))
   }
 
   func setChainedArmDelay(_ value: Double) {
+    dropDurationText(.chainedArmDelay)
     write(.chainedArmDelay(PreferenceRules.chainedArmDelay(value)))
   }
 
   func setIdleSeconds(_ value: Double) {
+    dropDurationText(.idleSeconds)
     write(.idleSeconds(PreferenceRules.idleSeconds(value)))
   }
 
   func setGraceSeconds(_ value: Double) {
+    dropDurationText(.graceSeconds)
     write(.graceSeconds(PreferenceRules.graceSeconds(value)))
+  }
+
+  private func dropDurationText(_ name: PreferenceName) {
+    durationTexts[name] = nil
+    durationErrors[name] = nil
+  }
+
+  func durationText(_ name: PreferenceName) -> String {
+    if let pending = durationTexts[name] { return pending }
+    return DurationText.compact(durationValue(name))
+  }
+
+  func setDurationText(_ text: String, for name: PreferenceName) {
+    guard let spec = name.durationField else { return }
+    durationTexts[name] = text
+    switch PreferenceRules.duration(from: text, spec: spec) {
+    case .success:
+      durationErrors[name] = nil
+    case .failure(let error):
+      durationErrors[name] = error.description
+    }
+  }
+
+  func commitDuration(_ name: PreferenceName) {
+    guard let spec = name.durationField, let text = durationTexts[name] else { return }
+    guard case .success(let seconds) = PreferenceRules.duration(from: text, spec: spec) else {
+      return
+    }
+    switch name {
+    case .idleSeconds: setIdleSeconds(seconds)
+    case .graceSeconds: setGraceSeconds(seconds)
+    case .armDelay: setArmDelay(seconds)
+    case .chainedArmDelay: setChainedArmDelay(seconds)
+    case .waitingNoticeMinutes: setWaitingNoticeDelay(seconds)
+    default: return
+    }
+    dropDurationText(name)
+  }
+
+  func durationProblem(_ name: PreferenceName) -> String? {
+    durationErrors[name] ?? writeErrors[name]
+  }
+
+  private func durationValue(_ name: PreferenceName) -> TimeInterval {
+    switch name {
+    case .idleSeconds: return idleSeconds
+    case .graceSeconds: return graceSeconds
+    case .armDelay: return armDelay
+    case .chainedArmDelay: return chainedArmDelay
+    case .waitingNoticeMinutes: return waitingNoticeDelay
+    default: return 0
+    }
   }
 
   func setSnoozeText(_ text: String) {
@@ -672,6 +730,7 @@ final class SettingsModel {
   }
 
   func setWaitingNoticeDelay(_ seconds: TimeInterval) {
+    dropDurationText(.waitingNoticeMinutes)
     write(.waitingNoticeDelay(seconds))
   }
 
@@ -1026,6 +1085,8 @@ final class SettingsModel {
       discardCustomAccentColor()
     }
     for name in names {
+      durationTexts[name] = nil
+      durationErrors[name] = nil
       contextTexts[name] = nil
       contextErrors[name] = nil
     }
