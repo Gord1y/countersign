@@ -203,7 +203,7 @@ since the sidebar already names it:
 | Group | Holds | What it changes |
 | --- | --- | --- |
 | Agents | a row per agent (Wire, Update, Remove, Show changes), the notice about a second copy, on each row the values `hosts.<agent>` sets, and, once wired, its follow-up line and Codex's "Mark as done" (`AgentFollowUp`; see "Follow-up lines" and "The Codex hook trust record" in [setup.md](setup.md)) | each agent's own hook file; the Codex hook trust record, never `config.json` |
-| Panels | Wait for idle, Grace period, Arm delay, Arm delay after an answer, Hand off when frontmost, Snooze presets, Notes on answers, Mode after a plan, Sound, Waiting-agent notices, Notice after, then Show a test panel | `config.json`, for every agent |
+| Panels | a delays card (Same delays for all agents, then while it is off an Agent picker with the four agents, then Wait for idle, Grace period, Arm delay, Arm delay after an answer, Notice after, Show card after), then Hand off when frontmost, Snooze presets, Notes on answers, Mode after a plan, Sound, Waiting-agent notices, Approval card (one checkbox per agent), then Show a test panel | `config.json`, for every agent, or under `hosts.<agent>` for the delays and the Approval card checkboxes |
 | App | Launch at login, Check for updates, When Countersign quits, Appearance, Accent colour, the offer to link Countersign.app, then Advanced… | macOS's login items, `config.json`, `~/Applications` |
 | Help | the tour, documentation, ask a question, report a problem, contact the developer, updates, then support links | nothing in `config.json`; never `update-check.json` |
 | Advanced | the config file's path, Open in Editor, Copy Path, Open with, the schema, what only the file can set, and the prompt for a coding agent | `config.json` for Open with; otherwise nothing beyond creating a missing `config.json` to open it |
@@ -367,6 +367,28 @@ editing, and the note's "Open in Editor" link opens it with the same `openConfig
 Advanced. A failure to open it shows one red line under that note rather than in Advanced, which
 may not be the group currently shown (`ConfigEditorOrigin`). A value the parser rejects is not
 named, because the hook ignores it as well.
+
+#### Delays per agent
+
+The six delay rows (Wait for idle, Grace period, Arm delay, Arm delay after an answer, Notice
+after, Show card after) sit in their own card, headed by the switch "Same delays for all agents".
+On, each row edits the top-level value. Off, an Agent segmented picker appears and each row edits
+`hosts.<agent>` for the selected agent (`SettingsModel.delaysPerAgent`, `delayAgent`): a field shows
+the agent's own value, or is empty with the shared value (top level, else the default) as its
+placeholder; committing an empty field removes the agent's value, and a valid value writes it
+(`PreferenceEdit.forAgent`). The stepper and slider show the agent's effective value and write to
+the agent. Validation and the red line are the same as in shared mode.
+
+The mode is not stored. On every reload it turns on when any agent has an own delay
+(`PreferenceOverrides.agentsWithOwnDelays(in:)`), with the first such agent selected, else Codex,
+and stays on until the person turns the switch back on, so clearing the last own value does not
+make the card jump back. Turning the switch off writes nothing. Turning it on while agents have own
+delays asks first ("Use the same delays for every agent?", `PreferenceOverrides.sameDelaysPromptText`)
+because it removes those values from the file (`PreferenceEdit.removingAgentDelays(in:)`); Cancel
+leaves the switch off. Show card after is disabled while the shown agent (or, in shared mode, every
+agent) has the approval card off. Restore Defaults resets the shared values only and never touches
+`hosts`; the Approval card checkboxes write `hosts.<agent>.approvalCard` per agent, and its reset
+removes the key everywhere.
 
 At the end of Panels, "Show a test panel" has three buttons, Command, Question and Plan
 (`TestPanelKind.title`), in the window's secondary button style, below the row's caption: a menu

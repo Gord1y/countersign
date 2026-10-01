@@ -159,6 +159,9 @@ import Testing
     #expect(
       PreferenceName.waitingNoticeMinutes.durationField
         == DurationFieldSpec(bareUnit: 60, range: Settings.waitingNoticeDelayRange))
+    #expect(
+      PreferenceName.approvalCardDelay.durationField
+        == DurationFieldSpec(bareUnit: 1, range: 1...600))
     #expect(PreferenceName.snoozeMinutes.durationField == nil)
     #expect(PreferenceName.questionNotes.durationField == nil)
   }

@@ -58,7 +58,9 @@ link to open the file — see "Settings for one agent" under [Advanced](#advance
 ### Panels
 
 How approval panels behave, for every agent unless a key is overridden for one under
-`hosts.<agent>` (see "Settings for one agent" under Advanced):
+`hosts.<agent>` (see "Settings for one agent" under Advanced). Settings sets the delays for all
+agents at once, or, with "Same delays for all agents" off, for one agent at a time under
+`hosts.<agent>`; its Approval card checkboxes choose which agents show the card:
 
 | Setting | Key | Default |
 | --- | --- | --- |

@@ -69,15 +69,30 @@ import Testing
       PreferenceOverrides.fileOnlyTopLevelKeys == ["includeHeadlessSessions"])
     #expect(
       PreferenceOverrides.fileOnlyNote
-        == "Only the file can set values for one agent, under hosts, and includeHeadlessSessions.")
+        == "Only the file can set handoff apps, Snooze presets and headless sessions for one agent,"
+        + " under hosts, and includeHeadlessSessions.")
   }
 
   @Test func fileOnlyNoteListsEveryKeyOrNone() {
+    let perAgent =
+      "Only the file can set handoff apps, Snooze presets and headless sessions for one agent,"
+      + " under hosts"
+    #expect(PreferenceOverrides.fileOnlyNote(keys: []) == "\(perAgent).")
+    #expect(PreferenceOverrides.fileOnlyNote(keys: ["a", "b"]) == "\(perAgent), and a, b.")
+  }
+
+  @Test func namesTheAgentsTheSameDelaysPromptRemovesTheDelaysOf() {
     #expect(
-      PreferenceOverrides.fileOnlyNote(keys: [])
-        == "Only the file can set values for one agent, under hosts.")
+      PreferenceOverrides.sameDelaysPromptText(agents: [.codex])
+        == "This removes the delays set for Codex from config.json."
+        + " Every agent then uses the shared delays.")
     #expect(
-      PreferenceOverrides.fileOnlyNote(keys: ["a", "b"])
-        == "Only the file can set values for one agent, under hosts, and a, b.")
+      PreferenceOverrides.sameDelaysPromptText(agents: [.codex, .cursor])
+        == "This removes the delays set for Codex and Cursor from config.json."
+        + " Every agent then uses the shared delays.")
+    #expect(
+      PreferenceOverrides.sameDelaysPromptText(agents: [.claude, .codex, .cursor])
+        == "This removes the delays set for Claude Code, Codex and Cursor from config.json."
+        + " Every agent then uses the shared delays.")
   }
 }

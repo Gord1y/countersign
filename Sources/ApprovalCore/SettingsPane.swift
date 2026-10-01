@@ -43,7 +43,7 @@ public enum SettingsPane: String, CaseIterable, Sendable {
         + " after showing you the change."
     case .panels:
       return
-        "How approval panels behave, for every agent. Saved to config.json as soon as you"
+        "How approval panels behave. Saved to config.json as soon as you"
         + " change them."
     case .app:
       return "What the menu-bar app does, and how panels and Settings look."

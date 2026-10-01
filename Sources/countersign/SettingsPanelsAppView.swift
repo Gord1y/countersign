@@ -12,12 +12,19 @@ struct PanelsSection: View {
       ConfigProblemMessage(model: model)
       SettingsGroup {
         VStack(alignment: .leading, spacing: 0) {
+          SameDelaysRow(model: model)
+          if model.delaysPerAgent {
+            SettingsDivider()
+            DelayAgentRow(model: model)
+          }
+          SettingsDivider()
           PreferenceRow(.idleSeconds, model: model, problem: model.durationProblem(.idleSeconds)) {
             HStack(spacing: 6) {
               DurationField(name: .idleSeconds, model: model)
               Stepper(
                 PreferenceName.idleSeconds.title,
-                value: Binding(get: { model.idleSeconds }, set: { model.setIdleSeconds($0) }),
+                value: Binding(
+                  get: { model.shownDelay(.idleSeconds) }, set: { model.setIdleSeconds($0) }),
                 in: PreferenceRules.idleSecondsRange, step: 1
               )
               .labelsHidden()
@@ -32,7 +39,8 @@ struct PanelsSection: View {
               DurationField(name: .graceSeconds, model: model)
               Stepper(
                 PreferenceName.graceSeconds.title,
-                value: Binding(get: { model.graceSeconds }, set: { model.setGraceSeconds($0) }),
+                value: Binding(
+                  get: { model.shownDelay(.graceSeconds) }, set: { model.setGraceSeconds($0) }),
                 in: PreferenceRules.graceSecondsRange, step: 1
               )
               .labelsHidden()
@@ -41,7 +49,7 @@ struct PanelsSection: View {
           }
           SettingsDivider()
           PreferenceRow(.armDelay, model: model, problem: model.durationProblem(.armDelay)) {
-            DelaySlider(name: .armDelay, model: model, value: model.armDelay) {
+            DelaySlider(name: .armDelay, model: model, value: model.shownDelay(.armDelay)) {
               model.setArmDelay($0)
             }
           }
@@ -49,11 +57,33 @@ struct PanelsSection: View {
           PreferenceRow(
             .chainedArmDelay, model: model, problem: model.durationProblem(.chainedArmDelay)
           ) {
-            DelaySlider(name: .chainedArmDelay, model: model, value: model.chainedArmDelay) {
+            DelaySlider(
+              name: .chainedArmDelay, model: model, value: model.shownDelay(.chainedArmDelay)
+            ) {
               model.setChainedArmDelay($0)
             }
           }
           SettingsDivider()
+          PreferenceRow(
+            .waitingNoticeMinutes, model: model,
+            problem: model.durationProblem(.waitingNoticeMinutes)
+          ) {
+            DurationField(name: .waitingNoticeMinutes, model: model)
+              .disabled(!model.waitingNotices)
+          }
+          SettingsDivider()
+          PreferenceRow(
+            .approvalCardDelay, model: model,
+            problem: model.durationProblem(.approvalCardDelay)
+          ) {
+            DurationField(name: .approvalCardDelay, model: model)
+              .disabled(!model.showsApprovalCardDelay)
+          }
+        }
+        .disabled(model.configProblem != nil)
+      }
+      SettingsGroup {
+        VStack(alignment: .leading, spacing: 0) {
           HandoffAppsRow(model: model)
           SettingsDivider()
           PreferenceRow(.snoozeMinutes, model: model, problem: model.snoozeProblem) {
@@ -128,13 +158,7 @@ struct PanelsSection: View {
           SettingsDivider()
           WaitingNoticesRow(model: model)
           SettingsDivider()
-          PreferenceRow(
-            .waitingNoticeMinutes, model: model,
-            problem: model.durationProblem(.waitingNoticeMinutes)
-          ) {
-            DurationField(name: .waitingNoticeMinutes, model: model)
-              .disabled(!model.waitingNotices)
-          }
+          ApprovalCardRow(model: model)
           SettingsDivider()
           ContextToggleRow(model: model)
         }
@@ -158,6 +182,81 @@ private struct WaitingHookPromptPresenter: ViewModifier {
         change: change, home: model.homeDirectory, on: NSApp.keyWindow,
         onConfirm: { model.confirmWaitingChange() },
         onCancel: { model.cancelWaitingChange() })
+    }
+  }
+}
+
+private struct SameDelaysPromptPresenter: ViewModifier {
+  let model: SettingsModel
+
+  func body(content: Content) -> some View {
+    content.onChange(of: model.sameDelaysChange != nil) { _, isPending in
+      guard isPending, let agents = model.sameDelaysChange else { return }
+      SameDelaysPrompt.present(
+        agents: agents, on: NSApp.keyWindow,
+        onConfirm: { model.confirmSameDelays() },
+        onCancel: { model.cancelSameDelays() })
+    }
+  }
+}
+
+private struct SameDelaysRow: View {
+  let model: SettingsModel
+
+  var body: some View {
+    PreferenceRow(
+      "Same delays for all agents", caption: "Off: pick an agent and give it its own delays."
+    ) {
+      SettingsSwitch(
+        "Same delays for all agents",
+        isOn: Binding(
+          get: { !model.delaysPerAgent },
+          set: { model.requestSameDelays($0) })
+      )
+    }
+    .modifier(SameDelaysPromptPresenter(model: model))
+  }
+}
+
+private struct DelayAgentRow: View {
+  let model: SettingsModel
+
+  var body: some View {
+    PreferenceRow("Agent", caption: "The delays below apply to this agent.") {
+      Picker(
+        "Agent",
+        selection: Binding(get: { model.delayAgent }, set: { model.setDelayAgent($0) })
+      ) {
+        ForEach(ApprovalCore.Host.allCases, id: \.self) { host in
+          Text(host.displayName).tag(host)
+        }
+      }
+      .pickerStyle(.segmented)
+      .controlSize(.small)
+      .labelsHidden()
+      .fixedSize()
+    }
+  }
+}
+
+private struct ApprovalCardRow: View {
+  let model: SettingsModel
+
+  var body: some View {
+    PreferenceRow(.approvalCard, model: model, problem: model.writeErrors[.approvalCard]) {
+      EmptyView()
+    } detail: {
+      HStack(spacing: 16) {
+        ForEach(ApprovalCore.Host.allCases, id: \.self) { host in
+          Toggle(
+            host.displayName,
+            isOn: Binding(
+              get: { model.approvalCardAgents.contains(host) },
+              set: { model.setApprovalCard($0, for: host) })
+          )
+          .toggleStyle(.checkbox)
+        }
+      }
     }
   }
 }
@@ -592,7 +691,8 @@ private struct DurationField: View {
       name.title,
       text: Binding(
         get: { shownText ?? model.durationText(name) },
-        set: { model.setDurationText($0, for: name) })
+        set: { model.setDurationText($0, for: name) }),
+      prompt: Text(model.durationPlaceholder(name))
     )
     .textFieldStyle(.roundedBorder)
     .labelsHidden()

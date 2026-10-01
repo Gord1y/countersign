@@ -198,6 +198,9 @@ final class SettingsModel {
   private(set) var contextHookStatus = ContextHookStatus.notWired
   private(set) var waitingChange: WaitingHookChange?
   private(set) var waitingHookFailure: String?
+  private(set) var delaysPerAgent = false
+  private(set) var delayAgent = ApprovalCore.Host.codex
+  private(set) var sameDelaysChange: [ApprovalCore.Host]?
   private(set) var contextTexts: [PreferenceName: String] = [:]
   private(set) var contextErrors: [PreferenceName: String] = [:]
   private(set) var newContextModelPrefix = ""
@@ -528,6 +531,10 @@ final class SettingsModel {
       } ?? ConfigFile()
     configFileContents = parsedFile
     preferences = PreferenceValues(file: parsedFile)
+    if !delaysPerAgent, let first = PreferenceOverrides.agentsWithOwnDelays(in: parsedFile).first {
+      delaysPerAgent = true
+      delayAgent = first
+    }
     CountersignPalette.use(accentColor)
     applyAppearance?(appearance)
     if !isEditingSnoozeMinutes, snoozeError == nil {
@@ -546,23 +553,28 @@ final class SettingsModel {
   }
 
   func setArmDelay(_ value: Double) {
-    dropDurationText(.armDelay)
-    write(.armDelay(PreferenceRules.armDelay(value)))
+    writeDelay(.armDelay(PreferenceRules.armDelay(value)))
   }
 
   func setChainedArmDelay(_ value: Double) {
-    dropDurationText(.chainedArmDelay)
-    write(.chainedArmDelay(PreferenceRules.chainedArmDelay(value)))
+    writeDelay(.chainedArmDelay(PreferenceRules.chainedArmDelay(value)))
   }
 
   func setIdleSeconds(_ value: Double) {
-    dropDurationText(.idleSeconds)
-    write(.idleSeconds(PreferenceRules.idleSeconds(value)))
+    writeDelay(.idleSeconds(PreferenceRules.idleSeconds(value)))
   }
 
   func setGraceSeconds(_ value: Double) {
-    dropDurationText(.graceSeconds)
-    write(.graceSeconds(PreferenceRules.graceSeconds(value)))
+    writeDelay(.graceSeconds(PreferenceRules.graceSeconds(value)))
+  }
+
+  func setApprovalCardDelay(_ value: TimeInterval) {
+    writeDelay(.approvalCardDelay(value))
+  }
+
+  private func writeDelay(_ edit: PreferenceEdit) {
+    dropDurationText(edit.key)
+    write(delaysPerAgent ? .forAgent(delayAgent, edit) : edit)
   }
 
   private func dropDurationText(_ name: PreferenceName) {
@@ -570,14 +582,105 @@ final class SettingsModel {
     durationErrors[name] = nil
   }
 
+  private func dropAgentDelayTexts() {
+    for name in PreferenceName.agentDelays {
+      dropDurationText(name)
+      writeErrors[name] = nil
+    }
+  }
+
+  func setDelayAgent(_ host: ApprovalCore.Host) {
+    guard host != delayAgent else { return }
+    dropAgentDelayTexts()
+    delayAgent = host
+  }
+
+  func requestSameDelays(_ enable: Bool) {
+    guard enable == delaysPerAgent else { return }
+    guard enable else {
+      dropAgentDelayTexts()
+      delaysPerAgent = true
+      return
+    }
+    let agents = PreferenceOverrides.agentsWithOwnDelays(in: configFileContents)
+    guard agents.isEmpty else {
+      sameDelaysChange = agents
+      return
+    }
+    dropAgentDelayTexts()
+    delaysPerAgent = false
+  }
+
+  func cancelSameDelays() {
+    sameDelaysChange = nil
+  }
+
+  func confirmSameDelays() {
+    guard sameDelaysChange != nil else { return }
+    sameDelaysChange = nil
+    dropAgentDelayTexts()
+    guard write(PreferenceEdit.removingAgentDelays(in: configFileContents)) else { return }
+    delaysPerAgent = false
+  }
+
+  var approvalCardAgents: [ApprovalCore.Host] { preferences.approvalCardAgents }
+
+  func setApprovalCard(_ enabled: Bool, for host: ApprovalCore.Host) {
+    write(.forAgent(host, .approvalCard(enabled)))
+  }
+
+  var showsApprovalCardDelay: Bool {
+    delaysPerAgent ? approvalCardAgents.contains(delayAgent) : !approvalCardAgents.isEmpty
+  }
+
+  func shownDelay(_ name: PreferenceName) -> TimeInterval {
+    guard delaysPerAgent else { return sharedDelay(name) }
+    return ownDelay(name) ?? sharedDelay(name)
+  }
+
+  private func sharedDelay(_ name: PreferenceName) -> TimeInterval {
+    switch name {
+    case .idleSeconds: return preferences.idleSeconds
+    case .graceSeconds: return preferences.graceSeconds
+    case .armDelay: return preferences.armDelay
+    case .chainedArmDelay: return preferences.chainedArmDelay
+    case .waitingNoticeMinutes: return preferences.waitingNoticeDelay
+    case .approvalCardDelay: return preferences.approvalCardDelay
+    default: return 0
+    }
+  }
+
+  private func ownDelay(_ name: PreferenceName) -> TimeInterval? {
+    guard let overrides = configFileContents.overrides(for: delayAgent) else { return nil }
+    switch name {
+    case .idleSeconds: return overrides.idleSeconds
+    case .graceSeconds: return overrides.graceSeconds
+    case .armDelay: return overrides.armDelay
+    case .chainedArmDelay: return overrides.chainedArmDelay
+    case .waitingNoticeMinutes: return overrides.waitingNoticeDelay
+    case .approvalCardDelay: return overrides.approvalCardDelay
+    default: return nil
+    }
+  }
+
   func durationText(_ name: PreferenceName) -> String {
     if let pending = durationTexts[name] { return pending }
-    return DurationText.compact(durationValue(name))
+    guard delaysPerAgent else { return DurationText.compact(sharedDelay(name)) }
+    return ownDelay(name).map { DurationText.compact($0) } ?? ""
+  }
+
+  func durationPlaceholder(_ name: PreferenceName) -> String {
+    guard delaysPerAgent else { return name.title }
+    return DurationText.compact(sharedDelay(name))
   }
 
   func setDurationText(_ text: String, for name: PreferenceName) {
     guard let spec = name.durationField else { return }
     durationTexts[name] = text
+    if delaysPerAgent, text.trimmingCharacters(in: .whitespaces).isEmpty {
+      durationErrors[name] = nil
+      return
+    }
     switch PreferenceRules.duration(from: text, spec: spec) {
     case .success:
       durationErrors[name] = nil
@@ -588,6 +691,11 @@ final class SettingsModel {
 
   func commitDuration(_ name: PreferenceName) {
     guard let spec = name.durationField, let text = durationTexts[name] else { return }
+    if delaysPerAgent, text.trimmingCharacters(in: .whitespaces).isEmpty {
+      dropDurationText(name)
+      write(.forAgent(delayAgent, .reset(name)))
+      return
+    }
     guard case .success(let seconds) = PreferenceRules.duration(from: text, spec: spec) else {
       return
     }
@@ -597,6 +705,7 @@ final class SettingsModel {
     case .armDelay: setArmDelay(seconds)
     case .chainedArmDelay: setChainedArmDelay(seconds)
     case .waitingNoticeMinutes: setWaitingNoticeDelay(seconds)
+    case .approvalCardDelay: setApprovalCardDelay(seconds)
     default: return
     }
     dropDurationText(name)
@@ -604,17 +713,6 @@ final class SettingsModel {
 
   func durationProblem(_ name: PreferenceName) -> String? {
     durationErrors[name] ?? writeErrors[name]
-  }
-
-  private func durationValue(_ name: PreferenceName) -> TimeInterval {
-    switch name {
-    case .idleSeconds: return idleSeconds
-    case .graceSeconds: return graceSeconds
-    case .armDelay: return armDelay
-    case .chainedArmDelay: return chainedArmDelay
-    case .waitingNoticeMinutes: return waitingNoticeDelay
-    default: return 0
-    }
   }
 
   func setSnoozeText(_ text: String) {
@@ -730,8 +828,7 @@ final class SettingsModel {
   }
 
   func setWaitingNoticeDelay(_ seconds: TimeInterval) {
-    dropDurationText(.waitingNoticeMinutes)
-    write(.waitingNoticeDelay(seconds))
+    writeDelay(.waitingNoticeDelay(seconds))
   }
 
   var homeDirectory: URL {
@@ -1105,7 +1202,11 @@ final class SettingsModel {
   private func write(_ edits: [PreferenceEdit]) -> Bool {
     let shown = preferences
     let chosen = edits.reduce(shown) { $0.applying($1) }
-    guard chosen != shown else { return true }
+    let editsAgentFile = edits.contains {
+      if case .forAgent = $0 { return true }
+      return false
+    }
+    guard chosen != shown || editsAgentFile else { return true }
     preferences = chosen
     do {
       let original = try ConfigFileStore.read(configFile)
@@ -1136,10 +1237,11 @@ final class SettingsModel {
     var written: [PreferenceName] = []
     var reset: [PreferenceName] = []
     for edit in edits {
-      if case .reset(let name) = edit {
-        reset.append(name)
-      } else {
-        written.append(edit.key)
+      switch edit {
+      case .reset(let name): reset.append(name)
+      case .forAgent(_, .approvalCard): written.append(.approvalCard)
+      case .forAgent: break
+      default: written.append(edit.key)
       }
     }
     visit.record(written)

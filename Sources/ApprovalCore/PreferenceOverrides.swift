@@ -11,9 +11,15 @@ public enum PreferenceOverrides {
   }
 
   static func fileOnlyNote(keys: [String]) -> String {
-    let perAgent = "Only the file can set values for one agent, under hosts"
+    let perAgent =
+      "Only the file can set handoff apps, Snooze presets and headless sessions for one agent, under hosts"
     guard !keys.isEmpty else { return "\(perAgent)." }
     return "\(perAgent), and \(keys.joined(separator: ", "))."
+  }
+
+  public static func sameDelaysPromptText(agents: [Host]) -> String {
+    "This removes the delays set for \(PreferenceName.agentListText(agents)) from config.json."
+      + " Every agent then uses the shared delays."
   }
 
   public static func values(in overrides: ConfigFile.HostOverrides?) -> [String] {

@@ -42,7 +42,7 @@ import Testing
         + " after showing you the change.")
     #expect(
       SettingsPane.panels.subtitle
-        == "How approval panels behave, for every agent. Saved to config.json as soon as you"
+        == "How approval panels behave. Saved to config.json as soon as you"
         + " change them.")
     #expect(
       SettingsPane.app.subtitle == "What the menu-bar app does, and how panels and Settings look.")
