@@ -249,21 +249,25 @@ lives in `SettingsModel`: the text in the Snooze presets field and the add field
 frontmost, the open "Show changes" disclosures and "Show copies". The two text fields commit when
 they disappear, exactly as when they lose focus (see "Writing a change"), so leaving a field by
 switching group counts as leaving it. The scroll view's identity is the selected group, so each
-group opens scrolled to its top. The scroll view asks for `.scrollIndicators(.visible)` and leaves
-the scroller's style to the system setting; only the content column scrolls, never the sidebar.
+group opens scrolled to its top. Only the content column scrolls, never the sidebar.
 
-Content scrolls only when it overflows the window, and never rubber-bands past either end:
-`.scrollBounceBehavior(.basedOnSize)` turns bouncing off altogether when the content already fits,
-and `ScrollElasticityDisablerView`, a tiny `NSViewRepresentable` sitting in the scrollable content,
-sets its `enclosingScrollView`'s `verticalScrollElasticity` to `.none` as a backstop for when it
-does scroll, so dragging past either end never shows empty space under the content. It does so once,
-when the view joins its window, and only if the value differs; `updateNSView` does nothing and there
-is no `layout()` override. Setting the elasticity on every layout pass re-tiles the scroll view and
-can cancel or restart its scroll animation, which stuttered fast and momentum scrolling on the long
-Panels pane. `SettingsContent`
-carries its own trailing `SettingsMetrics.padding` inside the scroll view, so the last card's bottom
-edge always has room to breathe above the window's edge once scrolled all the way down, rather than
-sitting flush against it.
+#### Scrolling
+
+The content column is an AppKit `NSScrollView` (`SettingsScrollView`) whose document view is an
+`NSHostingView` of `SettingsContent`, not a SwiftUI `ScrollView`. On macOS, SwiftUI's `ScrollView`
+re-lays out the whole hosted pane and re-runs hover hit-testing through every row on each scroll
+frame: a `sample` of fast scrolling on Panels showed the main thread about 19% busy even with
+elasticity fixed, about 525 of 6434 samples in `NSHostingView.layout` and about 318 in hover
+hit-testing. An `NSScrollView` scrolls by moving the clip view's bounds over content that is already
+drawn, so a scroll frame runs neither. The document view is pinned to the clip view's top, leading
+and trailing edges and takes its height from the hosted content's intrinsic size, so rows that
+expand or collapse resize it and the scroller follows.
+
+It keeps the old behaviour: no rubber-banding (`verticalScrollElasticity = .none`), an always
+visible vertical scroller, no horizontal scrolling, and each group opens at the top (the
+representable scrolls the clip view to its origin when the selected group changes).
+`SettingsContent` carries its own trailing `SettingsMetrics.padding`, so the last card's bottom edge
+has room above the window's edge once scrolled all the way down.
 
 ### Header
 

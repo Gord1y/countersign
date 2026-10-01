@@ -32,13 +32,7 @@ struct SettingsPage: View {
       HStack(alignment: .top, spacing: SettingsMetrics.sectionSpacing) {
         SettingsSidebar(model: model)
           .frame(width: SettingsMetrics.sidebarWidth, alignment: .leading)
-        ScrollView(.vertical) {
-          SettingsContent(model: model)
-            .background(ScrollElasticityDisabler())
-        }
-        .scrollBounceBehavior(.basedOnSize)
-        .scrollIndicators(.visible)
-        .id(model.selectedPane.rawValue)
+        SettingsScrollView(model: model, pane: model.selectedPane)
       }
       .padding(.horizontal, SettingsMetrics.padding)
     }
@@ -55,25 +49,52 @@ struct SettingsPage: View {
   }
 }
 
-private struct ScrollElasticityDisabler: NSViewRepresentable {
-  func makeNSView(context: Context) -> ScrollElasticityDisablerView {
-    ScrollElasticityDisablerView()
+private struct SettingsScrollView: NSViewRepresentable {
+  let model: SettingsModel
+  let pane: SettingsPane
+
+  func makeCoordinator() -> Coordinator {
+    Coordinator(pane: pane)
   }
 
-  func updateNSView(_ nsView: ScrollElasticityDisablerView, context: Context) {}
-}
-
-private final class ScrollElasticityDisablerView: NSView {
-  override func viewDidMoveToWindow() {
-    super.viewDidMoveToWindow()
-    disableVerticalElasticity()
-  }
-
-  private func disableVerticalElasticity() {
-    guard let scrollView = enclosingScrollView, scrollView.verticalScrollElasticity != .none else {
-      return
-    }
+  func makeNSView(context: Context) -> NSScrollView {
+    let scrollView = NSScrollView()
+    scrollView.hasVerticalScroller = true
+    scrollView.hasHorizontalScroller = false
+    scrollView.autohidesScrollers = false
     scrollView.verticalScrollElasticity = .none
+    scrollView.horizontalScrollElasticity = .none
+    scrollView.drawsBackground = false
+    scrollView.borderType = .noBorder
+
+    let hostingView = NSHostingView(rootView: SettingsContent(model: model))
+    hostingView.sizingOptions = [.intrinsicContentSize]
+    hostingView.translatesAutoresizingMaskIntoConstraints = false
+    scrollView.documentView = hostingView
+
+    let clipView = scrollView.contentView
+    NSLayoutConstraint.activate([
+      hostingView.topAnchor.constraint(equalTo: clipView.topAnchor),
+      hostingView.leadingAnchor.constraint(equalTo: clipView.leadingAnchor),
+      hostingView.trailingAnchor.constraint(equalTo: clipView.trailingAnchor),
+      hostingView.widthAnchor.constraint(equalTo: clipView.widthAnchor),
+    ])
+    return scrollView
+  }
+
+  func updateNSView(_ scrollView: NSScrollView, context: Context) {
+    guard context.coordinator.pane != pane else { return }
+    context.coordinator.pane = pane
+    scrollView.contentView.scroll(to: .zero)
+    scrollView.reflectScrolledClipView(scrollView.contentView)
+  }
+
+  final class Coordinator {
+    var pane: SettingsPane
+
+    init(pane: SettingsPane) {
+      self.pane = pane
+    }
   }
 }
 
