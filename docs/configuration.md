@@ -72,7 +72,7 @@ How approval panels behave, for every agent unless a key is overridden for one u
 | Notes on answers | `questionNotes` | `false` |
 | Mode after a plan | `modeAfterPlan` | `"default"` |
 | Sound | `panelSound` | `"none"` |
-| Waiting-agent notices | `waitingNotices` | `false` |
+| Waiting-agent notices | `waitingNotices` | `true` |
 | Notice after | `waitingNoticeMinutes` | `2` |
 
 All of these except **Quiet hours**, **Notes on answers**, **Mode after a plan**, **Sound**,
@@ -151,11 +151,13 @@ keys below.
   your choice, but not for the next panel in a chain you are already answering, and never for the
   result card or a notice. The speaker button beside the menu in Settings plays the chosen sound.
 - **Waiting-agent notices** (`waitingNotices`): `true` shows a corner card, "Claude Code is
-  waiting for you", once an agent has finished a turn and waited for you. `false` unless you change
-  it. Turn it on from Settings, not by editing the file: the toggle also adds Countersign's `Stop`
-  hook to each wired agent's hook file (Claude Code, Codex, Cursor and Antigravity), after showing
-  you the change, and turning it off removes those hooks again. Codex asks you to trust its new
-  hook once; see [agents.md](agents.md#the-waiting-agent-notice).
+  waiting for you", once an agent has finished a turn and waited for you. `true` unless you change
+  it. While it is on, `countersign setup` and Update in Settings ▸ Agents add Countersign's `Stop`
+  hook next to the permission hook in each agent's hook file (Claude Code, Codex, Cursor and
+  Antigravity), in the same diff. Turn it off from Settings, not by editing the file: that removes
+  those hooks, after showing you the change, and writes `false`, and setup then leaves them out.
+  Codex asks you to trust its new hook once; see
+  [agents.md](agents.md#the-waiting-agent-notice).
 - **Notice after** (`waitingNoticeMinutes`): how many minutes an agent has been waiting before the
   notice appears, an integer from 1 to 60, `2` unless you change it. A value outside the range or
   of another type logs one line and falls back to `2`. Settings offers 1, 2, 5, 10, 15 and 30

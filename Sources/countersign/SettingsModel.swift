@@ -412,7 +412,9 @@ final class SettingsModel {
       }
       row.followUp = AgentFollowUps.current(
         host: location.host, wiringStatus: row.status,
-        codexTrust: location.host == .codex ? codexHookTrustState(at: location) : .unknown)
+        codexTrust: location.host == .codex ? codexHookTrustState(at: location) : .unknown,
+        codexHasWaitingEntry: AgentFollowUps.codexHasWaitingEntry(
+          in: ConfigFileStore.fileState(location.file)))
       return row
     }
     appLinkOffer = environment.resolvedExecutable.flatMap {
@@ -468,6 +470,7 @@ final class SettingsModel {
     else { return }
     var run = SetupRun(
       executablePath: stablePath ?? "", uninstall: action.uninstalls,
+      addsWaitingEntry: waitingNotices,
       codexHookTrustFile: environment.paths.codexHookTrustFile,
       codexWaitingHookTrustFile: environment.paths.codexWaitingHookTrustFile, now: now,
       output: { _ in }, confirm: { _ in true })
@@ -1218,13 +1221,16 @@ final class SettingsModel {
     }
     return HostWiring.status(
       host: location.host, directoryExists: DoctorCommand.isInstalled(location),
-      file: ConfigFileStore.fileState(location.file), stablePath: stablePath)
+      file: ConfigFileStore.fileState(location.file), stablePath: stablePath,
+      addsWaitingEntry: waitingNotices)
   }
 
   private func preview(of location: HookConfigLocation, action: HostWiringAction)
     -> SetupPreview
   {
-    SetupRun.preview(location, executablePath: stablePath ?? "", uninstall: action.uninstalls)
+    SetupRun.preview(
+      location, executablePath: stablePath ?? "", uninstall: action.uninstalls,
+      addsWaitingEntry: waitingNotices)
   }
 
   private func codexHookTrustState(at location: HookConfigLocation) -> CodexHookTrustState {

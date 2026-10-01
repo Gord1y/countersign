@@ -41,7 +41,7 @@ these statuses:
 | Not installed | Countersign found no data directory for this agent | Nothing, until you install the agent |
 | Not wired | The agent's hook file has no Countersign entry | **Wire** |
 | Wired | The entry is there and up to date | Nothing, or **Remove** to take it out |
-| Needs an update | The entry points at another copy of `countersign`, runs it with anything but `hook --host <agent>`, or lacks a field setup writes | **Update** |
+| Needs an update | The entry points at another copy of `countersign`, runs it with anything but `hook --host <agent>`, lacks a field setup writes, or lacks the Stop entry of waiting-agent notices while they are on | **Update** |
 | Can't be set up | The file can't be read, isn't valid JSON or has a shape setup can't edit, or the running binary isn't named `countersign` | Fix what the row names; setup won't write until then |
 
 **Show changes** shows the exact diff a button would write. The buttons act at once, like
@@ -104,6 +104,12 @@ agent is in [design/setup.md](design/setup.md).
 Turning on Context checkpoints in the Settings window adds a second entry to Claude Code's file,
 under `hooks.UserPromptSubmit`. It runs the same command and is marked `"async": true`, so your
 prompts never wait for it. Remove takes out both entries.
+
+[Waiting-agent notices](agents.md#the-waiting-agent-notice) are on by default, so setup's diff also
+includes a second entry for each agent, for the end of a turn (`hooks.Stop`; `hooks.stop` for
+Cursor; the hook `countersign-waiting` for Antigravity). An agent wired before notices were on by
+default shows Needs an update until you press Update or run setup again. Turning the notices off in
+Settings ▸ Panels removes those entries and setup then leaves them out.
 
 Setup touches only its own entry. Everything else in the file, other hooks, key order,
 indentation, line endings, stays exactly as it was. Before it changes a file that already exists,

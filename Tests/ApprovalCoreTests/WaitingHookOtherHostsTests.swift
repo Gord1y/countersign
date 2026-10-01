@@ -75,7 +75,8 @@ private func text(_ bytes: [UInt8]?) -> String? {
 }
 
 private func permissionFile(_ host: ApprovalCore.Host) throws -> String {
-  let bytes = try HookSetup.install(into: nil, host: host, executablePath: brewPath)
+  let bytes = try HookSetup.install(
+    into: nil, host: host, executablePath: brewPath, addsWaitingEntry: false)
   return String(decoding: bytes, as: UTF8.self)
 }
 
@@ -245,7 +246,7 @@ private func userEntryBesideOurs(_ host: ApprovalCore.Host) -> (shared: String, 
     let withStale = try install(try permissionFile(host), host: host)
       .replacingOccurrences(of: brewPath, with: stalePath)
     let refreshed = try HookSetup.install(
-      into: Array(withStale.utf8), host: host, executablePath: brewPath)
+      into: Array(withStale.utf8), host: host, executablePath: brewPath, addsWaitingEntry: false)
     #expect(String(decoding: refreshed, as: UTF8.self).contains(waitingCommand(host)))
     #expect(
       !String(decoding: refreshed, as: UTF8.self).contains(waitingCommand(host, path: stalePath)))

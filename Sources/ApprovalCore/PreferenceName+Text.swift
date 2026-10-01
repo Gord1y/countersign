@@ -170,9 +170,9 @@ extension PreferenceName {
       return
         "When an agent finishes a turn and waits for you, Countersign shows a corner card, \"Claude"
         + " Code is waiting for you\" with the project's name, once it has waited for the time"
-        + " below. Turning it on adds a Stop hook to Claude Code's settings.json, after showing"
-        + " you the change, and turning it off removes that hook again, so it is changed here"
-        + " and not by editing config.json. It is off by default and top-level only."
+        + " below. It is on by default, and setup adds the Stop hook next to the permission hook."
+        + " Turning it off removes the Stop hook again, after showing you the change, so it is"
+        + " changed here and not by editing config.json. It is top-level only."
     case .waitingNoticeMinutes:
       return
         "How many minutes an agent has been waiting before the notice appears, from 1 to 60. The"

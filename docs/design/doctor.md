@@ -98,7 +98,8 @@ or config file's content, only paths and our own hook entry's command.
    Lines named **`claude waiting`** cover the `hooks.Stop` entry of Waiting-agent notices (see "The
    waiting-agent entry" in [setup.md](setup.md)), with the same shape, driven by
    `Doctor.Input.waitingNoticesEnabled`:
-   - enabled and no entry: `warn`; turning Waiting-agent notices off and on again adds it.
+   - enabled and no entry: `warn`, "waiting-agent notices are on, but <file> has no <event> entry
+     of Countersign's; run countersign setup, or Update in Settings ▸ Agents", which adds it.
    - disabled and an entry present: `warn`; turning the notices off removes it.
    - not async: `warn`, because every turn end would wait for it; `countersign setup` refreshes it.
    - the path and executable checks are the `PermissionRequest` entry's, and the arguments must

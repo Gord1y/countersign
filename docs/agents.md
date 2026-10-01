@@ -160,10 +160,11 @@ in its own prompt until Google fixes
 
 ## The waiting-agent notice
 
-Off by default. Turn it on in Settings ▸ Panels ▸ Waiting-agent notices; the toggle shows the
-change and then adds one more entry, for the end of an agent's turn, to each wired agent's hook
-file. Setup never adds it: `countersign setup` only refreshes an entry that is already there, and
-`countersign setup --remove` takes it out. Each entry only records that the turn ended and exits,
+On by default. While it is on, `countersign setup` and Update in Settings ▸ Agents add one more
+entry, for the end of an agent's turn, next to the permission entry in each agent's hook file, in
+the same diff. An agent that was wired before shows "Needs an update" until you apply it. Turning
+it off in Settings ▸ Panels ▸ Waiting-agent notices shows the change and removes the entries, and
+setup then leaves them out; `countersign setup --remove` takes them out too. Each entry only records that the turn ended and exits,
 so it never holds the agent up. When you have been away from the agent for the notice delay, a
 corner card says it is waiting. What it does, and when it closes, is in
 [configuration.md](configuration.md#panels) and [design/notice.md](design/notice.md).

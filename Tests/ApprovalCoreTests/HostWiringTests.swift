@@ -39,11 +39,12 @@ private func antigravityHook(_ command: String, matcher: String = "*", timeout: 
 
 private func status(
   _ text: String?, host: ApprovalCore.Host = .claude, directoryExists: Bool = true,
-  stable: String = stablePath
+  stable: String = stablePath, addsWaitingEntry: Bool = false
 ) -> HostWiringStatus {
   let file: Doctor.FileState = text.map { .bytes(Array($0.utf8)) } ?? .missing
   return HostWiring.status(
-    host: host, directoryExists: directoryExists, file: file, stablePath: stable)
+    host: host, directoryExists: directoryExists, file: file, stablePath: stable,
+    addsWaitingEntry: addsWaitingEntry)
 }
 
 @Suite struct HostWiringTests {
@@ -78,6 +79,29 @@ private func status(
   @Test func isWiredWhenSetupWouldChangeNothing() {
     #expect(status(entry("\(stablePath) hook --host claude")) == .wired)
     #expect(status(entry("\(stablePath) hook --host codex", codex: true), host: .codex) == .wired)
+  }
+
+  @Test func needsAnUpdateWhenNoticesAreOnAndTheStopEntryIsMissing() {
+    let waiting = HostWiringStatus.needsUpdate(
+      HostWiringUpdate(otherExecutablePaths: [], addsWaitingEntry: true))
+    #expect(
+      status(entry("\(stablePath) hook --host claude"), addsWaitingEntry: true) == waiting)
+    #expect(
+      status(
+        entry("\(stablePath) hook --host codex", codex: true), host: .codex,
+        addsWaitingEntry: true) == waiting)
+    #expect(
+      HostWiring.detail(for: waiting, host: .claude)
+        == "Adds the Stop entry for waiting-agent notices")
+  }
+
+  @Test func staysWiredWhenNoticesAreOffAndTheStopEntryIsMissing() {
+    #expect(
+      status(entry("\(stablePath) hook --host claude"), addsWaitingEntry: false) == .wired)
+    #expect(
+      status(
+        entry("\(stablePath) hook --host codex", codex: true), host: .codex,
+        addsWaitingEntry: false) == .wired)
   }
 
   @Test func needsAnUpdateWhenTheEntryPointsElsewhere() {
@@ -144,7 +168,7 @@ private func status(
     #expect(
       HostWiring.status(
         host: .claude, directoryExists: true, file: .unreadable("permission denied"),
-        stablePath: stablePath) == .unusable("permission denied"))
+        stablePath: stablePath, addsWaitingEntry: false) == .unusable("permission denied"))
   }
 
   @Test func offersOneActionPerStatus() {

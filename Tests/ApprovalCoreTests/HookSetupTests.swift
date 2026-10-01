@@ -9,7 +9,8 @@ private func install(
   _ text: String?, host: ApprovalCore.Host = .claude, path: String = brewPath
 ) throws -> String {
   let bytes = try HookSetup.install(
-    into: text.map { Array($0.utf8) }, host: host, executablePath: path)
+    into: text.map { Array($0.utf8) }, host: host, executablePath: path,
+    addsWaitingEntry: false)
   return String(decoding: bytes, as: UTF8.self)
 }
 
@@ -624,6 +625,30 @@ private let otherPermissionHook = """
     let codex = try #require(try uninstall(settings, host: .codex))
     #expect(codex.contains("UserPromptSubmit"))
     #expect(codex.contains("countersign hook --host claude\", \"async\""))
+  }
+
+  @Test func addsTheStopEntryForEachHostWhenAskedTo() throws {
+    for host in ApprovalCore.Host.allCases {
+      let withNotices = try HookSetup.install(
+        into: nil, host: host, executablePath: brewPath, addsWaitingEntry: true)
+      #expect(WaitingHookSetup.entries(in: withNotices, host: host).count == 1)
+      let withoutNotices = try HookSetup.install(
+        into: nil, host: host, executablePath: brewPath, addsWaitingEntry: false)
+      #expect(WaitingHookSetup.entries(in: withoutNotices, host: host).isEmpty)
+    }
+  }
+
+  @Test func refreshesAStaleStopEntryEvenWhenNotAddingOne() throws {
+    let otherPath = "/usr/local/bin/countersign"
+    for host in ApprovalCore.Host.allCases {
+      let installed = try HookSetup.install(
+        into: nil, host: host, executablePath: brewPath, addsWaitingEntry: true)
+      let refreshed = try HookSetup.install(
+        into: installed, host: host, executablePath: otherPath, addsWaitingEntry: false)
+      let entries = WaitingHookSetup.entries(in: refreshed, host: host)
+      #expect(entries.count == 1)
+      #expect(entries.allSatisfy { $0.command.hasPrefix(otherPath) })
+    }
   }
 
   @Test func acceptsOnlyYesAsConfirmation() {

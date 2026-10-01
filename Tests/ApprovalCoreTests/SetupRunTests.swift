@@ -61,14 +61,15 @@ private struct Sandbox {
   }
 
   func run(
-    _ locations: [HookConfigLocation], uninstall: Bool = false,
+    _ locations: [HookConfigLocation], uninstall: Bool = false, addsWaitingEntry: Bool = false,
     codexHookTrustFile: URL? = nil,
     answer: @escaping (String) -> Bool = { _ in true }
   ) -> Outcome {
     var output = ""
     var asked: [String] = []
     var setup = SetupRun(
-      executablePath: brewPath, uninstall: uninstall, codexHookTrustFile: codexHookTrustFile,
+      executablePath: brewPath, uninstall: uninstall, addsWaitingEntry: addsWaitingEntry,
+      codexHookTrustFile: codexHookTrustFile,
       now: { moment },
       output: { output += $0 },
       confirm: { path in
@@ -303,7 +304,7 @@ private let codexInstalled = codexEntry("\(brewPath) hook --host codex")
     try CodexHookTrustRecordStore.save(
       CodexHookTrustRecord(hookKey: "kept", command: "kept"), to: sandbox.codexHookTrustFile)
     var preview = SetupRun(
-      executablePath: brewPath, uninstall: false, writesFiles: false,
+      executablePath: brewPath, uninstall: false, addsWaitingEntry: false, writesFiles: false,
       codexHookTrustFile: sandbox.codexHookTrustFile, output: { _ in }, confirm: { _ in true })
     _ = preview.apply(sandbox.codex)
     #expect(
@@ -317,7 +318,8 @@ private let codexInstalled = codexEntry("\(brewPath) hook --host codex")
     try sandbox.put("{}\n", at: sandbox.codex.file)
     let before = Date()
     var setup = SetupRun(
-      executablePath: brewPath, uninstall: false, output: { _ in }, confirm: { _ in true })
+      executablePath: brewPath, uninstall: false, addsWaitingEntry: false, output: { _ in },
+      confirm: { _ in true })
     let succeeded = setup.apply(sandbox.codex)
     #expect(succeeded)
     let stamps = [before, Date()].map {
@@ -352,6 +354,30 @@ private let codexInstalled = codexEntry("\(brewPath) hook --host codex")
     #expect(CodexHookTrustRecordStore.load(file: sandbox.codexHookTrustFile) == nil)
   }
 
+  @Test func addsTheStopEntryNextToThePermissionEntryWhileNoticesAreOn() throws {
+    let sandbox = try Sandbox()
+    defer { sandbox.remove() }
+    try sandbox.put(claudeInstalled, at: sandbox.claude.file)
+    let outcome = sandbox.run([sandbox.claude], addsWaitingEntry: true)
+    #expect(outcome.succeeded)
+    let written = try #require(sandbox.text(of: sandbox.claude.file))
+    #expect(written.contains("\"PermissionRequest\""))
+    #expect(written.contains("\(brewPath) hook --host claude --event waiting"))
+    #expect(outcome.output.contains("\"Stop\""))
+  }
+
+  @Test func leavesAnExistingStopEntryAloneWhileNoticesAreOff() throws {
+    let sandbox = try Sandbox()
+    defer { sandbox.remove() }
+    let withStop = try WaitingHookSetup.install(
+      into: Array(claudeInstalled.utf8), host: .claude, executablePath: brewPath)
+    try sandbox.put(String(decoding: withStop, as: UTF8.self), at: sandbox.claude.file)
+    let outcome = sandbox.run([sandbox.claude], addsWaitingEntry: false)
+    #expect(outcome.succeeded)
+    #expect(outcome.output == "\(sandbox.claude.file.path): already up to date\n")
+    #expect(sandbox.text(of: sandbox.claude.file) == String(decoding: withStop, as: UTF8.self))
+  }
+
   @Test func reportsAHookFileThatIsNotJSON() throws {
     let sandbox = try Sandbox()
     defer { sandbox.remove() }
@@ -380,7 +406,8 @@ private let codexInstalled = codexEntry("\(brewPath) hook --host codex")
     let sandbox = try Sandbox()
     defer { sandbox.remove() }
     try sandbox.put(claudeOld, at: sandbox.claude.file)
-    let preview = SetupRun.preview(sandbox.claude, executablePath: brewPath, uninstall: false)
+    let preview = SetupRun.preview(
+      sandbox.claude, executablePath: brewPath, uninstall: false, addsWaitingEntry: false)
     let hookPath = sandbox.claude.file.path
     let expected =
       "\(hookPath)\n"
@@ -397,12 +424,14 @@ private let codexInstalled = codexEntry("\(brewPath) hook --host codex")
     let sandbox = try Sandbox()
     defer { sandbox.remove() }
     try sandbox.put(codexInstalled, at: sandbox.codex.file)
-    let preview = SetupRun.preview(sandbox.codex, executablePath: brewPath, uninstall: false)
+    let preview = SetupRun.preview(
+      sandbox.codex, executablePath: brewPath, uninstall: false, addsWaitingEntry: false)
     #expect(preview.text == "\(sandbox.codex.file.path): already up to date\n")
     #expect(!preview.hasChanges)
     let fresh = try Sandbox()
     defer { fresh.remove() }
-    let wiring = SetupRun.preview(fresh.codex, executablePath: brewPath, uninstall: false)
+    let wiring = SetupRun.preview(
+      fresh.codex, executablePath: brewPath, uninstall: false, addsWaitingEntry: false)
     #expect(wiring.changedFiles == [fresh.codex.file])
     #expect(fresh.text(of: fresh.codex.file) == nil)
   }
@@ -411,7 +440,8 @@ private let codexInstalled = codexEntry("\(brewPath) hook --host codex")
     let sandbox = try Sandbox()
     defer { sandbox.remove() }
     try sandbox.put(codexInstalled, at: sandbox.codex.file)
-    let preview = SetupRun.preview(sandbox.codex, executablePath: "", uninstall: true)
+    let preview = SetupRun.preview(
+      sandbox.codex, executablePath: "", uninstall: true, addsWaitingEntry: false)
     #expect(preview.changedFiles == [sandbox.codex.file])
     #expect(
       preview.text.components(separatedBy: "\n").contains {
@@ -424,15 +454,16 @@ private let codexInstalled = codexEntry("\(brewPath) hook --host codex")
     let sandbox = try Sandbox()
     defer { sandbox.remove() }
     try sandbox.put("{ nope", at: sandbox.claude.file)
-    let preview = SetupRun.preview(sandbox.claude, executablePath: brewPath, uninstall: false)
+    let preview = SetupRun.preview(
+      sandbox.claude, executablePath: brewPath, uninstall: false, addsWaitingEntry: false)
     #expect(
       preview.failures == [
         "\(sandbox.claude.file.path): error: not valid JSON at line 1, column 3"
       ])
     #expect(!preview.hasChanges)
     var setup = SetupRun(
-      executablePath: brewPath, uninstall: false, now: { moment }, output: { _ in },
-      confirm: { _ in true })
+      executablePath: brewPath, uninstall: false, addsWaitingEntry: false, now: { moment },
+      output: { _ in }, confirm: { _ in true })
     let wired = setup.apply(sandbox.codex)
     #expect(wired)
     #expect(setup.changedFiles == [sandbox.codex.file])
@@ -469,8 +500,8 @@ private let codexInstalled = codexEntry("\(brewPath) hook --host codex")
     let again = sandbox.run([sandbox.cursor])
     #expect(again.output == "\(sandbox.cursor.file.path): already up to date\n")
     var removal = SetupRun(
-      executablePath: "", uninstall: true, now: { moment.addingTimeInterval(1) },
-      output: { _ in }, confirm: { _ in true })
+      executablePath: "", uninstall: true, addsWaitingEntry: false,
+      now: { moment.addingTimeInterval(1) }, output: { _ in }, confirm: { _ in true })
     let removed = removal.apply(sandbox.cursor)
     #expect(removed)
     #expect(sandbox.text(of: sandbox.cursor.file) == original)
@@ -553,8 +584,8 @@ private let codexInstalled = codexEntry("\(brewPath) hook --host codex")
       AntigravityHookSetup.hookNodes(in: try JSONSpanReader.parse(Array(installed.utf8))).count
         == 1)
     var removal = SetupRun(
-      executablePath: "", uninstall: true, now: { moment.addingTimeInterval(1) },
-      output: { _ in }, confirm: { _ in true })
+      executablePath: "", uninstall: true, addsWaitingEntry: false,
+      now: { moment.addingTimeInterval(1) }, output: { _ in }, confirm: { _ in true })
     let removed = removal.apply(sandbox.antigravity)
     #expect(removed)
     #expect(sandbox.text(of: sandbox.antigravity.file) == original)

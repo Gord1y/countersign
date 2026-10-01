@@ -136,9 +136,9 @@ writes and sends: [Safety and privacy](docs/safety-and-privacy.md).
   [Quiet hours](docs/configuration.md#panels).
 - **A sound cue (optional).** One macOS sound when a panel appears, off by default; see
   [Sound](docs/configuration.md#panels).
-- **Waiting-agent notices (optional).** When an agent has finished a turn, or handed a request back
+- **Waiting-agent notices.** When an agent has finished a turn, or handed a request back
   to its own prompt, and you have been away from it for a few minutes, a small corner card says
-  which agent is waiting, with a **Go there** button. Off by default, and it never takes focus; see
+  which agent is waiting, with a **Go there** button. On by default, and it never takes focus; see
   [Waiting-agent notices](docs/configuration.md#panels).
 - **Decision history and menu answers.** The menu-bar app lists your last ten answers, and lets you
   deny a pending request or hand it back to its chat without opening its panel; see

@@ -335,8 +335,8 @@
     },
     "waitingNotices": {
       "type": "boolean",
-      "default": false,
-      "description": "Whether a corner card appears when a Claude Code agent has been waiting for you; turn it on from Settings, which also adds the Stop hook; top level only."
+      "default": true,
+      "description": "Whether a corner card appears when an agent has been waiting for you; setup adds the Stop hook while it is on, and turning it off from Settings removes it; top level only."
     },
     "waitingNoticeMinutes": {
       "type": "integer",

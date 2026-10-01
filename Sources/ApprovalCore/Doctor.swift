@@ -238,7 +238,7 @@ public enum Doctor {
     let check = hostInput.host.rawValue
     let wiring = HostWiring.status(
       host: hostInput.host, directoryExists: hostInput.directoryExists, file: hostInput.fileState,
-      stablePath: input.stableExecutablePath)
+      stablePath: input.stableExecutablePath, addsWaitingEntry: input.waitingNoticesEnabled)
     guard wiring == .wired else { return [] }
     switch hostInput.host {
     case .claude:
@@ -247,7 +247,12 @@ public enum Doctor {
       let verdict = CodexTrustVerdict.judge(
         record: input.codexHookTrustRecord, current: codexCurrentEntry(hostInput),
         table: CodexTrustTable.read(input.codexConfigFile))
-      return [codexTrustLine(verdict.state)]
+      return [
+        codexTrustLine(
+          verdict.state,
+          nextStep: AgentFollowUps.codexNextStep(
+            hasWaitingEntry: AgentFollowUps.codexHasWaitingEntry(in: hostInput.fileState)))
+      ]
     case .cursor:
       return [DoctorLine(status: .info, check: check, detail: AgentFollowUps.cursorGoodToKnow)]
     case .antigravity:
@@ -255,9 +260,10 @@ public enum Doctor {
     }
   }
 
-  private static func codexTrustLine(_ state: CodexHookTrustState) -> DoctorLine {
+  private static func codexTrustLine(_ state: CodexHookTrustState, nextStep: String)
+    -> DoctorLine
+  {
     let check = Host.codex.rawValue
-    let nextStep = AgentFollowUps.codexNextStep
     switch state {
     case .trusted:
       return DoctorLine(status: .ok, check: check, detail: "Codex trusts Countersign's hook")
@@ -367,7 +373,7 @@ public enum Doctor {
         DoctorLine(
           status: .warn, check: check,
           detail:
-            "waiting-agent notices are on in config.json, but \(hostInput.filePath) has no \(event) entry of Countersign's; turn Waiting-agent notices off and on again in countersign settings"
+            "waiting-agent notices are on, but \(hostInput.filePath) has no \(event) entry of Countersign's; run countersign setup, or Update in Settings ▸ Agents"
         )
       ]
     }

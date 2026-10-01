@@ -209,11 +209,13 @@ private let ownStopOnly = """
 
   @Test func setupRefreshesAnExistingStopEntryButNeverAddsOne() throws {
     let refreshed = try HookSetup.install(
-      into: Array(staleWaiting.utf8), host: .claude, executablePath: brewPath)
+      into: Array(staleWaiting.utf8), host: .claude, executablePath: brewPath,
+      addsWaitingEntry: false)
     let text = String(decoding: refreshed, as: UTF8.self)
     #expect(text.contains("/opt/homebrew/bin/countersign hook --host claude --event waiting"))
     #expect(text.contains("\"PermissionRequest\""))
-    let fresh = try HookSetup.install(into: nil, host: .claude, executablePath: brewPath)
+    let fresh = try HookSetup.install(
+      into: nil, host: .claude, executablePath: brewPath, addsWaitingEntry: false)
     #expect(
       !String(decoding: fresh, as: UTF8.self).contains("\"Stop\""))
   }

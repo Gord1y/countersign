@@ -32,9 +32,9 @@ public enum HookSetup {
 
   static let emptyDocument = Array("{}\n".utf8)
 
-  public static func install(into original: [UInt8]?, host: Host, executablePath: String) throws
-    -> [UInt8]
-  {
+  public static func install(
+    into original: [UInt8]?, host: Host, executablePath: String, addsWaitingEntry: Bool
+  ) throws -> [UInt8] {
     guard HookCommand.isCountersignExecutable(executablePath) else {
       throw HookSetupError.unrecognizableExecutable(executablePath)
     }
@@ -52,7 +52,11 @@ public enum HookSetup {
     case .antigravity:
       installed = try AntigravityHookSetup.install(into: original, executablePath: executablePath)
     }
-    return try WaitingHookSetup.refresh(
+    guard addsWaitingEntry else {
+      return try WaitingHookSetup.refresh(
+        into: installed, host: host, executablePath: executablePath)
+    }
+    return try WaitingHookSetup.install(
       into: installed, host: host, executablePath: executablePath)
   }
 

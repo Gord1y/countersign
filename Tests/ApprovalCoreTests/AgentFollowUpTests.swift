@@ -117,6 +117,22 @@ import Testing
     #expect(followUp?.offersMarkAsDone == false)
   }
 
+  @Test func codexNextStepSaysHooksOnceTheStopEntryIsThere() {
+    #expect(AgentFollowUps.codexNextStep.contains("trust Countersign's hook."))
+    #expect(AgentFollowUps.codexNextStep(hasWaitingEntry: false) == AgentFollowUps.codexNextStep)
+    #expect(
+      AgentFollowUps.codexNextStep(hasWaitingEntry: true).contains("trust Countersign's hooks."))
+    let followUp = AgentFollowUps.current(
+      host: .codex, wiringStatus: .wired, codexTrust: .unknown, codexHasWaitingEntry: true)
+    #expect(followUp?.text == AgentFollowUps.codexNextStepWithWaitingEntry)
+    let stop = Array(
+      #"{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "/opt/homebrew/bin/countersign hook --host codex --event waiting"}]}]}}"#
+        .utf8)
+    #expect(AgentFollowUps.codexHasWaitingEntry(in: .bytes(stop)))
+    #expect(!AgentFollowUps.codexHasWaitingEntry(in: .bytes(Array("{}".utf8))))
+    #expect(!AgentFollowUps.codexHasWaitingEntry(in: .missing))
+  }
+
   @Test func antigravityGetsNoLineWhenItNeedsAnUpdate() {
     #expect(
       AgentFollowUps.current(

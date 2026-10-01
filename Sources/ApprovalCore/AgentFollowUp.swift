@@ -20,15 +20,29 @@ public struct AgentFollowUp: Sendable, Equatable {
 public enum AgentFollowUps {
   public static let codexNextStep =
     "Open Codex in a terminal, not the desktop app, run /hooks and trust Countersign's hook. Codex sessions already open pick it up after /hooks or in a new session."
+  public static let codexNextStepWithWaitingEntry =
+    "Open Codex in a terminal, not the desktop app, run /hooks and trust Countersign's hooks. Codex sessions already open pick them up after /hooks or in a new session."
+
+  public static func codexNextStep(hasWaitingEntry: Bool) -> String {
+    hasWaitingEntry ? codexNextStepWithWaitingEntry : codexNextStep
+  }
+
+  public static func codexHasWaitingEntry(in file: Doctor.FileState) -> Bool {
+    guard case .bytes(let bytes) = file else { return false }
+    return !WaitingHookSetup.entries(in: bytes, host: .codex).isEmpty
+  }
+
   public static let cursorGoodToKnow =
     "Only commands Cursor runs outside its sandbox, and MCP tool calls, get a panel."
   public static let antigravityGoodToKnow =
     "After you approve in the panel, Antigravity still asks once more in its own prompt until Google fixes antigravity-cli#1053."
 
   public static func current(
-    host: Host, wiringStatus: HostWiringStatus, codexTrust: CodexHookTrustState = .unknown
+    host: Host, wiringStatus: HostWiringStatus, codexTrust: CodexHookTrustState = .unknown,
+    codexHasWaitingEntry: Bool = false
   ) -> AgentFollowUp? {
     guard wiringStatus == .wired else { return nil }
+    let nextStep = codexNextStep(hasWaitingEntry: codexHasWaitingEntry)
     switch host {
     case .claude:
       return nil
@@ -38,11 +52,11 @@ public enum AgentFollowUps {
         return nil
       case .unknown:
         return AgentFollowUp(
-          host: .codex, kind: .nextStep, text: codexNextStep, offersMarkAsDone: true)
+          host: .codex, kind: .nextStep, text: nextStep, offersMarkAsDone: true)
       case .pending(let reason, let offersMarkAsDone):
         return AgentFollowUp(
           host: .codex, kind: .nextStep,
-          text: reason.map { "\($0) \(codexNextStep)" } ?? codexNextStep,
+          text: reason.map { "\($0) \(nextStep)" } ?? nextStep,
           offersMarkAsDone: offersMarkAsDone)
       }
     case .cursor:
@@ -56,12 +70,14 @@ public enum AgentFollowUps {
 
   public static func setupLines(
     wiring: [Host: HostWiringStatus], codexTrust: CodexHookTrustState, changedHosts: Set<Host>,
-    uninstall: Bool
+    uninstall: Bool, codexHasWaitingEntry: Bool = false
   ) -> [String] {
     guard !uninstall, !changedHosts.isEmpty else { return [] }
     return Host.allCases.compactMap { host in
       guard let status = wiring[host],
-        let followUp = current(host: host, wiringStatus: status, codexTrust: codexTrust)
+        let followUp = current(
+          host: host, wiringStatus: status, codexTrust: codexTrust,
+          codexHasWaitingEntry: codexHasWaitingEntry)
       else { return nil }
       switch followUp.kind {
       case .nextStep:

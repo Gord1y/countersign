@@ -41,8 +41,10 @@ enum SetupCommand {
         isExecutable: FileManager.default.isExecutableFile(atPath:))
     }
     let interactive = isatty(STDIN_FILENO) == 1
+    let waitingNotices = waitingNoticesEnabled(home: home)
     var setup = SetupRun(
       executablePath: executablePath, uninstall: options.uninstall,
+      addsWaitingEntry: waitingNotices,
       codexHookTrustFile: AppPaths(home: home).codexHookTrustFile,
       codexWaitingHookTrustFile: AppPaths(home: home).codexWaitingHookTrustFile,
       output: { print($0, terminator: "") },
@@ -53,14 +55,21 @@ enum SetupCommand {
       failed = failed || !succeeded
     }
     printFollowUps(
-      uninstall: options.uninstall, changedFiles: setup.changedFiles, environment: environment,
-      home: home)
+      uninstall: options.uninstall, addsWaitingEntry: waitingNotices,
+      changedFiles: setup.changedFiles, environment: environment, home: home)
     printDuplicateInstall(environment: environment, home: home)
     exit(failed ? 1 : 0)
   }
 
+  private static func waitingNoticesEnabled(home: URL) -> Bool {
+    let (configFile, _) = ConfigFileLoader.load(
+      paths: AppPaths(home: home), soundNames: SystemSounds.installedNames)
+    return Settings.resolve(file: configFile, host: .claude).waitingNotices
+  }
+
   private static func printFollowUps(
-    uninstall: Bool, changedFiles: [URL], environment: [String: String], home: URL
+    uninstall: Bool, addsWaitingEntry: Bool, changedFiles: [URL], environment: [String: String],
+    home: URL
   ) {
     guard let resolved = Bundle.main.executableURL?.resolvingSymlinksInPath().path else { return }
     let stablePath = StableExecutablePath.stable(
@@ -71,11 +80,16 @@ enum SetupCommand {
     }
     var wiring: [ApprovalCore.Host: HostWiringStatus] = [:]
     var codexTrust = CodexHookTrustState.unknown
+    var codexHasWaitingEntry = false
     for location in locations {
+      let fileState = ConfigFileStore.fileState(location.file)
       let status = HostWiring.status(
         host: location.host, directoryExists: DoctorCommand.isInstalled(location),
-        file: ConfigFileStore.fileState(location.file), stablePath: stablePath)
+        file: fileState, stablePath: stablePath, addsWaitingEntry: addsWaitingEntry)
       wiring[location.host] = status
+      if location.host == .codex {
+        codexHasWaitingEntry = AgentFollowUps.codexHasWaitingEntry(in: fileState)
+      }
       if location.host == .codex, status == .wired {
         codexTrust = CodexHookTrust.check(
           location, recordFile: AppPaths(home: home).codexHookTrustFile, persistsLearnedHash: true)
@@ -83,7 +97,8 @@ enum SetupCommand {
     }
     let changedHosts = Set(locations.filter { changedFiles.contains($0.file) }.map(\.host))
     for line in AgentFollowUps.setupLines(
-      wiring: wiring, codexTrust: codexTrust, changedHosts: changedHosts, uninstall: uninstall)
+      wiring: wiring, codexTrust: codexTrust, changedHosts: changedHosts, uninstall: uninstall,
+      codexHasWaitingEntry: codexHasWaitingEntry)
     {
       print(line)
     }

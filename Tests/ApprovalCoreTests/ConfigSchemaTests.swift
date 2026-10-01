@@ -126,7 +126,7 @@ import Testing
   @Test func waitingNoticeKeysMatchWhatTheParserKnows() throws {
     let schema = try Self.loadSchema()
     #expect(schema["properties"]?["waitingNotices"]?["type"]?.stringValue == "boolean")
-    #expect(schema["properties"]?["waitingNotices"]?["default"]?.boolValue == false)
+    #expect(schema["properties"]?["waitingNotices"]?["default"]?.boolValue == true)
     #expect(schema["properties"]?["waitingNoticeMinutes"]?["type"]?.stringValue == "integer")
     #expect(
       schema["properties"]?["waitingNoticeMinutes"]?["minimum"]

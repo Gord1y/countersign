@@ -86,11 +86,11 @@ the agent asks and nothing at all is logged, the agent never ran the hook: check
 
 Go through these in order:
 
-1. **Is the feature on?** It is off by default: Settings ▸ Panels ▸ Waiting-agent notices.
+1. **Is the feature on?** It is on by default; check Settings ▸ Panels ▸ Waiting-agent notices.
 2. **Is the agent wired for it?** `countersign doctor` reports each agent's Stop entry on its
    `claude waiting`, `codex waiting`, `cursor waiting` and `antigravity waiting` lines; if one is
-   not `ok`, turn the notices off and on again in Settings, which shows the change before it
-   writes the entry.
+   not `ok`, run `countersign setup` or press Update in Settings ▸ Agents, which shows the change
+   before it writes the entry.
 3. **Codex:** has Codex trusted the new Stop entry? Doctor says `Codex has not trusted
    Countersign's Stop entry yet` until you run `/hooks` in a Codex session and trust it.
 4. **Paused or in quiet time?** Both hold a notice back and show it when they end; see

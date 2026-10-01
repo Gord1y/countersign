@@ -19,6 +19,7 @@ public struct SetupPreview: Sendable, Equatable {
 public struct SetupRun {
   private let executablePath: String
   private let uninstall: Bool
+  private let addsWaitingEntry: Bool
   private let writesFiles: Bool
   private let codexHookTrustFile: URL?
   private let codexWaitingHookTrustFile: URL?
@@ -29,13 +30,14 @@ public struct SetupRun {
   public private(set) var changedFiles: [URL] = []
 
   public init(
-    executablePath: String, uninstall: Bool, writesFiles: Bool = true,
+    executablePath: String, uninstall: Bool, addsWaitingEntry: Bool, writesFiles: Bool = true,
     codexHookTrustFile: URL? = nil, codexWaitingHookTrustFile: URL? = nil,
     now: @escaping () -> Date = { Date() },
     output: @escaping (String) -> Void, confirm: @escaping (String) -> Bool
   ) {
     self.executablePath = executablePath
     self.uninstall = uninstall
+    self.addsWaitingEntry = addsWaitingEntry
     self.writesFiles = writesFiles
     self.codexHookTrustFile = codexHookTrustFile
     self.codexWaitingHookTrustFile = codexWaitingHookTrustFile
@@ -45,11 +47,13 @@ public struct SetupRun {
   }
 
   public static func preview(
-    _ location: HookConfigLocation, executablePath: String, uninstall: Bool
+    _ location: HookConfigLocation, executablePath: String, uninstall: Bool,
+    addsWaitingEntry: Bool
   ) -> SetupPreview {
     var text = ""
     var run = SetupRun(
-      executablePath: executablePath, uninstall: uninstall, writesFiles: false,
+      executablePath: executablePath, uninstall: uninstall, addsWaitingEntry: addsWaitingEntry,
+      writesFiles: false,
       output: { text += $0 }, confirm: { _ in true })
     _ = run.apply(location)
     return SetupPreview(text: text, failures: run.failures, changedFiles: run.changedFiles)
@@ -64,7 +68,8 @@ public struct SetupRun {
         uninstall
         ? try HookSetup.uninstall(from: original, host: location.host)
         : try HookSetup.install(
-          into: original, host: location.host, executablePath: executablePath)
+          into: original, host: location.host, executablePath: executablePath,
+          addsWaitingEntry: addsWaitingEntry)
       guard try offer(updated, replacing: original, in: file) else { return true }
     } catch {
       report(error, in: file)

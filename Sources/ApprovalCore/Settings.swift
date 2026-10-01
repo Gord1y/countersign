@@ -70,7 +70,7 @@ public struct Settings: Sendable, Equatable {
   public static let defaultQuitBehavior = QuitBehavior.ask
   public static let defaultModeAfterPlan = PlanApprovalMode.default
   public static let defaultPanelSound = PanelSound.none
-  public static let defaultWaitingNotices = false
+  public static let defaultWaitingNotices = true
   public static let defaultWaitingNoticeMinutes = 2
   public static let waitingNoticeMinutesRange = 1...60
   public static let waitingNoticeMinuteChoices = [1, 2, 5, 10, 15, 30]

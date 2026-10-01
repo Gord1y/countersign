@@ -51,13 +51,13 @@ import Testing
     #expect(file.editorApp == "com.microsoft.VSCode")
   }
 
-  @Test func waitingNoticesAreOffAndTwoMinutesByDefault() {
+  @Test func waitingNoticesAreOnAndTwoMinutesByDefault() {
     let (file, logLines) = parse("{}")
     #expect(file.waitingNotices == nil)
     #expect(file.waitingNoticeMinutes == nil)
     #expect(logLines.isEmpty)
     let settings = Settings.resolve(file: file, host: .claude)
-    #expect(settings.waitingNotices == false)
+    #expect(settings.waitingNotices == true)
     #expect(settings.waitingNoticeMinutes == 2)
   }
 
@@ -86,7 +86,7 @@ import Testing
   @Test func waitingNoticesWrongTypeFallsBackToDefault() {
     let (file, logLines) = parse(#"{ "waitingNotices": "yes" }"#)
     #expect(file.waitingNotices == nil)
-    #expect(logLines == ["waitingNotices: not a boolean, using default false"])
+    #expect(logLines == ["waitingNotices: not a boolean, using default true"])
   }
 
   @Test func editorAppIsRead() {

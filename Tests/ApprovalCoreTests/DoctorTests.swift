@@ -842,7 +842,7 @@ private func stopHook(
         DoctorLine(
           status: .warn, check: "claude waiting",
           detail:
-            "waiting-agent notices are on in config.json, but \(claudeFilePath) has no Stop entry of Countersign's; turn Waiting-agent notices off and on again in countersign settings"
+            "waiting-agent notices are on, but \(claudeFilePath) has no Stop entry of Countersign's; run countersign setup, or Update in Settings ▸ Agents"
         )
       ])
   }
@@ -991,7 +991,7 @@ private func cursorWaitingLines(stop: String?, enabled: Bool) -> [DoctorLine] {
         DoctorLine(
           status: .warn, check: "cursor waiting",
           detail:
-            "waiting-agent notices are on in config.json, but \(cursorFilePath) has no stop entry of Countersign's; turn Waiting-agent notices off and on again in countersign settings"
+            "waiting-agent notices are on, but \(cursorFilePath) has no stop entry of Countersign's; run countersign setup, or Update in Settings ▸ Agents"
         )
       ])
   }

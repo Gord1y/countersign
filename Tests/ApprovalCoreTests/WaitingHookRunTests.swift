@@ -156,7 +156,8 @@ private struct Sandbox {
     let sandbox = try Sandbox(contents: nil)
     defer { sandbox.remove() }
     try Data(
-      try HookSetup.install(into: nil, host: .codex, executablePath: brewPath)
+      try HookSetup.install(
+        into: nil, host: .codex, executablePath: brewPath, addsWaitingEntry: false)
     ).write(to: sandbox.file)
     let location = HookConfigLocation(
       host: .codex, directory: sandbox.directory, file: sandbox.file)

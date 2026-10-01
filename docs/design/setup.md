@@ -103,12 +103,20 @@ a `matcher`:
   have no event-name field, so every host's waiting entry names itself on its own command line.
   `HookCommand.isCommand` compares the event too, so the approval and the waiting command of one
   host never match each other.
-- Setup never adds it. `HookSetup.install` for Claude Code, on Wire, Update and every
-  `countersign setup`, only refreshes an existing `Stop` entry of ours (command path, `async`,
-  `timeout`) through `WaitingHookSetup.refresh`. Only the Waiting-agent notices toggle in Settings
-  adds it, through `WaitingHookRun` (preview, then apply with a backup, over the wired hosts in
-  `WaitingHookSetup.supportedHosts`). `countersign setup --remove` and turning the toggle off
-  remove it, and someone else's `Stop` hooks stay untouched.
+- Notices are on by default, so setup adds it. `HookSetup.install` takes `addsWaitingEntry`, with
+  no default: every caller passes the resolved `waitingNotices` setting (`SetupRun`,
+  `HostWiring.status`, the Settings model, `countersign setup`, Doctor). When true it calls
+  `WaitingHookSetup.install`, which adds the `Stop` entry or refreshes the one that is there
+  (command path, `async`, `timeout`), so Wire, Update and every `countersign setup` put it in the
+  same diff as the permission entry. When false it calls `WaitingHookSetup.refresh`, which only
+  refreshes an existing entry and never adds or removes one: with notices off, setup leaves a
+  leftover entry alone and Doctor reports it. `HostWiring.status` runs the same install, so an
+  agent wired before 0.2.0 reads "Needs an update" (`HostWiringUpdate.addsWaitingEntry`, "Adds the
+  Stop entry for waiting-agent notices") until setup or Update applies it. Turning the Settings
+  toggle off removes the entries through `WaitingHookRun` (preview, then apply with a backup, over
+  the wired hosts in `WaitingHookSetup.supportedHosts`) and writes `waitingNotices: false`, which
+  is what keeps setup from adding them again; turning it on adds them the same way.
+  `countersign setup --remove` removes it too, and someone else's `Stop` hooks stay untouched.
 - Until the notice runtime exists, `hook --event waiting` logs `waiting: <host> not handled yet`
   and exits 0.
 
@@ -173,8 +181,8 @@ setup says so and exits 0.
 
 ### The waiting entries of Codex, Cursor and Antigravity
 
-The waiting-agent toggle wires the other three hosts the same way it wires Claude Code: setup
-refreshes an existing entry and never adds one, the toggle adds and removes it through
+The other three hosts are wired the same way as Claude Code: setup adds the entry while notices
+are on and only refreshes it while they are off, the toggle adds and removes it through
 `WaitingHookRun` (every wired host's file appears in one diff), and `countersign setup --remove`
 and `HookSetup.uninstall` remove it. No `Stop` payload of these hosts has been captured yet, so
 each shape follows the host's existing Countersign entry, and each unconfirmed detail lives in one
@@ -188,7 +196,8 @@ line. None of the three has `async`, which only Claude Code has: the hook exits 
   waiting", "timeout": 30}`.
 - Cursor, `hooks.stop`, a plain entry like the others: `{"command": "<exe> hook --host cursor
   --event waiting", "timeout": 30}`. `stop` is never added to `CursorAdapter.events`: setup adds
-  every event in that list, and waiting notices are off by default. `CursorHookSetup.sites`, which
+  every event in that list unconditionally, and the waiting entry depends on the setting.
+  `CursorHookSetup.sites`, which
   scans only that list, never sees the `stop` key, so Cursor's own install and uninstall leave the
   entry alone; `WaitingHookSetup` owns it and recognises it with `CursorHookSetup.isCountersignEntry`.
 - Antigravity, a second named hook, `countersign-waiting`, with `Stop` as its one event and the
