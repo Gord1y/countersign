@@ -50,9 +50,7 @@ private struct ScrollElasticityDisabler: NSViewRepresentable {
     ScrollElasticityDisablerView()
   }
 
-  func updateNSView(_ nsView: ScrollElasticityDisablerView, context: Context) {
-    nsView.disableVerticalElasticity()
-  }
+  func updateNSView(_ nsView: ScrollElasticityDisablerView, context: Context) {}
 }
 
 private final class ScrollElasticityDisablerView: NSView {
@@ -61,13 +59,11 @@ private final class ScrollElasticityDisablerView: NSView {
     disableVerticalElasticity()
   }
 
-  override func layout() {
-    super.layout()
-    disableVerticalElasticity()
-  }
-
-  func disableVerticalElasticity() {
-    enclosingScrollView?.verticalScrollElasticity = .none
+  private func disableVerticalElasticity() {
+    guard let scrollView = enclosingScrollView, scrollView.verticalScrollElasticity != .none else {
+      return
+    }
+    scrollView.verticalScrollElasticity = .none
   }
 }
 

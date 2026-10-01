@@ -256,7 +256,11 @@ Content scrolls only when it overflows the window, and never rubber-bands past e
 `.scrollBounceBehavior(.basedOnSize)` turns bouncing off altogether when the content already fits,
 and `ScrollElasticityDisablerView`, a tiny `NSViewRepresentable` sitting in the scrollable content,
 sets its `enclosingScrollView`'s `verticalScrollElasticity` to `.none` as a backstop for when it
-does scroll, so dragging past either end never shows empty space under the content. `SettingsContent`
+does scroll, so dragging past either end never shows empty space under the content. It does so once,
+when the view joins its window, and only if the value differs; `updateNSView` does nothing and there
+is no `layout()` override. Setting the elasticity on every layout pass re-tiles the scroll view and
+can cancel or restart its scroll animation, which stuttered fast and momentum scrolling on the long
+Panels pane. `SettingsContent`
 carries its own trailing `SettingsMetrics.padding` inside the scroll view, so the last card's bottom
 edge always has room to breathe above the window's edge once scrolled all the way down, rather than
 sitting flush against it.
