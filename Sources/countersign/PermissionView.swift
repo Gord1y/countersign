@@ -15,7 +15,6 @@ struct PermissionView: View {
   @State private var footerState: PermissionFooterState = .default
   @State private var reasonText = ""
   @FocusState private var isReasonFieldFocused: Bool
-  @Environment(\.colorSchemeContrast) private var contrast
 
   private var host: ApprovalCore.Host { model.request.host }
   private var fileDiffs: [FileDiff]? { model.fileDiffs }
@@ -187,26 +186,18 @@ struct PermissionView: View {
     return attributed
   }
 
-  private var flagColor: Color {
-    guard contrast == .increased else { return .orange }
+  private func color(for kind: ShellTokenKind) -> Color {
+    guard
+      let light = PanelContrast.shellTokenColor(kind, dark: false),
+      let dark = PanelContrast.shellTokenColor(kind, dark: true)
+    else { return .secondary }
     return Color(
       nsColor: NSColor(name: nil) { appearance in
         if appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua {
-          return NSColor(PanelContrast.increasedContrastOrangeDark)
+          return NSColor(dark)
         }
-        return NSColor(PanelContrast.increasedContrastOrangeLight)
+        return NSColor(light)
       })
-  }
-
-  private func color(for kind: ShellTokenKind) -> Color {
-    switch kind {
-    case .command: return .purple
-    case .flag: return flagColor
-    case .string: return .green
-    case .variable: return .teal
-    case .operator: return .pink
-    case .comment: return .secondary
-    }
   }
 
   private func webFetchBody(url: String, prompt: String?) -> some View {

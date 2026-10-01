@@ -58,14 +58,29 @@ public enum DiffLineSpeech {
 public enum PanelContrast {
   public static let lightCardBackground = HexColor(red: 0xF2, green: 0xF2, blue: 0xF2)
   public static let darkCardBackground = HexColor(red: 0x29, green: 0x29, blue: 0x29)
-  public static let systemOrangeLight = HexColor(red: 0xFF, green: 0x95, blue: 0x00)
-  public static let systemOrangeDark = HexColor(red: 0xFF, green: 0x9F, blue: 0x0A)
+  public static let systemPurpleLight = HexColor(red: 0xCB, green: 0x30, blue: 0xE0)
+  public static let systemPurpleDark = HexColor(red: 0xDB, green: 0x34, blue: 0xF2)
+  public static let systemOrangeLight = HexColor(red: 0xFF, green: 0x8D, blue: 0x28)
+  public static let systemOrangeDark = HexColor(red: 0xFF, green: 0x92, blue: 0x30)
+  public static let systemGreenLight = HexColor(red: 0x34, green: 0xC7, blue: 0x59)
+  public static let systemGreenDark = HexColor(red: 0x30, green: 0xD1, blue: 0x58)
+  public static let systemTealLight = HexColor(red: 0x00, green: 0xC3, blue: 0xD0)
+  public static let systemTealDark = HexColor(red: 0x00, green: 0xD2, blue: 0xE0)
+  public static let systemPinkLight = HexColor(red: 0xFF, green: 0x2D, blue: 0x55)
+  public static let systemPinkDark = HexColor(red: 0xFF, green: 0x37, blue: 0x5F)
 
-  public static var increasedContrastOrangeLight: HexColor {
-    AccentPalette.readable(systemOrangeLight, on: lightCardBackground, towardLightness: 0)
-  }
-
-  public static var increasedContrastOrangeDark: HexColor {
-    AccentPalette.readable(systemOrangeDark, on: darkCardBackground, towardLightness: 1)
+  public static func shellTokenColor(_ kind: ShellTokenKind, dark: Bool) -> HexColor? {
+    let system: HexColor
+    switch kind {
+    case .command: system = dark ? systemPurpleDark : systemPurpleLight
+    case .flag: system = dark ? systemOrangeDark : systemOrangeLight
+    case .string: system = dark ? systemGreenDark : systemGreenLight
+    case .variable: system = dark ? systemTealDark : systemTealLight
+    case .operator: system = dark ? systemPinkDark : systemPinkLight
+    case .comment: return nil
+    }
+    return dark
+      ? AccentPalette.readable(system, on: darkCardBackground, towardLightness: 1)
+      : AccentPalette.readable(system, on: lightCardBackground, towardLightness: 0)
   }
 }

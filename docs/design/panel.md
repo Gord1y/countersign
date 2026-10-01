@@ -1702,11 +1702,15 @@ growing across the arm delay. The arm lock itself still lasts the full delay.
 Increase Contrast: with `colorSchemeContrast == .increased`, the hairlines and card borders that
 are `primary` at 8 to 12% (the panel, code cards, diff cards, the deny reason field, hover cards,
 the waiting list and dropdown cards) use `PanelBorder`, which draws `primary` at 50%, about 4:1 on
-either panel background. The orange shell-flag colour, `#FF9500` on light and `#FF9F0A` on dark,
-does not reach 4.5:1 on a code card (`#F2F2F2` and `#292929`), so it is replaced by
-`PanelContrast.increasedContrastOrangeLight` and `increasedContrastOrangeDark`: the orange
-darkened, or lightened, in the same 0.005 HSL steps as the accent's text colours until it reaches
-4.5:1 against the card.
+either panel background.
+
+Shell highlighting: every shell token colour except comments (`.secondary`) is the system colour
+made readable by `PanelContrast.shellTokenColor`: darkened on the light card (`#F2F2F2`), or
+lightened on the dark card (`#292929`), in the same 0.005 HSL steps as the accent's text colours
+until it reaches 4.5:1, at every contrast setting. The raw system colours measured on the light
+card, before to after: purple 3.72 to 4.52, orange 2.06 to 4.54, green 1.98 to 4.57, teal 1.93
+to 4.51, pink 3.26 to 4.57. On the dark card orange, green and teal already pass and stay as they
+are; purple and pink are lightened.
 
 Known limit: there is no Tab loop. The panel owns the keyboard through its key monitor, so VoiceOver
 navigates it with its own cursor and presses controls with VoiceOver's press command, while every

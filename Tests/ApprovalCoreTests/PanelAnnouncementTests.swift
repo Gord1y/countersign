@@ -65,17 +65,30 @@ import Testing
     #expect(DiffLineSpeech.label(for: added, showsNumbers: false) == "Added: let a = 1")
   }
 
-  @Test func increasedContrastOrangeReadsOnBothCards() {
-    let light = PanelContrast.increasedContrastOrangeLight
-    let dark = PanelContrast.increasedContrastOrangeDark
+  @Test(arguments: [
+    ShellTokenKind.command, .flag, .string, .variable, .operator,
+  ])
+  func shellTokenColorsReadOnBothCards(kind: ShellTokenKind) throws {
+    let light = try #require(PanelContrast.shellTokenColor(kind, dark: false))
+    let dark = try #require(PanelContrast.shellTokenColor(kind, dark: true))
     #expect(
       light.contrastRatio(with: PanelContrast.lightCardBackground)
         >= AccentPalette.minimumTextContrast)
     #expect(
       dark.contrastRatio(with: PanelContrast.darkCardBackground)
         >= AccentPalette.minimumTextContrast)
+  }
+
+  @Test func commentsKeepTheSecondaryColour() {
+    #expect(PanelContrast.shellTokenColor(.comment, dark: false) == nil)
+    #expect(PanelContrast.shellTokenColor(.comment, dark: true) == nil)
+  }
+
+  @Test func aColourThatAlreadyReadsIsUnchanged() {
+    let passing = PanelContrast.systemGreenDark
     #expect(
-      PanelContrast.systemOrangeLight.contrastRatio(with: PanelContrast.lightCardBackground)
-        < AccentPalette.minimumTextContrast)
+      passing.contrastRatio(with: PanelContrast.darkCardBackground)
+        >= AccentPalette.minimumTextContrast)
+    #expect(PanelContrast.shellTokenColor(.string, dark: true) == passing)
   }
 }
