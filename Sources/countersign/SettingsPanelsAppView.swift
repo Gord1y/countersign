@@ -394,6 +394,7 @@ struct PreferenceRow<Control: View, Detail: View>: View {
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
         }
+        .layoutPriority(1)
         .settingsHelp(explained?.explanation)
         Spacer(minLength: 16)
         if let reset, reset.model.isResettable(reset.name) {
@@ -797,14 +798,11 @@ private struct HandoffAppsRow: View {
 private struct TestPanelRow: View {
   static let title = "Show a test panel"
   static let caption = "See your settings in a real panel, right away. Nothing reaches an agent."
-  static let showing = "Showing a test panel…"
 
   let model: SettingsModel
 
   var body: some View {
     PreferenceRow(Self.title, caption: Self.caption, problem: model.testPanelError) {
-      EmptyView()
-    } detail: {
       HStack(spacing: 8) {
         ForEach(TestPanelKind.panelsTabKinds, id: \.self) { kind in
           Button(kind.title) { model.showTestPanel(kind) }
@@ -812,12 +810,8 @@ private struct TestPanelRow: View {
             .help("Show a \(kind.rawValue) test panel")
             .disabled(model.isTestPanelRunning)
         }
-        if model.isTestPanelRunning {
-          Text(Self.showing)
-            .font(PanelTypography.caption)
-            .foregroundStyle(.secondary)
-        }
       }
+      .fixedSize()
     }
   }
 }

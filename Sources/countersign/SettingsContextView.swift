@@ -379,24 +379,17 @@ private struct ContextTestPanelRow: View {
   static let caption =
     "See a context checkpoint panel right away. Nothing reaches an agent."
   static let button = "Show a context checkpoint"
-  static let showing = "Showing a test panel…"
 
   let model: SettingsModel
 
   var body: some View {
     PreferenceRow(Self.title, caption: Self.caption, problem: model.testPanelError) {
-      EmptyView()
-    } detail: {
       HStack(spacing: 8) {
         Button(Self.button) { model.showTestPanel(.context) }
           .buttonStyle(SecondaryButtonStyle())
           .disabled(model.isTestPanelRunning)
-        if model.isTestPanelRunning {
-          Text(Self.showing)
-            .font(PanelTypography.caption)
-            .foregroundStyle(.secondary)
-        }
       }
+      .fixedSize()
     }
   }
 }

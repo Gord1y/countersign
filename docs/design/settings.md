@@ -198,6 +198,10 @@ Restore Defaults and no row can be "changed"; it exists so a person who runs `co
 without ever opening the menu-bar app still reaches what the companion's Help and Support the
 Developer menus offer.
 
+Action buttons (Show a test panel, Try a checkpoint, Check for Updates and its companions) sit on
+the right of their row like every other control, never below it; a long caption wraps onto more
+lines instead of shrinking the buttons.
+
 Advanced (the config file's path, Open in Editor, Copy Path, Open with, the schema, what only the file
 can set, and the prompt for a coding agent) has no place in the sidebar: it is reached through an
 **Advanced…** button at the bottom of the App group, sharing its row with Restore Defaults.
