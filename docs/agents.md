@@ -87,7 +87,8 @@ calls, and `apply_patch` edits, shown against the real file like Claude Code's e
 
 - Approve and Deny (with a reason) work as for Claude Code. Codex has no "Always allow" rules to
   offer, no **Deny & stop**, and no hook for its question and plan tools, so those stay in Codex.
-- Codex asks you to trust the hook once in `/hooks`; see "After wiring" below.
+- Codex asks you to trust Countersign's hooks once in `/hooks`: the permission hook and, while
+  waiting-agent notices are on, the Stop hook. See "After wiring" below.
 - Countersign can't see a Codex chat, so answering there doesn't close the panel. It goes away when
   you answer it, or when the Codex process that asked is gone.
 - Codex asks its hooks before it shows its own prompt, so a Codex request waiting in the queue
@@ -97,12 +98,12 @@ calls, and `apply_patch` edits, shown against the real file like Claude Code's e
 
 ### After wiring
 
-Open Codex in a terminal, not the desktop app, run `/hooks` and trust Countersign's hook. It has to
+Open Codex in a terminal, not the desktop app, run `/hooks` and trust Countersign's hooks. It has to
 be the terminal: the desktop app shares the same `~/.codex`, but its own `/hooks` can't write the
 trust record Codex checks. Codex sessions already open pick up the trust as soon as you run
 `/hooks`, without needing a new session, even though Codex doesn't otherwise reload `hooks.json` on
 its own while a session is running. Countersign reads the trust Codex stores, so the step clears
-itself once you've trusted the hook in a terminal. See
+itself once you've trusted the hooks in a terminal. See
 [Codex asks you to trust the hook](setup.md#codex-asks-you-to-trust-the-hook) for the exact wording,
 when **Mark as done** shows up, and why a changed entry (an upgrade, a new install path, a hook
 added before Countersign's) needs trusting again.
