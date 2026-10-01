@@ -544,8 +544,8 @@ private struct PreferenceResetButton: View {
     }
     .buttonStyle(.borderless)
     .foregroundStyle(.secondary)
-    .help("Reset to default: \(name.defaultText)")
-    .accessibilityLabel("Reset \(name.title) to default")
+    .help(model.resetHelp(name))
+    .accessibilityLabel(model.resetAccessibilityLabel(name))
   }
 }
 

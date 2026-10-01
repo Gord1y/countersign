@@ -333,7 +333,22 @@ final class SettingsModel {
   }
 
   func isResettable(_ name: PreferenceName) -> Bool {
-    isChanged(name) && visit.contains(name)
+    guard resetsAgentValue(name) else { return isChanged(name) && visit.contains(name) }
+    return ownDelay(name) != nil
+  }
+
+  func resetHelp(_ name: PreferenceName) -> String {
+    guard resetsAgentValue(name) else { return "Reset to default: \(name.defaultText)" }
+    return "Use the shared value: \(DurationText.compact(sharedDelay(name)))"
+  }
+
+  func resetAccessibilityLabel(_ name: PreferenceName) -> String {
+    guard resetsAgentValue(name) else { return "Reset \(name.title) to default" }
+    return "Reset \(name.title) for \(delayAgent.displayName) to the shared value"
+  }
+
+  private func resetsAgentValue(_ name: PreferenceName) -> Bool {
+    delaysPerAgent && PreferenceName.agentDelays.contains(name)
   }
 
   func refreshStatus() {
@@ -1156,7 +1171,11 @@ final class SettingsModel {
 
   func reset(_ name: PreferenceName) {
     discardPendingText(for: [name])
-    write(.reset(name))
+    guard resetsAgentValue(name) else {
+      write(.reset(name))
+      return
+    }
+    write(.forAgent(delayAgent, .reset(name)))
   }
 
   func resetGroup(_ names: [PreferenceName]) {

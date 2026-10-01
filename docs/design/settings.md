@@ -377,7 +377,11 @@ On, each row edits the top-level value. Off, an Agent segmented picker appears a
 the agent's own value, or is empty with the shared value (top level, else the default) as its
 placeholder; committing an empty field removes the agent's value, and a valid value writes it
 (`PreferenceEdit.forAgent`). The stepper and slider show the agent's effective value and write to
-the agent. Validation and the red line are the same as in shared mode.
+the agent. Validation and the red line are the same as in shared mode. A row's reset arrow follows
+the mode: in per-agent mode it shows whenever the selected agent has its own value for that row,
+whether or not it changed in this visit, and it removes that value (`forAgent(agent,
+.reset(name))`), so the row falls back to the shared value its help names ("Use the shared value:
+5s"). It never resets the shared value from an agent's view.
 
 The mode is not stored. On every reload it turns on when any agent has an own delay
 (`PreferenceOverrides.agentsWithOwnDelays(in:)`), with the first such agent selected, else Codex,
