@@ -2,6 +2,10 @@ public enum ApprovalCardStage: Sendable, Equatable {
   case notShown
   case shown
   case dismissed
+
+  public var afterQuietTime: ApprovalCardStage {
+    self == .dismissed ? .dismissed : .notShown
+  }
 }
 
 public enum ApprovalCardTiming {

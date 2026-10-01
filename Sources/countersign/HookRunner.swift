@@ -457,6 +457,9 @@ private final class DisplayWatch: NSObject {
         return
       }
       let quiet = quietTimeHoldsPanels()
+      if quiet {
+        holdApprovalCardForQuietTime()
+      }
       if !quiet,
         showsWithoutIdle
           || activityGate.isIdle(
@@ -514,6 +517,14 @@ private final class DisplayWatch: NSObject {
     approvalCardStage = .shown
     card.show()
     log.write("approval card: shown")
+  }
+
+  private func holdApprovalCardForQuietTime() {
+    waitingForIdleSince = ProcessInfo.processInfo.systemUptime
+    guard approvalCard != nil else { return }
+    closeApprovalCard()
+    approvalCardStage = approvalCardStage.afterQuietTime
+    log.write("approval card: closed for quiet time")
   }
 
   private func showFromApprovalCard() {

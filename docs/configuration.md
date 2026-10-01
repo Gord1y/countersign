@@ -252,8 +252,9 @@ profile. If you set `XDG_CONFIG_HOME` only there, its Settings window edits
   never pause, Cursor and Antigravity just stop and wait, with no prompt of their own, and Codex
   only says "Waiting for the approval panel". The card never takes focus, so your typing is safe.
   **Show** brings the panel up at once, still with the arm delay; the close button dismisses the
-  card and the panel waits for a pause as before. You get at most one card per request, never
-  during quiet time or while paused, and never for a test panel or a context checkpoint; it goes
+  card and the panel waits for a pause as before. You get one card per request, never during
+  quiet time or while paused (a card that is up when quiet time starts closes, and comes back
+  after it), and never for a test panel or a context checkpoint; it goes
   away when the panel appears or the request ends. Claude Code is off by default because its
   request also waits in the chat, where you can answer it while you work. Set it at the top level
   for every agent, or per agent under `hosts.<agent>`, which wins: for example

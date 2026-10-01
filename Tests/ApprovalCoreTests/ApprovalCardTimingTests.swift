@@ -36,4 +36,10 @@ import Testing
       quiet: row.quiet, paused: row.paused, stage: row.stage)
     #expect(shows == row.expected)
   }
+
+  @Test func quietTimeLetsAClosedCardComeBackButNotADismissedOne() {
+    #expect(ApprovalCardStage.shown.afterQuietTime == .notShown)
+    #expect(ApprovalCardStage.notShown.afterQuietTime == .notShown)
+    #expect(ApprovalCardStage.dismissed.afterQuietTime == .dismissed)
+  }
 }

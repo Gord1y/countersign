@@ -479,14 +479,17 @@ that turns idle in the same tick shows its panel and never flashes a card.
 closes the card, and the next tick shows the panel with the usual `armDelay`, quiet time still
 holding it. The close button (`Dismiss`) closes the card and leaves the request waiting for a
 pause; it gets no second card. Neither does a request whose card was shown and that comes back to
-`waitingForIdle` after a step-aside, so a person sees the card at most once per request. The
-card also closes, and releases its slot, whenever the request leaves `waitingForIdle`: its panel
-shows (Show Now from the menu bar included), it is answered from the menu bar, it gives way to a
-request shown from the menu,
-it is resolved elsewhere or paused, handed back, handed off to the asking app, or yields to a real
-request. Quiet time that starts while the card is up leaves it up: the request is still waiting,
-and `Show` then shows the panel once quiet time ends. Log lines: `approval card: shown`,
-`approval card: show`, `approval card: dismissed`.
+`waitingForIdle` after a step-aside, so a person sees the card once per request, apart from quiet
+time (below). The card also closes, and releases its slot, whenever the request leaves
+`waitingForIdle`: its panel shows (Show Now from the menu bar included), it is answered from the
+menu bar, it gives way to a request shown from the menu, it is resolved elsewhere or paused, it is
+handed back or handed off to the asking app, or it yields to a real request. Quiet time holds the card as it holds panels and waiting notices: a card that is up when
+quiet time starts closes, and every tick of quiet time restarts `waitingForIdleSince`, so the delay
+counts from the end of quiet time. A card closed this way may show again after it
+(`ApprovalCardStage.afterQuietTime` turns `shown` back into `notShown`), because the person never
+got to act on it and the request is still waiting; a dismissed card stays dismissed. Log lines:
+`approval card: shown`, `approval card: show`, `approval card: dismissed`,
+`approval card: closed for quiet time`.
 
 The card is per agent (`approvalCard` and `approvalCardDelay`, top level and under
 `hosts.<agent>`, see [configuration.md](../configuration.md)) because the hosts differ in what a
