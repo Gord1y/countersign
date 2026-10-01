@@ -214,9 +214,9 @@ extension PreferenceName {
     case .editorApp:
       return
         "Which app \"Open in Editor\" opens config.json with, both here and next to an agent's"
-        + " own values. Leave it as the default app if you're happy with whatever macOS opens"
-        + " JSON files with; pick one from the menu if you'd rather it always open in a"
-        + " particular editor, and \"Other…\" if that editor isn't offered."
+        + " own values. While it's on \"Ask every time\", Open in Editor asks which app to use"
+        + " until you pick one with \"Always use this app\"; you can also pick one here from the"
+        + " menu, and \"Other…\" if that editor isn't offered."
     case .contextCheckpointsEnabled:
       return
         "Watches how large each Claude Code session's context has grown and steers Claude toward"
@@ -313,7 +313,7 @@ extension PreferenceName {
     case .approvalCardDelay: return Self.secondsText(Settings.defaultApprovalCardDelay)
     case .appearance: return Settings.defaultAppearance.title
     case .accentColor: return AccentPreset.name(of: Settings.defaultAccentColor)
-    case .editorApp: return "Default app"
+    case .editorApp: return "Ask every time"
     case .contextCheckpointsEnabled: return Self.boolText(ContextCheckpointSettings.default.enabled)
     case .contextMode: return ContextCheckpointSettings.defaultMode.rawValue.capitalized
     case .contextStandardThresholds:

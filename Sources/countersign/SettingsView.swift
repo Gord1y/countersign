@@ -42,6 +42,16 @@ struct SettingsPage: View {
       }
       .padding(.horizontal, SettingsMetrics.padding)
     }
+    .sheet(
+      item: Binding(
+        get: { model.editorChoice },
+        set: { if $0 == nil { model.cancelEditorChoice() } })
+    ) { choice in
+      EditorChoiceSheet(
+        choice: choice, configFile: model.configFile,
+        onOpen: { model.chooseEditor(bundleID: $0, always: $1) },
+        onCancel: { model.cancelEditorChoice() })
+    }
   }
 }
 

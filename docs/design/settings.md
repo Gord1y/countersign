@@ -785,19 +785,29 @@ with a "Copy" button (`SettingsPrompt`).
 "Open with" (`PreferenceName.editorApp`) is a `PreferenceRow` like a Panels or App row, with the
 same info button and reset button; it just lives in Advanced because it changes what "Open in
 Editor" does rather than a panel or the menu-bar app. Its control is a `Menu` titled with the
-chosen app's name, or the default app's name when none is chosen: "Default app (<name>)" first,
-then one item per app from `NSWorkspace.shared.urlsForApplications(toOpen:)` for `config.json`
-(name and icon, the same apps Finder's own Open With offers), a divider, then "Other…", which
-opens an `NSOpenPanel` scoped to `/Applications` and `.application`. Choosing an app writes its
-bundle identifier with `PreferenceEdit.editorApp`; choosing "Default app" resets it like any other
-row. `SettingsModel.openConfigInEditor` resolves the stored bundle ID to a URL with
-`NSWorkspace.shared.urlForApplication(withBundleIdentifier:)` and opens the file with
-`NSWorkspace.shared.open(_:withApplicationAt:configuration:)`; when that lookup fails because the
-app was uninstalled since it was chosen, it falls back to the default app and shows "<bundle id>
-is not installed; opened with the default app." under the config path block, the same place a
-plain open failure shows, since both origins are `ConfigEditorOrigin.advanced`. An agent's own
-"Open in Editor" link on its row (`ConfigEditorOrigin.host`) goes through the same method, so it
-opens with the same chosen app and falls back the same way.
+chosen app's name, or "Ask every time" when none is chosen: "Ask every time" first, then one item
+per app from `NSWorkspace.shared.urlsForApplications(toOpen:)` for `config.json` (name and icon,
+the same apps Finder's own Open With offers), a divider, then "Other…", which opens an
+`NSOpenPanel` scoped to `/Applications` and `.application`. Choosing an app writes its bundle
+identifier with `PreferenceEdit.editorApp`; choosing "Ask every time" resets it like any other
+row.
+
+`SettingsModel.openConfigInEditor` never falls back to the system's default app for `.json`, because
+that opened an editor the person had never been asked about. With no `editorApp` it sets
+`SettingsModel.editorChoice` (`EditorChoice`, carrying the `ConfigEditorOrigin`), and
+`SettingsPage` presents it as one sheet (`EditorChoiceSheet`), so Advanced's button and an agent's
+own "Open in Editor" link (`ConfigEditorOrigin.host`) share it. The sheet is titled "Open
+config.json with" and lists the installed apps that open `config.json` (icon and name, the
+system's default first and marked "(default)"), an "Other…" button (the same `NSOpenPanel`; the
+picked app joins the list and is selected), an "Always use this app" checkbox that starts ticked,
+and Cancel and Open, with Open the default action and disabled until a row is selected;
+double-clicking a row opens with it. `SettingsModel.chooseEditor(bundleID:always:)` opens the file
+with `NSWorkspace.shared.open(_:withApplicationAt:configuration:)` and, when the box is ticked,
+writes `PreferenceEdit.editorApp`, so later clicks open directly; `cancelEditorChoice()` dismisses
+the sheet and opens nothing. A stored app that was uninstalled since it was chosen asks again the
+same way, with one line above the list, "<bundle id> is not installed. Pick another app."; the
+stale value stays in `config.json` until a pick with the box ticked replaces it, or "Ask every
+time" resets it.
 
 The line reads "Only the file can set values for one agent, under hosts, and approvalCard,
 approvalCardDelay, includeHeadlessSessions." (`PreferenceOverrides.fileOnlyNote`). Its keys are computed, not listed

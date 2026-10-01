@@ -15,7 +15,8 @@ enum SnapshotCommand {
     + " [--home <dir>] [--show-changes claude|codex|cursor|antigravity] [--show-copies]"
     + " [--status active|paused|paused-until-open|quiet] [--size <width>x<height>]"
     + " [--tab agents|panels|app|context|help|advanced] [--restore-prompt panels|app]"
-    + " [--explanation <preferenceName>] [--appearance light|dark] -o <out.png>\n"
+    + " [--explanation <preferenceName>] [--editor-choice ask|missing]"
+    + " [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --quit-prompt [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --update-answer up-to-date|available|failed"
     + " [--appearance light|dark] -o <out.png>\n"
@@ -155,6 +156,11 @@ enum SnapshotCommand {
     }
 
     let environment = options.home.map(SettingsEnvironment.current(home:)) ?? .current()
+    if let choice = options.editorChoice {
+      runEditorChoice(
+        choice: choice, configFile: environment.paths.configFile,
+        appearance: options.appearance, outputPath: options.outputPath)
+    }
     let model = SettingsModel(
       environment: environment, status: options.status.status, savesLearnedCodexTrust: false)
     model.select(options.pane)
@@ -203,6 +209,29 @@ enum SnapshotCommand {
       .frame(width: width))
     let contentHeight = settledHeight(of: measuringView, maxHeight: .greatestFiniteMagnitude)
     return CGSize(width: width, height: contentHeight)
+  }
+
+  @MainActor
+  private static func runEditorChoice(
+    choice: EditorChoice, configFile: URL, appearance: Appearance?, outputPath: String
+  ) -> Never {
+    let hostingView = NSHostingView(
+      rootView: EditorChoiceSheet(
+        choice: choice, configFile: configFile, onOpen: { _, _ in }, onCancel: {}))
+    hostingView.appearance = appearance?.appearance
+    var size = hostingView.fittingSize
+    for _ in 0..<settleTurnLimit {
+      hostingView.layoutSubtreeIfNeeded()
+      RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
+      let measured = hostingView.fittingSize
+      if measured == size { break }
+      size = measured
+    }
+    hostingView.setFrameSize(size)
+    guard let png = render(hostingView, background: .windowBackgroundColor) else {
+      CommandLineOutput.fail("error: could not render the editor choice")
+    }
+    write(png, to: outputPath)
   }
 
   @MainActor
@@ -833,6 +862,7 @@ enum SnapshotCommand {
     let pane: SettingsPane
     let restorePrompt: SettingsPane?
     let explanation: PreferenceName?
+    let editorChoice: EditorChoice?
   }
 
   private static func parseSettings(_ arguments: [String]) -> SettingsOptions? {
@@ -846,6 +876,7 @@ enum SnapshotCommand {
     var pane = SettingsPane.standard
     var restorePrompt: SettingsPane?
     var explanation: PreferenceName?
+    var editorChoice: EditorChoice?
     var index = arguments.startIndex
 
     while index < arguments.count {
@@ -896,6 +927,17 @@ enum SnapshotCommand {
         guard index < arguments.count, let parsed = PreferenceName(rawValue: arguments[index])
         else { return nil }
         explanation = parsed
+      case "--editor-choice":
+        index += 1
+        guard index < arguments.count else { return nil }
+        switch arguments[index] {
+        case "ask":
+          editorChoice = EditorChoice(origin: .advanced, missingBundleID: nil)
+        case "missing":
+          editorChoice = EditorChoice(origin: .advanced, missingBundleID: "com.example.Editor")
+        default:
+          return nil
+        }
       case "-o":
         index += 1
         guard index < arguments.count else { return nil }
@@ -910,7 +952,7 @@ enum SnapshotCommand {
     return SettingsOptions(
       outputPath: outputPath, appearance: appearance, disclosedHosts: disclosedHosts,
       showsCopies: showsCopies, status: status, home: home, size: size, pane: pane,
-      restorePrompt: restorePrompt, explanation: explanation)
+      restorePrompt: restorePrompt, explanation: explanation, editorChoice: editorChoice)
   }
 
   private static func parseSettingsSize(_ text: String) -> CGSize? {

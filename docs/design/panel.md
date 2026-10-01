@@ -1768,7 +1768,8 @@ CLAUDE_CONFIG_DIR=<dir> CODEX_HOME=<dir> XDG_CONFIG_HOME=<dir> \
   [--home <dir>] [--show-changes claude|codex|cursor|antigravity] [--show-copies] \
   [--status active|paused|paused-until-open|quiet] [--size <width>x<height>] \
   [--tab agents|panels|app|advanced] [--restore-prompt panels|app] \
-  [--explanation <preferenceName>] [--appearance light|dark] -o <out.png>
+  [--explanation <preferenceName>] [--editor-choice ask|missing] \
+  [--appearance light|dark] -o <out.png>
 ```
 
 It builds the window's `SettingsModel` exactly as the window does, reading the hosts' files and the
@@ -1836,6 +1837,11 @@ the same way `--quit-prompt` draws the quit question's (see below), so the wordi
 reset confirmation can be checked without opening the window or clicking Restore Defaults. `--size`
 and `--tab` are ignored when it is given, since there is no window content to size or select a
 group in.
+
+`--editor-choice ask|missing`, only accepted with `--settings`, renders the Open in Editor sheet
+(`EditorChoiceSheet`) on its own: `ask` is the first-time sheet, `missing` adds the line for a
+stored app that is no longer installed. The list is this machine's real apps for `config.json`;
+an offscreen render draws their icons as empty placeholders.
 
 `--explanation <preferenceName>`, also only accepted with `--settings`, renders a `PreferenceName`'s
 info popover instead of the window: `SettingsExplanationView`'s content view alone, sized to its own

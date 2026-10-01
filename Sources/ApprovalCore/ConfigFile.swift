@@ -689,7 +689,7 @@ public enum ConfigFileParser {
   ) -> String? {
     guard let value else { return nil }
     guard let string = value.stringValue, !string.isEmpty else {
-      logLines.append("\(path): expected a non-empty string, using the default app")
+      logLines.append("\(path): expected a non-empty string, ignoring it")
       return nil
     }
     return string

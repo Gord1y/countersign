@@ -110,7 +110,7 @@ import Testing
     #expect(PreferenceName.modeAfterPlan.defaultText == "Ask before edits")
     #expect(PreferenceName.appearance.defaultText == "System")
     #expect(PreferenceName.accentColor.defaultText == "Amber")
-    #expect(PreferenceName.editorApp.defaultText == "Default app")
+    #expect(PreferenceName.editorApp.defaultText == "Ask every time")
   }
 
   @Test func namesEveryAppearanceChoice() {

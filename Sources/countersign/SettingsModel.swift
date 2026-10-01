@@ -111,6 +111,17 @@ struct EditorOpenFailure {
   let message: String
 }
 
+struct EditorChoice: Identifiable, Equatable {
+  let origin: ConfigEditorOrigin
+  let missingBundleID: String?
+
+  var id: String { missingBundleID ?? "" }
+
+  var missingNotice: String? {
+    missingBundleID.map { "\($0) is not installed. Pick another app." }
+  }
+}
+
 enum ContextHookChangeOrigin: Equatable {
   case toggle
   case hookStatus
@@ -192,6 +203,7 @@ final class SettingsModel {
   private(set) var ownValueNotes: [ApprovalCore.Host: String] = [:]
   private(set) var configProblem: String?
   private(set) var editorOpenFailure: EditorOpenFailure?
+  private(set) var editorChoice: EditorChoice?
   private(set) var testPanelError: String?
   private(set) var contextChange: ContextHookChange?
   private(set) var contextHookFailure: ContextHookFailure?
@@ -1297,28 +1309,39 @@ final class SettingsModel {
       return
     }
     guard let bundleID = editorApp else {
-      openWithDefaultApp(origin: origin)
+      editorChoice = EditorChoice(origin: origin, missingBundleID: nil)
       return
     }
     guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
-      openWithDefaultApp(origin: origin, missingBundleID: bundleID)
+      editorChoice = EditorChoice(origin: origin, missingBundleID: bundleID)
       return
     }
-    NSWorkspace.shared.open(
-      [configFile], withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration())
+    open(configFileWith: appURL)
     editorOpenFailure = nil
   }
 
-  private func openWithDefaultApp(origin: ConfigEditorOrigin, missingBundleID: String? = nil) {
-    guard NSWorkspace.shared.open(configFile) else {
+  func chooseEditor(bundleID: String, always: Bool) {
+    guard let choice = editorChoice else { return }
+    editorChoice = nil
+    guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
       editorOpenFailure = EditorOpenFailure(
-        origin: origin, message: "\(configPath) could not be opened")
+        origin: choice.origin, message: "\(bundleID) is not installed.")
       return
     }
-    editorOpenFailure = missingBundleID.map {
-      EditorOpenFailure(
-        origin: origin, message: "\($0) is not installed; opened with the default app.")
+    open(configFileWith: appURL)
+    editorOpenFailure = nil
+    if always {
+      setEditorApp(bundleID)
     }
+  }
+
+  func cancelEditorChoice() {
+    editorChoice = nil
+  }
+
+  private func open(configFileWith appURL: URL) {
+    NSWorkspace.shared.open(
+      [configFile], withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration())
   }
 
   func editorOpenProblem(at origin: ConfigEditorOrigin) -> String? {

@@ -229,11 +229,12 @@ What the menu-bar app does, and how panels and the Settings window look:
 Shows the config file's path, **Open in Editor** (creates the file with the `$schema` line when
 it's missing), **Copy Path**, the schema's URL as a link, and what only the file can set.
 
-- **Open with** (`editorApp`, default: the default app): which app **Open in Editor** opens
-  `config.json` with, on this row and on an agent's own "Open in Editor" link. Absent, it's
-  whatever macOS opens JSON files with. Pick one from the menu, or **Other…** for an app the menu
-  doesn't offer; if the chosen app is later uninstalled, Countersign opens the file with the
-  default app instead and says so.
+- **Open with** (`editorApp`, default: ask every time): which app **Open in Editor** opens
+  `config.json` with, on this row and on an agent's own "Open in Editor" link. Absent means ask:
+  Open in Editor shows a list of the apps that open JSON files, with "Always use this app" ticked,
+  and a pick with it ticked is stored here so later clicks open directly. Pick one from the menu
+  yourself, or **Other…** for an app the menu doesn't offer; **Ask every time** removes the key.
+  If the chosen app is later uninstalled, Open in Editor asks again and says so.
 
 The menu-bar app started from the Finder or at login doesn't see variables set in your shell
 profile. If you set `XDG_CONFIG_HOME` only there, its Settings window edits

@@ -153,13 +153,13 @@ import Testing
   @Test func editorAppEmptyFallsBackToDefault() {
     let (file, logLines) = parse(#"{ "editorApp": "" }"#)
     #expect(file.editorApp == nil)
-    #expect(logLines == ["editorApp: expected a non-empty string, using the default app"])
+    #expect(logLines == ["editorApp: expected a non-empty string, ignoring it"])
   }
 
   @Test func editorAppWrongTypeFallsBackToDefault() {
     let (file, logLines) = parse(#"{ "editorApp": 3 }"#)
     #expect(file.editorApp == nil)
-    #expect(logLines == ["editorApp: expected a non-empty string, using the default app"])
+    #expect(logLines == ["editorApp: expected a non-empty string, ignoring it"])
   }
 
   @Test func readsEveryQuitBehavior() {
