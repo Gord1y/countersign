@@ -111,7 +111,8 @@ keys below.
   `hosts` block sets its own.
 - **Quiet hours** (`quietHours`): recurring windows in which panels wait, like a snooze that
   repeats. Up to 7 entries, each with `days` (any of `"mon"` to `"sun"`), `from` and `to` as
-  `HH:mm` in your local time. Panels wait exactly as during a snooze: requests go to their chats
+  a time of day in your local time: `9`, `09`, `9:30`, `0930` and `21:30` all work, and
+  Countersign writes `HH:mm`. Panels wait exactly as during a snooze: requests go to their chats
   and can still be answered there. The window is over at the minute `to` is reached.
 
   ```json

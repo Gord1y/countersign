@@ -67,10 +67,32 @@ public struct QuietWindow: Sendable, Hashable {
   private static let minuteRange = 0..<(24 * 60)
 
   public static func minute(from text: String) -> Int? {
-    let parts = text.split(separator: ":", omittingEmptySubsequences: false)
-    guard parts.count == 2, parts[0].count == 2, parts[1].count == 2,
-      parts.allSatisfy({ $0.allSatisfy(\.isASCII) }),
-      let hour = Int(parts[0]), let minute = Int(parts[1]),
+    let trimmed = text.trimmingCharacters(in: .whitespaces)
+    guard trimmed.allSatisfy({ $0.isASCII && ($0.isNumber || $0 == ":") }) else { return nil }
+    let parts = trimmed.split(separator: ":", omittingEmptySubsequences: false)
+    let hourText: Substring
+    let minuteText: Substring
+    switch parts.count {
+    case 1:
+      let digits = parts[0]
+      switch digits.count {
+      case 1, 2:
+        hourText = digits
+        minuteText = "0"
+      case 3, 4:
+        hourText = digits.dropLast(2)
+        minuteText = digits.suffix(2)
+      default:
+        return nil
+      }
+    case 2:
+      guard (1...2).contains(parts[0].count), parts[1].count == 2 else { return nil }
+      hourText = parts[0]
+      minuteText = parts[1]
+    default:
+      return nil
+    }
+    guard let hour = Int(hourText), let minute = Int(minuteText),
       (0..<24).contains(hour), (0..<60).contains(minute)
     else { return nil }
     return hour * 60 + minute

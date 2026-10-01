@@ -48,7 +48,7 @@ public enum QuietWindowError: Error, Sendable, Equatable, CustomStringConvertibl
     case .noDays:
       return "Pick at least one day"
     case .badTimes:
-      return "Enter a start and end time, like 19:00"
+      return "Enter a time like 9, 0930 or 21:30."
     case .duplicate:
       return "That window is already in the list"
     case .full:

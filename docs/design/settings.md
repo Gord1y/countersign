@@ -300,7 +300,7 @@ The window edits top-level keys only:
 | Panels | Arm delay after an answer, a slider | `chainedArmDelay` | `0` to `3` s, in 0.1 s steps |
 | Panels | Hand off when frontmost, a list | `handoffApps` | bundle IDs, added and removed one at a time |
 | Panels | Snooze presets, a text field | `snoozeMinutes` | `1, 5, 15, 30`: 1 to 6 whole numbers, each `1` to `1440` |
-| Panels | Quiet hours, a list with day toggles and two `HH:mm` fields | `quietHours` | up to 7 windows, each with at least one day and different start and end times; the whole array is rewritten on every add or remove; errors `Pick at least one day` and `Enter a start and end time, like 19:00` |
+| Panels | Quiet hours, a list above one editor line: day toggles, two time fields and Add, all on one `HStack`; the fields take `H`, `HH`, `H:MM`, `HH:MM`, `HMM` or `HHMM`, and the file always gets `HH:mm` | `quietHours` | up to 7 windows, each with at least one day and different start and end times; the whole array is rewritten on every add or remove; errors `Pick at least one day` and `Enter a time like 9, 0930 or 21:30.` |
 | Panels | Notes on answers, a switch | `questionNotes` | on or off |
 | Panels | Mode after a plan, a menu | `modeAfterPlan` | "Ask before edits", "Accept edits" or "Auto" |
 | Panels | Sound, a menu and a play button | `panelSound` | None, then the names in `/System/Library/Sounds`; the button (`speaker.wave.2`, label `Play <name>`) is disabled for None |

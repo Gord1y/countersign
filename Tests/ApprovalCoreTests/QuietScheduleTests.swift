@@ -159,7 +159,6 @@ import Testing
     #expect(QuietWindow(days: [.mon], from: "19:00", to: "19:00") == nil)
     #expect(QuietWindow(days: [.mon], from: "24:00", to: "09:00") == nil)
     #expect(QuietWindow(days: [.mon], from: "19:60", to: "09:00") == nil)
-    #expect(QuietWindow(days: [.mon], from: "7:00", to: "09:00") == nil)
     #expect(QuietWindow(days: [.mon], from: "19:00", to: "") == nil)
   }
 
@@ -500,8 +499,22 @@ import Testing
 
   @Test func theBadInputMessagesAreTheAgreedText() throws {
     #expect(QuietWindowError.noDays.description == "Pick at least one day")
-    #expect(
-      QuietWindowError.badTimes.description == "Enter a start and end time, like 19:00")
+    #expect(QuietWindowError.badTimes.description == "Enter a time like 9, 0930 or 21:30.")
+  }
+
+  @Test func minuteAcceptsBareHoursAndCompactForms() throws {
+    #expect(QuietWindow.minute(from: "12") == 720)
+    #expect(QuietWindow.minute(from: "9") == 540)
+    #expect(QuietWindow.minute(from: "930") == 570)
+    #expect(QuietWindow.minute(from: "0930") == 570)
+    #expect(QuietWindow.minute(from: "21:30") == 1290)
+    #expect(QuietWindow.minute(from: "9:05") == 545)
+    #expect(QuietWindow.minute(from: "24") == nil)
+    #expect(QuietWindow.minute(from: "960") == nil)
+    #expect(QuietWindow.minute(from: "12:60") == nil)
+    #expect(QuietWindow.minute(from: "1a") == nil)
+    #expect(QuietWindow.minute(from: "") == nil)
+    #expect(QuietWindow.minute(from: "12:3") == nil)
   }
 
   @Test func theRowHasItsOwnTitleAndCaption() throws {

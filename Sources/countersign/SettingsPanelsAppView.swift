@@ -675,14 +675,14 @@ private struct QuietHoursRow: View {
             }
           }
         }
-        HStack(spacing: 4) {
-          ForEach(QuietWeekday.allCases, id: \.self) { day in
-            QuietDayToggle(day: day, isOn: model.newQuietDays.contains(day)) {
-              model.toggleNewQuietDay(day)
+        HStack(spacing: 8) {
+          HStack(spacing: 4) {
+            ForEach(QuietWeekday.allCases, id: \.self) { day in
+              QuietDayToggle(day: day, isOn: model.newQuietDays.contains(day)) {
+                model.toggleNewQuietDay(day)
+              }
             }
           }
-        }
-        HStack(spacing: 8) {
           TextField(
             "19:00",
             text: Binding(get: { model.newQuietFrom }, set: { model.setNewQuietFrom($0) })
