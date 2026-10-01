@@ -174,6 +174,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
       tourHostingController = nil
     }
     model.commitEditing()
+    model.closeTestCards()
     statusTimer?.invalidate()
     statusTimer = nil
     if let screenObserver {

@@ -203,7 +203,7 @@ since the sidebar already names it:
 | Group | Holds | What it changes |
 | --- | --- | --- |
 | Agents | a row per agent (Wire, Update, Remove, Show changes), the notice about a second copy, on each row the values `hosts.<agent>` sets, and, once wired, its follow-up line and Codex's "Mark as done" (`AgentFollowUp`; see "Follow-up lines" and "The Codex hook trust record" in [setup.md](setup.md)) | each agent's own hook file; the Codex hook trust record, never `config.json` |
-| Panels | a delays card (Same delays for all agents, then while it is off an Agent picker with the four agents, then Wait for idle, Grace period, Arm delay, Arm delay after an answer, Notice after, Show card after), then Hand off when frontmost, Snooze presets, Notes on answers, Mode after a plan, Sound, Waiting-agent notices, Approval card (one checkbox per agent), then Show a test panel | `config.json`, for every agent, or under `hosts.<agent>` for the delays and the Approval card checkboxes |
+| Panels | a delays card (Same delays for all agents, then while it is off an Agent picker with the four agents, then Wait for idle, Grace period, Arm delay, Arm delay after an answer, Notice after, Show card after), then Hand off when frontmost, Snooze presets, Notes on answers, Mode after a plan, Sound, Waiting-agent notices, Approval card (one checkbox per agent), then Show a test panel and Show a test card | `config.json`, for every agent, or under `hosts.<agent>` for the delays and the Approval card checkboxes |
 | App | Launch at login, Check for updates, When Countersign quits, Appearance, Accent colour, the offer to link Countersign.app, then Advanced… | macOS's login items, `config.json`, `~/Applications` |
 | Help | the tour, documentation, ask a question, report a problem, contact the developer, updates, then support links | nothing in `config.json`; never `update-check.json` |
 | Advanced | the config file's path, Open in Editor, Copy Path, Open with, the schema, what only the file can set, and the prompt for a coding agent | `config.json` for Open with; otherwise nothing beyond creating a missing `config.json` to open it |
@@ -418,6 +418,20 @@ fails shows one red line on the row, "The test panel could not start: <error>", 
 panel that refuses to show, "The test panel didn't show: <reason>", with the reason it printed
 (see "One at a time, never ahead of a real request" in [panel.md](panel.md)). The row sits outside the config-backed rows, which a config file with a problem
 disables: a test panel reads such a file as defaults, as a hook does.
+
+Right after it, "Show a test card" has two buttons, Notice and Approval, in the same secondary
+style, with the caption "See the small corner cards, right away. Nothing reaches an agent." Notice
+shows a waiting notice for "Codex" in "Countersign test" and its Go there closes the card;
+Approval shows an approval card for "Cursor" in "Countersign test" and its Show closes the card and
+opens the Command test panel, so the whole flow can be seen. Both are built by
+`TestCornerCards` through `CornerCard.inFreeSlot` with the Settings appearance, post the same
+accessibility announcement as a real card, and are titled `Countersign test notice` and
+`Countersign test approval card`. There is one test card of each kind at a time: a click while it
+is up does nothing. A test card takes a real slot (see "The shared corner card" in
+[notice.md](notice.md)), so it closes by itself after 20 seconds, and when the Settings window
+closes, rather than hold the slot for a long time: Settings can stay open in the menu-bar app
+while real agents need the spots. With no free slot the row shows one red line, "Both card spots
+are taken; close a card first."
 
 "When Countersign quits" is a menu-style `Picker` over `QuitBehavior.allCases`, titled by
 `QuitBehavior.title`, right after "Check for updates" and inside the same config-backed rows, so a

@@ -205,6 +205,7 @@ final class SettingsModel {
   private(set) var editorOpenFailure: EditorOpenFailure?
   private(set) var editorChoice: EditorChoice?
   private(set) var testPanelError: String?
+  private(set) var testCardError: String?
   private(set) var contextChange: ContextHookChange?
   private(set) var contextHookFailure: ContextHookFailure?
   private(set) var contextHookStatus = ContextHookStatus.notWired
@@ -224,6 +225,7 @@ final class SettingsModel {
   var requestTour: (() -> Void)?
   var applyAppearance: ((AppearanceChoice) -> Void)?
 
+  @ObservationIgnored private let testCornerCards = TestCornerCards()
   @ObservationIgnored private var copiedTask: Task<Void, Never>?
   @ObservationIgnored private var customAccentTask: Task<Void, Never>?
   @ObservationIgnored private var configWritten = false
@@ -1365,6 +1367,25 @@ final class SettingsModel {
     } catch {
       testPanelError = "The test panel could not start: \(SetupRun.describe(error))"
     }
+  }
+
+  func showTestCard(_ kind: TestCornerCardKind) {
+    let outcome = testCornerCards.show(
+      kind, store: WaitingStore(directory: environment.paths.waitingDirectory),
+      appearance: appearance,
+      onShowTestPanel: { [weak self] in self?.showTestPanel(.command) })
+    switch outcome {
+    case .shown:
+      testCardError = nil
+    case .alreadyUp:
+      break
+    case .noFreeSlot:
+      testCardError = TestCornerCards.noFreeSlotMessage
+    }
+  }
+
+  func closeTestCards() {
+    testCornerCards.closeAll()
   }
 
   func copy(_ target: SettingsCopyTarget) {

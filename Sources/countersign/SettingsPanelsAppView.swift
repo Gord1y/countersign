@@ -166,6 +166,8 @@ struct PanelsSection: View {
         SettingsDivider()
         TestPanelRow(model: model)
         SettingsDivider()
+        TestCardRow(model: model)
+        SettingsDivider()
         RestoreDefaultsRow(pane: .panels, model: model)
       }
     }
@@ -926,6 +928,26 @@ private struct TestPanelRow: View {
             .help(
               model.isTestPanelRunning
                 ? "Bring back the test panel" : "Show a \(kind.rawValue) test panel")
+        }
+      }
+      .fixedSize()
+    }
+  }
+}
+
+private struct TestCardRow: View {
+  static let title = "Show a test card"
+  static let caption = "See the small corner cards, right away. Nothing reaches an agent."
+
+  let model: SettingsModel
+
+  var body: some View {
+    PreferenceRow(Self.title, caption: Self.caption, problem: model.testCardError) {
+      HStack(spacing: 8) {
+        ForEach(TestCornerCardKind.allCases, id: \.self) { kind in
+          Button(kind.title) { model.showTestCard(kind) }
+            .buttonStyle(SecondaryButtonStyle())
+            .help(kind.help)
         }
       }
       .fixedSize()

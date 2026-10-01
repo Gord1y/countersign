@@ -220,7 +220,9 @@ lowest free `slot-<n>.lock` in `AppPaths.waitingDirectory` and returns nil when 
 the card owns that lock and releases it in `close()`, so closing a card always frees its slot and
 an exiting process frees it with its file descriptor. The slots are shared across every notice
 process and every hook process, so a notice and an approval card on screen at once take different
-slots.
+slots. The test cards of Settings (see "Show a test card" in [settings.md](settings.md)) are
+corner cards too and take real slots the same way, so a test card counts toward the limit and can
+leave no room for a real notice while it is up.
 
 Only `CornerCardModel` differs: a lead text, the project name, and an optional action title.
 `CornerCardModel.waitingNotice` gives `<Host.displayName> is waiting for you · ` and `Go there`
