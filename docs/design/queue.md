@@ -404,6 +404,36 @@ pruned. It checks for the ticket file itself rather than trusting the listing's 
 A hook killed by a signal, or an answer written just after its hook finished, leaves nothing
 behind past the next listing.
 
+## Parked tickets
+
+A parked ticket is a live request that has stepped back from the screen. Its one use is Cursor's
+"Later": the person dismisses the panel, the request keeps waiting, and the panel returns only on
+Show or Show Now, so the request must not hold the head of the queue for up to an hour while
+other agents' requests wait behind it.
+
+**File field.** `park(_:)` rewrites the ticket file with `"parked": true`. The key is written only
+when true, so the file of an ordinary ticket is byte-identical to what it was before parking
+existed, and a file without the key reads as not parked.
+
+**Contenders.** The tickets that compete for the screen are the live tickets that are not parked,
+in the usual order. `isHead`, `isOvertakenFromMenu`, `place(of:)`, `nextInLine(after:)` and
+`ticketAhead(of:)` all work on contenders, so `acquireDisplayIfHead` and `waitForTurn` refuse a
+parked ticket and hand the screen to the next one. A parked ticket has no place of its own:
+`place(of:)` reports `.absent` for it.
+
+**What still counts it.** `liveTickets()`, `waitingCount`, `waitingEntries()` and
+`waitingEntries(excluding:)` keep parked tickets: the request still waits for an answer, and the
+menu lists it. `realRequestCount` and `approvalCount` skip them, because a parked request is not
+asking for the screen: a test panel has no reason to yield to it, and a context checkpoint has no
+reason to wait for it.
+
+**Unparking.** `showNow(_:isOnScreen:)` writes and returns an unparked ticket whatever it was, so
+Show Now from the menu or a card's Show puts it at the front, or behind the panel on screen, and
+it becomes a contender again. There is no separate unpark.
+
+**Answers.** A parked ticket's process keeps polling its menu answers like any other, so Deny and
+Answer in Chat from the menu reach it while it is parked.
+
 ## Checkpoint tickets
 
 A context checkpoint (see "The hook path" in [checkpoints.md](checkpoints.md)) queues like a

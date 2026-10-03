@@ -41,15 +41,15 @@ public enum QueueTurn: Sendable {
 
 extension TicketQueue {
   public func place(of ticket: Ticket) -> QueuePlace {
-    QueuePlace(of: ticket, among: liveTickets())
+    QueuePlace(of: ticket, among: contenders())
   }
 
   public func nextInLine(after ticket: Ticket) -> Ticket? {
-    QueuePlace.successor(of: ticket, among: liveTickets())
+    QueuePlace.successor(of: ticket, among: contenders())
   }
 
   public func ticketAhead(of ticket: Ticket) -> Ticket? {
-    QueuePlace.predecessor(of: ticket, among: liveTickets())
+    QueuePlace.predecessor(of: ticket, among: contenders())
   }
 
   public func waitForTurn(

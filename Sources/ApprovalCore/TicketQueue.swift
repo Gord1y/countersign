@@ -117,13 +117,14 @@ public struct Ticket: Sendable, Equatable {
   public let processStart: UInt64?
   public let summary: TicketSummary?
   public let menuPosition: QueuePosition?
+  public let isParked: Bool
 
   static let timestampDigits = 20
   static let fileSuffix = ".json"
 
   init(
     fileName: String, timestamp: UInt64, pid: Int32, processStart: UInt64?,
-    summary: TicketSummary?, menuPosition: QueuePosition? = nil
+    summary: TicketSummary?, menuPosition: QueuePosition? = nil, isParked: Bool = false
   ) {
     self.fileName = fileName
     self.timestamp = timestamp
@@ -131,6 +132,7 @@ public struct Ticket: Sendable, Equatable {
     self.processStart = processStart
     self.summary = summary
     self.menuPosition = menuPosition
+    self.isParked = isParked
   }
 
   public var id: String {
@@ -145,7 +147,13 @@ public struct Ticket: Sendable, Equatable {
   func moved(to position: QueuePosition) -> Ticket {
     Ticket(
       fileName: fileName, timestamp: timestamp, pid: pid, processStart: processStart,
-      summary: summary, menuPosition: position)
+      summary: summary, menuPosition: position, isParked: false)
+  }
+
+  func parked() -> Ticket {
+    Ticket(
+      fileName: fileName, timestamp: timestamp, pid: pid, processStart: processStart,
+      summary: summary, menuPosition: menuPosition, isParked: true)
   }
 
   static func fileName(timestamp: UInt64, pid: Int32) -> String {
@@ -174,6 +182,7 @@ struct TicketContent: Codable, Equatable {
   var processStart: UInt64?
   var summary: TicketSummary?
   var menuPosition: QueuePosition?
+  var parked: Bool?
 }
 
 public struct TicketQueue: Sendable {
@@ -224,9 +233,19 @@ public struct TicketQueue: Sendable {
     return live.sorted { ($0.position, $0.timestamp, $0.pid) < ($1.position, $1.timestamp, $1.pid) }
   }
 
+  func contenders() -> [Ticket] {
+    liveTickets().filter { !$0.isParked }
+  }
+
   public func isOvertakenFromMenu(_ ticket: Ticket) -> Bool {
-    guard let head = liveTickets().first, head.fileName != ticket.fileName else { return false }
+    guard let head = contenders().first, head.fileName != ticket.fileName else { return false }
     return head.menuPosition != nil
+  }
+
+  public func park(_ ticket: Ticket) throws -> Ticket {
+    let parked = ticket.parked()
+    try write(parked)
+    return parked
   }
 
   public func showNow(_ ticket: Ticket, isOnScreen: (Ticket) -> Bool) throws -> ShowNowResult {
@@ -244,7 +263,7 @@ public struct TicketQueue: Sendable {
   }
 
   public func isHead(_ ticket: Ticket) -> Bool {
-    liveTickets().first?.fileName == ticket.fileName
+    contenders().first?.fileName == ticket.fileName
   }
 
   public func waitingCount(excluding ticket: Ticket) -> Int {
@@ -252,12 +271,12 @@ public struct TicketQueue: Sendable {
   }
 
   public func realRequestCount(excluding ticket: Ticket) -> Int {
-    liveTickets().filter { $0.fileName != ticket.fileName && $0.summary?.isTestPanel != true }
+    contenders().filter { $0.fileName != ticket.fileName && $0.summary?.isTestPanel != true }
       .count
   }
 
   public func approvalCount(excluding ticket: Ticket?) -> Int {
-    liveTickets().filter {
+    contenders().filter {
       $0.fileName != ticket?.fileName && $0.summary?.isTestPanel != true
         && $0.summary?.isContextCheckpoint != true
     }.count
@@ -311,7 +330,8 @@ public struct TicketQueue: Sendable {
       pid: parsed.pid,
       processStart: content?.processStart,
       summary: content?.summary,
-      menuPosition: content?.menuPosition
+      menuPosition: content?.menuPosition,
+      isParked: content?.parked ?? false
     )
   }
 
@@ -326,7 +346,7 @@ public struct TicketQueue: Sendable {
     encoder.outputFormatting = [.sortedKeys]
     let content = TicketContent(
       processStart: ticket.processStart, summary: ticket.summary,
-      menuPosition: ticket.menuPosition)
+      menuPosition: ticket.menuPosition, parked: ticket.isParked ? true : nil)
     try writeAtomically(encoder.encode(content), named: ticket.fileName)
   }
 
