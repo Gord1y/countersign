@@ -32,6 +32,8 @@ public enum PreferenceReset {
       return changed(file.waitingNotices, from: Settings.defaultWaitingNotices)
     case .waitingNoticeDelay:
       return changed(file.waitingNoticeDelay, from: Settings.defaultWaitingNoticeDelay)
+    case .waitingNoticeDuration:
+      return changed(file.waitingNoticeDuration, from: Settings.defaultWaitingNoticeDuration)
     case .approvalCard:
       return PreferenceValues(file: file).approvalCardAgents
         != PreferenceValues.defaultApprovalCardAgents
@@ -119,6 +121,7 @@ public enum PreferenceReset {
     case .panelSound: return PanelSound.title(values.panelSound)
     case .waitingNotices: return values.waitingNotices ? "On" : "Off"
     case .waitingNoticeDelay: return DurationText.describe(values.waitingNoticeDelay)
+    case .waitingNoticeDuration: return DurationText.describe(values.waitingNoticeDuration)
     case .approvalCard: return PreferenceName.agentListText(values.approvalCardAgents)
     case .approvalCardDelay: return PreferenceRules.secondsText(values.approvalCardDelay)
     case .appearance: return values.appearance.title
@@ -176,7 +179,8 @@ public enum PreferenceReset {
     case .snoozeMinutes: return overrides.snoozePresets != nil
     case .handoffApps: return overrides.handoffApps != nil
     case .quietHours, .checkForUpdates, .questionNotes, .quitBehavior, .modeAfterPlan,
-      .panelSound, .waitingNotices, .approvalCard, .appearance, .accentColor,
+      .panelSound, .waitingNotices, .waitingNoticeDuration, .approvalCard, .appearance,
+      .accentColor,
       .editorApp, .contextCheckpointsEnabled, .contextMode, .contextStandardThresholds,
       .contextMillionThresholds, .contextModelThresholds,
       .contextRearmBelow, .contextHandoffFile, .contextNoteSoft, .contextNoteStatus,

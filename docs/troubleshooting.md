@@ -108,7 +108,10 @@ Go through these in order:
    you answered it in its chat, so one that was answered before the delay never shows.
 8. **A headless session?** Non-interactive runs such as `claude -p` never get a notice.
 
-A notice that nobody dismisses gives up after 12 hours. The log,
+A notice closes by itself once it has been on screen for Show notice for (10 seconds by default,
+`waitingNoticeDuration`), counting only the time it is visible and not hovered; the log says
+`notice: closed (shown long enough)`, and it does not come back for the same stop. A notice that
+nobody dismisses and never shows gives up after 12 hours. The log,
 `~/Library/Logs/Countersign/countersign.log`, says why one did not show, on lines starting with
 `waiting:` and `notice:`.
 

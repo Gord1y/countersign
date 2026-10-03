@@ -117,7 +117,8 @@ step 2, a window of microseconds; the hook's next record for that session brings
 ## The clock
 
 `WaitingNoticeClock.decide(_:)` is a pure decision from one `WaitingNoticeSample`: now,
-`recordedAt`, the delay (`waitingNoticeDelay`, 10 seconds by default), whether the card is shown and in
+`recordedAt`, the delay (`waitingNoticeDelay`, 10 seconds by default), how long the card has been visible and the
+duration (`waitingNoticeDuration`, 10 seconds by default), whether the card is shown and in
 which slot, whether the agent process is alive, pause, quiet time, whether the agent's app is
 frontmost, when it last was, whether a live ticket belongs to the session, whether any Countersign
 panel is on screen, whether an approval card is waiting for a slot, and whether the transcript
@@ -131,7 +132,9 @@ shows a resume. The rules, in order:
    `panel on screen`). The card comes back when that ends, because the notice is due by then;
 6. shown in the last slot while an approval card waits for a slot: hide (`approval waiting`), see
    "Two corner cards at most" below;
-7. not shown: held while paused, in quiet time, while a panel is on screen, in the agent's app,
+7. shown, and visible for at least the duration: close, `shown long enough`, see "Closing by
+   itself" below;
+8. not shown: held while paused, in quiet time, while a panel is on screen, in the agent's app,
    while a Countersign ticket for this session is live (a panel for the session is its own notice),
    or while an approval card waits for a slot; otherwise shown once due.
 
@@ -153,6 +156,28 @@ next to a test panel. Notices hide while it is up and come back on their next ti
 because they are due by then. A panel that steps aside unanswered brings back its approval card
 first if the person is still working (see "The approval card" in [panel.md](panel.md)), or the
 panel itself once they pause.
+
+### Closing by itself
+
+"Notifications shouldn't linger": a shown notice closes once it has been visible for
+`waitingNoticeDuration` (3 seconds to 1 hour, 10 seconds by default; top level only, never per
+agent). The log reads `notice: closed (shown long enough)`, and the close goes through the same
+`close(_:)` as the ✕, so the record is deleted and the notice does not come back for the same
+stop. A newer record starts over, with the visible time back at zero.
+
+Only visible time counts. `NoticeVisibleTime` keeps the last tick's time and, each tick, adds the
+gap only while the card is on screen and the pointer is not over it. Hidden by a panel, quiet time,
+a pause or an approval card waiting for the slot, the clock stops and resumes when the card comes
+back; it does not restart. Hovering holds the card, through `CornerCardModel.onHover`, so a notice
+being read does not vanish under the pointer, and the hold ends when the card hides.
+
+A tick adds at most 5 seconds. The tick is one second, so a larger gap means the Mac slept or the
+run loop stalled, and time spent asleep must not use up the notice: it would otherwise close the
+moment the lid opens, before anyone saw it. The cap also covers a negative gap, which adds nothing.
+
+Approval cards never close by themselves: an approval needs an answer. The test notice card of
+Settings follows the same rule (visible, un-hovered time against `waitingNoticeDuration`); the test
+approval card keeps its fixed 20 seconds.
 
 ### The 12-hour cap
 
@@ -238,7 +263,8 @@ slots are shared across every notice process and every hook process, so a notice
 card on screen at once take different slots. The test cards of Settings (see "Show a test card" in
 [settings.md](settings.md)) are corner cards too and take real slots the same way, so a test card
 counts toward the limit and can leave no room for a real notice while it is up. A test card does
-not step back for an approval claim (below); it closes by itself within 20 seconds instead.
+not step back for an approval claim (below); it closes by itself instead: a test notice after Show notice for, a test approval card after 20
+seconds.
 
 ### Two corner cards at most
 

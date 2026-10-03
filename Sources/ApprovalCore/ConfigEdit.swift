@@ -18,6 +18,7 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
   case panelSound
   case waitingNotices
   case waitingNoticeDelay
+  case waitingNoticeDuration
   case approvalCard
   case approvalCardDelay
   case contextCheckpointsEnabled
@@ -81,6 +82,7 @@ public enum PreferenceEdit: Sendable, Equatable {
   case panelSound(String)
   case waitingNotices(Bool)
   case waitingNoticeDelay(TimeInterval)
+  case waitingNoticeDuration(TimeInterval)
   case approvalCard(Bool)
   case approvalCardDelay(TimeInterval)
   case questionNotes(Bool)
@@ -116,6 +118,7 @@ public enum PreferenceEdit: Sendable, Equatable {
     case .panelSound: return .panelSound
     case .waitingNotices: return .waitingNotices
     case .waitingNoticeDelay: return .waitingNoticeDelay
+    case .waitingNoticeDuration: return .waitingNoticeDuration
     case .approvalCard: return .approvalCard
     case .approvalCardDelay: return .approvalCardDelay
     case .questionNotes: return .questionNotes
@@ -235,7 +238,7 @@ public enum ConfigEdit {
       try set(path, to: .number(spelling(written)), in: &document) {
         $0.numberValue == written
       }
-    case .waitingNoticeDelay(let seconds):
+    case .waitingNoticeDelay(let seconds), .waitingNoticeDuration(let seconds):
       let written = PreferenceRules.thousandths(seconds)
       try set(path, to: .number(spelling(written)), in: &document) {
         $0.durationSeconds(bareUnit: 1) == written

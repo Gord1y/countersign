@@ -39,6 +39,8 @@ extension PreferenceName {
       return DurationFieldSpec(bareUnit: 1, range: Settings.armDelayRange)
     case .waitingNoticeDelay:
       return DurationFieldSpec(bareUnit: 1, range: Settings.waitingNoticeDelayRange)
+    case .waitingNoticeDuration:
+      return DurationFieldSpec(bareUnit: 1, range: Settings.waitingNoticeDurationRange)
     case .approvalCardDelay:
       return DurationFieldSpec(bareUnit: 1, range: Settings.approvalCardDelayRange)
     default:

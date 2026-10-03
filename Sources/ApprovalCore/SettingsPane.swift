@@ -65,7 +65,8 @@ public enum SettingsPane: String, CaseIterable, Sendable {
       return [
         .idleSeconds, .graceSeconds, .armDelay, .chainedArmDelay, .snoozeMinutes, .quietHours,
         .handoffApps, .questionNotes, .modeAfterPlan,
-        .panelSound, .waitingNoticeDelay, .approvalCard, .approvalCardDelay,
+        .panelSound, .waitingNoticeDelay, .waitingNoticeDuration,
+        .approvalCard, .approvalCardDelay,
       ]
     case .app: return [.checkForUpdates, .quitBehavior, .appearance, .accentColor]
     case .context:

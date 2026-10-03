@@ -160,6 +160,9 @@ import Testing
       PreferenceName.waitingNoticeDelay.durationField
         == DurationFieldSpec(bareUnit: 1, range: Settings.waitingNoticeDelayRange))
     #expect(
+      PreferenceName.waitingNoticeDuration.durationField
+        == DurationFieldSpec(bareUnit: 1, range: 3...3600))
+    #expect(
       PreferenceName.approvalCardDelay.durationField
         == DurationFieldSpec(bareUnit: 1, range: 1...600))
     #expect(PreferenceName.snoozeMinutes.durationField == nil)

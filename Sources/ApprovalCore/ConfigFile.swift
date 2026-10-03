@@ -51,6 +51,7 @@ public struct ConfigFile: Sendable, Equatable {
   public var panelSound: String?
   public var waitingNotices: Bool?
   public var waitingNoticeDelay: TimeInterval?
+  public var waitingNoticeDuration: TimeInterval?
   public var approvalCard: Bool?
   public var approvalCardDelay: Double?
   public var includeHeadlessSessions: Bool?
@@ -79,6 +80,7 @@ public struct ConfigFile: Sendable, Equatable {
     panelSound: String? = nil,
     waitingNotices: Bool? = nil,
     waitingNoticeDelay: TimeInterval? = nil,
+    waitingNoticeDuration: TimeInterval? = nil,
     approvalCard: Bool? = nil,
     approvalCardDelay: Double? = nil,
     includeHeadlessSessions: Bool? = nil,
@@ -106,6 +108,7 @@ public struct ConfigFile: Sendable, Equatable {
     self.panelSound = panelSound
     self.waitingNotices = waitingNotices
     self.waitingNoticeDelay = waitingNoticeDelay
+    self.waitingNoticeDuration = waitingNoticeDuration
     self.approvalCard = approvalCard
     self.approvalCardDelay = approvalCardDelay
     self.includeHeadlessSessions = includeHeadlessSessions
@@ -153,8 +156,8 @@ public enum ConfigFileParser {
   static let topLevelKeys: Set<String> = [
     "armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds", "handoffApps",
     "snoozeMinutes", "quietHours", "checkForUpdates", "quitBehavior", "modeAfterPlan",
-    "panelSound", "waitingNotices", "waitingNoticeDelay", "approvalCard", "approvalCardDelay",
-    "includeHeadlessSessions", "questionNotes", "editorApp", "hosts",
+    "panelSound", "waitingNotices", "waitingNoticeDelay", "waitingNoticeDuration", "approvalCard",
+    "approvalCardDelay", "includeHeadlessSessions", "questionNotes", "editorApp", "hosts",
     "appearance", "accentColor", "contextCheckpoints",
     "$schema",
   ]
@@ -220,6 +223,8 @@ public enum ConfigFileParser {
       defaultValue: Settings.defaultWaitingNotices, logLines: &logLines)
     file.waitingNoticeDelay = readWaitingNoticeDelay(
       root["waitingNoticeDelay"], path: "waitingNoticeDelay", logLines: &logLines)
+    file.waitingNoticeDuration = readWaitingNoticeDuration(
+      root["waitingNoticeDuration"], path: "waitingNoticeDuration", logLines: &logLines)
     file.approvalCard = readApprovalCard(
       root["approvalCard"], path: "approvalCard", logLines: &logLines)
     file.approvalCardDelay = readApprovalCardDelay(
@@ -611,6 +616,23 @@ public enum ConfigFileParser {
           + " \(DurationText.compact(Settings.waitingNoticeDelayRange.lowerBound)) to"
           + " \(DurationText.compact(Settings.waitingNoticeDelayRange.upperBound)), using default"
           + " \(DurationText.compact(Settings.defaultWaitingNoticeDelay))")
+      return nil
+    }
+    return seconds
+  }
+
+  private static func readWaitingNoticeDuration(
+    _ value: JSONValue?, path: String, logLines: inout [String]
+  ) -> TimeInterval? {
+    guard let value else { return nil }
+    guard let seconds = durationValue(value, unit: 1),
+      Settings.waitingNoticeDurationRange.contains(seconds)
+    else {
+      logLines.append(
+        "\(path): expected a duration from"
+          + " \(DurationText.compact(Settings.waitingNoticeDurationRange.lowerBound)) to"
+          + " \(DurationText.compact(Settings.waitingNoticeDurationRange.upperBound)), using"
+          + " default \(DurationText.compact(Settings.defaultWaitingNoticeDuration))")
       return nil
     }
     return seconds

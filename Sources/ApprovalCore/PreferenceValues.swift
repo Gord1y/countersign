@@ -31,6 +31,7 @@ public struct PreferenceValues: Sendable, Equatable {
   public var panelSound: String
   public var waitingNotices: Bool
   public var waitingNoticeDelay: TimeInterval
+  public var waitingNoticeDuration: TimeInterval
   public var approvalCardDelay: TimeInterval
   public var approvalCardAgents: [Host]
   public var questionNotes: Bool
@@ -53,6 +54,7 @@ public struct PreferenceValues: Sendable, Equatable {
     panelSound: String = Settings.defaultPanelSound,
     waitingNotices: Bool = Settings.defaultWaitingNotices,
     waitingNoticeDelay: TimeInterval = Settings.defaultWaitingNoticeDelay,
+    waitingNoticeDuration: TimeInterval = Settings.defaultWaitingNoticeDuration,
     approvalCardDelay: TimeInterval = Settings.defaultApprovalCardDelay,
     approvalCardAgents: [Host] = PreferenceValues.defaultApprovalCardAgents,
     questionNotes: Bool = Settings.defaultQuestionNotes,
@@ -74,6 +76,7 @@ public struct PreferenceValues: Sendable, Equatable {
     self.panelSound = panelSound
     self.waitingNotices = waitingNotices
     self.waitingNoticeDelay = waitingNoticeDelay
+    self.waitingNoticeDuration = waitingNoticeDuration
     self.approvalCardDelay = approvalCardDelay
     self.approvalCardAgents = approvalCardAgents
     self.questionNotes = questionNotes
@@ -102,6 +105,7 @@ public struct PreferenceValues: Sendable, Equatable {
       panelSound: file.panelSound ?? Settings.defaultPanelSound,
       waitingNotices: file.waitingNotices ?? Settings.defaultWaitingNotices,
       waitingNoticeDelay: file.waitingNoticeDelay ?? Settings.defaultWaitingNoticeDelay,
+      waitingNoticeDuration: file.waitingNoticeDuration ?? Settings.defaultWaitingNoticeDuration,
       approvalCardDelay: file.approvalCardDelay ?? Settings.defaultApprovalCardDelay,
       approvalCardAgents: Host.allCases.filter {
         Settings.resolve(file: file, host: $0).approvalCard
@@ -141,6 +145,8 @@ public struct PreferenceValues: Sendable, Equatable {
       values.waitingNotices = enabled
     case .waitingNoticeDelay(let seconds):
       values.waitingNoticeDelay = seconds
+    case .waitingNoticeDuration(let seconds):
+      values.waitingNoticeDuration = seconds
     case .approvalCard(let enabled):
       values.approvalCardAgents = enabled ? Host.allCases : []
     case .approvalCardDelay(let seconds):
@@ -207,6 +213,8 @@ public struct PreferenceValues: Sendable, Equatable {
     case .panelSound: values.panelSound = Settings.defaultPanelSound
     case .waitingNotices: values.waitingNotices = Settings.defaultWaitingNotices
     case .waitingNoticeDelay: values.waitingNoticeDelay = Settings.defaultWaitingNoticeDelay
+    case .waitingNoticeDuration:
+      values.waitingNoticeDuration = Settings.defaultWaitingNoticeDuration
     case .approvalCard: values.approvalCardAgents = PreferenceValues.defaultApprovalCardAgents
     case .approvalCardDelay: values.approvalCardDelay = Settings.defaultApprovalCardDelay
     case .questionNotes: values.questionNotes = Settings.defaultQuestionNotes

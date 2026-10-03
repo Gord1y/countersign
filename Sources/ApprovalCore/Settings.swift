@@ -14,6 +14,7 @@ public struct Settings: Sendable, Equatable {
   public var panelSound: String
   public var waitingNotices: Bool
   public var waitingNoticeDelay: TimeInterval
+  public var waitingNoticeDuration: TimeInterval
   public var approvalCard: Bool
   public var approvalCardDelay: Double
   public var includeHeadlessSessions: Bool
@@ -36,6 +37,7 @@ public struct Settings: Sendable, Equatable {
     panelSound: String = Settings.defaultPanelSound,
     waitingNotices: Bool = Settings.defaultWaitingNotices,
     waitingNoticeDelay: TimeInterval = Settings.defaultWaitingNoticeDelay,
+    waitingNoticeDuration: TimeInterval = Settings.defaultWaitingNoticeDuration,
     approvalCard: Bool,
     approvalCardDelay: Double = Settings.defaultApprovalCardDelay,
     includeHeadlessSessions: Bool,
@@ -57,6 +59,7 @@ public struct Settings: Sendable, Equatable {
     self.panelSound = panelSound
     self.waitingNotices = waitingNotices
     self.waitingNoticeDelay = waitingNoticeDelay
+    self.waitingNoticeDuration = waitingNoticeDuration
     self.approvalCard = approvalCard
     self.approvalCardDelay = approvalCardDelay
     self.includeHeadlessSessions = includeHeadlessSessions
@@ -84,6 +87,8 @@ public struct Settings: Sendable, Equatable {
   public static let defaultWaitingNotices = true
   public static let defaultWaitingNoticeDelay: TimeInterval = 10
   public static let waitingNoticeDelayRange: ClosedRange<TimeInterval> = 10...3600
+  public static let defaultWaitingNoticeDuration: TimeInterval = 10
+  public static let waitingNoticeDurationRange: ClosedRange<TimeInterval> = 3...3600
   public static let defaultApprovalCardDelay: Double = 5
   public static let approvalCardDelayRange: ClosedRange<Double> = 1...600
   public static let defaultIncludeHeadlessSessions = false
@@ -112,6 +117,7 @@ public struct Settings: Sendable, Equatable {
     let waitingNotices = file.waitingNotices ?? defaultWaitingNotices
     let waitingNoticeDelay =
       hostOverrides?.waitingNoticeDelay ?? file.waitingNoticeDelay ?? defaultWaitingNoticeDelay
+    let waitingNoticeDuration = file.waitingNoticeDuration ?? defaultWaitingNoticeDuration
     let approvalCard =
       hostOverrides?.approvalCard ?? file.approvalCard ?? defaultApprovalCard(for: host)
     let approvalCardDelay =
@@ -137,6 +143,7 @@ public struct Settings: Sendable, Equatable {
       panelSound: panelSound,
       waitingNotices: waitingNotices,
       waitingNoticeDelay: waitingNoticeDelay,
+      waitingNoticeDuration: waitingNoticeDuration,
       approvalCard: approvalCard,
       approvalCardDelay: approvalCardDelay,
       includeHeadlessSessions: includeHeadlessSessions,

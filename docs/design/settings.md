@@ -204,7 +204,7 @@ since the sidebar already names it:
 | Group | Holds | What it changes |
 | --- | --- | --- |
 | Agents | a row per agent (Wire, Update, Remove, Show changes), the notice about a second copy, on each row the values `hosts.<agent>` sets, and, once wired, its follow-up line and Codex's "Mark as done" (`AgentFollowUp`; see "Follow-up lines" and "The Codex hook trust record" in [setup.md](setup.md)) | each agent's own hook file; the Codex hook trust record, never `config.json` |
-| Panels | a delays card (Same delays for all agents, then while it is off an Agent picker with the four agents, then Wait for idle, Grace period, Arm delay, Arm delay after an answer, Show card after), then Hand off when frontmost, Snooze presets, Notes on answers, Mode after a plan, Sound, Waiting-agent notices, Notice after, Approval card (one checkbox per agent), then Show a test panel and Show a test card | `config.json`, for every agent, or under `hosts.<agent>` for the delays and the Approval card checkboxes |
+| Panels | a delays card (Same delays for all agents, then while it is off an Agent picker with the four agents, then Wait for idle, Grace period, Arm delay, Arm delay after an answer, Show card after), then Hand off when frontmost, Snooze presets, Notes on answers, Mode after a plan, Sound, Waiting-agent notices, Notice after, Show notice for, Approval card (one checkbox per agent), then Show a test panel and Show a test card | `config.json`, for every agent, or under `hosts.<agent>` for the delays and the Approval card checkboxes |
 | App | Launch at login, Check for updates, When Countersign quits, Appearance, Accent colour, the offer to link Countersign.app, then Advanced… | macOS's login items, `config.json`, `~/Applications` |
 | Help | the tour, documentation, ask a question, report a problem, contact the developer, updates, then support links | nothing in `config.json`; never `update-check.json` |
 | Advanced | the config file's path, Open in Editor, Copy Path, Open with, the schema, what only the file can set, and the prompt for a coding agent | `config.json` for Open with; otherwise nothing beyond creating a missing `config.json` to open it |
@@ -338,6 +338,7 @@ The window edits top-level keys only:
 | Panels | Sound, a menu and a play button | `panelSound` | None, then the names in `/System/Library/Sounds`; the button (`speaker.wave.2`, label `Play <name>`) is disabled for None |
 | Panels | Waiting-agent notices, a switch | `waitingNotices` | on or off; never written directly, see below |
 | Panels | Notice after, a duration field, directly under the Waiting-agent notices switch | `waitingNoticeDelay` | `10s` to `1h`, a bare number is seconds; disabled while notices are off |
+| Panels | Show notice for, a duration field, directly under Notice after | `waitingNoticeDuration` | `3s` to `1h`, a bare number is seconds; top level only; disabled while notices are off |
 | App | Launch at login, a switch | none, `SMAppService.mainApp` | see below |
 | App | Check for updates, a switch | `checkForUpdates` | on or off |
 | App | When Countersign quits, a menu | `quitBehavior` | "Ask", "Keep showing panels" or "Pause panels" |
@@ -433,7 +434,8 @@ opens the Command test panel, so the whole flow can be seen. Both are built by
 accessibility announcement as a real card, and are titled `Countersign test notice` and
 `Countersign test approval card`. There is one test card of each kind at a time: a click while it
 is up does nothing. A test card takes a real slot (see "The shared corner card" in
-[notice.md](notice.md)), so it closes by itself after 20 seconds, and when the Settings window
+[notice.md](notice.md)), so a test notice closes by itself after Show notice for (visible, un-hovered time, like a real
+one), a test approval card after 20 seconds, and both when the Settings window
 closes, rather than hold the slot for a long time: Settings can stay open in the menu-bar app
 while real agents need the spots. With no free slot the row shows one red line, "Both card spots
 are taken; close a card first."
@@ -647,10 +649,12 @@ waiting-agent notices?", with "Countersign changes <paths> and keeps a backup." 
 On / Turn Off and Cancel, or OK alone with the failure lines when a file cannot be changed. On
 confirm, `WaitingHookRun.apply` writes the hook file with a backup and only then is `waitingNotices`
 written. With no wired Claude Code the popup shows "Nothing to change." and confirming writes only
-the config. The Notice after field sits directly under the switch, outside the delays group, and
-always shows and edits the top-level value, even while "Same delays for all agents" is off. It is
-an ordinary row. Restore Defaults for Panels resets Notice
-after and never the switch, since flipping it needs the popup; the switch has no reset button.
+the config. Two fields sit directly under the switch, outside the delays group: Notice after, and
+below it Show notice for (`waitingNoticeDuration`, how long a notice stays up before it closes by
+itself; see "Closing by itself" in [notice.md](notice.md)). Both always show and edit the
+top-level value, even while "Same delays for all agents" is off, and Show notice for has no
+per-agent form at all. They are ordinary rows. Restore Defaults for Panels resets both fields
+and never the switch, since flipping it needs the popup; the switch has no reset button.
 
 ### Resetting to defaults
 

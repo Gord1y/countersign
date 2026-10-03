@@ -279,6 +279,7 @@ final class SettingsModel {
   var panelSound: String { preferences.panelSound }
   var waitingNotices: Bool { preferences.waitingNotices }
   var waitingNoticeDelay: TimeInterval { preferences.waitingNoticeDelay }
+  var waitingNoticeDuration: TimeInterval { preferences.waitingNoticeDuration }
   var questionNotes: Bool { preferences.questionNotes }
   var appearance: AppearanceChoice { preferences.appearance }
   var accentColor: HexColor { customAccentColor ?? preferences.accentColor }
@@ -674,6 +675,7 @@ final class SettingsModel {
     case .armDelay: return preferences.armDelay
     case .chainedArmDelay: return preferences.chainedArmDelay
     case .waitingNoticeDelay: return preferences.waitingNoticeDelay
+    case .waitingNoticeDuration: return preferences.waitingNoticeDuration
     case .approvalCardDelay: return preferences.approvalCardDelay
     default: return 0
     }
@@ -733,6 +735,7 @@ final class SettingsModel {
     case .armDelay: setArmDelay(seconds)
     case .chainedArmDelay: setChainedArmDelay(seconds)
     case .waitingNoticeDelay: setWaitingNoticeDelay(seconds)
+    case .waitingNoticeDuration: setWaitingNoticeDuration(seconds)
     case .approvalCardDelay: setApprovalCardDelay(seconds)
     default: return
     }
@@ -857,6 +860,10 @@ final class SettingsModel {
 
   func setWaitingNoticeDelay(_ seconds: TimeInterval) {
     writeDelay(.waitingNoticeDelay(seconds))
+  }
+
+  func setWaitingNoticeDuration(_ seconds: TimeInterval) {
+    write(.waitingNoticeDuration(seconds))
   }
 
   var homeDirectory: URL {
@@ -1371,7 +1378,7 @@ final class SettingsModel {
   func showTestCard(_ kind: TestCornerCardKind) {
     let outcome = testCornerCards.show(
       kind, store: WaitingStore(directory: environment.paths.waitingDirectory),
-      appearance: appearance,
+      appearance: appearance, noticeDuration: waitingNoticeDuration,
       onShowTestPanel: { [weak self] in self?.showTestPanel(.command) })
     switch outcome {
     case .shown:

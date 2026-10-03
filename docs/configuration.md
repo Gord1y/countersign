@@ -76,11 +76,12 @@ agents at once, or, with "Same delays for all agents" off, for one agent at a ti
 | Sound | `panelSound` | `"none"` |
 | Waiting-agent notices | `waitingNotices` | `true` |
 | Notice after | `waitingNoticeDelay` | `10` (seconds) |
+| Show notice for | `waitingNoticeDuration` | `10` (seconds) |
 
 Every time setting takes a number in its own unit or a string with a unit, so `"500ms"`, `"0.5s"`,
 `"90s"`, `"2m"` and `"1h"` all work (`ms`, `s`, `m` and `h`, written without a space). A bare number
 keeps the unit in the key: seconds for `idleSeconds`, `graceSeconds`, `armDelay`,
-`chainedArmDelay`, `waitingNoticeDelay` and `approvalCardDelay`, minutes for `snoozeMinutes`. The
+`chainedArmDelay`, `waitingNoticeDelay`, `waitingNoticeDuration` and `approvalCardDelay`, minutes for `snoozeMinutes`. The
 range of each key applies after the unit is converted, so `"90s"` is a valid `waitingNoticeDelay`
 and `"2m"` is out of range for `idleSeconds`. Settings writes a whole number of minutes back as a number, and anything
 shorter as a string, for example `["30s", 5, 15]`.
@@ -177,6 +178,15 @@ keys below.
   and falls back to `10`. It can also be set for one agent, under `hosts.<agent>`, and wins there;
   Settings shows only the top-level value, in a field under the Waiting-agent notices switch,
   disabled while notices are off.
+- **Show notice for** (`waitingNoticeDuration`): how long a notice stays on screen before it
+  closes by itself, from 3 seconds to 1 hour: a number of seconds or a string such as `"10s"` or
+  `"1m"`, `10` unless you change it. A value outside the range or of another type logs one line
+  and falls back to `10`. Only the time the notice is visible counts: while a panel, quiet time or
+  a pause hides it, or while the pointer rests on it, the clock stops. A notice that closes this
+  way is deleted like one you dismiss with the ✕, and the log reads
+  `notice: closed (shown long enough)`. It is top level only: `hosts.<agent>` does not take it.
+  Settings shows it directly under Notice after, disabled while notices are off. Approval cards
+  never close by themselves.
 
 #### Try your settings
 

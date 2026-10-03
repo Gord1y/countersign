@@ -11,6 +11,7 @@ final class CornerCardModel {
   var onAction: (() -> Void)?
   var onDismiss: (() -> Void)?
   var onHeight: ((CGFloat) -> Void)?
+  var onHover: ((Bool) -> Void)?
 
   init(leadText: String, projectName: String, actionTitle: String?) {
     self.leadText = leadText
@@ -93,6 +94,7 @@ struct CornerCardView: View {
         shape: RoundedRectangle(cornerRadius: PanelMetrics.cornerRadius, style: .continuous),
         opacity: 0.1)
     )
+    .onHover { model.onHover?($0) }
     .reportHeight { model.onHeight?($0) }
   }
 }

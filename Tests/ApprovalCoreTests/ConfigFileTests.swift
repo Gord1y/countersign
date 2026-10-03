@@ -91,6 +91,38 @@ import Testing
     }
   }
 
+  @Test func waitingNoticeDurationDefaultsToTenSeconds() {
+    let (file, logLines) = parse("{}")
+    #expect(file.waitingNoticeDuration == nil)
+    #expect(logLines.isEmpty)
+    #expect(Settings.resolve(file: file, host: .claude).waitingNoticeDuration == 10)
+  }
+
+  @Test func waitingNoticeDurationReadsSecondsAndUnits() {
+    for (text, seconds) in [("30", 30.0), ("3", 3.0), ("3600", 3600.0), ("\"1m\"", 60.0)] {
+      let (file, logLines) = parse(#"{ "waitingNoticeDuration": \#(text) }"#)
+      #expect(file.waitingNoticeDuration == seconds)
+      #expect(logLines.isEmpty)
+      #expect(Settings.resolve(file: file, host: .cursor).waitingNoticeDuration == seconds)
+    }
+  }
+
+  @Test func waitingNoticeDurationOutOfRangeFallsBackToTheDefaultWithOneLine() {
+    for bad in ["2", "3601", "\"soon\"", "true"] {
+      let (file, logLines) = parse(#"{ "waitingNoticeDuration": \#(bad) }"#)
+      #expect(file.waitingNoticeDuration == nil)
+      #expect(
+        logLines == ["waitingNoticeDuration: expected a duration from 3s to 1h, using default 10s"])
+    }
+  }
+
+  @Test func waitingNoticeDurationIsTopLevelOnly() {
+    let (file, logLines) = parse(
+      #"{ "hosts": { "cursor": { "waitingNoticeDuration": 30 } } }"#)
+    #expect(logLines == [#"unknown key "hosts.cursor.waitingNoticeDuration", ignored"#])
+    #expect(Settings.resolve(file: file, host: .cursor).waitingNoticeDuration == 10)
+  }
+
   @Test func theOldWaitingNoticeMinutesKeyIsIgnored() {
     let (file, _) = parse(#"{ "waitingNoticeMinutes": 5 }"#)
     #expect(file.waitingNoticeDelay == nil)

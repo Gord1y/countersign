@@ -158,6 +158,14 @@ struct PanelsSection: View {
               .disabled(!model.waitingNotices)
           }
           SettingsDivider()
+          PreferenceRow(
+            .waitingNoticeDuration, model: model,
+            problem: model.durationProblem(.waitingNoticeDuration)
+          ) {
+            DurationField(name: .waitingNoticeDuration, model: model)
+              .disabled(!model.waitingNotices)
+          }
+          SettingsDivider()
           ApprovalCardRow(model: model)
           SettingsDivider()
           ContextToggleRow(model: model)

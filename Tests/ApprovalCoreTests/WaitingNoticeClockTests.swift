@@ -7,8 +7,11 @@ import Testing
   private let recordedAt = Date(timeIntervalSinceReferenceDate: 800_000_000)
   private let delay: TimeInterval = 120
 
+  private let duration: TimeInterval = 10
+
   private func sample(
-    after seconds: TimeInterval, isShown: Bool = false, slot: Int? = nil,
+    after seconds: TimeInterval, visibleFor: TimeInterval = 0, isShown: Bool = false,
+    slot: Int? = nil,
     agentAlive: Bool = true, paused: Bool = false, quiet: Bool = false,
     agentAppFrontmost: Bool = false, lastAgentAppFrontmostAfter: TimeInterval? = nil,
     sessionHasLiveTicket: Bool = false, panelOnScreen: Bool = false,
@@ -16,7 +19,8 @@ import Testing
   ) -> WaitingNoticeSample {
     WaitingNoticeSample(
       now: recordedAt.addingTimeInterval(seconds), recordedAt: recordedAt, delay: delay,
-      isShown: isShown, slot: slot, agentAlive: agentAlive, paused: paused, quiet: quiet,
+      visibleFor: visibleFor, duration: duration, isShown: isShown, slot: slot,
+      agentAlive: agentAlive, paused: paused, quiet: quiet,
       agentAppFrontmost: agentAppFrontmost,
       lastAgentAppFrontmostAt: lastAgentAppFrontmostAfter.map { recordedAt.addingTimeInterval($0) },
       sessionHasLiveTicket: sessionHasLiveTicket, panelOnScreen: panelOnScreen,
@@ -26,6 +30,30 @@ import Testing
   @Test func showsOnceTheDelayHasPassed() {
     #expect(WaitingNoticeClock.decide(sample(after: 119)) == .wait(nil))
     #expect(WaitingNoticeClock.decide(sample(after: 120)) == .show)
+  }
+
+  @Test func aShownNoticeClosesOnceItHasBeenVisibleLongEnough() {
+    #expect(
+      WaitingNoticeClock.decide(sample(after: 300, visibleFor: 10, isShown: true))
+        == .close(.shownLongEnough))
+    #expect(
+      WaitingNoticeClock.decide(sample(after: 300, visibleFor: 9.9, isShown: true)) == .wait(nil))
+  }
+
+  @Test func theAgentsAppAndAPanelOutrankShownLongEnough() {
+    #expect(
+      WaitingNoticeClock.decide(
+        sample(after: 300, visibleFor: 60, isShown: true, agentAppFrontmost: true))
+        == .close(.inAgentApp))
+    #expect(
+      WaitingNoticeClock.decide(
+        sample(after: 300, visibleFor: 60, isShown: true, panelOnScreen: true))
+        == .hide(.panelOnScreen))
+  }
+
+  @Test func visibleTimeMeansNothingForANoticeThatIsNotShown() {
+    #expect(WaitingNoticeClock.decide(sample(after: 119, visibleFor: 600)) == .wait(nil))
+    #expect(WaitingNoticeClock.decide(sample(after: 120, visibleFor: 600)) == .show)
   }
 
   @Test func pauseHoldsIt() {

@@ -89,6 +89,19 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
     #expect(try editing(config, .snoozePresets([30, 300, 900])) == config)
   }
 
+  @Test func writesTheWaitingNoticeDurationAsABareNumberOfSeconds() throws {
+    #expect(
+      try editing("{\"waitingNoticeDuration\": 5}", .waitingNoticeDuration(10))
+        == "{\"waitingNoticeDuration\": 10}")
+    #expect(
+      try editing("{\"waitingNoticeDuration\": 5}", .waitingNoticeDuration(45))
+        == "{\"waitingNoticeDuration\": 45}")
+    let config = "{\"waitingNoticeDuration\": \"1m\"}"
+    #expect(try editing(config, .waitingNoticeDuration(60)) == config)
+    #expect(!PreferenceName.agentDelays.contains(.waitingNoticeDuration))
+    #expect(!PreferenceEdit.waitingNoticeDuration(30).isAllowedForAgent)
+  }
+
   @Test func writesTheWaitingNoticeDelayAsABareNumberOfSeconds() throws {
     #expect(
       try editing("{\"waitingNoticeDelay\": 5}", .waitingNoticeDelay(10))

@@ -16,6 +16,7 @@ public enum WaitingNoticeClose: String, Sendable, Equatable {
   case agentExited = "agent exited"
   case expired
   case inAgentApp = "in the agent's app"
+  case shownLongEnough = "shown long enough"
 }
 
 public enum WaitingNoticeStep: Sendable, Equatable {
@@ -29,6 +30,8 @@ public struct WaitingNoticeSample: Sendable, Equatable {
   public var now: Date
   public var recordedAt: Date
   public var delay: TimeInterval
+  public var visibleFor: TimeInterval
+  public var duration: TimeInterval
   public var isShown: Bool
   public var slot: Int?
   public var agentAlive: Bool
@@ -42,7 +45,8 @@ public struct WaitingNoticeSample: Sendable, Equatable {
   public var resumed: Bool
 
   public init(
-    now: Date, recordedAt: Date, delay: TimeInterval, isShown: Bool, slot: Int?,
+    now: Date, recordedAt: Date, delay: TimeInterval, visibleFor: TimeInterval,
+    duration: TimeInterval, isShown: Bool, slot: Int?,
     agentAlive: Bool, paused: Bool, quiet: Bool, agentAppFrontmost: Bool,
     lastAgentAppFrontmostAt: Date?, sessionHasLiveTicket: Bool, panelOnScreen: Bool,
     approvalWaiting: Bool, resumed: Bool
@@ -50,6 +54,8 @@ public struct WaitingNoticeSample: Sendable, Equatable {
     self.now = now
     self.recordedAt = recordedAt
     self.delay = delay
+    self.visibleFor = visibleFor
+    self.duration = duration
     self.isShown = isShown
     self.slot = slot
     self.agentAlive = agentAlive
@@ -88,6 +94,9 @@ public enum WaitingNoticeClock {
       }
       if sample.approvalWaiting, sample.slot == WaitingStore.slotCount - 1 {
         return .hide(.approvalWaiting)
+      }
+      if sample.visibleFor >= sample.duration {
+        return .close(.shownLongEnough)
       }
       return .wait(nil)
     }

@@ -463,6 +463,20 @@
       "default": 10,
       "description": "How long an agent has been waiting before the notice appears, from 10 seconds to 1 hour: a number of seconds, or a string with a unit such as \"10s\" or \"2m\"; hosts.<agent>.waitingNoticeDelay overrides it per agent."
     },
+    "waitingNoticeDuration": {
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 3,
+          "maximum": 3600
+        },
+        {
+          "$ref": "#/$defs/durationText"
+        }
+      ],
+      "default": 10,
+      "description": "How long a waiting-agent notice stays on screen before it closes by itself, from 3 seconds to 1 hour: a number of seconds, or a string with a unit such as \"10s\" or \"1m\". Only visible time counts."
+    },
     "approvalCard": {
       "type": "boolean",
       "description": "Whether a corner card with a Show button appears when an approval has been waiting approvalCardDelay seconds while you keep working. Unset, it is on for Codex, Cursor and Antigravity and off for Claude Code; hosts.<agent>.approvalCard overrides it per agent."

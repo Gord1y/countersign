@@ -171,7 +171,8 @@ the same diff. An agent that was wired before shows "Needs an update" until you 
 it off in Settings ▸ Panels ▸ Waiting-agent notices shows the change and removes the entries, and
 setup then leaves them out; `countersign setup --remove` takes them out too. Each entry only records that the turn ended and exits,
 so it never holds the agent up. When you have been away from the agent for the notice delay (10 seconds by default), a
-corner card says it is waiting. What it does, and when it closes, is in
+corner card says it is waiting, and it closes by itself after it has been on screen for Show notice
+for (10 seconds by default). What it does, and when it closes, is in
 [configuration.md](configuration.md#panels) and [design/notice.md](design/notice.md).
 
 | Agent | The entry |

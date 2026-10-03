@@ -133,6 +133,12 @@ import Testing
     #expect(
       Self.alternatives(schema["properties"]?["waitingNoticeDelay"]).last?["$ref"]?.stringValue
         == "#/$defs/durationText")
+    #expect(
+      schema["properties"]?["waitingNoticeDuration"]?["default"]
+        == .int(Int64(Settings.defaultWaitingNoticeDuration)))
+    #expect(
+      Self.alternatives(schema["properties"]?["waitingNoticeDuration"]).last?["$ref"]?.stringValue
+        == "#/$defs/durationText")
   }
 
   private static func alternatives(_ value: JSONValue?) -> [JSONValue] {

@@ -41,6 +41,7 @@ private final class WaitingNoticeWatch: NSObject {
   private let store: WaitingStore
   private let log: EventLog
   private let delay: TimeInterval
+  private let duration: TimeInterval
   private let appearance: AppearanceChoice
   private let pauseSwitch: PauseSwitch
   private let quietState: QuietState
@@ -49,6 +50,8 @@ private final class WaitingNoticeWatch: NSObject {
   private var record: WaitingRecord
   private var transcript: TranscriptWatch
   private var card: CornerCard?
+  private var visibleTime = NoticeVisibleTime()
+  private var isHovered = false
   private var lastAgentAppFrontmostAt: Date?
   private var loggedHold: WaitingNoticeHold?
   private var isLeaving = false
@@ -65,6 +68,7 @@ private final class WaitingNoticeWatch: NSObject {
     self.lock = lock
     self.log = log
     self.delay = settings.waitingNoticeDelay
+    self.duration = settings.waitingNoticeDuration
     self.appearance = settings.appearance
     self.pauseSwitch = PauseSwitch(file: paths.pauseFile)
     self.quietState = QuietState(
@@ -99,7 +103,9 @@ private final class WaitingNoticeWatch: NSObject {
     if current.recordedAt != record.recordedAt {
       startOver(with: current)
     }
-    apply(WaitingNoticeClock.decide(sample(now: Date())))
+    let now = Date()
+    visibleTime.advance(to: now, counting: card != nil && !isHovered)
+    apply(WaitingNoticeClock.decide(sample(now: now)))
   }
 
   private func sample(now: Date) -> WaitingNoticeSample {
@@ -109,7 +115,8 @@ private final class WaitingNoticeWatch: NSObject {
     }
     let liveTickets = queue.liveTickets()
     return WaitingNoticeSample(
-      now: now, recordedAt: record.recordedAt, delay: delay, isShown: card != nil,
+      now: now, recordedAt: record.recordedAt, delay: delay,
+      visibleFor: visibleTime.seconds, duration: duration, isShown: card != nil,
       slot: card?.slot, agentAlive: isAgentAlive(), paused: pauseSwitch.isPaused,
       quiet: quietState.activeUntil(now: now) != nil, agentAppFrontmost: agentAppFrontmost,
       lastAgentAppFrontmostAt: lastAgentAppFrontmostAt,
@@ -134,9 +141,11 @@ private final class WaitingNoticeWatch: NSObject {
   }
 
   private func show() {
+    let model = CornerCardModel.waitingNotice(record: record)
+    model.onHover = { [weak self] hovered in self?.isHovered = hovered }
     guard card == nil,
       let card = CornerCard.inFreeSlot(
-        of: store, model: .waitingNotice(record: record), accessibilityTitle: "Countersign notice",
+        of: store, model: model, accessibilityTitle: "Countersign notice",
         appearance: appearance, onAction: { [weak self] in self?.goThere() },
         onDismiss: { [weak self] in self?.close(.dismissed) })
     else { return }
@@ -149,6 +158,7 @@ private final class WaitingNoticeWatch: NSObject {
   private func hide() {
     card?.close()
     card = nil
+    isHovered = false
   }
 
   private func note(_ hold: WaitingNoticeHold?) {
@@ -185,6 +195,7 @@ private final class WaitingNoticeWatch: NSObject {
   private func startOver(with newer: WaitingRecord) {
     hide()
     record = newer
+    visibleTime = NoticeVisibleTime()
     transcript = TranscriptWatch(record: newer)
     lastAgentAppFrontmostAt = nil
     loggedHold = nil

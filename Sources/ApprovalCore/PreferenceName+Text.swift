@@ -17,6 +17,7 @@ extension PreferenceName {
     case .panelSound: return "Sound"
     case .waitingNotices: return "Waiting-agent notices"
     case .waitingNoticeDelay: return "Notice after"
+    case .waitingNoticeDuration: return "Show notice for"
     case .approvalCard: return "Approval card"
     case .approvalCardDelay: return "Show card after"
     case .appearance: return "Appearance"
@@ -56,6 +57,8 @@ extension PreferenceName {
     case .waitingNotices:
       return "A corner card when an agent has been waiting for you for a while."
     case .waitingNoticeDelay: return "How long after an agent stops the notice appears."
+    case .waitingNoticeDuration:
+      return "How long a notice stays up before it closes by itself."
     case .approvalCard: return "A corner card when an approval waits while you work."
     case .approvalCardDelay:
       return "How long an approval waits for a pause before its card shows."
@@ -185,6 +188,12 @@ extension PreferenceName {
         + " Type a number of seconds or a value with a unit, like \"90s\" or \"2m\". It has no"
         + " effect while Waiting-agent notices is off. One agent can have its own value under"
         + " hosts in config.json."
+    case .waitingNoticeDuration:
+      return
+        "How long a waiting-agent notice stays on screen before it closes by itself, from 3"
+        + " seconds to 1 hour. Only the time it is visible counts: while a panel or quiet time"
+        + " hides it, or while the pointer rests on it, the clock stops. Approval cards stay"
+        + " until you answer."
     case .approvalCard:
       return
         "While you keep typing or moving the mouse, a panel waits for a pause, and some agents just"
@@ -309,6 +318,8 @@ extension PreferenceName {
     case .waitingNotices: return Self.boolText(Settings.defaultWaitingNotices)
     case .waitingNoticeDelay:
       return DurationText.describe(Settings.defaultWaitingNoticeDelay)
+    case .waitingNoticeDuration:
+      return DurationText.describe(Settings.defaultWaitingNoticeDuration)
     case .approvalCard:
       return Self.agentListText(Host.allCases.filter { Settings.defaultApprovalCard(for: $0) })
     case .approvalCardDelay: return Self.secondsText(Settings.defaultApprovalCardDelay)
