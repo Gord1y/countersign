@@ -25,10 +25,11 @@ can differ from a hook's `XDG_CONFIG_HOME` (see "Settings…" in [app.md](app.md
 
 Every time key accepts a number in its own unit or a string `^[0-9]+(\.[0-9]+)?(ms|s|m|h)$`; the
 keys and their units are unchanged (seconds for `armDelay`, `chainedArmDelay`, `idleSeconds` and
-`graceSeconds`, minutes for `snoozeMinutes` and `waitingNoticeMinutes`), so an existing file reads
-exactly as before. `ConfigFileParser.durationValue` converts either form to seconds, and every range
+`graceSeconds`, `waitingNoticeDelay` and `approvalCardDelay`, minutes for `snoozeMinutes`), so an
+existing file reads exactly as before. `waitingNoticeDelay` replaced `waitingNoticeMinutes` before
+that key ever shipped, so there is no migration and the old key is an unknown key. `ConfigFileParser.durationValue` converts either form to seconds, and every range
 check runs on those seconds: arm delays `0...3` (clamped), idle `1...30`, grace `0...30`, a snooze
-preset `10 s...24 h`, the notice delay `10 s...60 min`. The model is in seconds throughout:
+preset `10 s...24 h`, the notice delay `10 s...1 h`. The model is in seconds throughout:
 `Settings.snoozePresets` and `Settings.waitingNoticeDelay` are `TimeInterval`s, and the file keys
 keep their names because they are the contract users already have.
 
@@ -203,7 +204,7 @@ since the sidebar already names it:
 | Group | Holds | What it changes |
 | --- | --- | --- |
 | Agents | a row per agent (Wire, Update, Remove, Show changes), the notice about a second copy, on each row the values `hosts.<agent>` sets, and, once wired, its follow-up line and Codex's "Mark as done" (`AgentFollowUp`; see "Follow-up lines" and "The Codex hook trust record" in [setup.md](setup.md)) | each agent's own hook file; the Codex hook trust record, never `config.json` |
-| Panels | a delays card (Same delays for all agents, then while it is off an Agent picker with the four agents, then Wait for idle, Grace period, Arm delay, Arm delay after an answer, Notice after, Show card after), then Hand off when frontmost, Snooze presets, Notes on answers, Mode after a plan, Sound, Waiting-agent notices, Approval card (one checkbox per agent), then Show a test panel and Show a test card | `config.json`, for every agent, or under `hosts.<agent>` for the delays and the Approval card checkboxes |
+| Panels | a delays card (Same delays for all agents, then while it is off an Agent picker with the four agents, then Wait for idle, Grace period, Arm delay, Arm delay after an answer, Show card after), then Hand off when frontmost, Snooze presets, Notes on answers, Mode after a plan, Sound, Waiting-agent notices, Notice after, Approval card (one checkbox per agent), then Show a test panel and Show a test card | `config.json`, for every agent, or under `hosts.<agent>` for the delays and the Approval card checkboxes |
 | App | Launch at login, Check for updates, When Countersign quits, Appearance, Accent colour, the offer to link Countersign.app, then Advanced… | macOS's login items, `config.json`, `~/Applications` |
 | Help | the tour, documentation, ask a question, report a problem, contact the developer, updates, then support links | nothing in `config.json`; never `update-check.json` |
 | Advanced | the config file's path, Open in Editor, Copy Path, Open with, the schema, what only the file can set, and the prompt for a coding agent | `config.json` for Open with; otherwise nothing beyond creating a missing `config.json` to open it |
@@ -336,7 +337,7 @@ The window edits top-level keys only:
 | Panels | Mode after a plan, a menu | `modeAfterPlan` | "Ask before edits", "Accept edits" or "Auto" |
 | Panels | Sound, a menu and a play button | `panelSound` | None, then the names in `/System/Library/Sounds`; the button (`speaker.wave.2`, label `Play <name>`) is disabled for None |
 | Panels | Waiting-agent notices, a switch | `waitingNotices` | on or off; never written directly, see below |
-| Panels | Notice after, a duration field | `waitingNoticeMinutes` | `10s` to `60m`, a bare number is minutes (the key's own unit); disabled while notices are off |
+| Panels | Notice after, a duration field, directly under the Waiting-agent notices switch | `waitingNoticeDelay` | `10s` to `1h`, a bare number is seconds; disabled while notices are off |
 | App | Launch at login, a switch | none, `SMAppService.mainApp` | see below |
 | App | Check for updates, a switch | `checkForUpdates` | on or off |
 | App | When Countersign quits, a menu | `quitBehavior` | "Ask", "Keep showing panels" or "Pause panels" |
@@ -527,7 +528,10 @@ bytes changed, then reads it back, so the controls always show what the file hol
 - `PreferenceEdit.forAgent(host, edit)` applies one of a short list of edits under
   `hosts.<agent>`, creating `hosts` and the agent's object as needed: `armDelay`,
   `chainedArmDelay`, `idleSeconds`, `graceSeconds`, `waitingNoticeDelay`, `approvalCard`,
-  `approvalCardDelay`, and `reset` of those names. Any other inner edit is ignored: no write, no
+  `approvalCardDelay`, and `reset` of those names (the file can still set
+  `hosts.<agent>.waitingNoticeDelay` and it wins, but the Settings delays list leaves it out: the
+  notice is about the agent's turn, not about the panel, so it is not one of
+  `PreferenceName.agentDelays`, and neither a reset nor "Same delays for all agents" touches it). Any other inner edit is ignored: no write, no
   error, because those keys are top-level only. Resetting a key removes it and can leave the
   agent's object as `{}`; that is kept, since the object is the person's and an empty one reads the
   same as a missing one. `PreferenceEdit.removingAgentDelays(in:)` lists the resets for every
@@ -643,7 +647,9 @@ waiting-agent notices?", with "Countersign changes <paths> and keeps a backup." 
 On / Turn Off and Cancel, or OK alone with the failure lines when a file cannot be changed. On
 confirm, `WaitingHookRun.apply` writes the hook file with a backup and only then is `waitingNotices`
 written. With no wired Claude Code the popup shows "Nothing to change." and confirming writes only
-the config. The Notice after field is an ordinary row. Restore Defaults for Panels resets Notice
+the config. The Notice after field sits directly under the switch, outside the delays group, and
+always shows and edits the top-level value, even while "Same delays for all agents" is off. It is
+an ordinary row. Restore Defaults for Panels resets Notice
 after and never the switch, since flipping it needs the popup; the switch has no reset button.
 
 ### Resetting to defaults

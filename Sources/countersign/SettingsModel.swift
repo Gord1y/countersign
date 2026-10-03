@@ -603,7 +603,7 @@ final class SettingsModel {
 
   private func writeDelay(_ edit: PreferenceEdit) {
     dropDurationText(edit.key)
-    write(delaysPerAgent ? .forAgent(delayAgent, edit) : edit)
+    write(resetsAgentValue(edit.key) ? .forAgent(delayAgent, edit) : edit)
   }
 
   private func dropDurationText(_ name: PreferenceName) {
@@ -663,7 +663,7 @@ final class SettingsModel {
   }
 
   func shownDelay(_ name: PreferenceName) -> TimeInterval {
-    guard delaysPerAgent else { return sharedDelay(name) }
+    guard resetsAgentValue(name) else { return sharedDelay(name) }
     return ownDelay(name) ?? sharedDelay(name)
   }
 
@@ -673,7 +673,7 @@ final class SettingsModel {
     case .graceSeconds: return preferences.graceSeconds
     case .armDelay: return preferences.armDelay
     case .chainedArmDelay: return preferences.chainedArmDelay
-    case .waitingNoticeMinutes: return preferences.waitingNoticeDelay
+    case .waitingNoticeDelay: return preferences.waitingNoticeDelay
     case .approvalCardDelay: return preferences.approvalCardDelay
     default: return 0
     }
@@ -686,7 +686,6 @@ final class SettingsModel {
     case .graceSeconds: return overrides.graceSeconds
     case .armDelay: return overrides.armDelay
     case .chainedArmDelay: return overrides.chainedArmDelay
-    case .waitingNoticeMinutes: return overrides.waitingNoticeDelay
     case .approvalCardDelay: return overrides.approvalCardDelay
     default: return nil
     }
@@ -694,19 +693,19 @@ final class SettingsModel {
 
   func durationText(_ name: PreferenceName) -> String {
     if let pending = durationTexts[name] { return pending }
-    guard delaysPerAgent else { return DurationText.compact(sharedDelay(name)) }
+    guard resetsAgentValue(name) else { return DurationText.compact(sharedDelay(name)) }
     return ownDelay(name).map { DurationText.compact($0) } ?? ""
   }
 
   func durationPlaceholder(_ name: PreferenceName) -> String {
-    guard delaysPerAgent else { return name.title }
+    guard resetsAgentValue(name) else { return name.title }
     return DurationText.compact(sharedDelay(name))
   }
 
   func setDurationText(_ text: String, for name: PreferenceName) {
     guard let spec = name.durationField else { return }
     durationTexts[name] = text
-    if delaysPerAgent, text.trimmingCharacters(in: .whitespaces).isEmpty {
+    if resetsAgentValue(name), text.trimmingCharacters(in: .whitespaces).isEmpty {
       durationErrors[name] = nil
       return
     }
@@ -720,7 +719,7 @@ final class SettingsModel {
 
   func commitDuration(_ name: PreferenceName) {
     guard let spec = name.durationField, let text = durationTexts[name] else { return }
-    if delaysPerAgent, text.trimmingCharacters(in: .whitespaces).isEmpty {
+    if resetsAgentValue(name), text.trimmingCharacters(in: .whitespaces).isEmpty {
       dropDurationText(name)
       write(.forAgent(delayAgent, .reset(name)))
       return
@@ -733,7 +732,7 @@ final class SettingsModel {
     case .graceSeconds: setGraceSeconds(seconds)
     case .armDelay: setArmDelay(seconds)
     case .chainedArmDelay: setChainedArmDelay(seconds)
-    case .waitingNoticeMinutes: setWaitingNoticeDelay(seconds)
+    case .waitingNoticeDelay: setWaitingNoticeDelay(seconds)
     case .approvalCardDelay: setApprovalCardDelay(seconds)
     default: return
     }

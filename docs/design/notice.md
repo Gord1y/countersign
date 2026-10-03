@@ -117,7 +117,7 @@ step 2, a window of microseconds; the hook's next record for that session brings
 ## The clock
 
 `WaitingNoticeClock.decide(_:)` is a pure decision from one `WaitingNoticeSample`: now,
-`recordedAt`, the delay (`waitingNoticeMinutes`, 2 by default), whether the card is shown and in
+`recordedAt`, the delay (`waitingNoticeDelay`, 10 seconds by default), whether the card is shown and in
 which slot, whether the agent process is alive, pause, quiet time, whether the agent's app is
 frontmost, when it last was, whether a live ticket belongs to the session, whether any Countersign
 panel is on screen, whether an approval card is waiting for a slot, and whether the transcript

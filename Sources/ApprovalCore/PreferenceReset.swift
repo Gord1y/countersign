@@ -30,7 +30,7 @@ public enum PreferenceReset {
       return changed(file.panelSound, from: Settings.defaultPanelSound)
     case .waitingNotices:
       return changed(file.waitingNotices, from: Settings.defaultWaitingNotices)
-    case .waitingNoticeMinutes:
+    case .waitingNoticeDelay:
       return changed(file.waitingNoticeDelay, from: Settings.defaultWaitingNoticeDelay)
     case .approvalCard:
       return PreferenceValues(file: file).approvalCardAgents
@@ -118,7 +118,7 @@ public enum PreferenceReset {
     case .modeAfterPlan: return values.modeAfterPlan.title
     case .panelSound: return PanelSound.title(values.panelSound)
     case .waitingNotices: return values.waitingNotices ? "On" : "Off"
-    case .waitingNoticeMinutes: return DurationText.describe(values.waitingNoticeDelay)
+    case .waitingNoticeDelay: return DurationText.describe(values.waitingNoticeDelay)
     case .approvalCard: return PreferenceName.agentListText(values.approvalCardAgents)
     case .approvalCardDelay: return PreferenceRules.secondsText(values.approvalCardDelay)
     case .appearance: return values.appearance.title
@@ -171,7 +171,7 @@ public enum PreferenceReset {
     case .chainedArmDelay: return overrides.chainedArmDelay != nil
     case .idleSeconds: return overrides.idleSeconds != nil
     case .graceSeconds: return overrides.graceSeconds != nil
-    case .waitingNoticeMinutes: return overrides.waitingNoticeDelay != nil
+    case .waitingNoticeDelay: return overrides.waitingNoticeDelay != nil
     case .approvalCardDelay: return overrides.approvalCardDelay != nil
     case .snoozeMinutes: return overrides.snoozePresets != nil
     case .handoffApps: return overrides.handoffApps != nil

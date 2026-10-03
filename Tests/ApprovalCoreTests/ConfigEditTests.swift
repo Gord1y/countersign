@@ -89,14 +89,14 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
     #expect(try editing(config, .snoozePresets([30, 300, 900])) == config)
   }
 
-  @Test func writesTheWaitingNoticeDelayAsMinutesWhenWholeAndAsAUnitStringOtherwise() throws {
+  @Test func writesTheWaitingNoticeDelayAsABareNumberOfSeconds() throws {
     #expect(
-      try editing("{\"waitingNoticeMinutes\": 5}", .waitingNoticeDelay(120))
-        == "{\"waitingNoticeMinutes\": 2}")
+      try editing("{\"waitingNoticeDelay\": 5}", .waitingNoticeDelay(10))
+        == "{\"waitingNoticeDelay\": 10}")
     #expect(
-      try editing("{\"waitingNoticeMinutes\": 5}", .waitingNoticeDelay(90))
-        == "{\"waitingNoticeMinutes\": \"90s\"}")
-    let config = "{\"waitingNoticeMinutes\": \"2m\"}"
+      try editing("{\"waitingNoticeDelay\": 5}", .waitingNoticeDelay(90))
+        == "{\"waitingNoticeDelay\": 90}")
+    let config = "{\"waitingNoticeDelay\": \"2m\"}"
     #expect(try editing(config, .waitingNoticeDelay(120)) == config)
   }
 
@@ -331,7 +331,7 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
     #expect(PreferenceEdit.idleSeconds(1).key == .idleSeconds)
     #expect(PreferenceEdit.graceSeconds(1).key == .graceSeconds)
     #expect(PreferenceEdit.snoozePresets([60]).key == .snoozeMinutes)
-    #expect(PreferenceEdit.waitingNoticeDelay(120).key == .waitingNoticeMinutes)
+    #expect(PreferenceEdit.waitingNoticeDelay(120).key == .waitingNoticeDelay)
     #expect(PreferenceEdit.checkForUpdates(true).key == .checkForUpdates)
     #expect(PreferenceEdit.quitBehavior(.ask).key == .quitBehavior)
     #expect(PreferenceEdit.modeAfterPlan(.auto).key == .modeAfterPlan)

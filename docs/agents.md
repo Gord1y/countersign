@@ -166,7 +166,7 @@ entry, for the end of an agent's turn, next to the permission entry in each agen
 the same diff. An agent that was wired before shows "Needs an update" until you apply it. Turning
 it off in Settings ▸ Panels ▸ Waiting-agent notices shows the change and removes the entries, and
 setup then leaves them out; `countersign setup --remove` takes them out too. Each entry only records that the turn ended and exits,
-so it never holds the agent up. When you have been away from the agent for the notice delay, a
+so it never holds the agent up. When you have been away from the agent for the notice delay (10 seconds by default), a
 corner card says it is waiting. What it does, and when it closes, is in
 [configuration.md](configuration.md#panels) and [design/notice.md](design/notice.md).
 

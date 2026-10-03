@@ -34,10 +34,16 @@ private func withoutSchema(_ value: JSONValue) -> JSONValue {
 
   @Test func waitingNoticeDelayCanBeSetPerAgent() {
     let (file, logLines) = parse(
-      #"{ "waitingNoticeMinutes": 5, "hosts": { "codex": { "waitingNoticeMinutes": "90s" } } }"#)
+      #"{ "waitingNoticeDelay": 300, "hosts": { "codex": { "waitingNoticeDelay": "90s" } } }"#)
     #expect(logLines.isEmpty)
     #expect(Settings.resolve(file: file, host: .codex).waitingNoticeDelay == 90)
     #expect(Settings.resolve(file: file, host: .cursor).waitingNoticeDelay == 300)
+  }
+
+  @Test func theNoticeDelayIsNotAPerAgentDelayInTheSettingsUI() {
+    #expect(!PreferenceName.agentDelays.contains(.waitingNoticeDelay))
+    let (file, _) = parse(#"{ "hosts": { "codex": { "waitingNoticeDelay": 90 } } }"#)
+    #expect(PreferenceEdit.removingAgentDelays(in: file).isEmpty)
   }
 }
 
@@ -82,7 +88,7 @@ private func withoutSchema(_ value: JSONValue) -> JSONValue {
   }
 
   @Test func forAgentKeyIsTheInnerKey() {
-    #expect(PreferenceEdit.forAgent(.codex, .waitingNoticeDelay(90)).key == .waitingNoticeMinutes)
+    #expect(PreferenceEdit.forAgent(.codex, .waitingNoticeDelay(90)).key == .waitingNoticeDelay)
   }
 
   @Test func resettingTheApprovalCardRemovesTheTopLevelAndAgentValues() throws {
@@ -174,7 +180,7 @@ private func withoutSchema(_ value: JSONValue) -> JSONValue {
   @Test func listsTheAgentsWithTheirOwnDelays() {
     let (file, _) = parse(
       #"""
-      { "hosts": { "claude": { "approvalCard": true }, "codex": { "waitingNoticeMinutes": 1 },
+      { "hosts": { "claude": { "approvalCard": true }, "codex": { "idleSeconds": 5 },
         "antigravity": { "graceSeconds": 2 } } }
       """#)
     #expect(PreferenceOverrides.agentsWithOwnDelays(in: file) == [.codex, .antigravity])

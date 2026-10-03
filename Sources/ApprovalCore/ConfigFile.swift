@@ -153,7 +153,7 @@ public enum ConfigFileParser {
   static let topLevelKeys: Set<String> = [
     "armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds", "handoffApps",
     "snoozeMinutes", "quietHours", "checkForUpdates", "quitBehavior", "modeAfterPlan",
-    "panelSound", "waitingNotices", "waitingNoticeMinutes", "approvalCard", "approvalCardDelay",
+    "panelSound", "waitingNotices", "waitingNoticeDelay", "approvalCard", "approvalCardDelay",
     "includeHeadlessSessions", "questionNotes", "editorApp", "hosts",
     "appearance", "accentColor", "contextCheckpoints",
     "$schema",
@@ -164,7 +164,7 @@ public enum ConfigFileParser {
   ]
   static let hostKeys: Set<String> = [
     "armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds", "handoffApps",
-    "snoozeMinutes", "includeHeadlessSessions", "waitingNoticeMinutes", "approvalCard",
+    "snoozeMinutes", "includeHeadlessSessions", "waitingNoticeDelay", "approvalCard",
     "approvalCardDelay",
   ]
 
@@ -219,7 +219,7 @@ public enum ConfigFileParser {
       root["waitingNotices"], path: "waitingNotices",
       defaultValue: Settings.defaultWaitingNotices, logLines: &logLines)
     file.waitingNoticeDelay = readWaitingNoticeDelay(
-      root["waitingNoticeMinutes"], path: "waitingNoticeMinutes", logLines: &logLines)
+      root["waitingNoticeDelay"], path: "waitingNoticeDelay", logLines: &logLines)
     file.approvalCard = readApprovalCard(
       root["approvalCard"], path: "approvalCard", logLines: &logLines)
     file.approvalCardDelay = readApprovalCardDelay(
@@ -480,7 +480,7 @@ public enum ConfigFileParser {
         object["includeHeadlessSessions"], path: "\(path).includeHeadlessSessions",
         defaultValue: Settings.defaultIncludeHeadlessSessions, logLines: &logLines),
       waitingNoticeDelay: readWaitingNoticeDelay(
-        object["waitingNoticeMinutes"], path: "\(path).waitingNoticeMinutes",
+        object["waitingNoticeDelay"], path: "\(path).waitingNoticeDelay",
         logLines: &logLines),
       approvalCard: readApprovalCard(
         object["approvalCard"], path: "\(path).approvalCard", logLines: &logLines),
@@ -603,7 +603,7 @@ public enum ConfigFileParser {
     _ value: JSONValue?, path: String, logLines: inout [String]
   ) -> TimeInterval? {
     guard let value else { return nil }
-    guard let seconds = durationValue(value, unit: 60),
+    guard let seconds = durationValue(value, unit: 1),
       Settings.waitingNoticeDelayRange.contains(seconds)
     else {
       logLines.append(

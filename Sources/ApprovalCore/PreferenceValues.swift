@@ -206,7 +206,7 @@ public struct PreferenceValues: Sendable, Equatable {
     case .modeAfterPlan: values.modeAfterPlan = Settings.defaultModeAfterPlan
     case .panelSound: values.panelSound = Settings.defaultPanelSound
     case .waitingNotices: values.waitingNotices = Settings.defaultWaitingNotices
-    case .waitingNoticeMinutes: values.waitingNoticeDelay = Settings.defaultWaitingNoticeDelay
+    case .waitingNoticeDelay: values.waitingNoticeDelay = Settings.defaultWaitingNoticeDelay
     case .approvalCard: values.approvalCardAgents = PreferenceValues.defaultApprovalCardAgents
     case .approvalCardDelay: values.approvalCardDelay = Settings.defaultApprovalCardDelay
     case .questionNotes: values.questionNotes = Settings.defaultQuestionNotes

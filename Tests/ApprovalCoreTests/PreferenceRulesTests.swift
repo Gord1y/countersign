@@ -113,10 +113,10 @@ import Testing
     let arm = PreferenceName.armDelay.durationField
     let idle = PreferenceName.idleSeconds.durationField
     let grace = PreferenceName.graceSeconds.durationField
-    let notice = PreferenceName.waitingNoticeMinutes.durationField
+    let notice = PreferenceName.waitingNoticeDelay.durationField
     #expect(arm.map { PreferenceRules.duration(from: "250ms", spec: $0) } == .success(0.25))
     #expect(idle.map { PreferenceRules.duration(from: "2.5", spec: $0) } == .success(2.5))
-    #expect(notice.map { PreferenceRules.duration(from: "5", spec: $0) } == .success(300))
+    #expect(notice.map { PreferenceRules.duration(from: "30", spec: $0) } == .success(30))
     #expect(notice.map { PreferenceRules.duration(from: "90s", spec: $0) } == .success(90))
     #expect(grace.map { PreferenceRules.duration(from: "0", spec: $0) } == .success(0))
     #expect(
@@ -157,8 +157,8 @@ import Testing
       PreferenceName.chainedArmDelay.durationField
         == DurationFieldSpec(bareUnit: 1, range: Settings.armDelayRange))
     #expect(
-      PreferenceName.waitingNoticeMinutes.durationField
-        == DurationFieldSpec(bareUnit: 60, range: Settings.waitingNoticeDelayRange))
+      PreferenceName.waitingNoticeDelay.durationField
+        == DurationFieldSpec(bareUnit: 1, range: Settings.waitingNoticeDelayRange))
     #expect(
       PreferenceName.approvalCardDelay.durationField
         == DurationFieldSpec(bareUnit: 1, range: 1...600))

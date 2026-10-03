@@ -267,19 +267,19 @@
           "default": 5,
           "description": "How long an approval waits for a pause in your typing before its card appears, from 1 second to 10 minutes: a number of seconds, or a string with a unit such as \"5s\" or \"2m\"; for this host."
         },
-        "waitingNoticeMinutes": {
+        "waitingNoticeDelay": {
           "anyOf": [
             {
               "type": "number",
-              "minimum": 0.1667,
-              "maximum": 60
+              "minimum": 10,
+              "maximum": 3600
             },
             {
               "$ref": "#/$defs/durationText"
             }
           ],
-          "default": 2,
-          "description": "How long an agent has been waiting before the notice appears, from 10 seconds to 60 minutes: a number of minutes, or a string with a unit such as \"90s\" or \"2m\"; for this host."
+          "default": 10,
+          "description": "How long an agent has been waiting before the notice appears, from 10 seconds to 1 hour: a number of seconds, or a string with a unit such as \"10s\" or \"2m\"; for this host."
         }
       }
     }
@@ -449,19 +449,19 @@
       "default": true,
       "description": "Whether a corner card appears when an agent has been waiting for you; setup adds the Stop hook while it is on, and turning it off from Settings removes it; top level only."
     },
-    "waitingNoticeMinutes": {
+    "waitingNoticeDelay": {
       "anyOf": [
         {
           "type": "number",
-          "minimum": 0.1667,
-          "maximum": 60
+          "minimum": 10,
+          "maximum": 3600
         },
         {
           "$ref": "#/$defs/durationText"
         }
       ],
-      "default": 2,
-      "description": "How long an agent has been waiting before the notice appears, from 10 seconds to 60 minutes: a number of minutes, or a string with a unit such as \"90s\" or \"2m\"; hosts.<agent>.waitingNoticeMinutes overrides it per agent."
+      "default": 10,
+      "description": "How long an agent has been waiting before the notice appears, from 10 seconds to 1 hour: a number of seconds, or a string with a unit such as \"10s\" or \"2m\"; hosts.<agent>.waitingNoticeDelay overrides it per agent."
     },
     "approvalCard": {
       "type": "boolean",

@@ -65,14 +65,6 @@ struct PanelsSection: View {
           }
           SettingsDivider()
           PreferenceRow(
-            .waitingNoticeMinutes, model: model,
-            problem: model.durationProblem(.waitingNoticeMinutes)
-          ) {
-            DurationField(name: .waitingNoticeMinutes, model: model)
-              .disabled(!model.waitingNotices)
-          }
-          SettingsDivider()
-          PreferenceRow(
             .approvalCardDelay, model: model,
             problem: model.durationProblem(.approvalCardDelay)
           ) {
@@ -157,6 +149,14 @@ struct PanelsSection: View {
           }
           SettingsDivider()
           WaitingNoticesRow(model: model)
+          SettingsDivider()
+          PreferenceRow(
+            .waitingNoticeDelay, model: model,
+            problem: model.durationProblem(.waitingNoticeDelay)
+          ) {
+            DurationField(name: .waitingNoticeDelay, model: model)
+              .disabled(!model.waitingNotices)
+          }
           SettingsDivider()
           ApprovalCardRow(model: model)
           SettingsDivider()

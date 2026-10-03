@@ -75,14 +75,14 @@ agents at once, or, with "Same delays for all agents" off, for one agent at a ti
 | Mode after a plan | `modeAfterPlan` | `"default"` |
 | Sound | `panelSound` | `"none"` |
 | Waiting-agent notices | `waitingNotices` | `true` |
-| Notice after | `waitingNoticeMinutes` | `2` |
+| Notice after | `waitingNoticeDelay` | `10` (seconds) |
 
 Every time setting takes a number in its own unit or a string with a unit, so `"500ms"`, `"0.5s"`,
 `"90s"`, `"2m"` and `"1h"` all work (`ms`, `s`, `m` and `h`, written without a space). A bare number
-keeps the unit in the key: seconds for `idleSeconds`, `graceSeconds`, `armDelay` and
-`chainedArmDelay`, minutes for `snoozeMinutes` and `waitingNoticeMinutes`. The range of each key
-applies after the unit is converted, so `"90s"` is a valid `waitingNoticeMinutes` and `"2m"` is out
-of range for `idleSeconds`. Settings writes a whole number of minutes back as a number, and anything
+keeps the unit in the key: seconds for `idleSeconds`, `graceSeconds`, `armDelay`,
+`chainedArmDelay`, `waitingNoticeDelay` and `approvalCardDelay`, minutes for `snoozeMinutes`. The
+range of each key applies after the unit is converted, so `"90s"` is a valid `waitingNoticeDelay`
+and `"2m"` is out of range for `idleSeconds`. Settings writes a whole number of minutes back as a number, and anything
 shorter as a string, for example `["30s", 5, 15]`.
 
 All of these except **Quiet hours**, **Notes on answers**, **Mode after a plan**, **Sound** and
@@ -171,12 +171,12 @@ keys below.
   [agents.md](agents.md#the-waiting-agent-notice). At most two corner cards show at once; a
   third notice waits for room. Notices hide while any Countersign panel is on screen, a test panel
   included, and come back when it closes.
-- **Notice after** (`waitingNoticeMinutes`): how long an agent has been waiting before the
-  notice appears, from 10 seconds to 60 minutes: a number of minutes or a string such as `"90s"`,
-  `2` unless you change it. A value outside the range or of another type logs one line and falls
-  back to `2`. It can also be set for one agent, under `hosts.<agent>`, and wins there. Settings offers 1, 2, 5, 10, 15 and 30
-  minutes and shows any other value from the file as its own item; the menu is disabled while
-  notices are off.
+- **Notice after** (`waitingNoticeDelay`): how long an agent has been waiting before the
+  notice appears, from 10 seconds to 1 hour: a number of seconds or a string such as `"90s"` or
+  `"2m"`, `10` unless you change it. A value outside the range or of another type logs one line
+  and falls back to `10`. It can also be set for one agent, under `hosts.<agent>`, and wins there;
+  Settings shows only the top-level value, in a field under the Waiting-agent notices switch,
+  disabled while notices are off.
 
 #### Try your settings
 
@@ -294,7 +294,7 @@ Every key except `checkForUpdates`, `questionNotes`, `quitBehavior`, `modeAfterP
 ```
 
 The keys an agent block takes are `armDelay`, `chainedArmDelay`, `idleSeconds`, `graceSeconds`,
-`handoffApps`, `snoozeMinutes`, `includeHeadlessSessions`, `waitingNoticeMinutes`, `approvalCard`
+`handoffApps`, `snoozeMinutes`, `includeHeadlessSessions`, `waitingNoticeDelay`, `approvalCard`
 and `approvalCardDelay`.
 
 For a request from an agent, its `hosts` value wins over the top-level one, which wins over the

@@ -128,10 +128,10 @@ import Testing
     #expect(schema["properties"]?["waitingNotices"]?["type"]?.stringValue == "boolean")
     #expect(schema["properties"]?["waitingNotices"]?["default"]?.boolValue == true)
     #expect(
-      schema["properties"]?["waitingNoticeMinutes"]?["default"]
-        == .int(Int64(Settings.defaultWaitingNoticeDelay / 60)))
+      schema["properties"]?["waitingNoticeDelay"]?["default"]
+        == .int(Int64(Settings.defaultWaitingNoticeDelay)))
     #expect(
-      Self.alternatives(schema["properties"]?["waitingNoticeMinutes"]).last?["$ref"]?.stringValue
+      Self.alternatives(schema["properties"]?["waitingNoticeDelay"]).last?["$ref"]?.stringValue
         == "#/$defs/durationText")
   }
 

@@ -16,7 +16,7 @@ extension PreferenceName {
     case .modeAfterPlan: return "Mode after a plan"
     case .panelSound: return "Sound"
     case .waitingNotices: return "Waiting-agent notices"
-    case .waitingNoticeMinutes: return "Notice after"
+    case .waitingNoticeDelay: return "Notice after"
     case .approvalCard: return "Approval card"
     case .approvalCardDelay: return "Show card after"
     case .appearance: return "Appearance"
@@ -55,7 +55,7 @@ extension PreferenceName {
     case .panelSound: return "A macOS sound played when a panel appears."
     case .waitingNotices:
       return "A corner card when an agent has been waiting for you for a while."
-    case .waitingNoticeMinutes: return "How long an agent waits before the notice appears."
+    case .waitingNoticeDelay: return "How long after an agent stops the notice appears."
     case .approvalCard: return "A corner card when an approval waits while you work."
     case .approvalCardDelay:
       return "How long an approval waits for a pause before its card shows."
@@ -179,11 +179,12 @@ extension PreferenceName {
         + " below. It is on by default, and setup adds the Stop hook next to the permission hook."
         + " Turning it off removes the Stop hook again, after showing you the change, so it is"
         + " changed here and not by editing config.json. It is top-level only."
-    case .waitingNoticeMinutes:
+    case .waitingNoticeDelay:
       return
-        "How long an agent has been waiting before the notice appears, from 10 seconds to 60"
-        + " minutes. The menu offers 1, 2, 5, 10, 15 and 30 minutes; a value you set in config.json,"
-        + " like \"90s\", shows as its own item. It has no effect while Waiting-agent notices is off. One agent can have its own value under hosts in config.json."
+        "How long an agent has been waiting before the notice appears, from 10 seconds to 1 hour."
+        + " Type a number of seconds or a value with a unit, like \"90s\" or \"2m\". It has no"
+        + " effect while Waiting-agent notices is off. One agent can have its own value under"
+        + " hosts in config.json."
     case .approvalCard:
       return
         "While you keep typing or moving the mouse, a panel waits for a pause, and some agents just"
@@ -306,7 +307,7 @@ extension PreferenceName {
     case .modeAfterPlan: return Settings.defaultModeAfterPlan.title
     case .panelSound: return PanelSound.title(Settings.defaultPanelSound)
     case .waitingNotices: return Self.boolText(Settings.defaultWaitingNotices)
-    case .waitingNoticeMinutes:
+    case .waitingNoticeDelay:
       return DurationText.describe(Settings.defaultWaitingNoticeDelay)
     case .approvalCard:
       return Self.agentListText(Host.allCases.filter { Settings.defaultApprovalCard(for: $0) })

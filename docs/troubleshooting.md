@@ -98,7 +98,7 @@ Go through these in order:
 4. **Paused or in quiet time?** Both hold a notice back and show it when they end; see
    [No panel appears](#no-panel-appears).
 5. **Were you in the agent's app?** Being there counts as having seen it, so leaving it restarts
-   the wait: the card comes after the delay (2 minutes by default, `waitingNoticeMinutes`), counted
+   the wait: the card comes after the delay (10 seconds by default, `waitingNoticeDelay`), counted
    from when you left.
 6. **Is a Countersign panel for that session open?** The panel is its own notice, so the card waits
    for it.

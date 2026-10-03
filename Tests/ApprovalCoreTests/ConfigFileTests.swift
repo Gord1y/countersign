@@ -51,42 +51,50 @@ import Testing
     #expect(file.editorApp == "com.microsoft.VSCode")
   }
 
-  @Test func waitingNoticesAreOnAndTwoMinutesByDefault() {
+  @Test func waitingNoticesAreOnAndTenSecondsByDefault() {
     let (file, logLines) = parse("{}")
     #expect(file.waitingNotices == nil)
     #expect(file.waitingNoticeDelay == nil)
     #expect(logLines.isEmpty)
     let settings = Settings.resolve(file: file, host: .claude)
     #expect(settings.waitingNotices == true)
-    #expect(settings.waitingNoticeDelay == 120)
+    #expect(settings.waitingNoticeDelay == 10)
   }
 
-  @Test func readsValidWaitingNoticeValues() {
-    for minutes in [1, 2, 7, 60] {
+  @Test func readsValidWaitingNoticeValuesAsSeconds() {
+    for seconds in [10, 30, 90, 3600] {
       let (file, logLines) = parse(
-        #"{ "waitingNotices": true, "waitingNoticeMinutes": \#(minutes) }"#)
+        #"{ "waitingNotices": true, "waitingNoticeDelay": \#(seconds) }"#)
       #expect(file.waitingNotices == true)
-      #expect(file.waitingNoticeDelay == TimeInterval(minutes * 60))
+      #expect(file.waitingNoticeDelay == TimeInterval(seconds))
       #expect(logLines.isEmpty)
       let settings = Settings.resolve(file: file, host: .codex)
       #expect(settings.waitingNotices)
-      #expect(settings.waitingNoticeDelay == TimeInterval(minutes * 60))
+      #expect(settings.waitingNoticeDelay == TimeInterval(seconds))
     }
   }
 
-  @Test func waitingNoticeMinutesOutOfRangeOrWrongTypeFallBackToTheDefaultWithOneLine() {
-    for bad in ["0", "61", "-3", "\"soon\"", "\"5s\"", "\"61m\"", "true", "null"] {
-      let (file, logLines) = parse(#"{ "waitingNoticeMinutes": \#(bad) }"#)
+  @Test func waitingNoticeDelayOutOfRangeOrWrongTypeFallBackToTheDefaultWithOneLine() {
+    for bad in ["0", "5", "3601", "-3", "\"soon\"", "\"5s\"", "\"61m\"", "true", "null"] {
+      let (file, logLines) = parse(#"{ "waitingNoticeDelay": \#(bad) }"#)
       #expect(file.waitingNoticeDelay == nil)
       #expect(
-        logLines == ["waitingNoticeMinutes: expected a duration from 10s to 1h, using default 2m"])
+        logLines == ["waitingNoticeDelay: expected a duration from 10s to 1h, using default 10s"])
     }
   }
 
-  @Test func waitingNoticeMinutesAcceptsUnits() {
-    let (file, logLines) = parse(#"{ "waitingNoticeMinutes": "90s" }"#)
-    #expect(file.waitingNoticeDelay == 90)
-    #expect(logLines.isEmpty)
+  @Test func waitingNoticeDelayAcceptsUnits() {
+    for (text, seconds) in [("\"90s\"", 90.0), ("\"2m\"", 120.0)] {
+      let (file, logLines) = parse(#"{ "waitingNoticeDelay": \#(text) }"#)
+      #expect(file.waitingNoticeDelay == seconds)
+      #expect(logLines.isEmpty)
+    }
+  }
+
+  @Test func theOldWaitingNoticeMinutesKeyIsIgnored() {
+    let (file, _) = parse(#"{ "waitingNoticeMinutes": 5 }"#)
+    #expect(file.waitingNoticeDelay == nil)
+    #expect(Settings.resolve(file: file, host: .claude).waitingNoticeDelay == 10)
   }
 
   @Test func armDelayAcceptsUnits() {

@@ -17,7 +17,7 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
   case editorApp
   case panelSound
   case waitingNotices
-  case waitingNoticeMinutes
+  case waitingNoticeDelay
   case approvalCard
   case approvalCardDelay
   case contextCheckpointsEnabled
@@ -54,8 +54,7 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
   }
 
   public static let agentDelays: [PreferenceName] = [
-    .idleSeconds, .graceSeconds, .armDelay, .chainedArmDelay, .waitingNoticeMinutes,
-    .approvalCardDelay,
+    .idleSeconds, .graceSeconds, .armDelay, .chainedArmDelay, .approvalCardDelay,
   ]
 
   public var noteName: String? {
@@ -116,7 +115,7 @@ public enum PreferenceEdit: Sendable, Equatable {
     case .modeAfterPlan: return .modeAfterPlan
     case .panelSound: return .panelSound
     case .waitingNotices: return .waitingNotices
-    case .waitingNoticeDelay: return .waitingNoticeMinutes
+    case .waitingNoticeDelay: return .waitingNoticeDelay
     case .approvalCard: return .approvalCard
     case .approvalCardDelay: return .approvalCardDelay
     case .questionNotes: return .questionNotes
@@ -159,7 +158,6 @@ public enum PreferenceEdit: Sendable, Equatable {
         (.graceSeconds, overrides.graceSeconds != nil),
         (.armDelay, overrides.armDelay != nil),
         (.chainedArmDelay, overrides.chainedArmDelay != nil),
-        (.waitingNoticeMinutes, overrides.waitingNoticeDelay != nil),
         (.approvalCardDelay, overrides.approvalCardDelay != nil),
       ]
       return present.filter(\.1).map { .forAgent(host, .reset($0.0)) }
@@ -237,6 +235,11 @@ public enum ConfigEdit {
       try set(path, to: .number(spelling(written)), in: &document) {
         $0.numberValue == written
       }
+    case .waitingNoticeDelay(let seconds):
+      let written = PreferenceRules.thousandths(seconds)
+      try set(path, to: .number(spelling(written)), in: &document) {
+        $0.durationSeconds(bareUnit: 1) == written
+      }
     case .snoozePresets(let presets):
       try set(path, to: .array(presets.map(minutesFragment)), in: &document) {
         $0.elements?.map { $0.durationSeconds(bareUnit: 60) }
@@ -258,10 +261,6 @@ public enum ConfigEdit {
       try set(path, to: .string(name), in: &document) { $0.stringValue == name }
     case .waitingNotices(let enabled), .approvalCard(let enabled):
       try set(path, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
-    case .waitingNoticeDelay(let seconds):
-      try set(path, to: minutesFragment(seconds), in: &document) {
-        $0.durationSeconds(bareUnit: 60) == PreferenceRules.thousandths(seconds)
-      }
     case .questionNotes(let enabled):
       try set(path, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
     case .appearance(let appearance):
