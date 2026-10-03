@@ -867,6 +867,11 @@ ends the sheet; Back and Next swap the hosting controller's `rootView` for the n
 without tearing the sheet down. Closing the settings window while the tour is up ends the sheet
 without creating the file, so the tour is still owed next time.
 
+The tour, the context notes sheet and the rule sheet all use `SettingsSheetWindow`: a borderless
+window whose `canBecomeKey` is overridden to true. AppKit lets a window become key only when it has
+a title bar or a resize bar, so a plain borderless sheet never became key: its text fields took no
+typing, and Return and Esc never reached its default and cancel buttons.
+
 The steps, their titles and bodies, and the count, live in `ApprovalCore` as `FirstRunTourStep`
 and `FirstRunTour`, so they're covered by `ApprovalCoreTests` like every other piece of copy; a
 body is a `[FirstRunTourSegment]` of `.text` and `.key` pieces rather than one string, so

@@ -6,9 +6,7 @@ import SwiftUI
 enum ContextNotesSheet {
   static func present(model: SettingsModel, on window: NSWindow?) {
     guard let window else { return }
-    let sheetWindow = NSWindow(
-      contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
-    sheetWindow.isReleasedWhenClosed = false
+    let sheetWindow = SettingsSheetWindow()
     let hostingController = NSHostingController(
       rootView: ContextNotesSheetView(
         model: model,

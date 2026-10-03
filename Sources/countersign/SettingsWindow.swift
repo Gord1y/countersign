@@ -122,9 +122,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
   private func presentTour(step: FirstRunTourStep) {
     let hostingController = NSHostingController(rootView: tourView(for: step))
-    let sheetWindow = NSWindow(
-      contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
-    sheetWindow.isReleasedWhenClosed = false
+    let sheetWindow = SettingsSheetWindow()
     sheetWindow.contentViewController = hostingController
     tourWindow = sheetWindow
     tourHostingController = hostingController
