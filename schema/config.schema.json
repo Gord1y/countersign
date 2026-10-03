@@ -405,6 +405,48 @@
       "default": [],
       "description": "Recurring windows in which panels wait, like a snooze that repeats; top level only."
     },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["decision"],
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": ["allow", "deny"],
+            "description": "Whether a matching request is answered with allow or deny without a panel."
+          },
+          "agent": {
+            "type": "string",
+            "enum": ["claude", "codex", "cursor", "antigravity"],
+            "description": "Limits the rule to one agent; leave out for all four."
+          },
+          "project": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Limits the rule to requests whose working directory is this folder or inside it; an absolute path or one starting with ~."
+          },
+          "tool": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Limits the rule to tools whose name matches; * is the only wildcard, as in mcp__github__*."
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Limits the rule to shell commands matching this pattern: a command prefix such as \"git status\", or a base and argument glob such as \"npm:*\"."
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Deny rules only: the reason shown to the agent; defaults to \"Denied by a Countersign rule.\"."
+          }
+        }
+      },
+      "default": [],
+      "description": "Countersign's own allow and deny rules, checked before a panel shows. Deny wins; a compound command is allowed only when every part is."
+    },
     "checkForUpdates": {
       "type": "boolean",
       "default": false,

@@ -65,6 +65,7 @@ public struct ConfigFile: Sendable, Equatable {
   public var antigravity: HostOverrides?
   public var contextCheckpoints: ContextCheckpointFileValues?
   public var contextCheckpointsClaude: ContextCheckpointFileValues?
+  public var rules: [ApprovalRule]?
 
   public init(
     armDelay: Double? = nil,
@@ -93,7 +94,8 @@ public struct ConfigFile: Sendable, Equatable {
     cursor: HostOverrides? = nil,
     antigravity: HostOverrides? = nil,
     contextCheckpoints: ContextCheckpointFileValues? = nil,
-    contextCheckpointsClaude: ContextCheckpointFileValues? = nil
+    contextCheckpointsClaude: ContextCheckpointFileValues? = nil,
+    rules: [ApprovalRule]? = nil
   ) {
     self.armDelay = armDelay
     self.chainedArmDelay = chainedArmDelay
@@ -122,6 +124,7 @@ public struct ConfigFile: Sendable, Equatable {
     self.antigravity = antigravity
     self.contextCheckpoints = contextCheckpoints
     self.contextCheckpointsClaude = contextCheckpointsClaude
+    self.rules = rules
   }
 
   public var quietSchedule: QuietSchedule {
@@ -158,7 +161,7 @@ public enum ConfigFileParser {
     "snoozeMinutes", "quietHours", "checkForUpdates", "quitBehavior", "modeAfterPlan",
     "panelSound", "waitingNotices", "waitingNoticeDelay", "waitingNoticeDuration", "approvalCard",
     "approvalCardDelay", "includeHeadlessSessions", "questionNotes", "editorApp", "hosts",
-    "appearance", "accentColor", "contextCheckpoints",
+    "appearance", "accentColor", "contextCheckpoints", "rules",
     "$schema",
   ]
   static let contextCheckpointKeys: Set<String> = [
@@ -240,6 +243,7 @@ public enum ConfigFileParser {
     file.accentColor = readAccentColor(
       root["accentColor"], path: "accentColor", logLines: &logLines)
     file.editorApp = readEditorApp(root["editorApp"], path: "editorApp", logLines: &logLines)
+    file.rules = readRules(root["rules"], path: "rules", logLines: &logLines)
 
     if let hostsValue = root["hosts"] {
       switch hostsValue {
@@ -792,6 +796,88 @@ public enum ConfigFileParser {
       return nil
     }
     return window
+  }
+
+  private static let ruleKeys: Set<String> = [
+    "decision", "agent", "project", "tool", "command", "message",
+  ]
+
+  private static func readRules(
+    _ value: JSONValue?, path: String, logLines: inout [String]
+  ) -> [ApprovalRule]? {
+    guard let value else { return nil }
+    guard case .array(let array) = value else {
+      logLines.append("\(path): not an array, ignored")
+      return nil
+    }
+    var rules: [ApprovalRule] = []
+    for (index, element) in array.enumerated() {
+      if let rule = readRule(element, path: "\(path)[\(index)]", logLines: &logLines) {
+        rules.append(rule)
+      }
+    }
+    return rules
+  }
+
+  private static func readRule(
+    _ value: JSONValue, path: String, logLines: inout [String]
+  ) -> ApprovalRule? {
+    guard case .object(let object) = value else {
+      logLines.append("\(path): expected an object, dropped")
+      return nil
+    }
+    for key in object.keys.sorted() where !ruleKeys.contains(key) {
+      logLines.append("unknown key \"\(path).\(key)\", ignored")
+    }
+    guard let decision = object["decision"]?.stringValue.flatMap(ApprovalRule.Decision.init)
+    else {
+      logLines.append("\(path).decision: expected \"allow\" or \"deny\", dropped")
+      return nil
+    }
+    var agent: Host?
+    if let agentValue = object["agent"] {
+      guard let host = agentValue.stringValue.flatMap(Host.init) else {
+        logLines.append(
+          "\(path).agent: expected \"claude\", \"codex\", \"cursor\" or \"antigravity\", dropped")
+        return nil
+      }
+      agent = host
+    }
+    var project: String?
+    if let projectValue = object["project"] {
+      guard let text = nonEmptyString(projectValue) else {
+        logLines.append("\(path).project: expected a non-empty string, dropped")
+        return nil
+      }
+      guard text.hasPrefix("/") || text.hasPrefix("~") else {
+        logLines.append(
+          "\(path).project: expected an absolute path or one starting with ~, dropped")
+        return nil
+      }
+      project = text
+    }
+    var fields: [String: String] = [:]
+    for key in ["tool", "command", "message"] {
+      guard let fieldValue = object[key] else { continue }
+      guard let text = nonEmptyString(fieldValue) else {
+        logLines.append("\(path).\(key): expected a non-empty string, dropped")
+        return nil
+      }
+      fields[key] = text
+    }
+    var message = fields["message"]
+    if decision == .allow, message != nil {
+      logLines.append("\(path).message: only used by deny rules, ignored")
+      message = nil
+    }
+    return ApprovalRule(
+      decision: decision, agent: agent, project: project, tool: fields["tool"],
+      command: fields["command"], message: message)
+  }
+
+  private static func nonEmptyString(_ value: JSONValue) -> String? {
+    guard let text = value.stringValue, !text.isEmpty else { return nil }
+    return text
   }
 
   private static func readSnoozePresets(

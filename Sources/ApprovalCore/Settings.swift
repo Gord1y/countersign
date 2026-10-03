@@ -22,6 +22,7 @@ public struct Settings: Sendable, Equatable {
   public var appearance: AppearanceChoice
   public var accentColor: HexColor
   public var contextCheckpoints: ContextCheckpointSettings
+  public var rules: [ApprovalRule]
 
   public init(
     armDelay: Double,
@@ -44,7 +45,8 @@ public struct Settings: Sendable, Equatable {
     questionNotes: Bool,
     appearance: AppearanceChoice,
     accentColor: HexColor,
-    contextCheckpoints: ContextCheckpointSettings = .default
+    contextCheckpoints: ContextCheckpointSettings = .default,
+    rules: [ApprovalRule] = Settings.defaultRules
   ) {
     self.armDelay = armDelay
     self.chainedArmDelay = chainedArmDelay
@@ -67,6 +69,7 @@ public struct Settings: Sendable, Equatable {
     self.appearance = appearance
     self.accentColor = accentColor
     self.contextCheckpoints = contextCheckpoints
+    self.rules = rules
   }
 
   public static let armDelayRange: ClosedRange<Double> = 0...3
@@ -80,6 +83,7 @@ public struct Settings: Sendable, Equatable {
   public static let snoozePresetRange: ClosedRange<TimeInterval> = 10...86400
   public static let defaultSnoozePresets: [TimeInterval] = [60, 300, 900, 1800]
   public static let defaultQuietHours: [QuietWindow] = []
+  public static let defaultRules: [ApprovalRule] = []
   public static let defaultCheckForUpdates = false
   public static let defaultQuitBehavior = QuitBehavior.ask
   public static let defaultModeAfterPlan = PlanApprovalMode.default
@@ -151,6 +155,7 @@ public struct Settings: Sendable, Equatable {
       appearance: appearance,
       accentColor: accentColor,
       contextCheckpoints: ContextCheckpointSettings.resolve(
-        top: file.contextCheckpoints, host: file.contextCheckpointsClaude, for: host))
+        top: file.contextCheckpoints, host: file.contextCheckpointsClaude, for: host),
+      rules: file.rules ?? defaultRules)
   }
 }

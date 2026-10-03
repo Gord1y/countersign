@@ -333,6 +333,97 @@ with `config: `, and `countersign doctor` lists them as `warn` lines.
 as in the example above, and an editor that understands JSON Schema completes and checks keys as
 you type. `$schema` itself is ignored by Countersign; it only lets your editor validate the file.
 
+## Allow and deny rules
+
+Countersign's own rules answer a request before a panel shows: an allow rule lets it through, a deny
+rule blocks it and tells the agent why. They apply to all four agents and live in the top-level
+`rules` array of `config.json`, in the order you write them. A request no rule decides gets its
+panel as usual.
+
+Each rule is an object. Only `decision` is required; every other field narrows the rule, and a rule
+applies only when all the fields it sets match.
+
+- **`decision`**: `"allow"` or `"deny"`.
+- **`agent`**: `"claude"`, `"codex"`, `"cursor"` or `"antigravity"`. Leave it out for all four.
+- **`project`**: a folder, as an absolute path or one starting with `~`, like `"~/code/shop"`. The
+  rule applies to requests whose working directory is that folder or anywhere inside it; a trailing
+  `/` makes no difference, and `/a/b` covers `/a/b/c` but not `/a/bc`.
+- **`tool`**: the tool's name as the agent reports it, like `"Bash"`, `"apply_patch"` or
+  `"mcp__github__*"`. `*` is the only wildcard and the whole name must match, case-sensitively.
+  Cursor reports a shell command as `Shell` and Antigravity as `run_command`; an MCP call carries
+  the MCP tool's own name.
+- **`command`**: a shell command pattern, in the same language as Cursor's command allowlist. A
+  rule with a `command` applies only to shell commands, whichever agent runs them.
+- **`message`**: for deny rules, the reason the agent sees. It defaults to
+  `Denied by a Countersign rule.` On an allow rule it is ignored and logged.
+
+### The command pattern
+
+A pattern is either a command prefix or a base command with an argument glob:
+
+- `"git status"` matches `git status` and `git status --short`, but not `git statusx`: the prefix
+  must end on a word boundary.
+- `"npm"` matches `npm` and `npm run lint`.
+- `"npm:run *"` matches `npm run lint` and `npm run test -- --watch`, but not `npm install`: the
+  command's first word must be `npm`, and what follows must fit the glob, where `*` matches
+  anything.
+
+A compound command such as `cd app && pnpm lint | tee out.log` is split into its parts at `&&`,
+`||`, `;`, `|` and newlines, with quotes respected. A deny rule applies when any part matches. An
+allow rule applies only when every part is matched by some allow rule in scope, so
+`ls && rm -rf build` is not allowed by an allow rule for `ls` alone. A command Countersign can't
+split safely, for example one with `$(...)` or backticks, is never decided by a rule with a
+`command`, allow or deny: it gets its panel.
+
+A rule without a `command` decides every request in its scope, whatever the tool. An allow rule
+with only `"agent": "codex"` lets every Codex request through, so scope it with care.
+
+### Which rule wins
+
+Deny rules are checked first, in order, and the first one that applies blocks the request. Only
+when none applies are the allow rules considered. So a deny rule beats an allow rule that also
+matches, wherever each sits in the list.
+
+The decision is logged with the rule's position in the list. Positions count the rules Countersign
+kept: an entry that was dropped for a mistake (below) does not take a number.
+
+### Examples
+
+Let Cursor run `pnpm lint` and `git status` without a panel in one project:
+
+```json
+{
+  "rules": [
+    { "decision": "allow", "agent": "cursor", "project": "~/code/shop", "command": "pnpm lint" },
+    { "decision": "allow", "agent": "cursor", "project": "~/code/shop", "command": "git status" }
+  ]
+}
+```
+
+Block `rm -rf` for every agent, with your own reason:
+
+```json
+{
+  "rules": [
+    {
+      "decision": "deny",
+      "command": "rm:-rf *",
+      "message": "Delete with the trash, not rm -rf."
+    }
+  ]
+}
+```
+
+### Mistakes in rules
+
+A bad entry never stops the others. An entry that isn't an object, has no `"allow"` or `"deny"`
+decision, or has an `agent`, `project`, `tool`, `command` or `message` of the wrong kind is dropped
+and logged, for example `rules[2].agent: expected "claude", "codex", "cursor" or "antigravity",
+dropped`. An unknown key in an entry is logged and ignored. A `rules` value that isn't an array is
+ignored.
+
+Rules are off while Countersign is paused, like everything else it does.
+
 ## Context checkpoints (Claude Code)
 
 Off by default, and for Claude Code only. When on, Countersign watches how large a Claude Code

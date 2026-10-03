@@ -1,0 +1,67 @@
+# Allow and deny rules
+
+Countersign's own rules decide a request before any panel is queued. This page is why they are
+evaluated the way they are. The user-facing description is in
+[configuration](../configuration.md#allow-and-deny-rules); the code is `ApprovalRule`,
+`RuleEvaluator` and the `rules` reader in `ConfigFileParser`.
+
+## Evaluation order
+
+`RuleEvaluator.decide` takes a permission request, the parsed rules and the home folder, and answers
+allow, deny with a message, or nothing. Only permission requests are decided; questions, plans and
+context checkpoints always reach a person.
+
+1. A rule is in scope when every field it sets matches. A rule with a `command` is in scope only for
+   a shell command, because there is nothing to match the pattern against otherwise.
+2. The first in-scope deny rule that applies wins. A deny rule without a `command` applies
+   outright; with one, it applies when any segment of the command matches.
+3. An in-scope allow rule without a `command` allows outright.
+4. For a shell command, the remaining allow rules must cover every segment: each segment has to
+   match the `command` of at least one in-scope allow rule.
+5. Anything else is no decision, and the panel shows as it does without rules.
+
+The indexes in a decision are positions in the parsed array, after dropped entries are removed, so
+the log line and the Settings list agree.
+
+## Deny on any segment, allow on every segment
+
+A compound command runs all its parts, so the two answers need opposite quantifiers. Blocking
+`rm` must catch `ls && rm -rf x`; letting `ls` through must not let `ls && rm -rf x` through. Deny
+is checked first for the same reason: a block is the answer the user wrote a rule to be sure of, and
+it must not depend on rule order or on an allow rule that happens to match too.
+
+## An unsplittable command is never decided
+
+`ShellCommandSegments.split` returns nothing for a command it cannot split safely, such as one with
+a command substitution inside double quotes. For those, neither an allow nor a deny rule with a
+`command` decides: an allow would let an unseen `$(rm x)` through, and a deny that quietly fails to
+apply is no better than none. The panel is the safety net, so the person sees the whole command.
+Rules without a `command` do not look at the command and still apply.
+
+## One pattern language
+
+The `command` field uses `CommandPattern`, the same matcher as Cursor's command allowlist: a prefix
+on a word boundary, or `base:argsGlob`. Someone who knows one list knows the other, the Cursor
+allowlist and the rules are matched by one piece of code, and a fix to the matcher applies to both.
+
+## The tool glob
+
+`tool` matches `ApprovalRequest.toolName` as the host reports it, which differs per agent (`Bash`,
+`Shell`, `run_command`, `apply_patch`, `mcp__github__create_issue`). The only wildcard is `*`, over
+the whole name and case-sensitively, so `mcp__github__*` covers a server's tools without a regex
+language to get wrong.
+
+## The project parent test
+
+A rule's `project` covers its folder and everything under it, because an agent's working directory
+is often a subfolder of the repository. The test compares path components, not prefixes: `/a/b`
+is a parent of `/a/b/c` but not of `/a/bc`. A leading `~` is expanded against the home folder passed
+in, so tests do not depend on the machine. The request's `cwd` is used as the host gave it, with no
+symlink resolution.
+
+## Why rules are top-level only
+
+Rules are about what to do with a request, not about how an agent is configured, and the same rule
+must be able to name any agent through its `agent` field. Putting them under `hosts.<agent>` would
+split one ordered list into four, make the order that decides which rule wins ambiguous across
+them, and leave no place for a rule that applies to all agents.

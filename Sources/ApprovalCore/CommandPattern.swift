@@ -48,7 +48,7 @@ public struct CommandPattern: Sendable, Equatable {
     return globMatches(Array(glob), Array(arguments))
   }
 
-  private static func globMatches(_ glob: [Character], _ text: [Character]) -> Bool {
+  static func globMatches(_ glob: [Character], _ text: [Character]) -> Bool {
     var globIndex = 0
     var textIndex = 0
     var starIndex: Int?
