@@ -111,6 +111,11 @@ leaves a sentence such as "The images are generated with the snapshot command." 
 The header length counts characters, not bytes. The hook runs in the C locale so its patterns
 behave the same everywhere, and it counts UTF-8 lead bytes, so `…` counts as one character.
 
+The hook uses no here-documents. A shell writes a here-document to a temporary file, and where it
+can't create one, as inside an agent's sandbox, the loop reading it never runs: the trailer went
+unreported and the hook exited 0. Each check pipes its matching lines through `sed` instead, and
+`scripts/test-commit-msg.sh` fails if the hook contains `<<`.
+
 ## Strict formatting rules
 
 `.swift-format` is the output of `swift format dump-configuration` with three rules switched on:

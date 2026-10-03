@@ -37,6 +37,8 @@ rejects() {
   fi
 }
 
+grep -q '<<' "$hook" && fail "the hook uses a here-document, which exits 0 and lets the message through when its temp file can't be created"
+
 accepts "a plain header" 'feat: add the thing'
 accepts "a scope and a body" 'fix(panel): keep the hint inside the button\n\nThe body explains why.\n'
 accepts "a breaking marker" 'feat!: drop the old flag'
