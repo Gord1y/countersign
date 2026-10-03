@@ -265,6 +265,18 @@ drawn, so a scroll frame runs neither. The document view is pinned to the clip v
 and trailing edges and takes its height from the hosted content's intrinsic size, so rows that
 expand or collapse resize it and the scroller follows.
 
+The document view is a plain flipped `NSView` (`SettingsDocumentView`) with the `NSHostingView`
+pinned to all four of its edges, not the hosting view itself. `NSHostingView` overrides
+`scrollWheel(with:)`, so its class answers false to `isCompatibleWithResponsiveScrolling`, and
+AppKit then scrolls on the main thread (`NSScrollingBehaviorSingleThreadedVBL`) instead of its
+concurrent responsive path. An Animation Hitches trace of fast trackpad scrolling on Panels in that
+setup showed the main thread only 3.7% busy, yet about 10% of frames presented one refresh late,
+and a long main-thread iteration preceded only about one in five of those: the frames waited on the
+main-thread scroll cadence, not on work. A plain `NSView` is compatible, and scroll events still
+reach the hosting view first, which passes the ones SwiftUI doesn't use up the responder chain to
+the scroll view. The container must be flipped: the clip view takes its flippedness from the
+document view, and an unflipped one would open each group scrolled to the bottom.
+
 It keeps the old behaviour: no rubber-banding (`verticalScrollElasticity = .none`), an always
 visible vertical scroller, no horizontal scrolling, and each group opens at the top (the
 representable scrolls the clip view to its origin when the selected group changes).

@@ -70,14 +70,21 @@ private struct SettingsScrollView: NSViewRepresentable {
     let hostingView = NSHostingView(rootView: SettingsContent(model: model))
     hostingView.sizingOptions = [.intrinsicContentSize]
     hostingView.translatesAutoresizingMaskIntoConstraints = false
-    scrollView.documentView = hostingView
+    let documentView = SettingsDocumentView()
+    documentView.translatesAutoresizingMaskIntoConstraints = false
+    documentView.addSubview(hostingView)
+    scrollView.documentView = documentView
 
     let clipView = scrollView.contentView
     NSLayoutConstraint.activate([
-      hostingView.topAnchor.constraint(equalTo: clipView.topAnchor),
-      hostingView.leadingAnchor.constraint(equalTo: clipView.leadingAnchor),
-      hostingView.trailingAnchor.constraint(equalTo: clipView.trailingAnchor),
-      hostingView.widthAnchor.constraint(equalTo: clipView.widthAnchor),
+      hostingView.topAnchor.constraint(equalTo: documentView.topAnchor),
+      hostingView.bottomAnchor.constraint(equalTo: documentView.bottomAnchor),
+      hostingView.leadingAnchor.constraint(equalTo: documentView.leadingAnchor),
+      hostingView.trailingAnchor.constraint(equalTo: documentView.trailingAnchor),
+      documentView.topAnchor.constraint(equalTo: clipView.topAnchor),
+      documentView.leadingAnchor.constraint(equalTo: clipView.leadingAnchor),
+      documentView.trailingAnchor.constraint(equalTo: clipView.trailingAnchor),
+      documentView.widthAnchor.constraint(equalTo: clipView.widthAnchor),
     ])
     return scrollView
   }
@@ -96,6 +103,10 @@ private struct SettingsScrollView: NSViewRepresentable {
       self.pane = pane
     }
   }
+}
+
+private final class SettingsDocumentView: NSView {
+  override var isFlipped: Bool { true }
 }
 
 struct SettingsHeader: View {
