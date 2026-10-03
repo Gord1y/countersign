@@ -260,7 +260,9 @@ Triggers: `push` to `main`, `pull_request`, `workflow_dispatch`.
   3 minutes 38 seconds on 2026-09-28: 41 seconds to build, 73 to rebuild for the tests, 12 to run
   them and about 90 for lint and the script suites, one after another, each build time as SwiftPM
   reported it. Split into these three jobs, the whole CI run took 2 minutes 23 seconds, with
-  `test` the longest at 2 minutes 9 seconds.
+  `test` the longest at 2 minutes 9 seconds, so `test` is the critical path. Building the tests
+  in a separate step (`swift build --build-tests`, then `swift test --skip-build`) was measured
+  and saves nothing; caching `.build` between runs has not been tried.
 - `gates` is the check the rulesets require. It runs on `ubuntu-latest` once `build`, `test` and
   `static` have finished and fails unless all three ended in `success`. It runs even when one of
   them failed (`!cancelled()`), because a required check that is skipped counts as passing.
