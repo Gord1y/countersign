@@ -65,10 +65,14 @@ Open every pull request against `staging`; `main` only moves when a release is c
 ## Working with an AI agent
 
 Claude Code reads [CLAUDE.md](CLAUDE.md) and `.claude/`, including the path-scoped rules under
-`.claude/rules/` and the skills under `.claude/skills/`. Codex reads the same instructions through
-`AGENTS.md` (a symlink to `CLAUDE.md`), plus `.codex/config.toml` and `.codex/rules/default.rules`
-for the parts Claude Code applies automatically but Codex does not, and `.agents/skills` (a symlink
-to `.claude/skills`) for the skills. The rules are the same for both agents.
+`.claude/rules/`. Codex reads the same instructions through `AGENTS.md` (a symlink to
+`CLAUDE.md`), plus `.codex/config.toml` and `.codex/rules/default.rules` for the parts Claude Code
+applies automatically but Codex does not. The rules are the same for both agents.
+
+The repository ships no agent skills. The maintainer uses the shared agent setup
+(`Gord1y/countersign-skills`), and [.claude/repo-facts.md](.claude/repo-facts.md) holds
+Countersign's values for its skills. Everything a contributor needs is in the docs: release notes
+follow [releases/README.md](releases/README.md).
 
 ## House rules
 

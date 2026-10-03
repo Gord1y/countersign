@@ -3,5 +3,4 @@ AGENTS.md in this repository is a symlink to CLAUDE.md, the project instructions
 
 - CLAUDE.md's "Rules by area" lists path-scoped rule files under `.claude/rules/`. Claude Code loads them automatically for matching paths; you do not. Read the rule file for every path you are about to edit before your first edit to it.
 - Where the instructions say file content is written with Read/Edit/Write, write it with `apply_patch`. Never through shell redirection, a heredoc, `sed -i`, or an interpreter script.
-- Where they tell you to invoke a skill, use the repository skill of that name under `.agents/skills`.
 """
