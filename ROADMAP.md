@@ -7,7 +7,7 @@ request](https://github.com/Gord1y/countersign/issues/new/choose).
 
 ## More agent hosts
 
-### Next (v0.2)
+### Next
 
 Hosts whose hook fires only when they're about to show their own approval prompt, the same shape
 Claude Code's `PermissionRequest` already is:
@@ -68,8 +68,6 @@ not the model behind it.
 
 ### Later
 
-- Countersign's own allow and deny rules per project or host, most useful for every-call hosts
-  like Cursor that have no "Always allow" suggestions of their own.
 - Detecting "answered in the host" for Cursor, from its agent transcripts, and for Codex, if it
   ever gains a session registry.
 - Context checkpoints for Codex, Cursor and Antigravity, once they expose a transcript with token
