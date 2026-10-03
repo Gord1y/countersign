@@ -40,6 +40,7 @@ final class PanelModel {
   let isTestPanel: Bool
   let sessionIdle: Bool
   let escapeKeepsWaiting: Bool
+  let alwaysAllowOffer: AlwaysAllowOffer?
   let dropdown: PanelDropdownState
   private(set) var hasStartedArming = false
   private(set) var isArmed = false
@@ -48,6 +49,7 @@ final class PanelModel {
   var onFinish: ((ApprovalOutcome) -> Void)?
   var onSnooze: ((TimeInterval) -> Void)?
   var onCheckpointChoice: ((ContextCheckpointChoice) -> Void)?
+  var onAlwaysAllow: ((AlwaysAllowOffer) -> Void)?
   var keyHandler: PanelKeyHandler?
   var onPreferredHeightChange: ((CGFloat) -> Void)?
 
@@ -62,9 +64,11 @@ final class PanelModel {
     isTestPanel: Bool = false,
     sessionIdle: Bool = false,
     escapeKeepsWaiting: Bool = false,
+    alwaysAllowOffer: AlwaysAllowOffer? = nil,
     openDropdownOnAppear: PanelDropdownID? = nil
   ) {
     self.request = request
+    self.alwaysAllowOffer = alwaysAllowOffer
     self.sessionIdle = sessionIdle
     self.escapeKeepsWaiting = escapeKeepsWaiting
     self.waitingEntries = waitingEntries
@@ -155,6 +159,8 @@ final class PanelController {
     onStepAside: (@MainActor (StepAsideReason) -> Void)? = nil,
     sessionIdle: Bool = false,
     escapeKeepsWaiting: Bool = false,
+    alwaysAllowOffer: AlwaysAllowOffer? = nil,
+    onAlwaysAllow: ((AlwaysAllowOffer) -> Void)? = nil,
     onCheckpointChoice: ((ContextCheckpointChoice) -> Void)? = nil
   ) {
     let targetScreen = handoffBackdrop?.targetScreen ?? Self.resolveTargetScreen()
@@ -167,7 +173,8 @@ final class PanelController {
       request: request, waitingEntries: waitingEntries, armDuration: clampedArmDuration,
       snoozePresets: snoozePresets, questionNotes: questionNotes, modeAfterPlan: modeAfterPlan,
       chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
-      isTestPanel: isTestPanel, sessionIdle: sessionIdle, escapeKeepsWaiting: escapeKeepsWaiting)
+      isTestPanel: isTestPanel, sessionIdle: sessionIdle, escapeKeepsWaiting: escapeKeepsWaiting,
+      alwaysAllowOffer: alwaysAllowOffer)
     CountersignPalette.use(accentColor)
     let panel = ApprovalPanel()
     panel.appearance = appearance.windowAppearance
@@ -191,6 +198,7 @@ final class PanelController {
     }
     model.onSnooze = onSnooze
     model.onCheckpointChoice = onCheckpointChoice
+    model.onAlwaysAllow = onAlwaysAllow
     panel.onEscape = { [weak model] in
       model?.finish(.noDecision)
     }

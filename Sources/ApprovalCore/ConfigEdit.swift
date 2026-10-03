@@ -91,6 +91,7 @@ public enum PreferenceEdit: Sendable, Equatable {
   case addHandoffApp(String)
   case removeHandoffApp(String)
   case removeRule(ApprovalRule)
+  case addRules([ApprovalRule])
   case editorApp(String)
   case contextCheckpointsEnabled(Bool)
   case contextMode(ContextCheckpointMode)
@@ -107,7 +108,7 @@ public enum PreferenceEdit: Sendable, Equatable {
 
   public var key: PreferenceName? {
     switch self {
-    case .removeRule: return nil
+    case .removeRule, .addRules: return nil
     case .armDelay: return .armDelay
     case .chainedArmDelay: return .chainedArmDelay
     case .idleSeconds: return .idleSeconds
@@ -150,7 +151,7 @@ public enum PreferenceEdit: Sendable, Equatable {
 
   public var isOutsidePreferenceValues: Bool {
     switch self {
-    case .removeRule, .forAgent: return true
+    case .removeRule, .addRules, .forAgent: return true
     default: return false
     }
   }
@@ -247,6 +248,10 @@ public enum ConfigEdit {
       try remove(rule, in: &document)
       return
     }
+    if case .addRules(let rules) = edit {
+      try add(rules, in: &document)
+      return
+    }
     guard let name = edit.key else { return }
     let path = prefix + name.keyPath
     let key = name.keyPath.first ?? name.rawValue
@@ -297,7 +302,7 @@ public enum ConfigEdit {
       try add(bundleID, key: key, in: &document)
     case .removeHandoffApp(let bundleID):
       try remove(bundleID, key: key, in: &document)
-    case .removeRule:
+    case .removeRule, .addRules:
       return
     case .editorApp(let bundleID):
       try set(path, to: .string(bundleID), in: &document) { $0.stringValue == bundleID }
@@ -412,6 +417,41 @@ public enum ConfigEdit {
     }
     guard !elements.contains(where: { $0.stringValue == bundleID }) else { return }
     try document.appendElement(.string(bundleID), to: existing)
+  }
+
+  private static func ruleFragment(_ rule: ApprovalRule) -> JSONFragment {
+    let members: [(String, String?)] = [
+      ("decision", rule.decision.rawValue), ("agent", rule.agent?.rawValue),
+      ("project", rule.project), ("tool", rule.tool), ("command", rule.command),
+      ("message", rule.decision == .deny ? rule.message : nil),
+    ]
+    return .object(
+      members.compactMap { key, value in
+        value.map { JSONFragmentMember(key: key, value: .string($0)) }
+      })
+  }
+
+  private static func add(_ rules: [ApprovalRule], in document: inout JSONSourceDocument) throws {
+    let decoder = JSONDecoder()
+    for rule in rules {
+      let fragment = ruleFragment(rule)
+      guard let existing = document.root.member(named: "rules")?.value else {
+        try document.appendMember(
+          JSONFragmentMember(key: "rules", value: .array([fragment])), to: document.root)
+        continue
+      }
+      guard let elements = existing.elements else {
+        try document.replaceValue(existing, with: .array([fragment]))
+        continue
+      }
+      let alreadyThere = elements.contains { element in
+        let raw = Data(document.bytes[element.range])
+        return (try? decoder.decode(JSONValue.self, from: raw)).flatMap(ConfigFileParser.rule)
+          == rule
+      }
+      guard !alreadyThere else { continue }
+      try document.appendElement(fragment, to: existing)
+    }
   }
 
   private static func remove(_ rule: ApprovalRule, in document: inout JSONSourceDocument) throws {

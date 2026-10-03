@@ -1189,8 +1189,14 @@ Approve is a `PrimaryButtonStyle` button that allows once, its own full rounded 
 "⌘⏎" keycap in `LinkButtonStyle`, no fill, the same pattern as "Answer in chat"'s "esc" keycap.
 Clicking it, or ⌘Return while `.default` is visible, opens Countersign's dropdown (see
 "Countersign's own dropdown" below) with "Allow once" plus one row per suggestion. Codex, Cursor
-and Antigravity requests never populate `permission_suggestions`, so the ▾ control simply never
-appears — no host check needed, the suggestions array already carries that distinction.
+and Antigravity requests never populate `permission_suggestions`, so they get the second source of
+rows instead: `PanelModel.alwaysAllowOffer`, an `ApprovalCore.AlwaysAllowOffer` built by
+`makeController` for a real permission panel (never a test panel or a checkpoint). The ▾ shows
+when there are suggestions or an offer, and ⌘Return opens it in both cases. The menu is "Allow
+once" plus one row with the offer's title and detail. Choosing it calls `onAlwaysAllow`, which
+writes the rules to `config.json` and logs the result, then approves as "Allow once" does; a failed
+write is logged and the approval goes ahead. What the offer saves is in "Always allow" in
+[rules.md](rules.md).
 
 A suggestion's row shows the exact rule and where it is saved, from
 `ApprovalCore.PermissionSuggestionText`: an `addRules` entry's title is `<toolName>(<ruleContent>)`,

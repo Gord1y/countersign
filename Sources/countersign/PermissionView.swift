@@ -89,23 +89,36 @@ struct PermissionView: View {
     }
     .onAppear {
       model.keyHandler = PanelKeyHandler(uses: usesKey, perform: handleKey)
-      if !prompt.suggestions.isEmpty, model.dropdown.takeRequest(for: .approve) {
+      if hasApproveMenu, model.dropdown.takeRequest(for: .approve) {
         toggleApproveDropdown()
       }
     }
   }
 
+  private var hasApproveMenu: Bool {
+    !prompt.suggestions.isEmpty || model.alwaysAllowOffer != nil
+  }
+
   private func toggleApproveDropdown() {
     let suggestions = prompt.suggestions
-    let suggestionRows = suggestions.map { suggestion in
+    let offer = suggestions.isEmpty ? model.alwaysAllowOffer : nil
+    var optionRows = suggestions.map { suggestion in
       let text = PermissionSuggestionText(suggestion)
       return PanelDropdownRow(title: text.title, detail: text.detail)
     }
+    if let offer {
+      optionRows.append(PanelDropdownRow(title: offer.title, detail: offer.detail))
+    }
     let menu = PanelDropdownMenu(
       id: .approve, direction: .up,
-      rows: [PanelDropdownRow(title: "Allow once")] + suggestionRows
+      rows: [PanelDropdownRow(title: "Allow once")] + optionRows
     ) { [model] row in
       guard row > 0 else {
+        model.finish(.allowAsIs)
+        return
+      }
+      if let offer, row == 1 {
+        model.onAlwaysAllow?(offer)
         model.finish(.allowAsIs)
         return
       }
@@ -119,7 +132,7 @@ struct PermissionView: View {
     switch key {
     case .primary: return true
     case .alternate:
-      return footerState == .deny ? host.supportsInterrupt : !prompt.suggestions.isEmpty
+      return footerState == .deny ? host.supportsInterrupt : hasApproveMenu
     case .secondary: return footerState == .default
     case .digit, .left, .right, .up, .down: return false
     }
@@ -361,7 +374,7 @@ struct PermissionView: View {
 
       ApproveButtons(
         model: model,
-        hasSuggestions: !prompt.suggestions.isEmpty,
+        hasSuggestions: hasApproveMenu,
         isEnabled: model.isArmed && footerState == .default,
         onAllowOnce: { model.finish(.allowAsIs) },
         onToggleDropdown: toggleApproveDropdown

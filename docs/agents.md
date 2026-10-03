@@ -10,7 +10,7 @@ Antigravity.
 | Answer | Claude Code | Codex | Cursor | Antigravity |
 | --- | --- | --- | --- | --- |
 | **Approve** (<kbd>Return</kbd>) | Runs the call | Runs the call | Runs the command or MCP tool | Asks you once more in its own prompt (see [below](#antigravity)) |
-| **Always allow** (Approve ▾) | Approves, and hands Claude Code the rule to keep | Not offered | Not offered | Not offered |
+| **Always allow** (Approve ▾) | Approves, and hands Claude Code the rule to keep | Approves, and saves a Countersign rule | Approves, and saves a Countersign rule | Approves, and saves a Countersign rule |
 | **Deny**, with a reason | Blocks the call | Blocks the call | Blocks it and shows the reason to you and the agent | Blocks it and shows the reason |
 | **Deny & stop** (<kbd>⌘</kbd><kbd>Return</kbd> in the deny step) | Blocks the call and asks Claude Code to interrupt | Not offered | Not offered | Not offered |
 | **Answer in chat** (<kbd>Esc</kbd>, a click outside) | Claude Code shows its own prompt | Codex shows its own prompt | Cursor shows its own approval prompt; in Auto-review and Run Everything the request waits as **Later** instead | Antigravity shows its own approval prompt |
@@ -90,8 +90,13 @@ request still gets no panel a minute or two after wiring.
 **What gets a panel:** every permission prompt Codex sends to its hooks: shell commands, MCP tool
 calls, and `apply_patch` edits, shown against the real file like Claude Code's edits.
 
-- Approve and Deny (with a reason) work as for Claude Code. Codex has no "Always allow" rules to
-  offer, no **Deny & stop**, and no hook for its question and plan tools, so those stay in Codex.
+- Approve and Deny (with a reason) work as for Claude Code. Codex has no "Always allow" rules of
+  its own to offer, no **Deny & stop**, and no hook for its question and plan tools, so those stay
+  in Codex.
+- **Approve ▾ → Always allow** saves a rule for Codex in this project and approves the request. For
+  a shell command it saves the exact command, or each distinct part of a compound command; for
+  anything else, such as an `apply_patch` edit or an MCP call, it saves the tool. See and remove it
+  in Settings ▸ Rules, or in `config.json`.
 - Codex asks you to trust Countersign's hooks once in `/hooks`: the permission hook and, while
   waiting-agent notices are on, the Stop hook. See "After wiring" below.
 - Countersign can't see a Codex chat, so answering there doesn't close the panel. It goes away when
@@ -123,6 +128,9 @@ without asking; a compound command gets a panel unless every part is on the list
 
 - **Approve** runs the command or tool. **Deny** blocks it, shows your reason to you and hands it to
   the agent. There is no **Deny & stop**, and no questions or plans.
+- **Approve ▾ → Always allow** saves a rule for Cursor in this project and approves the command.
+  It saves the exact command, or each distinct part of a compound command; for an MCP call it
+  saves the tool. See and remove it in Settings ▸ Rules, or in `config.json`.
 - **Answer in chat** depends on Cursor's run mode. In Allowlist mode (and the old Ask Every Time),
   it makes Cursor show its own approval prompt, even for a command it would have run in its
   sandbox, and `handoffApps` does the same. In Auto-review or Run Everything mode, Cursor's prompt
@@ -161,6 +169,9 @@ the browser, and Antigravity's own questions and plans follow Antigravity's own 
   [google-antigravity/antigravity-cli#1053](https://github.com/google-antigravity/antigravity-cli/issues/1053).
   Once it is fixed, Approve will be enough, with nothing to change in Countersign.
 - **Deny** blocks the call and shows your reason, even under `--dangerously-skip-permissions`.
+- **Approve ▾ → Always allow** saves a rule for Antigravity in this project and approves the call.
+  It saves the exact command, or each distinct part of a compound command; for an MCP call it
+  saves the tool. See and remove it in Settings ▸ Rules, or in `config.json`.
 - **Answer in chat** makes Antigravity show its own approval prompt; `handoffApps` does the same.
   Under `--dangerously-skip-permissions` expect it to run the call instead.
 - **An hour limit**, as for Cursor: a request still unanswered after 59 minutes goes back to

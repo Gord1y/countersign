@@ -1304,7 +1304,7 @@ final class SettingsModel {
       switch edit {
       case .reset(let name): reset.append(name)
       case .forAgent(_, .approvalCard): written.append(.approvalCard)
-      case .forAgent, .removeRule: break
+      case .forAgent, .removeRule, .addRules: break
       default: edit.key.map { written.append($0) }
       }
     }

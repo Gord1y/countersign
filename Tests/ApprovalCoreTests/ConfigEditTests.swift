@@ -523,6 +523,48 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
         == "{\n  \"contextCheckpoints\": {\n    \"mode\": \"silent\"\n  }\n}\n")
   }
 
+  @Test func addsRulesToAFileWithoutRules() throws {
+    let rule = ApprovalRule(
+      decision: .allow, agent: .cursor, project: "~/code/shop", command: "pnpm lint")
+    #expect(
+      try editing("{\n  \"idleSeconds\": 5\n}\n", .addRules([rule]))
+        == "{\n  \"idleSeconds\": 5,\n  \"rules\": [\n    {\n      \"decision\": \"allow\",\n"
+        + "      \"agent\": \"cursor\",\n      \"project\": \"~/code/shop\",\n"
+        + "      \"command\": \"pnpm lint\"\n    }\n  ]\n}\n")
+  }
+
+  @Test func appendsRulesToAnExistingArrayKeepingItsFormatting() throws {
+    let added = ApprovalRule(decision: .allow, agent: .codex, tool: "apply_patch")
+    #expect(
+      try editing(Self.threeRules, .addRules([added]))
+        == "{\n  \"idleSeconds\": 5,\n  \"rules\": [\n    {\"decision\": \"allow\", \"tool\": \"Read\"},\n"
+        + "    {\"decision\": \"deny\", \"command\": \"rm *\", \"message\": \"No.\"},\n"
+        + "    {\"decision\": \"allow\", \"agent\": \"codex\", \"command\": \"ls\"},\n"
+        + "    {\n      \"decision\": \"allow\",\n      \"agent\": \"codex\",\n"
+        + "      \"tool\": \"apply_patch\"\n    }\n  ]\n}\n")
+  }
+
+  @Test func skipsARuleAlreadyInTheFile() throws {
+    let existing = ApprovalRule(decision: .allow, agent: .codex, command: "ls")
+    let fresh = ApprovalRule(decision: .allow, tool: "Write")
+    let once = try editing(Self.threeRules, .addRules([existing]))
+    #expect(once == Self.threeRules)
+    let twice = try editing(Self.threeRules, .addRules([fresh, fresh, existing]))
+    let parsed = ConfigFileParser.parse(Data(twice.utf8)).file.rules
+    #expect(parsed?.filter { $0 == fresh }.count == 1)
+    #expect(parsed?.count == 4)
+  }
+
+  @Test func startsFromTheStarterFileWhenMissingOrBlank() throws {
+    let rule = ApprovalRule(decision: .allow, agent: .cursor, command: "ls")
+    let expected =
+      "{\n  \"$schema\": \"https://raw.githubusercontent.com/Gord1y/countersign/main/schema/config.schema.json\",\n"
+      + "  \"rules\": [\n    {\n      \"decision\": \"allow\",\n      \"agent\": \"cursor\",\n"
+      + "      \"command\": \"ls\"\n    }\n  ]\n}\n"
+    #expect(try editing(nil, .addRules([rule])) == expected)
+    #expect(try editing("  \n", .addRules([rule])) == expected)
+  }
+
   @Test func spellsNumbersLikeTheEditor() {
     #expect(ConfigEdit.spelling(3) == "3")
     #expect(ConfigEdit.spelling(0.5) == "0.5")

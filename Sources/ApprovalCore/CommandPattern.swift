@@ -22,6 +22,17 @@ public struct CommandPattern: Sendable, Equatable {
     return Self.isBlank(following)
   }
 
+  public static func exact(forSegment segment: String) -> CommandPattern? {
+    let command = trimmed(segment)
+    guard !command.isEmpty else { return nil }
+    guard command.contains(":") else { return CommandPattern(command) }
+    guard !command.contains("*") else { return nil }
+    let word = command.prefix(while: { !isBlank($0) })
+    guard !word.contains(":") else { return nil }
+    let arguments = String(command.dropFirst(word.count).drop(while: isBlank))
+    return CommandPattern("\(word):\(arguments)")
+  }
+
   public static func allMatch(_ command: String, patterns: [CommandPattern]) -> Bool {
     guard let segments = ShellCommandSegments.split(command), !segments.isEmpty else {
       return false

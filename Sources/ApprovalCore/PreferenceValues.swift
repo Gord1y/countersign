@@ -169,7 +169,7 @@ public struct PreferenceValues: Sendable, Equatable {
       }
     case .removeHandoffApp(let bundleID):
       values.handoffApps.removeAll { $0 == bundleID }
-    case .removeRule:
+    case .removeRule, .addRules:
       break
     case .editorApp(let bundleID):
       values.editorApp = bundleID

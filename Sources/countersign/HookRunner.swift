@@ -269,7 +269,7 @@ enum HookRunner {
       log: log, activityGate: activityGate, quietState: quietState, settings: settings,
       subagentChain: subagentChain, waitingEntries: initialWaitingEntries,
       sessionsDirectory: paths.claudeSessionsDirectory, history: DecisionHistory(paths: paths),
-      hostApp: hostApp, checkpoint: checkpoint, showsWithoutIdle: showsWithoutIdle,
+      hostApp: hostApp, paths: paths, checkpoint: checkpoint, showsWithoutIdle: showsWithoutIdle,
       waitingHandBack: waitingHandBack, handBackPolicy: handBackPolicy,
       cardSlots: WaitingStore(directory: paths.waitingDirectory),
       abandonReason: abandonReason, handBackIsDue: handBackIsDue, isPaused: isPaused)
@@ -457,19 +457,21 @@ private final class DisplayWatch: NSObject {
   private var hasEvaluatedChatTracking = false
   private var chatTrackingDrift: ChatTrackingDrift?
   private let subagentChain: [SubagentChainLink]?
+  private let paths: AppPaths
 
   init(
     app: PanelApplication, request: ApprovalRequest, mode: PanelRunMode, queue: TicketQueue,
     ticket: Ticket, lease: DisplayLease?, log: EventLog, activityGate: ActivityGate,
     quietState: QuietState, settings: Settings, subagentChain: [SubagentChainLink]?,
     waitingEntries: [WaitingEntry], sessionsDirectory: URL, history: DecisionHistory,
-    hostApp: HostApp?,
+    hostApp: HostApp?, paths: AppPaths,
     checkpoint: ContextCheckpointSession?, showsWithoutIdle: Bool,
     waitingHandBack: WaitingHandBack, handBackPolicy: HandBackPolicy, cardSlots: WaitingStore,
     abandonReason: @escaping () -> String?, handBackIsDue: @escaping () -> Bool,
     isPaused: @escaping () -> Bool
   ) {
     self.app = app
+    self.paths = paths
     self.request = request
     self.host = request.host
     self.mode = mode
@@ -740,8 +742,25 @@ private final class DisplayWatch: NSObject {
       onStepAside: { [weak self] reason in self?.handleStepAside(reason) },
       sessionIdle: checkpoint?.isIdle() ?? false,
       escapeKeepsWaiting: handBackPolicy == .keepsWaiting,
+      alwaysAllowOffer: alwaysAllowOffer,
+      onAlwaysAllow: { [weak self] offer in self?.saveAlwaysAllow(offer) },
       onCheckpointChoice: checkpoint == nil && !mode.isTest
         ? nil : { [weak self] choice in self?.handleCheckpointChoice(choice) })
+  }
+
+  private var alwaysAllowOffer: AlwaysAllowOffer? {
+    guard !mode.isTest, checkpoint == nil else { return nil }
+    return AlwaysAllowOffer.offer(for: request, home: paths.home)
+  }
+
+  private func saveAlwaysAllow(_ offer: AlwaysAllowOffer) {
+    do {
+      try RuleFileWriter.add(offer.rules, configFile: paths.configFile)
+      log.write(
+        "rule: saved \(offer.rules.count) rule(s) for \(host.rawValue) in \(request.projectName)")
+    } catch {
+      log.write("rule: failed to save: \(SetupRun.describe(error))")
+    }
   }
 
   private var isCheckpoint: Bool {

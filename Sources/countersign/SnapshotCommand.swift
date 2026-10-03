@@ -88,6 +88,8 @@ enum SnapshotCommand {
       request: request, waitingEntries: waitingEntries, questionNotes: options.questionNotes,
       chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
       isTestPanel: isTestPanel, escapeKeepsWaiting: options.escapeKeepsWaiting,
+      alwaysAllowOffer: isTestPanel
+        ? nil : AlwaysAllowOffer.offer(for: request, home: AppPaths.standard.home),
       openDropdownOnAppear: options.openMenu)
     model.onSnooze = { _ in }
     if options.isArmed {
