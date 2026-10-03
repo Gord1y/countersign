@@ -3,16 +3,24 @@ import Testing
 @testable import ApprovalCore
 
 @Suite struct SettingsPaneTests {
-  @Test func listsTheSixGroupsInOrder() {
-    #expect(SettingsPane.allCases == [.agents, .panels, .app, .context, .help, .advanced])
+  @Test func listsTheSevenGroupsInOrder() {
+    #expect(
+      SettingsPane.allCases == [.agents, .panels, .app, .rules, .context, .help, .advanced])
     #expect(
       SettingsPane.allCases.map(\.rawValue) == [
-        "agents", "panels", "app", "context", "help", "advanced",
+        "agents", "panels", "app", "rules", "context", "help", "advanced",
       ])
     #expect(
       SettingsPane.allCases.map(\.title) == [
-        "Agents", "Panels", "App", "Context", "Help", "Advanced",
+        "Agents", "Panels", "App", "Rules", "Context", "Help", "Advanced",
       ])
+  }
+
+  @Test func saysWhatTheRulesGroupDoes() {
+    #expect(SettingsPane.rules.title == "Rules")
+    #expect(SettingsPane.rules.subtitle == "Allow or deny requests before a panel shows.")
+    #expect(SettingsPane.rules.preferenceNames.isEmpty)
+    #expect(SettingsPane(storedValue: "rules", showsContext: false) == .rules)
   }
 
   @Test func saysWhatTheContextGroupChanges() {
@@ -23,8 +31,12 @@ import Testing
   }
 
   @Test func showsTheContextGroupOnlyWhenAsked() {
-    #expect(SettingsPane.sidebar(showsContext: true) == [.agents, .app, .panels, .context, .help])
-    #expect(SettingsPane.sidebar(showsContext: false) == [.agents, .app, .panels, .help])
+    #expect(
+      SettingsPane.sidebar(showsContext: true) == [
+        .agents, .app, .panels, .rules, .context, .help,
+      ])
+    #expect(
+      SettingsPane.sidebar(showsContext: false) == [.agents, .app, .panels, .rules, .help])
     #expect(SettingsPane.sidebar == SettingsPane.sidebar(showsContext: false))
   }
 
@@ -55,7 +67,7 @@ import Testing
   }
 
   @Test func listsTheSidebarGroupsInOrder() {
-    #expect(SettingsPane.sidebar == [.agents, .app, .panels, .help])
+    #expect(SettingsPane.sidebar == [.agents, .app, .panels, .rules, .help])
   }
 
   @Test func keepsAdvancedOutOfTheSidebar() {

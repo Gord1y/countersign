@@ -819,6 +819,11 @@ public enum ConfigFileParser {
     return rules
   }
 
+  static func rule(from value: JSONValue) -> ApprovalRule? {
+    var discarded: [String] = []
+    return readRule(value, path: "rules", logLines: &discarded)
+  }
+
   private static func readRule(
     _ value: JSONValue, path: String, logLines: inout [String]
   ) -> ApprovalRule? {

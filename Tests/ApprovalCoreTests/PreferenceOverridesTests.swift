@@ -66,11 +66,11 @@ import Testing
 
   @Test func namesTheTopLevelKeysOnlyTheFileSets() {
     #expect(
-      PreferenceOverrides.fileOnlyTopLevelKeys == ["includeHeadlessSessions", "rules"])
+      PreferenceOverrides.fileOnlyTopLevelKeys == ["includeHeadlessSessions"])
     #expect(
       PreferenceOverrides.fileOnlyNote
         == "Only the file can set handoff apps, Snooze presets and headless sessions for one agent,"
-        + " under hosts, and includeHeadlessSessions, rules.")
+        + " under hosts, and includeHeadlessSessions.")
   }
 
   @Test func fileOnlyNoteListsEveryKeyOrNone() {

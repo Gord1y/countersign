@@ -325,6 +325,7 @@ private struct SettingsSidebarRow: View {
     case .agents: return "person.2"
     case .app: return "macwindow"
     case .panels: return "rectangle.stack"
+    case .rules: return "checklist"
     case .context: return "gauge.with.dots.needle.33percent"
     case .help: return "questionmark.circle"
     case .advanced: return "slider.horizontal.3"
@@ -352,6 +353,7 @@ struct SettingsPaneView: View {
     case .agents: AgentsSection(model: model)
     case .panels: PanelsSection(model: model)
     case .app: AppSection(model: model)
+    case .rules: RulesSection(model: model)
     case .context: ContextSection(model: model)
     case .help: HelpSection(model: model)
     case .advanced: AdvancedSection(model: model)

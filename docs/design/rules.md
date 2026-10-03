@@ -23,6 +23,9 @@ context checkpoints always reach a person.
 The indexes in a decision are positions in the parsed array, after dropped entries are removed, so
 the log line and the Settings list agree.
 
+Settings ▸ Rules shows that parsed array and removes from it; see "Rules" in
+[settings.md](settings.md#rules).
+
 ## Deny on any segment, allow on every segment
 
 A compound command runs all its parts, so the two answers need opposite quantifiers. Blocking

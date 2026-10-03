@@ -90,6 +90,7 @@ public enum PreferenceEdit: Sendable, Equatable {
   case accentColor(HexColor)
   case addHandoffApp(String)
   case removeHandoffApp(String)
+  case removeRule(ApprovalRule)
   case editorApp(String)
   case contextCheckpointsEnabled(Bool)
   case contextMode(ContextCheckpointMode)
@@ -104,8 +105,9 @@ public enum PreferenceEdit: Sendable, Equatable {
   case reset(PreferenceName)
   indirect case forAgent(Host, PreferenceEdit)
 
-  public var key: PreferenceName {
+  public var key: PreferenceName? {
     switch self {
+    case .removeRule: return nil
     case .armDelay: return .armDelay
     case .chainedArmDelay: return .chainedArmDelay
     case .idleSeconds: return .idleSeconds
@@ -138,6 +140,18 @@ public enum PreferenceEdit: Sendable, Equatable {
     case .contextMenuBarMeter: return .contextMenuBarMeter
     case .reset(let name): return name
     case .forAgent(_, let inner): return inner.key
+    }
+  }
+
+  public var removesRule: Bool {
+    if case .removeRule = self { return true }
+    return false
+  }
+
+  public var isOutsidePreferenceValues: Bool {
+    switch self {
+    case .removeRule, .forAgent: return true
+    default: return false
     }
   }
 
@@ -229,8 +243,13 @@ public enum ConfigEdit {
   private static func apply(
     _ edit: PreferenceEdit, prefix: [String], to document: inout JSONSourceDocument
   ) throws {
-    let path = prefix + edit.key.keyPath
-    let key = edit.key.keyPath.first ?? edit.key.rawValue
+    if case .removeRule(let rule) = edit {
+      try remove(rule, in: &document)
+      return
+    }
+    guard let name = edit.key else { return }
+    let path = prefix + name.keyPath
+    let key = name.keyPath.first ?? name.rawValue
     switch edit {
     case .armDelay(let value), .chainedArmDelay(let value), .idleSeconds(let value),
       .graceSeconds(let value), .approvalCardDelay(let value):
@@ -278,6 +297,8 @@ public enum ConfigEdit {
       try add(bundleID, key: key, in: &document)
     case .removeHandoffApp(let bundleID):
       try remove(bundleID, key: key, in: &document)
+    case .removeRule:
+      return
     case .editorApp(let bundleID):
       try set(path, to: .string(bundleID), in: &document) { $0.stringValue == bundleID }
     case .contextCheckpointsEnabled(let enabled), .contextMenuBarMeter(let enabled):
@@ -391,6 +412,19 @@ public enum ConfigEdit {
     }
     guard !elements.contains(where: { $0.stringValue == bundleID }) else { return }
     try document.appendElement(.string(bundleID), to: existing)
+  }
+
+  private static func remove(_ rule: ApprovalRule, in document: inout JSONSourceDocument) throws {
+    guard let array = document.root.member(named: "rules")?.value, let elements = array.elements
+    else { return }
+    let decoder = JSONDecoder()
+    let index = elements.firstIndex { element in
+      let raw = Data(document.bytes[element.range])
+      return (try? decoder.decode(JSONValue.self, from: raw)).flatMap(ConfigFileParser.rule)
+        == rule
+    }
+    guard let index else { return }
+    try document.removeElement(at: index, from: array)
   }
 
   private static func remove(

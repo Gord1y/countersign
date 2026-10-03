@@ -424,6 +424,9 @@ ignored.
 
 Rules are off while Countersign is paused, like everything else it does.
 
+Settings ▸ Rules lists every rule in the order of the file and removes one with its minus button.
+Entries that couldn't be read aren't listed; the pane counts them and offers Open in Editor.
+
 ## Context checkpoints (Claude Code)
 
 Off by default, and for Claude Code only. When on, Countersign watches how large a Claude Code

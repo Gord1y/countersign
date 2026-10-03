@@ -195,7 +195,7 @@ ends up.
 ### Groups and layout
 
 The header's pause and snooze controls (see "Status" below) sit at the top, outside every group:
-they are the state Countersign is in right now, not a setting. Below the header, a sidebar lists Agents, App, Panels and Help,
+they are the state Countersign is in right now, not a setting. Below the header, a sidebar lists Agents, App, Panels, Rules (and Context while that feature is on) and Help,
 in that order, at every window width (`SettingsPane.sidebar`; `ApprovalCore.SettingsPane` also holds
 each group's title and subtitle). The selected item is highlighted; the content area to its right
 shows that one group, scrolled to its top, with only its subtitle above it, not its title again,
@@ -206,6 +206,7 @@ since the sidebar already names it:
 | Agents | a row per agent (Wire, Update, Remove, Show changes), the notice about a second copy, on each row the values `hosts.<agent>` sets, and, once wired, its follow-up line and Codex's "Mark as done" (`AgentFollowUp`; see "Follow-up lines" and "The Codex hook trust record" in [setup.md](setup.md)) | each agent's own hook file; the Codex hook trust record, never `config.json` |
 | Panels | a delays card (Same delays for all agents, then while it is off an Agent picker with the four agents, then Wait for idle, Grace period, Arm delay, Arm delay after an answer, Show card after), then Hand off when frontmost, Snooze presets, Notes on answers, Mode after a plan, Sound, Waiting-agent notices, Notice after, Show notice for, Approval card (one checkbox per agent), then Show a test panel and Show a test card | `config.json`, for every agent, or under `hosts.<agent>` for the delays and the Approval card checkboxes |
 | App | Launch at login, Check for updates, When Countersign quits, Appearance, Accent colour, the offer to link Countersign.app, then Advanced… | macOS's login items, `config.json`, `~/Applications` |
+| Rules | the intro line, one row per rule in file order with a remove button, the unreadable-entries notice (see "Rules" below) | `config.json`, the top-level `rules` array |
 | Help | the tour, documentation, ask a question, report a problem, contact the developer, updates, then support links | nothing in `config.json`; never `update-check.json` |
 | Advanced | the config file's path, Open in Editor, Copy Path, Open with, the schema, what only the file can set, and the prompt for a coding agent | `config.json` for Open with; otherwise nothing beyond creating a missing `config.json` to open it |
 
@@ -846,7 +847,7 @@ time" resets it.
 The line reads "Only the file can set values for one agent, under hosts, and approvalCard,
 approvalCardDelay, includeHeadlessSessions." (`PreferenceOverrides.fileOnlyNote`). Its keys are computed, not listed
 by hand: the parser's top-level keys minus every key a row writes anywhere in the window
-(`PreferenceName`) and minus `hosts` and `$schema`, so a key added to the file without a row is
+(`PreferenceName`) and minus `hosts`, `$schema` and `rules` (the Rules pane shows them), so a key added to the file without a row is
 named here without anyone remembering to, and a test pins today's list. The prompt:
 
 ```text
@@ -931,6 +932,40 @@ the leaf member only; an object left empty stays as `{}`. The window never edits
 `contextCheckpoints` no longer counts among the keys only the file can set. The switch that turns
 `contextCheckpointsEnabled` on wires a hook, so it belongs to no pane's `preferenceNames` and
 Restore Defaults never flips it.
+
+## Rules
+
+The Rules pane (`SettingsPane.rules`, SF Symbol `checklist`) sits between Panels and Context in the
+sidebar. Top to bottom it shows an intro line ("Rules answer before any panel shows. Deny wins; a
+compound command is allowed only when every part is."), then one row per rule in file order, then
+the notice about unreadable entries. A row has the decision ("Allow" in the accent colour the
+Approve button uses, "Deny" in red), a scope line (the agent's display name or "Any agent", then the
+project abbreviated with `~` or "Any project"), the pattern in the code font (the `command`, else
+`tool <pattern>`, else "Any request"), for a deny rule with a message the message, and a trailing
+remove button laid out like the one in the handoff apps list. The trailing stack is an `HStack` so
+an edit button can sit beside the remove button. With no rules the pane says how to get some: the
+Always allow choice in the Approve ▾ menu of Cursor, Codex and Antigravity panels, or the file.
+
+The pane has no Restore Defaults and no `preferenceNames`. The default is "no rules", so restoring
+it would delete every rule the person wrote, and one wrong click would lose work that the other
+panes' resets only ever lose as a tuned number.
+
+Removal is `PreferenceEdit.removeRule(ApprovalRule)`. `ConfigEdit` reads each element of the
+top-level `rules` array through the same per-entry reader `ConfigFileParser` uses and removes the
+first element that reads as a rule equal to the one given. Matching on the parsed rule and not on
+a list index means entries the parser dropped (which do not appear in the list) never shift which
+element goes. No match changes nothing, and removing the last rule leaves `"rules": []`. The edit
+is not allowed per agent, because rules are top-level only (see
+[rules.md](rules.md#why-rules-are-top-level-only)). `PreferenceEdit.key` is optional for this
+reason: a rule edit writes no preference, so a failed write is reported in the pane
+(`SettingsModel.rulesError`) and not under a preference name.
+
+Entries the parser dropped are counted from the config's log lines: every line that starts with
+`rules` except the "only used by deny rules" note, which does not drop an entry. When the count is
+above zero the pane warns "<n> rule(s) in config.json couldn't be read. countersign doctor lists
+them." and offers Open in Editor, which opens the file from the `.rules` origin so a failure to
+open it is shown in this pane. Unreadable entries are never listed or editable here: Settings
+shows only what the evaluator uses.
 
 ## Why snapshot never reads the file
 

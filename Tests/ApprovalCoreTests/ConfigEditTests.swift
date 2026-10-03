@@ -281,6 +281,53 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
       try editing("{\"handoffApps\": 3}", .removeHandoffApp("com.y")) == "{\"handoffApps\": 3}")
   }
 
+  private static let threeRules =
+    "{\n  \"idleSeconds\": 5,\n  \"rules\": [\n    {\"decision\": \"allow\", \"tool\": \"Read\"},\n"
+    + "    {\"decision\": \"deny\", \"command\": \"rm *\", \"message\": \"No.\"},\n"
+    + "    {\"decision\": \"allow\", \"agent\": \"codex\", \"command\": \"ls\"}\n  ]\n}\n"
+
+  @Test func removesTheSecondOfThreeRules() throws {
+    #expect(
+      try editing(
+        Self.threeRules, .removeRule(ApprovalRule(decision: .deny, command: "rm *", message: "No."))
+      )
+        == "{\n  \"idleSeconds\": 5,\n  \"rules\": [\n    {\"decision\": \"allow\", \"tool\": \"Read\"},\n"
+        + "    {\"decision\": \"allow\", \"agent\": \"codex\", \"command\": \"ls\"}\n  ]\n}\n")
+  }
+
+  @Test func removesTheRightElementWhenAnEarlierEntryIsInvalid() throws {
+    let config =
+      "{\n  \"rules\": [\n    {\"decision\": \"maybe\"},\n    {\"decision\": \"allow\", \"tool\": \"Read\"},\n"
+      + "    {\"decision\": \"allow\", \"tool\": \"Read\"}\n  ]\n}\n"
+    #expect(
+      try editing(config, .removeRule(ApprovalRule(decision: .allow, tool: "Read")))
+        == "{\n  \"rules\": [\n    {\"decision\": \"maybe\"},\n"
+        + "    {\"decision\": \"allow\", \"tool\": \"Read\"}\n  ]\n}\n")
+  }
+
+  @Test func removingAnUnmatchedRuleChangesNothing() throws {
+    let missing = ApprovalRule(decision: .allow, tool: "Write")
+    #expect(try editing(Self.threeRules, .removeRule(missing)) == Self.threeRules)
+    #expect(try editing("{}", .removeRule(missing)) == "{}")
+    #expect(try editing("{\"rules\": 3}", .removeRule(missing)) == "{\"rules\": 3}")
+  }
+
+  @Test func keepsAnEmptyRulesArrayAfterTheLastRuleGoes() throws {
+    #expect(
+      try editing(
+        "{\n  \"rules\": [\n    {\"decision\": \"allow\", \"tool\": \"Read\"}\n  ]\n}\n",
+        .removeRule(ApprovalRule(decision: .allow, tool: "Read")))
+        == "{\n  \"rules\": []\n}\n")
+  }
+
+  @Test func ignoresRuleRemovalForOneAgent() throws {
+    #expect(
+      try editing(
+        Self.threeRules,
+        .forAgent(.codex, .removeRule(ApprovalRule(decision: .allow, tool: "Read"))))
+        == Self.threeRules)
+  }
+
   @Test func resetRemovesTheTopLevelKey() throws {
     #expect(try editing("{\n  \"idleSeconds\": 8\n}\n", .reset(.idleSeconds)) == "{}\n")
     #expect(

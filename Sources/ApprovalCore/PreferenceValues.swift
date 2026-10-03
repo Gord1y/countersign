@@ -169,6 +169,8 @@ public struct PreferenceValues: Sendable, Equatable {
       }
     case .removeHandoffApp(let bundleID):
       values.handoffApps.removeAll { $0 == bundleID }
+    case .removeRule:
+      break
     case .editorApp(let bundleID):
       values.editorApp = bundleID
     case .contextCheckpointsEnabled(let enabled):

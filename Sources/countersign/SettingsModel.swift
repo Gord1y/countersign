@@ -103,6 +103,7 @@ enum SettingsUpdateCheckPhase: Equatable {
 
 enum ConfigEditorOrigin: Equatable {
   case advanced
+  case rules
   case host(ApprovalCore.Host)
 }
 
@@ -186,6 +187,8 @@ final class SettingsModel {
 
   private(set) var preferences = PreferenceValues()
   private(set) var configFileContents = ConfigFile()
+  private(set) var configLogLines: [String] = []
+  private(set) var rulesError: String?
   private(set) var snoozeText = PreferenceRules.snoozeText(Settings.defaultSnoozePresets)
   private(set) var snoozeError: String?
   private(set) var newHandoffApp = ""
@@ -555,10 +558,11 @@ final class SettingsModel {
     }
     knownConfigBytes = bytes
     configProblem = ConfigEdit.problem(in: bytes)
-    let parsedFile =
-      bytes.map {
-        ConfigFileParser.parse(Data($0), soundNames: SystemSounds.installedNames).file
-      } ?? ConfigFile()
+    let parsed = bytes.map {
+      ConfigFileParser.parse(Data($0), soundNames: SystemSounds.installedNames)
+    }
+    let parsedFile = parsed?.file ?? ConfigFile()
+    configLogLines = parsed?.logLines ?? []
     configFileContents = parsedFile
     preferences = PreferenceValues(file: parsedFile)
     if !delaysPerAgent, let first = PreferenceOverrides.agentsWithOwnDelays(in: parsedFile).first {
@@ -603,8 +607,9 @@ final class SettingsModel {
   }
 
   private func writeDelay(_ edit: PreferenceEdit) {
-    dropDurationText(edit.key)
-    write(resetsAgentValue(edit.key) ? .forAgent(delayAgent, edit) : edit)
+    guard let name = edit.key else { return }
+    dropDurationText(name)
+    write(resetsAgentValue(name) ? .forAgent(delayAgent, edit) : edit)
   }
 
   private func dropDurationText(_ name: PreferenceName) {
@@ -840,6 +845,22 @@ final class SettingsModel {
 
   func removeHandoffApp(_ bundleID: String) {
     write(.removeHandoffApp(bundleID))
+  }
+
+  var rules: [ApprovalRule] { configFileContents.rules ?? [] }
+
+  var unreadableRuleCount: Int {
+    configLogLines.filter {
+      $0.hasPrefix("rules") && !$0.contains("only used by deny rules")
+    }.count
+  }
+
+  func projectText(for rule: ApprovalRule) -> String {
+    rule.project.map { HomePath.abbreviating($0, relativeTo: environment.home) } ?? "Any project"
+  }
+
+  func removeRule(_ rule: ApprovalRule) {
+    write(.removeRule(rule))
   }
 
   func setCheckForUpdates(_ enabled: Bool) {
@@ -1241,11 +1262,8 @@ final class SettingsModel {
   private func write(_ edits: [PreferenceEdit]) -> Bool {
     let shown = preferences
     let chosen = edits.reduce(shown) { $0.applying($1) }
-    let editsAgentFile = edits.contains {
-      if case .forAgent = $0 { return true }
-      return false
-    }
-    guard chosen != shown || editsAgentFile else { return true }
+    let editsOutsidePreferenceValues = edits.contains(where: \.isOutsidePreferenceValues)
+    guard chosen != shown || editsOutsidePreferenceValues else { return true }
     preferences = chosen
     do {
       let original = try ConfigFileStore.read(configFile)
@@ -1257,15 +1275,22 @@ final class SettingsModel {
         configWritten = true
       }
     } catch {
-      for edit in edits {
-        writeErrors[edit.key] = "\(configPath): error: \(SetupRun.describe(error))"
+      let message = "\(configPath): error: \(SetupRun.describe(error))"
+      for name in edits.compactMap(\.key) {
+        writeErrors[name] = message
+      }
+      if edits.contains(where: \.removesRule) {
+        rulesError = message
       }
       preferences = shown
       loadPreferences()
       return false
     }
-    for edit in edits {
-      writeErrors[edit.key] = nil
+    for name in edits.compactMap(\.key) {
+      writeErrors[name] = nil
+    }
+    if edits.contains(where: \.removesRule) {
+      rulesError = nil
     }
     recordVisit(of: edits)
     loadPreferences()
@@ -1279,8 +1304,8 @@ final class SettingsModel {
       switch edit {
       case .reset(let name): reset.append(name)
       case .forAgent(_, .approvalCard): written.append(.approvalCard)
-      case .forAgent: break
-      default: written.append(edit.key)
+      case .forAgent, .removeRule: break
+      default: edit.key.map { written.append($0) }
       }
     }
     visit.record(written)

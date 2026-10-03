@@ -4,6 +4,7 @@ public enum SettingsPane: String, CaseIterable, Sendable {
   case agents
   case panels
   case app
+  case rules
   case context
   case help
   case advanced
@@ -12,7 +13,9 @@ public enum SettingsPane: String, CaseIterable, Sendable {
   public static let sidebar: [SettingsPane] = sidebar(showsContext: false)
 
   public static func sidebar(showsContext: Bool) -> [SettingsPane] {
-    showsContext ? [.agents, .app, .panels, .context, .help] : [.agents, .app, .panels, .help]
+    showsContext
+      ? [.agents, .app, .panels, .rules, .context, .help]
+      : [.agents, .app, .panels, .rules, .help]
   }
 
   public init(storedValue: String?) {
@@ -29,6 +32,7 @@ public enum SettingsPane: String, CaseIterable, Sendable {
     case .agents: return "Agents"
     case .panels: return "Panels"
     case .app: return "App"
+    case .rules: return "Rules"
     case .context: return "Context"
     case .help: return "Help"
     case .advanced: return "Advanced"
@@ -47,6 +51,8 @@ public enum SettingsPane: String, CaseIterable, Sendable {
         + " change them."
     case .app:
       return "What the menu-bar app does, and how panels and Settings look."
+    case .rules:
+      return "Allow or deny requests before a panel shows."
     case .context:
       return
         "Context checkpoints for Claude Code sessions. Saved to config.json as soon as you"
@@ -60,7 +66,7 @@ public enum SettingsPane: String, CaseIterable, Sendable {
 
   public var preferenceNames: [PreferenceName] {
     switch self {
-    case .agents, .help, .advanced: return []
+    case .agents, .rules, .help, .advanced: return []
     case .panels:
       return [
         .idleSeconds, .graceSeconds, .armDelay, .chainedArmDelay, .snoozeMinutes, .quietHours,
