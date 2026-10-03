@@ -2,6 +2,32 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.2.0",
+      "date": "2026-10-03",
+      "title": "Countersign 0.2.0: allow and deny rules, waiting-agent notices and context checkpoints",
+      "summary": "Rules answer routine requests before a panel shows, in Settings or config.json, for all four agents. A corner card tells you when an agent is waiting or an approval is stuck behind your typing. Claude Code gets optional context checkpoints. Cursor's Esc now follows its Run Mode, and you can answer from the menu bar.",
+      "type": "minor",
+      "breaking": false,
+      "highlights": [
+        "Allow and deny rules that answer before a panel shows, for all four agents",
+        "Corner cards when an agent is waiting for you or an approval is stuck behind your typing",
+        "Context checkpoints for Claude Code, and Esc in Cursor that follows its Run Mode"
+      ],
+      "tags": [
+        "claude-code",
+        "codex",
+        "cursor",
+        "antigravity"
+      ],
+      "testedWith": {
+        "claudeCode": "2.1.278",
+        "codex": "0.159.3",
+        "cursor": "3.22.12",
+        "antigravity": "1.2.14"
+      },
+      "notes": "releases/release-0.2.0.md"
+    },
+    {
       "version": "0.1.0",
       "date": "2026-09-28",
       "title": "Countersign 0.1.0: one approval panel for Claude Code, Codex, Cursor and Antigravity",
