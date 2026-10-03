@@ -575,9 +575,16 @@ private struct SettingsInfoButton: View {
   let defaultText: String
 
   @State private var isPresented = false
+  @State private var isOverButton = false
+  @State private var isOverPopover = false
+  @State private var hoverTask: Task<Void, Never>?
+
+  static let openDelay: Duration = .milliseconds(300)
+  static let closeDelay: Duration = .milliseconds(200)
 
   var body: some View {
     Button {
+      hoverTask?.cancel()
       isPresented = true
     } label: {
       Image(systemName: "info.circle")
@@ -585,8 +592,28 @@ private struct SettingsInfoButton: View {
     .buttonStyle(.borderless)
     .foregroundStyle(.secondary)
     .accessibilityLabel("About \(title)")
+    .onHover { hovering in
+      isOverButton = hovering
+      followPointer()
+    }
     .popover(isPresented: $isPresented) {
       SettingsExplanationView(explanation: explanation, defaultText: defaultText)
+        .onHover { hovering in
+          isOverPopover = hovering
+          followPointer()
+        }
+    }
+  }
+
+  private func followPointer() {
+    hoverTask?.cancel()
+    let wantsPopover = isOverButton || isOverPopover
+    guard wantsPopover != isPresented else { return }
+    let delay = wantsPopover ? Self.openDelay : Self.closeDelay
+    hoverTask = Task { @MainActor in
+      try? await Task.sleep(for: delay)
+      guard !Task.isCancelled else { return }
+      isPresented = wantsPopover
     }
   }
 }

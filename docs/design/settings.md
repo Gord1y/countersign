@@ -713,7 +713,12 @@ and default text ("Off") are constants next to its caption in `LaunchAtLoginRow`
 The title-and-caption block of a `PreferenceRow`, and of `LaunchAtLoginRow`, carries `.help(
 explanation)` as a hover tooltip, and the title gains an info button (SF Symbol `info.circle`,
 borderless, secondary) that opens a `.popover` holding `SettingsExplanationView`: the explanation,
-then a secondary "Default: `<defaultText>`" line. The Test panel row and Advanced's other rows
+then a secondary "Default: `<defaultText>`" line. The popover opens when the pointer has rested on
+the button for 0.3 seconds (`SettingsInfoButton.openDelay`), or at once on a click, so reading an
+explanation takes no click at all. It closes 0.2 seconds (`closeDelay`) after the pointer has left
+both the button and the popover; the short grace lets the pointer cross the gap onto the popover
+without closing it, and any return within it cancels the close. A click outside still closes it
+at once, as for any transient popover. The Test panel row and Advanced's other rows
 have no `PreferenceName` and get neither; Open with does, and gets both like any Panels or App
 row. The reset button introduced above also reads its `.help` text
 from `defaultText` now, rather than formatting the default itself, so the two places a person can
