@@ -971,7 +971,10 @@ is not allowed per agent, because rules are top-level only (see
 reason: a rule edit writes no preference, so a failed write is reported in the pane
 (`SettingsModel.rulesError`) and not under a preference name.
 
-An "Add Rule…" button under the list opens the rule sheet, and each row has a pencil button (and a
+An "Add Rule…" button opens the rule sheet. It sits right of the intro line, which wraps beside it,
+whenever that leaves the line at least 240 pt (`RulesSection.introMinWidth`): a `ViewThatFits`
+whose first child gives the line that ideal width, so the stacked fallback (the button under the
+line) only appears in a pane narrower than the window's minimum width allows today. Each row has a pencil button (and a
 double-click) that opens the same sheet filled with that rule. The sheet is an AppKit sheet like the
 context notes sheet (`RuleSheet`), 440 pt wide: Decision (Allow | Deny), Agent, Project (a text
 field plus Choose…, an `NSOpenPanel` limited to one directory, shown abbreviated with `~`), Tool,

@@ -3,6 +3,8 @@ import ApprovalCore
 import SwiftUI
 
 struct RulesSection: View {
+  static let introMinWidth: CGFloat = 240
+
   let model: SettingsModel
 
   var body: some View {
@@ -10,21 +12,20 @@ struct RulesSection: View {
       ConfigProblemMessage(model: model)
       SettingsGroup {
         VStack(alignment: .leading, spacing: 10) {
-          Text(
-            "Rules answer before any panel shows. Deny wins; a compound command is allowed only"
-              + " when every part is."
-          )
-          .font(PanelTypography.secondary)
-          .foregroundStyle(.secondary)
-          .fixedSize(horizontal: false, vertical: true)
-          RulesList(model: model)
-          HStack(spacing: 8) {
-            Button("Add Rule…") {
-              RuleSheet.present(model: model, editing: nil, on: NSApp.keyWindow)
+          ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 12) {
+              intro
+                .frame(
+                  minWidth: Self.introMinWidth, idealWidth: Self.introMinWidth,
+                  maxWidth: .infinity, alignment: .leading)
+              addButton
             }
-            .buttonStyle(SecondaryButtonStyle())
-            Spacer(minLength: 0)
+            VStack(alignment: .leading, spacing: 10) {
+              intro
+              addButton
+            }
           }
+          RulesList(model: model)
           if let error = model.rulesError {
             InlineMessage(error, tone: .problem)
           }
@@ -33,6 +34,24 @@ struct RulesSection: View {
         .padding(SettingsMetrics.rowPadding)
       }
     }
+  }
+
+  private var intro: some View {
+    Text(
+      "Rules answer before any panel shows. Deny wins; a compound command is allowed only"
+        + " when every part is."
+    )
+    .font(PanelTypography.secondary)
+    .foregroundStyle(.secondary)
+    .fixedSize(horizontal: false, vertical: true)
+  }
+
+  private var addButton: some View {
+    Button("Add Rule…") {
+      RuleSheet.present(model: model, editing: nil, on: NSApp.keyWindow)
+    }
+    .buttonStyle(SecondaryButtonStyle())
+    .fixedSize()
   }
 }
 
