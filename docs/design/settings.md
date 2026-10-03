@@ -1001,6 +1001,29 @@ them." and offers Open in Editor, which opens the file from the `.rules` origin 
 open it is shown in this pane. Unreadable entries are never listed or editable here: Settings
 shows only what the evaluator uses.
 
+A second group, Suggestions, sits under the rules group while any card is offered. The cards
+are laid out by an eager `Grid` inside a `ViewThatFits` (two columns when two 220-pt cards fit,
+else one; an odd last row is padded with a clear cell, and cards in a row share its height), not a
+`LazyVGrid`: Settings sizes its AppKit scroll view from the hosting view's fitting height, which a
+lazy grid misreports. The catalog is
+`RuleSuggestion.all` in `ApprovalCore` and not a table in the view, so its copy and its patterns
+are covered by tests that run them through `RuleEvaluator`. A card shows while any of its rules is
+missing from the list, compared on decision, agent, project, tool and command and ignoring the
+message, so a hand-written `deny rm -rf` with its own message already covers the card's. Editing a
+suggested rule (say, narrowing it to a project) brings the card back offering only the rule that
+changed, the card lists only the missing patterns, and Add (`SettingsModel.addSuggestion`) writes
+only the missing rules through `PreferenceEdit.addRules`, so a second click never duplicates. A
+failed write shows in the rules group's `rulesError` line. Every suggested rule has no agent,
+project or tool, and the person narrows it afterwards with the pencil.
+
+The git patterns use `base:glob` and not a prefix. An agent writes `git push origin main --force`,
+which the prefix `git push --force` misses, while `git:push*--force*` matches the flag anywhere
+after `push`. The same reasoning gives `git:push* -f*` and `git:reset*--hard*`. `git clean` is a
+plain prefix: short of a dry run (`-n`), it deletes untracked files that no commit can bring back,
+so the card stops every form of it. The deny cards catch the common
+spellings and nothing more: `rm -r -f`, `sudo` behind `env` and `git -C dir push -f` are not matched,
+and a miss is not an allow, so that command gets its panel as before.
+
 ## Why snapshot never reads the file
 
 `countersign snapshot` renders `PanelModel`/`PanelRootView` directly, with no `PanelController`

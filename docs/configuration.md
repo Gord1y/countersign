@@ -399,6 +399,22 @@ matches, wherever each sits in the list.
 The decision is logged with the rule's position in the list. Positions count the rules Countersign
 kept: an entry that was dropped for a mistake (below) does not take a number.
 
+### Suggestions
+
+Settings ▸ Rules offers four cards under the list, and **Add** on a card writes all its rules at
+once. They apply to every agent and project; edit a rule afterwards to narrow it. A card goes away
+once its rules are in the list.
+
+- **Deny rm -rf**: deny `rm -rf` and `rm -fr`.
+- **Deny git history rewrites**: deny `git:push*--force*`, `git:push* -f*`, `git:reset*--hard*` and
+  `git clean`.
+- **Deny sudo**: deny `sudo`.
+- **Allow read-only git**: allow `git status`, `git diff`, `git log` and `git show`.
+
+A deny card catches the common spellings. Anything else, such as `rm -r -f` or `git -C dir push -f`,
+is not denied by it and still shows the panel. `git diff --output=<file>` and
+`git log --output=<file>` write a file even under **Allow read-only git**.
+
 ### Examples
 
 Let Cursor run `pnpm lint` and `git status` without a panel in one project:

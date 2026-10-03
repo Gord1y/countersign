@@ -33,6 +33,7 @@ struct RulesSection: View {
         }
         .padding(SettingsMetrics.rowPadding)
       }
+      RuleSuggestionsGroup(model: model)
     }
   }
 
@@ -57,8 +58,8 @@ struct RulesSection: View {
 
 private struct RulesList: View {
   static let emptyText =
-    "No rules yet. Add one here, or choose Approve ▾ ▸ Always allow on a panel from Cursor,"
-    + " Codex or Antigravity."
+    "No rules yet. Add one, pick a suggestion below, or choose Approve ▾ ▸ Always allow on a"
+    + " panel from Cursor, Codex or Antigravity."
 
   let model: SettingsModel
 
@@ -169,6 +170,108 @@ private struct RuleRow: View {
     if let command = rule.command { return command }
     if let tool = rule.tool { return "tool \(tool)" }
     return "Any request"
+  }
+}
+
+private struct RuleSuggestionsGroup: View {
+  let model: SettingsModel
+
+  var body: some View {
+    let offered = RuleSuggestion.offered(given: model.rules)
+    if !offered.isEmpty {
+      SettingsGroup {
+        VStack(alignment: .leading, spacing: 10) {
+          VStack(alignment: .leading, spacing: 2) {
+            Text("Suggestions")
+              .font(PanelTypography.body)
+              .fontWeight(.semibold)
+            Text(
+              "Common rules, one click each. They apply to every agent and project; edit one"
+                + " afterwards to narrow it."
+            )
+            .font(PanelTypography.secondary)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+          }
+          ViewThatFits(in: .horizontal) {
+            grid(offered, columns: 2)
+            grid(offered, columns: 1)
+          }
+        }
+        .padding(SettingsMetrics.rowPadding)
+      }
+    }
+  }
+
+  private func grid(_ offered: [RuleSuggestion], columns: Int) -> some View {
+    let rows = stride(from: 0, to: offered.count, by: columns).map {
+      Array(offered[$0..<min($0 + columns, offered.count)])
+    }
+    return Grid(alignment: .topLeading, horizontalSpacing: 10, verticalSpacing: 10) {
+      ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+        GridRow {
+          ForEach(row) { suggestion in
+            RuleSuggestionCard(suggestion: suggestion, model: model)
+          }
+          ForEach(0..<(columns - row.count), id: \.self) { _ in
+            Color.clear.gridCellUnsizedAxes([.horizontal, .vertical])
+          }
+        }
+      }
+    }
+  }
+}
+
+private struct RuleSuggestionCard: View {
+  let suggestion: RuleSuggestion
+  let model: SettingsModel
+
+  var body: some View {
+    let missing = suggestion.missingRules(in: model.rules)
+    VStack(alignment: .leading, spacing: 6) {
+      HStack(alignment: .firstTextBaseline) {
+        Text(suggestion.title)
+          .font(PanelTypography.body)
+        Spacer(minLength: 8)
+        Button("Add") {
+          _ = model.addSuggestion(suggestion)
+        }
+        .buttonStyle(SecondaryButtonStyle())
+        .fixedSize()
+        .help("Add these rules")
+        .accessibilityLabel("Add \(suggestion.title)")
+      }
+      Text(suggestion.summary)
+        .font(PanelTypography.secondary)
+        .foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
+      if let first = missing.first {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+          Text(first.decision == .allow ? "Allow" : "Deny")
+            .font(PanelTypography.caption)
+            .foregroundStyle(first.decision == .allow ? CountersignPalette.accentText : Color.red)
+            .frame(width: 40, alignment: .leading)
+          VStack(alignment: .leading, spacing: 2) {
+            ForEach(Array(missing.enumerated()), id: \.offset) { _, rule in
+              Text(rule.command ?? "")
+                .font(PanelTypography.code)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .textSelection(.enabled)
+            }
+          }
+        }
+      }
+    }
+    .padding(10)
+    .frame(
+      minWidth: 220, idealWidth: 220, maxWidth: .infinity, maxHeight: .infinity,
+      alignment: .topLeading
+    )
+    .background(
+      RoundedRectangle(cornerRadius: 6, style: .continuous)
+        .fill(Color.primary.opacity(0.05))
+    )
   }
 }
 

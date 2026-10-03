@@ -867,6 +867,12 @@ final class SettingsModel {
     write(.addRules([rule]))
   }
 
+  func addSuggestion(_ suggestion: RuleSuggestion) -> Bool {
+    let missing = suggestion.missingRules(in: rules)
+    guard !missing.isEmpty else { return false }
+    return write(.addRules(missing))
+  }
+
   func updateRule(old: ApprovalRule, new: ApprovalRule) -> Bool {
     write(.replaceRule(old: old, new: new))
   }
