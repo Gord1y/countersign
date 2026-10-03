@@ -18,14 +18,14 @@ import Testing
   private func entry(_ index: Int, answer: DecisionAnswer = .approved) -> DecisionHistoryEntry {
     DecisionHistoryEntry(
       date: Date(timeIntervalSince1970: TimeInterval(1_700_000_000 + index)), host: .claude,
-      project: "ai-approval", tool: "Bash", title: "step \(index)", answer: answer)
+      project: "shop-api", tool: "Bash", title: "step \(index)", answer: answer)
   }
 
   private func request(
     tool: String = "Bash", input: JSONValue = .object([:]), kind: RequestKind
   ) -> ApprovalRequest {
     ApprovalRequest(
-      host: .claude, sessionID: "s", cwd: "/work/ai-approval", permissionMode: nil,
+      host: .claude, sessionID: "s", cwd: "/work/shop-api", permissionMode: nil,
       transcriptPath: nil, agentID: nil, agentType: nil, toolName: tool, toolInput: input,
       kind: kind)
   }
@@ -216,7 +216,7 @@ import Testing
     #expect(
       built
         == DecisionHistoryEntry(
-          date: date, host: .claude, project: "ai-approval", tool: "Bash", title: "ls",
+          date: date, host: .claude, project: "shop-api", tool: "Bash", title: "ls",
           answer: .denied))
   }
 

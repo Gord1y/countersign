@@ -53,7 +53,7 @@ import Testing
   ) -> DecisionHistoryEntry {
     DecisionHistoryEntry(
       date: Date(timeIntervalSince1970: TimeInterval(14 * 3600 + 5 * 60 + index)), host: .claude,
-      project: "ai-approval", tool: tool, title: title, answer: answer)
+      project: "shop-api", tool: tool, title: title, answer: answer)
   }
 
   @Test func recentDecisionsShowsOneDisabledRowWhenThereIsNoHistory() throws {
@@ -78,19 +78,19 @@ import Testing
       entry.submenu == [
         .entry(
           CompanionMenuEntry(
-            title: "✓ Bash · ai-approval · 14:05 — git status", isEnabled: false)),
+            title: "✓ Bash · shop-api · 14:05 — git status", isEnabled: false)),
         .entry(
           CompanionMenuEntry(
-            title: "✕ Edit · ai-approval · 14:05 — App.swift", isEnabled: false)),
+            title: "✕ Edit · shop-api · 14:05 — App.swift", isEnabled: false)),
         .entry(
           CompanionMenuEntry(
-            title: "↩ Bash · ai-approval · 14:05 — git status", isEnabled: false)),
+            title: "↩ Bash · shop-api · 14:05 — git status", isEnabled: false)),
         .entry(
           CompanionMenuEntry(
-            title: "↩ Bash · ai-approval · 14:05 — git status", isEnabled: false)),
+            title: "↩ Bash · shop-api · 14:05 — git status", isEnabled: false)),
         .entry(
           CompanionMenuEntry(
-            title: "• Context checkpoint · ai-approval · 14:05 — Context at 240K",
+            title: "• Context checkpoint · shop-api · 14:05 — Context at 240K",
             isEnabled: false)),
         .separator,
         .entry(CompanionMenuEntry(title: "Clear History", action: .clearDecisionHistory)),
@@ -118,15 +118,15 @@ import Testing
     #expect(
       CompanionMenu.decisionRowTitle(
         for: decision(0, answer: .allowedByRule, title: "pnpm lint"), timeZone: .gmt)
-        == "✓ Bash · ai-approval · rule · 14:05 — pnpm lint")
+        == "✓ Bash · shop-api · rule · 14:05 — pnpm lint")
     #expect(
       CompanionMenu.decisionRowTitle(
         for: decision(0, answer: .deniedByRule, title: "rm -rf x"), timeZone: .gmt)
-        == "✕ Bash · ai-approval · rule · 14:05 — rm -rf x")
+        == "✕ Bash · shop-api · rule · 14:05 — rm -rf x")
     #expect(
       CompanionMenu.decisionRowTitle(
         for: decision(0, answer: .approved, title: "pnpm lint"), timeZone: .gmt)
-        == "✓ Bash · ai-approval · 14:05 — pnpm lint")
+        == "✓ Bash · shop-api · 14:05 — pnpm lint")
   }
 
   @Test func recentDecisionsSitsBetweenPendingAndPause() {
