@@ -66,6 +66,7 @@ enum DoctorCommand {
       Settings.resolve(file: configFile, host: .claude).contextCheckpoints.enabled
     input.waitingNoticesEnabled =
       Settings.resolve(file: configFile, host: .claude).waitingNotices
+    input.rules = Settings.resolve(file: configFile, host: .claude).rules
     input.codexHookTrustRecord = CodexHookTrustRecordStore.load(file: paths.codexHookTrustFile)
     input.codexWaitingHookTrustRecord = CodexHookTrustRecordStore.load(
       file: paths.codexWaitingHookTrustFile)

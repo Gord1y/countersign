@@ -70,6 +70,7 @@ public enum Doctor {
     public var codexConfigFile: FileState
     public var contextCheckpointsEnabled: Bool
     public var waitingNoticesEnabled: Bool
+    public var rules: [ApprovalRule] = []
 
     public init(
       version: String, resolvedExecutablePath: String, stableExecutablePath: String,
@@ -145,6 +146,7 @@ public enum Doctor {
       lines.append(contentsOf: waitingLines(hostInput, input: input))
     }
     lines.append(contentsOf: configLines(input))
+    lines.append(rulesLine(input.rules))
     lines.append(
       DoctorLine(
         status: .info, check: "queue",
@@ -495,6 +497,17 @@ public enum Doctor {
     guard entries.filter({ $0.event == entry.event }).count > 1 else { return base }
     let position = entries[..<offset].filter { $0.event == entry.event }.count + 1
     return "\(base) \(position)"
+  }
+
+  private static func rulesLine(_ rules: [ApprovalRule]) -> DoctorLine {
+    guard !rules.isEmpty else {
+      return DoctorLine(status: .info, check: "rules", detail: "none")
+    }
+    let allowCount = rules.filter { $0.decision == .allow }.count
+    let denyCount = rules.count - allowCount
+    return DoctorLine(
+      status: .ok, check: "rules",
+      detail: "\(rules.count) (\(allowCount) allow, \(denyCount) deny)")
   }
 
   private static func configLines(_ input: Input) -> [DoctorLine] {

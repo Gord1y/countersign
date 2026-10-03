@@ -292,6 +292,36 @@ Every other row (paused, snoozed, the handoff, the parent exiting, a hook timeou
 error) applies to Claude Code and Codex the same way; how Cursor and Antigravity read them is in
 "Cursor" and "Antigravity" below.
 
+## Answered by a rule
+
+A request that matches an allow or deny rule from `config.json` (see "Allow and deny rules" in
+[../configuration.md](../configuration.md) and [rules.md](rules.md)) is answered by the hook
+itself, with no panel, no queue and no grace period. `HookRunner.run` evaluates the rules once,
+right after the `start host=…` line, and the order is:
+
+1. A **deny** answers at once, before every skip below: a rule that says never must hold even for
+   a sandboxed command or a tool Countersign would not otherwise ask about.
+2. The sandboxed-command skip and the not-asked-about skip run as they always do.
+3. An **allow** answers next, before Cursor's allowlist check and before the panel. It comes after
+   the two skips so that a sandboxed Cursor command or a tool Countersign does not ask about stays
+   exactly as it would be without Countersign; a rule never turns those into an explicit allow.
+4. No match carries on to Cursor's allowlist, the host-app handoff, the headless gate and the panel.
+
+Each host receives the same stdout as for **Approve** or **Deny** in its own table: the deny uses
+the rule's `message`, or `Denied by a Countersign rule.` when it has none, and never interrupts.
+
+| When | stdout | Logged as | What the host does |
+| --- | --- | --- | --- |
+| A deny rule matches | as **Deny** for that host | `rule: denied by rules[<i>]`, then `outcome: deny` | Blocks the call and shows the rule's message |
+| An allow rule matches, not sandboxed and asked about | as **Approve** for that host | `rule: allowed by rules[<i>]`, then `outcome: allow` | Runs the call (Antigravity still asks, see "Antigravity" below) |
+
+`<i>` is the rule's position among the rules Countersign could read, counting from 0 in file order.
+Both answers are recorded in the decision history as `allowedByRule` and `deniedByRule`.
+
+Rules are off while Countersign is paused, because a paused hook exits before it parses the
+request; for test panels, which are not hook requests; and for context checkpoints, which are
+handled before the request is parsed.
+
 ## Cursor
 
 Cursor's hook reply is `{"permission": ...}`, not a `hookSpecificOutput` envelope
@@ -304,6 +334,8 @@ Cursor's hook reply is `{"permission": ...}`, not a `hookSpecificOutput` envelop
 | **Approve** | `{"permission":"allow"}` | `outcome: allow` | Runs the command or MCP tool |
 | **Deny**, with a reason or the default | `{"agent_message":"<reason>","permission":"deny","user_message":"<reason>"}` | `outcome: deny` | Blocks it, shows `user_message` to the person and hands `agent_message` to the agent |
 | **Deny & stop** | not offered: Cursor has no `interrupt` | — | — |
+| A deny rule matches | as **Deny** | `rule: denied by rules[<i>]`, `outcome: deny` | Blocks it, even a sandboxed command |
+| An allow rule matches, not sandboxed | as **Approve** | `rule: allowed by rules[<i>]`, `outcome: allow`, before `cursor: run mode …` | Runs the command or MCP tool, ahead of the allowlist check |
 | **Answer in chat**, <kbd>Esc</kbd>, or a click outside the panel, in Allowlist or Ask Every Time mode | `{"permission":"ask"}` | `outcome: no decision` | Shows its own approval prompt, even for a command it would run in its sandbox |
 | **Later**, <kbd>Esc</kbd>, or a click outside the panel, in Auto-review, Run Everything or an unknown mode | nothing yet: the request is parked and an approval card shows at once | `stepped aside: later`, `parked: back from the card or the menu` | Keeps waiting; the panel returns from the card's Show or the menu's Show Now |
 | Still unanswered 3540 s after the hook started, anywhere from the grace period to on screen, in Allowlist or Ask Every Time mode | `{"permission":"ask"}` | `handed back: cursor timeout near` | Shows its own approval prompt; the panel, if one was up, closes and the next request takes the display |
@@ -333,6 +365,8 @@ runs for the Antigravity app and the Antigravity IDE, which read the same hooks 
 | **Approve** | `{"decision":"allow"}` | `outcome: allow` | Shows its own approval prompt anyway, so the person approves a second time there: Antigravity ignores a hook's `allow` until it fixes [google-antigravity/antigravity-cli#1053](https://github.com/google-antigravity/antigravity-cli/issues/1053). Once fixed, it runs the command or MCP tool |
 | **Deny**, with a reason or the default | `{"decision":"deny","reason":"<reason>"}` | `outcome: deny` | Blocks it and shows the reason, also under `--dangerously-skip-permissions` |
 | **Deny & stop** | not offered: Antigravity has no `interrupt` | — | — |
+| A deny rule matches | as **Deny** | `rule: denied by rules[<i>]`, `outcome: deny` | Blocks it and shows the rule's message |
+| An allow rule matches | as **Approve** | `rule: allowed by rules[<i>]`, `outcome: allow` | Same as **Approve**: its own prompt still shows until the Antigravity bug is fixed |
 | **Answer in chat**, <kbd>Esc</kbd>, or a click outside the panel | `{"decision":"ask"}` | `outcome: no decision` | Shows its own approval prompt. Under `--dangerously-skip-permissions` it ignored even `force_ask` in the spike, so expect it to run the call there |
 | Still unanswered 3540 s after the hook started, anywhere from the grace period to on screen | `{"decision":"ask"}` | `handed back: antigravity timeout near` | Shows its own approval prompt; the panel, if one was up, closes and the next request takes the display |
 | Any tool call other than `run_command` and `call_mcp_tool` (reading or editing files, searches, the browser, …) | nothing | `skipped: <tool name> not asked about`, right after parsing, before the grace period | Carries on as it would without Countersign |

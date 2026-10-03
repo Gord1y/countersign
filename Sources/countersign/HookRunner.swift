@@ -59,6 +59,13 @@ enum HookRunner {
       "start host=\(options.host.rawValue) tool=\(request.toolName) "
         + "project=\(request.projectName) agent=\(request.agentType ?? "-")")
 
+    let ruleDecision = RuleEvaluator.decide(request, rules: settings.rules, home: paths.home)
+    if case .deny(let message, let ruleIndex) = ruleDecision {
+      answerFromRule(
+        .deny(reason: message, interrupt: false), verb: "denied", ruleIndex: ruleIndex,
+        answer: .deniedByRule, request: request, paths: paths, log: log)
+    }
+
     if request.runsInSandbox {
       log.write("skipped: sandboxed command")
       exit(0)
@@ -67,6 +74,12 @@ enum HookRunner {
     if !request.isAskedAbout {
       log.write("skipped: \(request.toolName) not asked about")
       exit(0)
+    }
+
+    if case .allow(let ruleIndex) = ruleDecision {
+      answerFromRule(
+        .allowAsIs, verb: "allowed", ruleIndex: ruleIndex, answer: .allowedByRule,
+        request: request, paths: paths, log: log)
     }
 
     let cursorEnvironment =
@@ -103,6 +116,18 @@ enum HookRunner {
     showPanel(
       for: request, mode: .hook, settings: settings, paths: paths, log: log, startedAt: startedAt,
       hostApp: hostApp, handBackPolicy: handBackPolicy)
+  }
+
+  private static func answerFromRule(
+    _ outcome: ApprovalOutcome, verb: String, ruleIndex: Int, answer: DecisionAnswer,
+    request: ApprovalRequest, paths: AppPaths, log: EventLog
+  ) -> Never {
+    writeReply(outcome, host: request.host)
+    log.write("rule: \(verb) by rules[\(ruleIndex)]")
+    log.write("outcome: \(describe(outcome))")
+    recordDecision(
+      request: request, answer: answer, history: DecisionHistory(paths: paths), log: log)
+    exit(0)
   }
 
   static func showPanel(

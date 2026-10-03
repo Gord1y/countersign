@@ -3,6 +3,8 @@ import Foundation
 public enum DecisionAnswer: String, Codable, Sendable, Equatable, CaseIterable {
   case approved
   case denied
+  case allowedByRule
+  case deniedByRule
   case answeredInChat
   case resolvedElsewhere
   case continued

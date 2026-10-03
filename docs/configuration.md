@@ -378,6 +378,15 @@ split safely, for example one with `$(...)` or backticks, is never decided by a 
 A rule without a `command` decides every request in its scope, whatever the tool. An allow rule
 with only `"agent": "codex"` lets every Codex request through, so scope it with care.
 
+### When rules apply
+
+A deny rule blocks a matching request straight away, even one Countersign would otherwise have left
+alone, such as a Cursor command in its sandbox. An allow rule lets a matching request through only
+if Countersign would have asked about it: a sandboxed Cursor command or a tool Countersign does not
+ask about stays as it is without Countersign. An allowed request skips Cursor's command allowlist
+check and the panel. Rules do nothing while Countersign is paused, in a test panel or on a context
+checkpoint. The answer is logged and shows in **Recent Decisions** with `rule` after the project.
+
 ### Which rule wins
 
 Deny rules are checked first, in order, and the first one that applies blocks the request. Only

@@ -240,14 +240,16 @@ public enum CompanionMenu {
     for entry: DecisionHistoryEntry, timeZone: TimeZone = .current
   ) -> String {
     let time = TimeOfDayText.describe(entry.date, timeZone: timeZone)
+    let ruleMarker =
+      entry.answer == .allowedByRule || entry.answer == .deniedByRule ? " · rule" : ""
     return
-      "\(decisionGlyph(entry.answer)) \(entry.tool) · \(entry.project) · \(time) — \(entry.title)"
+      "\(decisionGlyph(entry.answer)) \(entry.tool) · \(entry.project)\(ruleMarker) · \(time) — \(entry.title)"
   }
 
   private static func decisionGlyph(_ answer: DecisionAnswer) -> String {
     switch answer {
-    case .approved: return "✓"
-    case .denied: return "✕"
+    case .approved, .allowedByRule: return "✓"
+    case .denied, .deniedByRule: return "✕"
     case .answeredInChat, .resolvedElsewhere: return "↩"
     case .continued, .compactAfterStep, .handOff, .notThisSession, .dismissed: return "•"
     }

@@ -220,6 +220,16 @@ import Testing
           answer: .denied))
   }
 
+  @Test func ruleAnswersRoundTripThroughJSON() throws {
+    for answer in [DecisionAnswer.allowedByRule, .deniedByRule] {
+      let data = try JSONEncoder().encode([answer])
+      #expect(try JSONDecoder().decode([DecisionAnswer].self, from: data) == [answer])
+      #expect(String(decoding: data, as: UTF8.self) == "[\"\(answer.rawValue)\"]")
+    }
+    #expect(DecisionAnswer.allowedByRule.rawValue == "allowedByRule")
+    #expect(DecisionAnswer.deniedByRule.rawValue == "deniedByRule")
+  }
+
   @Test func answersMapFromOutcomesAndCheckpointChoices() {
     #expect(
       DecisionAnswer.answer(for: .allowAsIs, checkpointChoice: nil, isCheckpoint: false)

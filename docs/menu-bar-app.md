@@ -77,7 +77,9 @@ panel shows up in the icon within two seconds.
 - **Recent Decisions** lists your last ten answers, newest first, one read-only line each, such as
   `✓ Bash · ai-approval · 14:05 — git status`. The mark says what happened: ✓ approved, ✕ denied,
   ↩ answered in the chat or resolved there before you got to it, • a choice on a context
-  checkpoint. Below a separator, **Clear History** empties the list and deletes the stored
+  checkpoint. A request answered by one of your [rules](configuration.md#allow-and-deny-rules)
+  shows ✓ or ✕ with `rule` after the project, such as
+  `✓ Bash · ai-approval · rule · 14:05 — pnpm lint`. Below a separator, **Clear History** empties the list and deletes the stored
   history. With nothing recorded, the submenu shows a single `No decisions yet`. What is stored,
   and for how long, is in [safety-and-privacy.md](safety-and-privacy.md#what-it-writes).
 

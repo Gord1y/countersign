@@ -17,6 +17,9 @@ Antigravity.
 | Questions and plans | Answered in the panel | Stay in Codex | Stay in Cursor | Stay in Antigravity |
 | No answer at all | Claude Code shows its own prompt | Codex shows its own prompt | Cursor carries on as it would without Countersign | Antigravity carries on with its own permission check |
 
+A matching [allow or deny rule](configuration.md#allow-and-deny-rules) answers before any panel,
+with the same result as **Approve** or **Deny**.
+
 A deny with an empty reason sends "Denied in the approval panel." The exact output behind every
 cell, and the line each one leaves in the log, are in [design/answers.md](design/answers.md).
 

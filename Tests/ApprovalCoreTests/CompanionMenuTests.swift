@@ -114,6 +114,21 @@ import Testing
     }
   }
 
+  @Test func ruleAnswersShowTheApprovedAndDeniedGlyphsAndRule() {
+    #expect(
+      CompanionMenu.decisionRowTitle(
+        for: decision(0, answer: .allowedByRule, title: "pnpm lint"), timeZone: .gmt)
+        == "✓ Bash · ai-approval · rule · 14:05 — pnpm lint")
+    #expect(
+      CompanionMenu.decisionRowTitle(
+        for: decision(0, answer: .deniedByRule, title: "rm -rf x"), timeZone: .gmt)
+        == "✕ Bash · ai-approval · rule · 14:05 — rm -rf x")
+    #expect(
+      CompanionMenu.decisionRowTitle(
+        for: decision(0, answer: .approved, title: "pnpm lint"), timeZone: .gmt)
+        == "✓ Bash · ai-approval · 14:05 — pnpm lint")
+  }
+
   @Test func recentDecisionsSitsBetweenPendingAndPause() {
     let titles = CompanionMenu.items(for: input(), timeZone: .gmt).compactMap { item -> String? in
       guard case .entry(let entry) = item else { return nil }

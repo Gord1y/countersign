@@ -62,6 +62,24 @@ is a parent of `/a/b/c` but not of `/a/bc`. A leading `~` is expanded against th
 in, so tests do not depend on the machine. The request's `cwd` is used as the host gave it, with no
 symlink resolution.
 
+## Where the hook applies rules
+
+`HookRunner.run` calls `RuleEvaluator.decide` once, right after the `start host=…` log line:
+
+1. A deny answers immediately, before the sandboxed-command skip, the not-asked-about skip and
+   everything else. Deny wins over every skip because a rule that says never should hold whatever
+   Countersign would otherwise have done with the request.
+2. An allow answers after those two skips and before Cursor's allowlist check and the panel. Allow
+   never overrides a skip: a sandboxed Cursor command or a tool Countersign does not ask about
+   stays exactly as it is without Countersign, and is not turned into an explicit allow.
+3. No match carries on as before.
+
+Rules are off while paused (the hook exits before it parses), for test panels and for context
+checkpoints (neither reaches this code). The answers are logged as `rule: allowed by rules[<i>]`
+or `rule: denied by rules[<i>]`, then `outcome: allow` or `outcome: deny`, and recorded in the
+decision history as `allowedByRule` and `deniedByRule`. See "Answered by a rule" in
+[answers.md](answers.md) for what each host receives.
+
 ## Why rules are top-level only
 
 Rules are about what to do with a request, not about how an agent is configured, and the same rule

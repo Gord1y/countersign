@@ -435,6 +435,23 @@ private func entryJSON(command: String, timeout: String? = "3600") -> [UInt8] {
           status: .warn, check: "config", detail: "armDelay: not a number, using default 0.5")))
   }
 
+  @Test func rulesLineSaysNoneWithoutRules() {
+    let lines = Doctor.report(baseInput(hosts: [missingHost(.claude), missingHost(.codex)]))
+    #expect(lines.contains(DoctorLine(status: .info, check: "rules", detail: "none")))
+  }
+
+  @Test func rulesLineCountsAllowAndDenyRules() {
+    var input = baseInput(hosts: [missingHost(.claude), missingHost(.codex)])
+    input.rules = [
+      ApprovalRule(decision: .allow, tool: "Read"),
+      ApprovalRule(decision: .deny, command: "rm *"),
+      ApprovalRule(decision: .allow, command: "pnpm lint"),
+    ]
+    #expect(
+      Doctor.report(input).contains(
+        DoctorLine(status: .ok, check: "rules", detail: "3 (2 allow, 1 deny)")))
+  }
+
   @Test func queueReportsTheLiveTicketCount() {
     let lines = Doctor.report(
       baseInput(hosts: [missingHost(.claude), missingHost(.codex)], liveTicketCount: 2))

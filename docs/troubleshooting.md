@@ -81,7 +81,11 @@ request starts with a `start host=… tool=… project=…` line and ends with w
 `skipped: sandboxed command`, `skipped: on Cursor's allowlist`, `handoff: <bundle id> frontmost`,
 `resolved during grace: registry` or `outcome: allow`; a paused Countersign logs just `paused`.
 Each Cursor request that gets past the sandbox check logs `cursor: run mode …` first, naming the run
-mode and where the command allowlist came from. If the agent asks and nothing at all is logged,
+mode and where the command allowlist came from. A request answered by one of your
+[rules](configuration.md#allow-and-deny-rules) logs `rule: allowed by rules[2]` or
+`rule: denied by rules[2]` and then `outcome: allow` or `outcome: deny`. The number is the rule's
+position in `config.json`, counting from 0 and counting only the rules Countersign could read;
+`countersign doctor` lists the entries it dropped. If the agent asks and nothing at all is logged,
 the agent never ran the hook: check its wiring.
 Cursor also runs Claude Code's hooks; those runs log `ignored: a Cursor payload in a Claude Code
 hook` and change nothing.
