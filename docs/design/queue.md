@@ -409,7 +409,9 @@ behind past the next listing.
 A parked ticket is a live request that has stepped back from the screen. Its one use is Cursor's
 "Later": the person dismisses the panel, the request keeps waiting, and the panel returns only on
 Show or Show Now, so the request must not hold the head of the queue for up to an hour while
-other agents' requests wait behind it.
+other agents' requests wait behind it. The only caller of `park(_:)` is `DisplayWatch`, when a
+Cursor request whose run mode would run it unasked gets Esc, a click outside or the Later link
+(see "Esc under Auto-review and Run Everything" in [hosts.md](hosts.md)).
 
 **File field.** `park(_:)` rewrites the ticket file with `"parked": true`. The key is written only
 when true, so the file of an ordinary ticket is byte-identical to what it was before parking

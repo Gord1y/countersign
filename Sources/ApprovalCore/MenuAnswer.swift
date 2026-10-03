@@ -35,6 +35,7 @@ public enum MenuAnswer: String, Sendable, Equatable, CaseIterable {
 
   public static func offered(for summary: TicketSummary?) -> [MenuAnswer] {
     guard let summary, !summary.isContextCheckpoint else { return [.show] }
+    guard summary.answersInChat else { return [.show, .deny] }
     return allCases
   }
 

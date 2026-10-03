@@ -3,6 +3,13 @@ import Foundation
 public enum CursorRunMode: String, Sendable, Equatable, CaseIterable {
   case asksEveryTime, allowlist, autoReview, runEverything, unknown
 
+  public var handBackRunsUnasked: Bool {
+    switch self {
+    case .asksEveryTime, .allowlist: return false
+    case .autoReview, .runEverything, .unknown: return true
+    }
+  }
+
   public static func resolve(applicationUser: JSONValue) -> CursorRunMode {
     let composerState = applicationUser["composerState"]
     guard

@@ -164,6 +164,27 @@ import Testing
     #expect(!summary.isContextCheckpoint)
   }
 
+  @Test func aSummaryThatDoesNotAnswerInChatRoundTrips() throws {
+    let summary = TicketSummary(
+      host: .cursor, project: "shop-api", tool: "Shell", agentType: nil, answersInChat: false)
+    let decoded = try JSONDecoder().decode(
+      TicketSummary.self, from: JSONEncoder().encode(summary))
+    #expect(decoded == summary)
+    #expect(!decoded.answersInChat)
+  }
+
+  @Test func aSummaryWithoutTheChatFlagDecodesAsAnsweringInChat() throws {
+    let json = Data(#"{"host":"cursor","project":"p","tool":"Shell"}"#.utf8)
+    let summary = try JSONDecoder().decode(TicketSummary.self, from: json)
+    #expect(summary.answersInChat)
+  }
+
+  @Test func aSummaryBuiltFromARequestAnswersInChatByDefault() throws {
+    let request = try ClaudeAdapter.parse(FixtureLoader.data("claude-bash-subagent"))
+    #expect(TicketSummary(request: request).answersInChat)
+    #expect(!TicketSummary(request: request, answersInChat: false).answersInChat)
+  }
+
   @Test func aCheckpointRequestFillsTheSummaryFlag() {
     let input = ContextCheckpointInput(
       sessionID: "s", cwd: "/tmp/shop-api", transcriptPath: nil, permissionMode: nil)

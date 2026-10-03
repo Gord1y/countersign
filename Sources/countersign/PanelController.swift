@@ -39,6 +39,7 @@ final class PanelModel {
   let modeAfterPlan: PlanApprovalMode
   let isTestPanel: Bool
   let sessionIdle: Bool
+  let escapeKeepsWaiting: Bool
   let dropdown: PanelDropdownState
   private(set) var hasStartedArming = false
   private(set) var isArmed = false
@@ -60,10 +61,12 @@ final class PanelModel {
     subagentChain: [SubagentChainLink]? = nil,
     isTestPanel: Bool = false,
     sessionIdle: Bool = false,
+    escapeKeepsWaiting: Bool = false,
     openDropdownOnAppear: PanelDropdownID? = nil
   ) {
     self.request = request
     self.sessionIdle = sessionIdle
+    self.escapeKeepsWaiting = escapeKeepsWaiting
     self.waitingEntries = waitingEntries
     self.armDuration = armDuration
     self.snoozePresets = snoozePresets
@@ -151,6 +154,7 @@ final class PanelController {
     onSnooze: (@MainActor (TimeInterval) -> Void)? = nil,
     onStepAside: (@MainActor (StepAsideReason) -> Void)? = nil,
     sessionIdle: Bool = false,
+    escapeKeepsWaiting: Bool = false,
     onCheckpointChoice: ((ContextCheckpointChoice) -> Void)? = nil
   ) {
     let targetScreen = handoffBackdrop?.targetScreen ?? Self.resolveTargetScreen()
@@ -163,7 +167,7 @@ final class PanelController {
       request: request, waitingEntries: waitingEntries, armDuration: clampedArmDuration,
       snoozePresets: snoozePresets, questionNotes: questionNotes, modeAfterPlan: modeAfterPlan,
       chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
-      isTestPanel: isTestPanel, sessionIdle: sessionIdle)
+      isTestPanel: isTestPanel, sessionIdle: sessionIdle, escapeKeepsWaiting: escapeKeepsWaiting)
     CountersignPalette.use(accentColor)
     let panel = ApprovalPanel()
     panel.appearance = appearance.windowAppearance

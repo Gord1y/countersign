@@ -21,8 +21,11 @@ How each answer plays out, agent by agent, is in [agents.md](agents.md); the des
   crash can never look like one either.
 - Nothing is decided by a timeout. If a hook times out, the agent shows its own prompt. Cursor lets
   a command run when its hook times out, so a Cursor request still unanswered a minute before its
-  timeout is handed back to Cursor's own prompt. Antigravity doesn't document what it does on a
-  hook timeout, so its requests are handed back the same way.
+  timeout is handed back to Cursor's own prompt. The one exception: in Cursor's Auto-review or Run
+  Everything mode, handing it back would run the command without asking you, so that request is
+  denied instead ("No answer in Countersign within an hour, so Cursor did not run this.").
+  Antigravity doesn't document what it does on a hook timeout, so its requests are handed back the
+  same way.
 - The panel takes the keyboard, but its app never becomes the active app, and a guard hands
   activation straight back if macOS ever tries. It never grabs the keyboard back: when focus leaves
   it, for another app or the lock screen, it steps aside until your next pause.

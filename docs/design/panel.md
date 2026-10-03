@@ -10,12 +10,13 @@ anything the person sees or types into, or when the panel does something you did
 ## Keyboard alert without activation
 
 The panel behaves like an alert: while it is on screen it owns the keyboard. Return approves, Esc
-answers in chat, and nothing typed reaches the app underneath while the panel is up. When the
-person turns to something else, switching apps or typing a key the panel has no use for, the panel
-steps aside and comes back after the next pause (see "Stepping aside"). The opposite, a panel that
-never becomes key until clicked, leaves the keyboard with the person's app: a Return meant for the
-panel goes out as a message in the Cursor chat underneath, and ⌘-Tab works as if no prompt were
-up.
+answers in chat (or, for a Cursor request whose run mode would run it unasked, puts it away as
+"Later", see "Later" below), and nothing typed reaches the app underneath while the panel is up.
+When the person turns to something else, switching apps or typing a key the panel has no use for,
+the panel steps aside and comes back after the next pause (see "Stepping aside"). The opposite, a
+panel that never becomes key until clicked, leaves the keyboard with the person's app: a Return
+meant for the panel goes out as a message in the Cursor chat underneath, and ⌘-Tab works as if no
+prompt were up.
 
 ### Key without activating
 
@@ -73,6 +74,23 @@ queue and comes back as a new `PanelController`, armed from zero, after the next
 idle gate counts the ⌘ still held on the switcher, the typing that caused the step-aside, and the
 pointer moving in the other app (see "Waiting for a pause before showing"), so the panel comes back
 only once the person has stopped. `preview` prints `stepped aside: <reason>` and exits instead.
+
+#### Later
+
+A Cursor request under Auto-review, Run Everything or an unknown run mode cannot be handed back,
+because Cursor would run it without asking (see "Esc under Auto-review and Run Everything" in
+[hosts.md](hosts.md)). `makeController` sets `escapeKeepsWaiting` for it, and the footer link reads
+"Later" instead of "Answer in chat", with the same `esc` hint. Esc, a click outside and the link
+still call `finish(.noDecision)`, but `DisplayWatch.finish` turns that into Later: it hands the
+display to the next request in line as an answer would, closes the panel, parks the ticket (see
+"Parked tickets" in [queue.md](queue.md)), releases the lease, enters `parked` and logs
+`stepped aside: later` and `parked: back from the card or the menu`. In `parked` a tick never takes
+the display and never asks the idle gate; it shows the approval card at once (no delay), hides it
+for quiet time, and otherwise waits for the card's Show or the menu's Show Now. Both unpark through
+`TicketQueue.showNow` and return the request to `queued` with warm standby, so it shows like any
+request moved by Show Now: at once when it is at the front, or after the panel on screen. With
+approval cards off, Later is a plain step-aside instead (`stepped aside: later`, lease kept, back
+on the next idle).
 
 Nothing re-grabs the keyboard: `makeKey()` runs once, in `show()`. Calling it again on every
 resignation while the panel's `occlusionState` is visible hands the keyboard straight back to the
@@ -154,7 +172,8 @@ used and performs them there, so nothing reaches the view behind it. The rules:
   does. While a dropdown is open, ⌘Return closes it instead — see the dropdown bullet below.
 - **Esc** calls `finish(.noDecision)` in every state, even while a text field is being edited.
   Otherwise `NSTextView` would take Esc as `cancelOperation:` and run completion instead.
-  `cancelOperation` on the panel still covers ⌘. the same way.
+  `cancelOperation` on the panel still covers ⌘. the same way. For a Cursor request that would run
+  unasked, that `.noDecision` becomes Later (see "Later" under "Stepping aside").
 - **Shift+Return and Option+Return** call `insertNewlineIgnoringFieldEditor` on the field editor, so
   the multi-line reason, feedback, Other and note fields take a line break. With no field being
   edited they are plain keys the panel doesn't use, so they step aside.
@@ -347,7 +366,9 @@ to `model.finish(.noDecision)` — the same "leave it for chat" path as the Esca
 "Answer in chat" button. `finish` still gates on `isArmed`, so a click meant for whatever was under
 the previous panel during the arm lock (see "The arm lock") is swallowed rather than dismissing the
 one that just appeared. While one of the panel's dropdowns is open, the click closes only the
-dropdown, as Esc does then (see "Countersign's own dropdown"); the next click answers in chat.
+dropdown, as Esc does then (see "Countersign's own dropdown"); the next click answers in chat. For
+a Cursor request that would run unasked, the click is Later instead, as Esc is (see "Later" under
+"Stepping aside").
 
 ## Waiting for a pause before showing
 
@@ -439,7 +460,10 @@ rule from "Why the handoff rule is per-app" in [hosts.md](hosts.md) to
 resolved when the request arrived. When it holds, `DisplayWatch` logs
 `handoff: <bundle id> frontmost`, writes `Host.handoffOutcome` when the host has one (Cursor and
 Antigravity), closes any prebuilt panel, removes its ticket, releases the lease and exits 0. The
-next request then takes the lease and waits for this gate as usual.
+next request then takes the lease and waits for this gate as usual. A Cursor request whose run
+mode would run it unasked never hands off: `DisplayWatch` logs `handoff: <bundle id> frontmost,
+kept (Cursor would run it unasked)` and shows the panel (see "Esc under Auto-review and Run
+Everything" in [hosts.md](hosts.md)).
 
 Deciding at arrival read a frontmost app that is often gone by the time a panel could show: a
 request that arrived while the asking app was in front exited at once, and a person who then
@@ -1036,8 +1060,11 @@ Antigravity gets `{"decision":"ask"}` for the same reason (see "What each answer
 
 ## Handing back before Cursor's timeout
 
-Nothing is decided by a timeout, and that holds for Cursor too, but Cursor makes it take one more
-step. Cursor lets a command run when its hook times out, so a Cursor panel left unanswered until
+Nothing is decided by a timeout, and that holds for Cursor in Allowlist and Ask Every Time mode,
+but Cursor makes it take one more step. Under Auto-review, Run Everything or an unknown run mode
+the same deadline denies instead, logged `denied: cursor timeout near`, because `ask` would run the
+command unasked (see "Esc under Auto-review and Run Everything" in [hosts.md](hosts.md)). Cursor
+lets a command run when its hook times out, so a Cursor panel left unanswered until
 the entry's 3600-second timeout would approve by silence. The Cursor hook hands back instead: 60
 seconds before that timeout, 3540 seconds after the hook started, `HookRunner` prints the same
 `{"permission":"ask"}` that "Answer in chat" prints, logs `handed back: cursor timeout near`, and
@@ -1743,8 +1770,11 @@ layout work can be checked by builders, agents and scripts while the person keep
 swift build
 .build/debug/countersign snapshot <request.json> --host claude|codex|cursor|antigravity \
   [--waiting N] [--appearance light|dark] [--accent #RRGGBB] [--unarmed] [--question-notes] \
-  [--open-menu approve|snooze|mode] -o <out.png>
+  [--open-menu approve|snooze|mode] [--later] -o <out.png>
 ```
+
+`--later` sets `PanelModel.escapeKeepsWaiting`, so the footer's link reads "Later" as it does for a
+Cursor request whose run mode would run it unasked (see "Later" under "Stepping aside").
 
 `--open-menu` renders the panel with one of its dropdowns open (see "Countersign's own dropdown"),
 as a click on its button would open it: `approve` for Approve ▾, `snooze` for the header's Snooze,

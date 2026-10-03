@@ -9,10 +9,12 @@ public struct TicketSummary: Codable, Sendable, Equatable {
   public var agentDescription: String?
   public var isTestPanel: Bool
   public var isContextCheckpoint: Bool
+  public var answersInChat: Bool
 
   public init(
     host: Host, project: String, tool: String, agentType: String?,
-    agentDescription: String? = nil, isTestPanel: Bool = false, isContextCheckpoint: Bool = false
+    agentDescription: String? = nil, isTestPanel: Bool = false, isContextCheckpoint: Bool = false,
+    answersInChat: Bool = true
   ) {
     self.host = host
     self.project = project
@@ -21,10 +23,13 @@ public struct TicketSummary: Codable, Sendable, Equatable {
     self.agentDescription = agentDescription
     self.isTestPanel = isTestPanel
     self.isContextCheckpoint = isContextCheckpoint
+    self.answersInChat = answersInChat
   }
 
-  public init(request: ApprovalRequest, agentDescription: String? = nil, isTestPanel: Bool = false)
-  {
+  public init(
+    request: ApprovalRequest, agentDescription: String? = nil, isTestPanel: Bool = false,
+    answersInChat: Bool = true
+  ) {
     self.init(
       host: request.host,
       project: request.projectName,
@@ -32,7 +37,8 @@ public struct TicketSummary: Codable, Sendable, Equatable {
       agentType: request.agentType,
       agentDescription: agentDescription,
       isTestPanel: isTestPanel,
-      isContextCheckpoint: Self.isContextCheckpoint(request.kind)
+      isContextCheckpoint: Self.isContextCheckpoint(request.kind),
+      answersInChat: answersInChat
     )
   }
 
@@ -51,6 +57,7 @@ public struct TicketSummary: Codable, Sendable, Equatable {
 
   private enum CodingKeys: String, CodingKey {
     case host, project, tool, agentType, agentDescription, isTestPanel, isContextCheckpoint
+    case answersInChat
   }
 
   public init(from decoder: Decoder) throws {
@@ -63,6 +70,7 @@ public struct TicketSummary: Codable, Sendable, Equatable {
     isTestPanel = try container.decodeIfPresent(Bool.self, forKey: .isTestPanel) ?? false
     isContextCheckpoint =
       try container.decodeIfPresent(Bool.self, forKey: .isContextCheckpoint) ?? false
+    answersInChat = try container.decodeIfPresent(Bool.self, forKey: .answersInChat) ?? true
   }
 }
 

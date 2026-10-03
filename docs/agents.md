@@ -13,7 +13,7 @@ Antigravity.
 | **Always allow** (Approve ▾) | Approves, and hands Claude Code the rule to keep | Not offered | Not offered | Not offered |
 | **Deny**, with a reason | Blocks the call | Blocks the call | Blocks it and shows the reason to you and the agent | Blocks it and shows the reason |
 | **Deny & stop** (<kbd>⌘</kbd><kbd>Return</kbd> in the deny step) | Blocks the call and asks Claude Code to interrupt | Not offered | Not offered | Not offered |
-| **Answer in chat** (<kbd>Esc</kbd>, a click outside) | Claude Code shows its own prompt | Codex shows its own prompt | Cursor shows its own approval prompt | Antigravity shows its own approval prompt |
+| **Answer in chat** (<kbd>Esc</kbd>, a click outside) | Claude Code shows its own prompt | Codex shows its own prompt | Cursor shows its own approval prompt; in Auto-review and Run Everything the request waits as **Later** instead | Antigravity shows its own approval prompt |
 | Questions and plans | Answered in the panel | Stay in Codex | Stay in Cursor | Stay in Antigravity |
 | No answer at all | Claude Code shows its own prompt | Codex shows its own prompt | Cursor carries on as it would without Countersign | Antigravity carries on with its own permission check |
 
@@ -24,7 +24,9 @@ The menu bar's list of pending requests offers **Deny** and **Answer in Chat** t
 opening the panel (see [menu-bar-app.md](menu-bar-app.md#pause-snooze-and-pending-requests)).
 Each sends exactly what the panel's button sends, for every agent: **Deny** from the menu is a
 plain **Deny** with the default reason, never **Deny & stop**, and **Answer in Chat** from the
-menu is the same as <kbd>Esc</kbd>. There is no Approve from the menu.
+menu is the same as <kbd>Esc</kbd>. There is no Approve from the menu. The one exception: a Cursor
+request in Auto-review or Run Everything mode isn't offered **Answer in Chat**, because there
+Cursor would run the command without asking you (see [Cursor](#cursor) below).
 
 ## Claude Code
 
@@ -118,11 +120,20 @@ without asking; a compound command gets a panel unless every part is on the list
 
 - **Approve** runs the command or tool. **Deny** blocks it, shows your reason to you and hands it to
   the agent. There is no **Deny & stop**, and no questions or plans.
-- **Answer in chat** makes Cursor show its own approval prompt, even for a command it would have run
-  in its sandbox. `handoffApps` does the same.
+- **Answer in chat** depends on Cursor's run mode. In Allowlist mode (and the old Ask Every Time),
+  it makes Cursor show its own approval prompt, even for a command it would have run in its
+  sandbox, and `handoffApps` does the same. In Auto-review or Run Everything mode, Cursor's prompt
+  would not reach you: the command would go to Cursor's AI review or simply run. So there the link
+  reads **Later** instead: <kbd>Esc</kbd> or a click outside puts the panel away, the next request
+  takes the screen, and a corner card shows at once. The panel comes back when you click the
+  card's **Show** or choose **Show Now** from the menu bar; the request keeps waiting until then.
+  The menu doesn't offer **Answer in Chat** for it, and `handoffApps` doesn't apply. The same goes
+  when Countersign can't tell which mode Cursor is in.
 - **An hour limit.** Cursor runs a command when its hook times out, so a request still unanswered
-  59 minutes after it arrived goes back to Cursor's own prompt, and the next request takes the
-  screen.
+  59 minutes after it arrived doesn't wait any longer, and the next request takes the screen. In
+  Allowlist mode it goes back to Cursor's own prompt. In Auto-review or Run Everything mode it is
+  denied with "No answer in Countersign within an hour, so Cursor did not run this.", since handing
+  it back would run it.
 - **No answer at all**, for example while Countersign is paused, lets Cursor carry on as if
   Countersign weren't installed, which under auto-run can mean running the command without asking.
 - Countersign can't see a Cursor chat, so answering there doesn't close the panel.

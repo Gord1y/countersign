@@ -69,15 +69,18 @@ enum HookRunner {
       exit(0)
     }
 
-    if request.host == .cursor {
-      let cursorEnvironment = CursorEnvironment.read(
-        home: paths.home, workspaceRoot: request.cwd)
+    let cursorEnvironment =
+      request.host == .cursor
+      ? CursorEnvironment.read(home: paths.home, workspaceRoot: request.cwd) : nil
+    if let cursorEnvironment {
       log.write(cursorEnvironment.logLine)
       if cursorEnvironment.allowsWithoutAsking(request) {
         log.write("skipped: on Cursor's allowlist")
         exit(0)
       }
     }
+    let handBackPolicy =
+      cursorEnvironment.map { HandBackPolicy.forCursor($0.runMode) } ?? .handsBack
 
     let hostApp = HostApp.resolve()
     if let hostApp {
@@ -99,13 +102,13 @@ enum HookRunner {
 
     showPanel(
       for: request, mode: .hook, settings: settings, paths: paths, log: log, startedAt: startedAt,
-      hostApp: hostApp)
+      hostApp: hostApp, handBackPolicy: handBackPolicy)
   }
 
   static func showPanel(
     for request: ApprovalRequest, mode: PanelRunMode, settings: Settings, paths: AppPaths,
     log: EventLog, startedAt: ContinuousClock.Instant, hostApp: HostApp?,
-    checkpoint: ContextCheckpointSession? = nil
+    checkpoint: ContextCheckpointSession? = nil, handBackPolicy: HandBackPolicy = .handsBack
   ) -> Never {
     let clock = ContinuousClock()
     let host = request.host
@@ -146,7 +149,9 @@ enum HookRunner {
         exit(0)
       }
       if handBackIsDue() {
-        handBack(host: host, log: log, waiting: waitingHandBack)
+        handBack(
+          request: request, policy: handBackPolicy, log: log, waiting: waitingHandBack,
+          history: DecisionHistory(paths: paths))
       }
       guard clock.now < graceDeadline else { break }
       Thread.sleep(forTimeInterval: 0.25)
@@ -162,7 +167,7 @@ enum HookRunner {
       ticket = try queue.enqueue(
         TicketSummary(
           request: request, agentDescription: SubagentDescription.resolve(from: subagentChain),
-          isTestPanel: mode.isTest)
+          isTestPanel: mode.isTest, answersInChat: handBackPolicy.answersInChat)
       )
     } catch {
       log.write("failed to enqueue: \(error)")
@@ -217,7 +222,9 @@ enum HookRunner {
       let reason = abandonReason()
       queue.remove(ticket)
       if reason == nil, handBackIsDue() {
-        handBack(host: host, log: log, waiting: waitingHandBack)
+        handBack(
+          request: request, policy: handBackPolicy, log: log, waiting: waitingHandBack,
+          history: DecisionHistory(paths: paths))
       }
       log.write("resolved while queued: \(reason ?? "unknown")")
       if !mode.isTest, let reason, reason != "paused" {
@@ -238,7 +245,7 @@ enum HookRunner {
       subagentChain: subagentChain, waitingEntries: initialWaitingEntries,
       sessionsDirectory: paths.claudeSessionsDirectory, history: DecisionHistory(paths: paths),
       hostApp: hostApp, checkpoint: checkpoint, showsWithoutIdle: showsWithoutIdle,
-      waitingHandBack: waitingHandBack,
+      waitingHandBack: waitingHandBack, handBackPolicy: handBackPolicy,
       cardSlots: WaitingStore(directory: paths.waitingDirectory),
       abandonReason: abandonReason, handBackIsDue: handBackIsDue, isPaused: isPaused)
     let timer = Timer(
@@ -284,6 +291,11 @@ enum HookRunner {
     if let outcome = answer.outcome {
       return .finish(outcome)
     }
+    guard let moved = showNow(ticket, queue: queue, log: log) else { return .ignored }
+    return .moved(moved)
+  }
+
+  static func showNow(_ ticket: Ticket, queue: TicketQueue, log: EventLog) -> ShowNowResult? {
     do {
       let moved = try queue.showNow(
         ticket, isOnScreen: { QueueHandoffChannel(ticket: $0).shownDisplayID() != nil })
@@ -291,10 +303,10 @@ enum HookRunner {
       case .front: log.write("show now: moved to the front")
       case .behindShownPanel: log.write("show now: next after the panel on screen")
       }
-      return .moved(moved)
+      return moved
     } catch {
       log.write("show now: failed to move: \(error)")
-      return .ignored
+      return nil
     }
   }
 
@@ -315,12 +327,28 @@ enum HookRunner {
   }
 
   private static func handBack(
-    host: ApprovalCore.Host, log: EventLog, waiting: WaitingHandBack
+    request: ApprovalRequest, policy: HandBackPolicy, log: EventLog, waiting: WaitingHandBack,
+    history: DecisionHistory
   ) -> Never {
-    writeReply(.noDecision, host: host)
-    log.write(TimeoutHandBack.logLine(for: host))
-    waiting.record()
+    let outcome = policy.timeoutOutcome()
+    writeReply(outcome, host: request.host)
+    log.write(policy.timeoutLogLine(for: request.host))
+    recordTimeoutOutcome(outcome, request: request, history: history, log: log, waiting: waiting)
     exit(0)
+  }
+
+  static func recordTimeoutOutcome(
+    _ outcome: ApprovalOutcome, request: ApprovalRequest, history: DecisionHistory, log: EventLog,
+    waiting: WaitingHandBack
+  ) {
+    guard outcome != .noDecision else {
+      waiting.record()
+      return
+    }
+    recordDecision(
+      request: request,
+      answer: DecisionAnswer.answer(for: outcome, checkpointChoice: nil, isCheckpoint: false),
+      history: history, log: log)
   }
 
   private static func describe(_ error: Error) -> String {
@@ -347,6 +375,7 @@ private final class DisplayWatch: NSObject {
     case queued
     case waitingForIdle
     case shown(controller: PanelController)
+    case parked
     case showingResult(card: TestPanelResultCard)
   }
 
@@ -381,6 +410,7 @@ private final class DisplayWatch: NSObject {
   private let hostApp: HostApp?
   private let checkpoint: ContextCheckpointSession?
   private let waitingHandBack: WaitingHandBack
+  private let handBackPolicy: HandBackPolicy
   private let cardSlots: WaitingStore
   private let isPaused: () -> Bool
   private var waitingForIdleSince = ProcessInfo.processInfo.systemUptime
@@ -410,7 +440,7 @@ private final class DisplayWatch: NSObject {
     waitingEntries: [WaitingEntry], sessionsDirectory: URL, history: DecisionHistory,
     hostApp: HostApp?,
     checkpoint: ContextCheckpointSession?, showsWithoutIdle: Bool,
-    waitingHandBack: WaitingHandBack, cardSlots: WaitingStore,
+    waitingHandBack: WaitingHandBack, handBackPolicy: HandBackPolicy, cardSlots: WaitingStore,
     abandonReason: @escaping () -> String?, handBackIsDue: @escaping () -> Bool,
     isPaused: @escaping () -> Bool
   ) {
@@ -433,6 +463,7 @@ private final class DisplayWatch: NSObject {
     self.hostApp = hostApp
     self.checkpoint = checkpoint
     self.waitingHandBack = waitingHandBack
+    self.handBackPolicy = handBackPolicy
     self.cardSlots = cardSlots
     self.abandonReason = abandonReason
     self.handBackIsDue = handBackIsDue
@@ -501,6 +532,13 @@ private final class DisplayWatch: NSObject {
         controller.setWaitingEntries(waitingEntries)
       }
 
+    case .parked:
+      let quiet = quietTimeHoldsPanels()
+      if quiet {
+        holdApprovalCardForQuietTime()
+      }
+      showApprovalCardIfDue(quiet: quiet)
+
     case .showingResult:
       break
     }
@@ -522,9 +560,7 @@ private final class DisplayWatch: NSObject {
       ApprovalCardTiming.shouldShow(
         enabled: settings.approvalCard, mode: mode,
         secondsWaiting: ProcessInfo.processInfo.systemUptime - waitingForIdleSince,
-        delay: ApprovalCardTiming.delay(
-          afterStepAside: waitFollowsStepAside, configured: settings.approvalCardDelay),
-        quiet: quiet, paused: isPaused(), stage: approvalCardStage)
+        delay: approvalCardDelay(), quiet: quiet, paused: isPaused(), stage: approvalCardStage)
     else { return }
     guard
       let card = CornerCard.inFreeSlot(
@@ -542,6 +578,14 @@ private final class DisplayWatch: NSObject {
     approvalCardStage = .shown
     card.show()
     log.write("approval card: shown")
+  }
+
+  private func approvalCardDelay() -> TimeInterval {
+    if case .parked = state {
+      return 0
+    }
+    return ApprovalCardTiming.delay(
+      afterStepAside: waitFollowsStepAside, configured: settings.approvalCardDelay)
   }
 
   private func claimApprovalSlot() {
@@ -572,10 +616,26 @@ private final class DisplayWatch: NSObject {
   }
 
   private func showFromApprovalCard() {
-    guard case .waitingForIdle = state else { return }
+    switch state {
+    case .waitingForIdle:
+      closeApprovalCard()
+      showsWithoutIdle = true
+      log.write("approval card: show")
+    case .parked:
+      log.write("approval card: show")
+      guard let moved = HookRunner.showNow(ticket, queue: queue, log: log) else { return }
+      ticket = moved.ticket
+      showsWithoutIdle = moved.place == .front
+      leaveParking()
+    case .queued, .shown, .showingResult:
+      break
+    }
+  }
+
+  private func leaveParking() {
     closeApprovalCard()
-    showsWithoutIdle = true
-    log.write("approval card: show")
+    state = .queued
+    startWarmStandby()
   }
 
   private func dismissApprovalCard() {
@@ -593,7 +653,7 @@ private final class DisplayWatch: NSObject {
   private func takeMenuAnswer() {
     let isShown: Bool
     switch state {
-    case .queued, .waitingForIdle: isShown = false
+    case .queued, .waitingForIdle, .parked: isShown = false
     case .shown: isShown = true
     case .showingResult: return
     }
@@ -612,6 +672,9 @@ private final class DisplayWatch: NSObject {
     case .moved(let moved):
       ticket = moved.ticket
       showsWithoutIdle = moved.place == .front
+      if case .parked = state {
+        leaveParking()
+      }
     case .ignored:
       break
     }
@@ -651,6 +714,7 @@ private final class DisplayWatch: NSObject {
       onSnooze: { [weak self] seconds in self?.handleSnooze(seconds) },
       onStepAside: { [weak self] reason in self?.handleStepAside(reason) },
       sessionIdle: checkpoint?.isIdle() ?? false,
+      escapeKeepsWaiting: handBackPolicy == .keepsWaiting,
       onCheckpointChoice: checkpoint == nil && !mode.isTest
         ? nil : { [weak self] choice in self?.handleCheckpointChoice(choice) })
   }
@@ -698,7 +762,7 @@ private final class DisplayWatch: NSObject {
       closeShownPanel(controller)
     case .showingResult(let card):
       card.close()
-    case .waitingForIdle:
+    case .waitingForIdle, .parked:
       closeApprovalCard()
     case .queued:
       break
@@ -742,6 +806,10 @@ private final class DisplayWatch: NSObject {
         frontmostBundleID: frontmostBundleID, frontmostPID: frontmostApp?.processIdentifier,
         handoffApps: settings.handoffApps, hostAppPID: hostApp?.processIdentifier)
     else { return }
+    guard handBackPolicy == .handsBack else {
+      log.write("handoff: \(frontmostBundleID) frontmost, kept (Cursor would run it unasked)")
+      return
+    }
     log.write("handoff: \(frontmostBundleID) frontmost")
     if let outcome = host.handoffOutcome {
       HookRunner.writeReply(outcome, host: host)
@@ -765,6 +833,9 @@ private final class DisplayWatch: NSObject {
     case .waitingForIdle:
       closeApprovalCard()
       wording = "resolved while waiting for idle"
+    case .parked:
+      closeApprovalCard()
+      wording = "resolved while parked"
     case .shown(let controller):
       closeShownPanel(controller)
       wording = "resolved while displayed"
@@ -783,13 +854,14 @@ private final class DisplayWatch: NSObject {
   }
 
   private func handBack() -> Never {
-    HookRunner.writeReply(.noDecision, host: host)
-    log.write(TimeoutHandBack.logLine(for: host))
+    let outcome = handBackPolicy.timeoutOutcome()
+    HookRunner.writeReply(outcome, host: host)
+    log.write(handBackPolicy.timeoutLogLine(for: host))
     switch state {
     case .queued:
       discardHandoff()
       discardPreparedPanel("handed back")
-    case .waitingForIdle:
+    case .waitingForIdle, .parked:
       closeApprovalCard()
     case .showingResult:
       break
@@ -799,11 +871,18 @@ private final class DisplayWatch: NSObject {
     }
     queue.remove(ticket)
     lease?.release()
-    waitingHandBack.record()
+    HookRunner.recordTimeoutOutcome(
+      outcome, request: request, history: history, log: log, waiting: waitingHandBack)
     exit(0)
   }
 
   private func finish(_ outcome: ApprovalOutcome) {
+    if mode == .hook, handBackPolicy == .keepsWaiting, outcome == .noDecision,
+      case .shown(let controller) = state
+    {
+      stepAsideAsLater(controller)
+      return
+    }
     switch mode {
     case .hook:
       HookRunner.writeReply(outcome, host: host)
@@ -837,6 +916,37 @@ private final class DisplayWatch: NSObject {
     guard case .test(let kind) = mode, let panelFrame else { exit(0) }
     showResult(of: outcome, kind: kind, around: panelFrame)
   }
+
+  private func stepAsideAsLater(_ controller: PanelController) {
+    guard settings.approvalCard else {
+      closeShownPanel(controller)
+      waitAfterStepAside(Self.laterReason)
+      return
+    }
+    parkUntilAsked(controller)
+  }
+
+  private func parkUntilAsked(_ controller: PanelController) {
+    handOffToNextInLine(from: controller)
+    closeShownPanel(controller)
+    let parked: Ticket
+    do {
+      parked = try queue.park(ticket)
+    } catch {
+      log.write("failed to park: \(error)")
+      waitAfterStepAside(Self.laterReason)
+      return
+    }
+    ticket = parked
+    lease?.release()
+    lease = nil
+    approvalCardStage = .notShown
+    state = .parked
+    log.write("stepped aside: \(Self.laterReason)")
+    log.write("parked: back from the card or the menu")
+  }
+
+  private static let laterReason = "later"
 
   private func showResult(of outcome: ApprovalOutcome, kind: TestPanelKind, around frame: NSRect) {
     let result = TestPanelResult.describe(outcome, kind: kind, checkpointChoice: checkpointChoice)
@@ -892,7 +1002,7 @@ private final class DisplayWatch: NSObject {
     switch state {
     case .queued:
       prepareAgainForNewScreens()
-    case .waitingForIdle:
+    case .waitingForIdle, .parked:
       approvalCard?.followScreenChange()
     case .shown(let controller):
       controller.followScreenChange()
@@ -1075,7 +1185,11 @@ private final class DisplayWatch: NSObject {
   private func handleStepAside(_ reason: StepAsideReason) {
     guard case .shown(let controller) = state else { return }
     closeShownPanel(controller)
-    log.write("stepped aside: \(reason.rawValue)")
+    waitAfterStepAside(reason.rawValue)
+  }
+
+  private func waitAfterStepAside(_ reason: String) {
+    log.write("stepped aside: \(reason)")
     approvalCardStage = approvalCardStage.afterStepAside
     waitForIdle(afterStepAside: true)
   }

@@ -49,7 +49,9 @@ would appear, not when the request arrives (see "Handing off to the asking app" 
   allow and deny. Cursor supports allow, deny and ask: it is asked only about shell commands it
   runs outside its sandbox and about MCP tools, "Answer in chat" answers it with `ask` so it shows
   its own prompt, and its hook hands back with `ask` a minute before Cursor's timeout, since Cursor
-  lets a command run when its hook times out. Antigravity calls the hook before every tool call and
+  lets a command run when its hook times out. Under Auto-review and Run Everything, where `ask`
+  would run the command unasked, Esc becomes "Later" and that timeout denies instead. Antigravity
+  calls the hook before every tool call and
   gets the same treatment: a panel only for commands and MCP tools, `ask` for "Answer in chat" and a
   minute before its timeout. It still asks the person itself after an Approve until it fixes
   google-antigravity/antigravity-cli#1053. Details in [hosts](hosts.md).

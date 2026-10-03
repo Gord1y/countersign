@@ -281,8 +281,12 @@ panel it did not need is the cheaper mistake.
 | --- | --- |
 | Approve | `{"permission":"allow"}` |
 | Deny | `{"agent_message":"<reason>","permission":"deny","user_message":"<reason>"}` |
-| Answer in chat (`.noDecision` from the panel) | `{"permission":"ask"}` |
+| Answer in chat (`.noDecision` from the panel), Allowlist and Ask Every Time only | `{"permission":"ask"}` |
+| Later (Esc under Auto-review, Run Everything or an unknown run mode) | nothing yet: the request keeps waiting |
 | Any failure | nothing |
+
+Which of the two rows Esc gets depends on Cursor's run mode; see "Esc under Auto-review and Run
+Everything" below.
 
 The reason is the typed one, or `ApprovalOutcome.defaultDenyMessage`, the same default the other
 hosts get. Cursor shows `user_message` to the person and hands `agent_message` to the agent, so both
@@ -303,7 +307,63 @@ Cursor too, so `hook` still logs `handoff: <bundle id> frontmost` and then write
 `{"permission":"ask"}` before exiting, rather than leaving stdout empty. Pausing Countersign stays
 silent for every host, including Cursor, because a pause means behaving as if Countersign weren't
 installed; the handoff never means that, so it is the one silent-for-the-other-hosts exit where
-Cursor gets an answer instead.
+Cursor gets an answer instead. Under Auto-review, Run Everything or an unknown run mode the handoff
+does not apply at all (see the next section).
+
+### Esc under Auto-review and Run Everything
+
+On 2026-10-01, with Cursor in Auto-review, the panel showed for `ls ~`, the person pressed Esc, the
+hook printed `{"permission":"ask"}`, and Cursor ran the command. `ask` reaches the person only under
+Allowlist and Ask Every Time. Under Auto-review it goes to Cursor's AI classifier, and under Run
+Everything the command simply runs. So in those modes "no decision" is never printed: every path
+that would hand the request back keeps it waiting or denies it instead.
+
+`HookRunner.run` turns the run mode it already reads ("Reading Cursor's run mode and allowlist"
+below) into a `HandBackPolicy` with `HandBackPolicy.forCursor`, and passes it to the panel. The
+switch is `CursorRunMode.handBackRunsUnasked`. An unknown run mode counts as one that would run the
+command unasked, the safe side. Shell commands and MCP calls follow the same policy. Every other
+host, every test panel and every context checkpoint is `.handsBack`, unchanged.
+
+| Run mode | Esc, click outside, the link | Menu's Answer in Chat | Frontmost-app handoff | 3540 s timeout |
+| --- | --- | --- | --- | --- |
+| Allowlist, Ask Every Time (`.handsBack`) | `ask` | offered | `ask` | `ask` |
+| Auto-review, Run Everything, unknown (`.keepsWaiting`) | Later | not offered | skipped | deny |
+
+**Later.** The panel's link reads "Later" instead of "Answer in chat", with the same `esc` hint
+(`PanelModel.escapeKeepsWaiting`). Esc, a click outside or the link then do not finish the request.
+The panel hands the screen to the next request in line exactly as a finished panel does, closes,
+parks its ticket (`TicketQueue.park`, see "Parked tickets" in [queue.md](queue.md)) and releases the
+display lease, and an approval corner card shows at once, without the configured delay. The log
+reads `stepped aside: later`, then `parked: back from the card or the menu`. The panel comes back
+only from the card's Show (`approval card: show`) or the menu bar's Show Now (`answered from the
+menu: show`). Both go through `TicketQueue.showNow`, which unparks the ticket and puts it at the
+front of the queue, or right behind a panel on screen, and a ticket at the front shows without
+waiting for idle, as Show Now does for any request. The card's ✕ closes the card and leaves the
+request parked, so only the menu's Show Now brings it back. Quiet time hides the card while it lasts
+and shows it again after; the request stays parked. The menu's Deny still answers a parked request,
+and pausing Countersign abandons it silently, as it does any request.
+
+With approval cards switched off there is no card to come back from, so Later steps aside the way a
+lost focus does: the panel closes, the display lease is kept, and the panel returns on the next idle
+(`stepped aside: later`). A ticket that cannot be parked steps aside the same way after logging
+`failed to park: <error>`.
+
+**The timeout denies.** At the hand-back deadline ("Handing back before Cursor's timeout" below) a
+`.keepsWaiting` request prints a deny with `No answer in Countersign within an hour, so Cursor did
+not run this.` as both `user_message` and `agent_message` (`HandBackPolicy.timeoutOutcome()`),
+logs `denied: cursor timeout near`, records the deny in the decision history like any deny, and
+records no waiting notice, because the agent is not waiting on the person. That bends "nothing is
+ever decided by a timeout" on purpose, toward the safe side: the only alternatives are a hand-back
+that runs the command unasked, or Cursor's own timeout, which fails open. The user accepted the
+trade. It applies wherever the request is: in the grace period, queued, waiting for idle, parked
+or on screen.
+
+**The handoff is skipped.** The frontmost-app handoff assumes Cursor will ask the person itself.
+Here it would not, so `hook` logs `handoff: <bundle id> frontmost, kept (Cursor would run it
+unasked)` and shows the panel anyway.
+
+**The menu.** The ticket's summary carries `answersInChat: false`, so `MenuAnswer.offered(for:)`
+lists Show Now and Deny only.
 
 ### Handing back before Cursor's timeout
 
@@ -315,8 +375,10 @@ the command through without a word from anybody, so the Cursor hook hands back f
 (`TimeoutHandBack.entryTimeoutSeconds`, which is `HookSetup.timeoutSeconds`), that is 3540
 seconds after the hook process started, it prints `{"permission":"ask"}`, logs `handed back: cursor
 timeout near` (`TimeoutHandBack.logLine(for:)`), and exits 0, whether the request was in the grace
-period, queued, waiting for a pause or on screen. That is not a decision: Cursor shows its own prompt, as it does for "Answer in
-chat".
+period, queued, waiting for a pause or on screen. Under Allowlist and Ask Every Time that is not a
+decision: Cursor shows its own prompt, as it does for "Answer in chat". Under Auto-review, Run
+Everything or an unknown run mode the same deadline denies instead, because `ask` would run the
+command unasked (see "Esc under Auto-review and Run Everything" above).
 
 The clock is `ContinuousClock`, which keeps counting while the Mac sleeps. If Cursor's own timer
 pauses during sleep, the hand-back comes early rather than late. The payload does not carry the

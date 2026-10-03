@@ -54,6 +54,20 @@ import Testing
     #expect(MenuAnswer.offered(for: nil) == [.show])
   }
 
+  @Test func aRequestThatDoesNotAnswerInChatIsNotOfferedAnswerInChat() {
+    let keepsWaiting = TicketSummary(
+      host: .cursor, project: "shop-api", tool: "Shell", agentType: nil, answersInChat: false)
+    let answersInChat = TicketSummary(
+      host: .cursor, project: "shop-api", tool: "Shell", agentType: nil, answersInChat: true)
+    let checkpoint = TicketSummary(
+      host: .claude, project: "shop-api", tool: "Context checkpoint", agentType: nil,
+      isContextCheckpoint: true, answersInChat: false)
+
+    #expect(MenuAnswer.offered(for: keepsWaiting) == [.show, .deny])
+    #expect(MenuAnswer.offered(for: answersInChat) == [.show, .deny, .chat])
+    #expect(MenuAnswer.offered(for: checkpoint) == [.show])
+  }
+
   @Test func theTicketIDIsItsFileNameWithoutTheSuffix() throws {
     let temporary = try TemporaryQueue()
     defer { temporary.remove() }

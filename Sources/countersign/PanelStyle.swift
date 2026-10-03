@@ -354,7 +354,7 @@ struct AnswerInChatButton: View {
         model.finish(.noDecision)
       } label: {
         HStack(alignment: .keyHintMidline, spacing: 4) {
-          Text("Answer in chat")
+          Text(model.escapeKeepsWaiting ? "Later" : "Answer in chat")
             .keyHintTextGuide(capHeight: LinkButtonStyle.labelCapHeight)
           KeyHint("esc", placement: .link)
             .keyHintGuide()

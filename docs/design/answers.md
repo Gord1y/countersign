@@ -137,6 +137,13 @@ empty stdout for Claude Code and Codex, `ask` for Cursor and Antigravity. The lo
 `answered from the menu: deny` or `answered from the menu: chat`, then the same `outcome: deny` or
 `outcome: no decision` a panel answer leaves.
 
+A Cursor request under Auto-review, Run Everything or an unknown run mode is offered Show Now and
+Deny only: there `ask` would run the command unasked, so its ticket's summary carries
+`answersInChat: false` and `MenuAnswer.offered(for:)` drops **Answer in Chat** (see "Esc under
+Auto-review and Run Everything" in [hosts.md](hosts.md)). An answer of `chat` that reaches such a
+request anyway is logged as `answered from the menu: chat, not offered for this request` and
+ignored.
+
 ## A question submitted (Claude `AskUserQuestion` only)
 
 Answering every tab and choosing **Submit** calls `ApprovalCore.QuestionResponse.outcome`, which
@@ -297,11 +304,14 @@ Cursor's hook reply is `{"permission": ...}`, not a `hookSpecificOutput` envelop
 | **Approve** | `{"permission":"allow"}` | `outcome: allow` | Runs the command or MCP tool |
 | **Deny**, with a reason or the default | `{"agent_message":"<reason>","permission":"deny","user_message":"<reason>"}` | `outcome: deny` | Blocks it, shows `user_message` to the person and hands `agent_message` to the agent |
 | **Deny & stop** | not offered: Cursor has no `interrupt` | — | — |
-| **Answer in chat**, <kbd>Esc</kbd>, or a click outside the panel | `{"permission":"ask"}` | `outcome: no decision` | Shows its own approval prompt, even for a command it would run in its sandbox |
-| Still unanswered 3540 s after the hook started, anywhere from the grace period to on screen | `{"permission":"ask"}` | `handed back: cursor timeout near` | Shows its own approval prompt; the panel, if one was up, closes and the next request takes the display |
+| **Answer in chat**, <kbd>Esc</kbd>, or a click outside the panel, in Allowlist or Ask Every Time mode | `{"permission":"ask"}` | `outcome: no decision` | Shows its own approval prompt, even for a command it would run in its sandbox |
+| **Later**, <kbd>Esc</kbd>, or a click outside the panel, in Auto-review, Run Everything or an unknown mode | nothing yet: the request is parked and an approval card shows at once | `stepped aside: later`, `parked: back from the card or the menu` | Keeps waiting; the panel returns from the card's Show or the menu's Show Now |
+| Still unanswered 3540 s after the hook started, anywhere from the grace period to on screen, in Allowlist or Ask Every Time mode | `{"permission":"ask"}` | `handed back: cursor timeout near` | Shows its own approval prompt; the panel, if one was up, closes and the next request takes the display |
+| Still unanswered 3540 s after the hook started, anywhere from the grace period to parked or on screen, in Auto-review, Run Everything or an unknown mode | `{"agent_message":"No answer in Countersign within an hour, so Cursor did not run this.","permission":"deny","user_message":"No answer in Countersign within an hour, so Cursor did not run this."}` | `denied: cursor timeout near` | Blocks it; the deny is recorded in the decision history, and no waiting notice is |
 | A shell command Cursor runs in its sandbox (`sandbox: true`) | nothing | `skipped: sandboxed command`, right after parsing, before the grace period | Carries on as it would without Countersign |
 | A shell command on Cursor's allowlist, in Allowlist, Auto-review or Run Everything mode | nothing | `skipped: on Cursor's allowlist`, after `cursor: run mode …` | Runs it, as it would without Countersign |
-| The host-app handoff (`handoffApps`) | `{"permission":"ask"}` | `handoff: <bundle id> frontmost` | Shows its own approval prompt, the same as "Answer in chat" |
+| The host-app handoff (`handoffApps`), in Allowlist or Ask Every Time mode | `{"permission":"ask"}` | `handoff: <bundle id> frontmost` | Shows its own approval prompt, the same as "Answer in chat" |
+| The host-app handoff, in Auto-review, Run Everything or an unknown mode | nothing: the panel shows anyway | `handoff: <bundle id> frontmost, kept (Cursor would run it unasked)` | Keeps waiting for the panel |
 | Every other row of "No answer at all" above (paused, unparseable input, resolved during grace or while queued, a hook timeout, any other error) | nothing | as in that table | Carries on as it would without Countersign, which under auto-run can mean running the command without asking |
 | A hook timeout (an entry whose `timeout` is below the hand-back, edited by hand) | nothing; the process is killed | nothing | Runs the command: Cursor fails open on a timeout, per cursor.com/docs/hooks; `countersign doctor` warns below 600 s |
 

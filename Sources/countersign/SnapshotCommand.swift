@@ -6,7 +6,7 @@ enum SnapshotCommand {
   private static let usage =
     "usage: countersign snapshot <request.json> --host claude|codex|cursor|antigravity"
     + " [--waiting N] [--appearance light|dark] [--accent #RRGGBB] [--unarmed] [--question-notes]"
-    + " [--open-menu approve|snooze|mode] -o <out.png>\n"
+    + " [--open-menu approve|snooze|mode] [--later] -o <out.png>\n"
     + "       countersign snapshot --test-panel command|question|plan|context"
     + " [--waiting N] [--appearance light|dark] [--accent #RRGGBB] [--unarmed] [--question-notes]"
     + " [--open-menu approve|snooze|mode] [--checkpoint-level soft|status|insist]"
@@ -87,7 +87,8 @@ enum SnapshotCommand {
     let model = PanelModel(
       request: request, waitingEntries: waitingEntries, questionNotes: options.questionNotes,
       chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
-      isTestPanel: isTestPanel, openDropdownOnAppear: options.openMenu)
+      isTestPanel: isTestPanel, escapeKeepsWaiting: options.escapeKeepsWaiting,
+      openDropdownOnAppear: options.openMenu)
     model.onSnooze = { _ in }
     if options.isArmed {
       model.arm()
@@ -560,6 +561,7 @@ enum SnapshotCommand {
     let questionNotes: Bool
     let openMenu: PanelDropdownID?
     let checkpointLevel: ContextLevel?
+    let escapeKeepsWaiting: Bool
   }
 
   private static func contextLevel(named name: String) -> ContextLevel? {
@@ -583,6 +585,7 @@ enum SnapshotCommand {
     var questionNotes = Settings.defaultQuestionNotes
     var openMenu: PanelDropdownID?
     var checkpointLevel: ContextLevel?
+    var escapeKeepsWaiting = false
     var index = arguments.startIndex
 
     while index < arguments.count {
@@ -621,6 +624,8 @@ enum SnapshotCommand {
         isArmed = false
       case "--question-notes":
         questionNotes = true
+      case "--later":
+        escapeKeepsWaiting = true
       case "--open-menu":
         index += 1
         guard index < arguments.count, let menu = PanelDropdownID(rawValue: arguments[index])
@@ -654,7 +659,8 @@ enum SnapshotCommand {
     return Options(
       source: source, outputPath: outputPath, waitingCount: waitingCount,
       appearance: appearance, accentColor: accentColor, isArmed: isArmed,
-      questionNotes: questionNotes, openMenu: openMenu, checkpointLevel: checkpointLevel)
+      questionNotes: questionNotes, openMenu: openMenu, checkpointLevel: checkpointLevel,
+      escapeKeepsWaiting: escapeKeepsWaiting)
   }
 
   private enum SnapshotStatus: String {

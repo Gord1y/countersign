@@ -60,7 +60,11 @@ panel shows up in the icon within two seconds.
   - **Answer in Chat** hands it to the agent's own prompt, exactly like <kbd>Esc</kbd> in the
     panel.
 
-  A context checkpoint offers only **Show Now**, and so does a request Countersign can't read.
+  A context checkpoint offers only **Show Now**, and so does a request Countersign can't read. A
+  Cursor request in Auto-review or Run Everything mode offers **Show Now** and **Deny** but not
+  **Answer in Chat**, because there Cursor would run the command without asking you. When you put
+  such a request away with **Later**, it stays in this list, and **Show Now** brings its panel back
+  (see [Cursor](agents.md#cursor)).
   There is no Approve: a menu line can't show you the command or the change, and an approval is
   the one answer that lets something run. Answers given from the menu show up in **Recent
   Decisions** like any other.
