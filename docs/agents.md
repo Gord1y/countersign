@@ -9,8 +9,8 @@ Antigravity.
 
 | Answer | Claude Code | Codex | Cursor | Antigravity |
 | --- | --- | --- | --- | --- |
-| **Approve** (<kbd>Return</kbd>) | Runs the call | Runs the call | Runs the command or MCP tool | Asks you once more in its own prompt (see [below](#antigravity)) |
-| **Always allow** (Approve ▾) | Approves, and hands Claude Code the rule to keep | Approves, and saves a Countersign rule | Approves, and saves a Countersign rule | Approves, and saves a Countersign rule |
+| **Approve** (<kbd>Return</kbd>) | Runs the call | Runs the call | Cursor decides by its run mode; in Allowlist mode it asks you once more (see [below](#cursor)) | Asks you once more in its own prompt (see [below](#antigravity)) |
+| **Always allow** (Approve ▾) | Approves, and hands Claude Code the rule to keep | Approves, and saves a Countersign rule | Not offered: Cursor ignores it | Not offered: Antigravity ignores it |
 | **Deny**, with a reason | Blocks the call | Blocks the call | Blocks it and shows the reason to you and the agent | Blocks it and shows the reason |
 | **Deny & stop** (<kbd>⌘</kbd><kbd>Return</kbd> in the deny step) | Blocks the call and asks Claude Code to interrupt | Not offered | Not offered | Not offered |
 | **Answer in chat** (<kbd>Esc</kbd>, a click outside) | Claude Code shows its own prompt | Codex shows its own prompt | Cursor shows its own approval prompt; in Auto-review and Run Everything the request waits as **Later** instead | Antigravity shows its own approval prompt |
@@ -126,11 +126,18 @@ own settings, as they would without Countersign. Commands on Cursor's command al
 in-app list, or `terminalAllowlist` in `permissions.json`) get no panel when Cursor would run them
 without asking; a compound command gets a panel unless every part is on the list.
 
-- **Approve** runs the command or tool. **Deny** blocks it, shows your reason to you and hands it to
-  the agent. There is no **Deny & stop**, and no questions or plans.
-- **Approve ▾ → Always allow** saves a rule for Cursor in this project and approves the command.
-  It saves the exact command, or each distinct part of a compound command; for an MCP call it
-  saves the tool. See and remove it in Settings ▸ Rules, or in `config.json`.
+- **Approve isn't always enough.** Cursor currently ignores an approval from a hook and decides by
+  its own run mode: in Allowlist mode it asks you itself, so you approve twice; in Auto-review its
+  AI review decides; in Run Everything the command runs. Cursor's staff call this an open bug: only
+  a deny from a hook is respected today
+  ([forum thread](https://forum.cursor.com/t/support-authoritative-allow-deny-and-ask-verdicts-from-hooks/161342)).
+  Once it is fixed, Approve will be enough, with nothing to change in Countersign.
+- **Deny** blocks it, shows your reason to you and hands it to the agent. There is no
+  **Deny & stop**, and no questions or plans.
+- **No Approve ▾ → Always allow.** Cursor would ignore the saved rule's approval too, so Approve
+  has no ▾ menu here and <kbd>⌘</kbd><kbd>Return</kbd> approves like <kbd>Return</kbd>. An allow
+  rule you add in Settings ▸ Rules keeps Countersign's panel away; Cursor still decides by its run
+  mode.
 - **Answer in chat** depends on Cursor's run mode. In Allowlist mode (and the old Ask Every Time),
   it makes Cursor show its own approval prompt, even for a command it would have run in its
   sandbox, and `handoffApps` does the same. In Auto-review or Run Everything mode, Cursor's prompt
@@ -169,9 +176,9 @@ the browser, and Antigravity's own questions and plans follow Antigravity's own 
   [google-antigravity/antigravity-cli#1053](https://github.com/google-antigravity/antigravity-cli/issues/1053).
   Once it is fixed, Approve will be enough, with nothing to change in Countersign.
 - **Deny** blocks the call and shows your reason, even under `--dangerously-skip-permissions`.
-- **Approve ▾ → Always allow** saves a rule for Antigravity in this project and approves the call.
-  It saves the exact command, or each distinct part of a compound command; for an MCP call it
-  saves the tool. See and remove it in Settings ▸ Rules, or in `config.json`.
+- **No Approve ▾ → Always allow**, for the same reason: Antigravity would ignore the saved rule's
+  approval and ask you anyway. An allow rule you add in Settings ▸ Rules keeps Countersign's panel
+  away; Antigravity still asks.
 - **Answer in chat** makes Antigravity show its own approval prompt; `handoffApps` does the same.
   Under `--dangerously-skip-permissions` expect it to run the call instead.
 - **An hour limit**, as for Cursor: a request still unanswered after 59 minutes goes back to

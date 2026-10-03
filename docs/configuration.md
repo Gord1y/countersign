@@ -338,10 +338,12 @@ you type. `$schema` itself is ignored by Countersign; it only lets your editor v
 Countersign's own rules answer a request before a panel shows: an allow rule lets it through, a deny
 rule blocks it and tells the agent why. They apply to all four agents and live in the top-level
 `rules` array of `config.json`, in the order you write them. A request no rule decides gets its
-panel as usual. You can also add rules from a panel: on a Codex, Cursor or Antigravity request,
-**Approve ▾ → Always allow** saves a rule for that agent and project (see
-[What each agent gets](agents.md)) and shows up under Settings ▸ Rules, where you can also add a
-rule with **Add Rule…** and edit or remove any listed rule.
+panel as usual. You can also add rules from a panel: on a Codex request, **Approve ▾ → Always
+allow** saves a rule for Codex and that project (see [What each agent gets](agents.md)) and shows
+up under Settings ▸ Rules, where you can also add a rule with **Add Rule…** and edit or remove any
+listed rule. Cursor and Antigravity currently ignore an approval from a hook and decide by their own
+settings, so for them an allow rule only keeps Countersign's panel away; a deny rule blocks as for
+every agent.
 
 Each rule is an object. Only `decision` is required; every other field narrows the rule, and a rule
 applies only when all the fields it sets match.

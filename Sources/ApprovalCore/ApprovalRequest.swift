@@ -23,6 +23,13 @@ public enum Host: String, Sendable, Codable, CaseIterable {
     self == .claude
   }
 
+  public var honorsHookAllow: Bool {
+    switch self {
+    case .claude, .codex: return true
+    case .cursor, .antigravity: return false
+    }
+  }
+
   public var handoffOutcome: ApprovalOutcome? {
     switch self {
     case .claude, .codex: return nil

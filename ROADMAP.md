@@ -80,6 +80,13 @@ not the model behind it.
 
 ### Watching
 
+- Approve and **Always allow** that Cursor and Antigravity honor. Both ignore an approval from a
+  hook today and ask again (Cursor's open bug ticket; Antigravity's
+  [antigravity-cli#1053](https://github.com/google-antigravity/antigravity-cli/issues/1053)), so
+  their panels offer no Always allow. Moves forward when either fixes it. For Cursor, Always allow
+  could instead write the command into Cursor's own allowlist, but a `terminalAllowlist` in
+  `~/.cursor/permissions.json` replaces the in-app list and locks it, so that waits for a cleaner
+  way in.
 - A haptic cue. macOS plays haptics only on a Force Touch trackpad during a touch, so a panel
   appearing on its own cannot trigger one.
 

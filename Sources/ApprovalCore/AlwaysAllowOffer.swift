@@ -6,7 +6,7 @@ public struct AlwaysAllowOffer: Sendable, Equatable {
   public let detail: String
 
   public static func offer(for request: ApprovalRequest, home: URL) -> AlwaysAllowOffer? {
-    guard request.host != .claude, !request.cwd.isEmpty,
+    guard request.host != .claude, request.host.honorsHookAllow, !request.cwd.isEmpty,
       case .permission(let prompt) = request.kind
     else { return nil }
     let project = HomePath.abbreviating(request.cwd, relativeTo: home)

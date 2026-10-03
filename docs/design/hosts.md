@@ -321,6 +321,31 @@ installed; the handoff never means that, so it is the one silent-for-the-other-h
 Cursor gets an answer instead. Under Auto-review, Run Everything or an unknown run mode the handoff
 does not apply at all (see the next section).
 
+### Approve is not enough yet
+
+Cursor ignores a hook's `allow` and `ask` and decides by its own run mode; only `deny` is
+respected. On 2026-10-04, with Cursor 3.22.12 in Allowlist mode, Approve ▾ → Always allow on
+`curl -sI https://example.com` saved the rule, the hook printed `{"permission":"allow"}`
+(`outcome: allow`), and Cursor showed its own approval prompt. Cursor's staff call it "an open bug
+ticket" ("right now only `deny` is respected", 2026-05-23, in
+[Support authoritative allow, deny, and ask verdicts from hooks](https://forum.cursor.com/t/support-authoritative-allow-deny-and-ask-verdicts-from-hooks/161342));
+it has been reported since Cursor 2.1.36
+([beforeShellExecution hook permissions ignored](https://forum.cursor.com/t/beforeshellexecution-hook-permissions-allow-ask-ignored-allow-list-takes-precedence/144244)).
+So after Approve, Cursor follows its run mode: Allowlist asks again unless the command is on its
+allowlist, Auto-review hands the command to its AI review (the 2026-10-01 `ask` run below is the
+same path), and Run Everything runs it. `Host.honorsHookAllow` is false for Cursor, so the panel
+offers no Approve ▾ → Always allow (see "Always allow" in [rules.md](rules.md)); a saved allow
+rule would only hide the panel while Cursor asked anyway. An allow rule written by hand still keeps
+the panel away, and a deny rule blocks.
+
+The one way around it for Always allow would be writing the command into Cursor's own allowlist.
+A `terminalAllowlist` in `~/.cursor/permissions.json` replaces the in-app list entirely and makes
+Cursor's allowlist settings read-only, so Countersign would have to copy the in-app entries over
+and own that file from then on; writing the in-app list in Cursor's settings database while Cursor
+runs is out. Neither is done; [ROADMAP.md](../../ROADMAP.md) tracks it. When Cursor fixes the bug,
+Approve works with nothing changed, and `honorsHookAllow` turns true once checked against the fixed
+version, which brings the Always allow row back.
+
 ### Esc under Auto-review and Run Everything
 
 On 2026-10-01, with Cursor in Auto-review, the panel showed for `ls ~`, the person pressed Esc, the
@@ -584,7 +609,8 @@ is [google-antigravity/antigravity-cli#1053](https://github.com/google-antigravi
 open upstream. Antigravity still ships as a normal host, wired by setup like the others, because
 everything else works: the panel queues and waits like any other, **Deny** blocks, and "Answer in
 chat" hands over. Until the bug is fixed, **Approve** is followed by Antigravity's own prompt, so
-the person approves twice. The README, [limitations.md](../limitations.md),
+the person approves twice, and `Host.honorsHookAllow` is false, so the panel offers no Approve ▾ →
+Always allow (see "Always allow" in [rules.md](rules.md)). The README, [limitations.md](../limitations.md),
 [agents.md](../agents.md), [troubleshooting.md](../troubleshooting.md), the Antigravity table in
 [answers.md](answers.md) and an `info` line in `countersign doctor` and the Agents rows, both built
 from `AgentFollowUps.antigravityGoodToKnow` (see "Follow-up lines" in [setup.md](setup.md)), say so.

@@ -239,6 +239,15 @@ terminal, the next step clears by itself: the Codex row in Settings, `countersig
 something it doesn't understand, the row offers **Mark as done**; click it once you've trusted the
 hook. See [setup.md](setup.md#codex-asks-you-to-trust-the-hook).
 
+## Cursor asks again after you approve
+
+That is Cursor, not Countersign: it ignores an approval from a hook and decides by its own run
+mode, so in Allowlist mode it asks you itself and you approve twice. **Deny** works right away.
+Cursor's staff have confirmed the bug
+([forum thread](https://forum.cursor.com/t/support-authoritative-allow-deny-and-ask-verdicts-from-hooks/161342));
+once it is fixed, Approve in the panel will be enough, with nothing to change in Countersign. In
+Auto-review mode Cursor's AI review decides after you approve, which usually runs the command.
+
 ## Antigravity asks again after you approve
 
 That is Antigravity, not Countersign: it ignores an approval from a hook and asks you itself

@@ -30,8 +30,8 @@ testedWith:
 - A **Rules** page in Settings to add, edit and remove rules, with a confirmation before a rule is
   removed, and four suggested rules you add with one click: deny `rm -rf`, deny git history
   rewrites, deny `sudo`, and allow read-only git.
-- **Always allow** in the **Approve ▾** menu for Codex, Cursor and Antigravity. It approves the
-  request and saves a rule for that agent and project, which then shows up under Settings ▸ Rules.
+- **Always allow** in the **Approve ▾** menu for Codex. It approves the request and saves a rule
+  for Codex and that project, which then shows up under Settings ▸ Rules.
 - Waiting-agent notices, on by default. Once an agent has finished a turn and waited for you, a
   corner card says it is waiting, with a **Go there** button that opens the app it runs in. Setup
   and Update in Settings ▸ Agents add the extra hook that makes this work, after showing you the
@@ -114,6 +114,10 @@ testedWith:
 
 ## Notes
 
+- Cursor currently ignores an approval from a hook, a bug Cursor has confirmed, so after you
+  approve, Cursor's run mode decides: in Allowlist mode Cursor asks you again. **Deny** always
+  blocks. For the same reason, Cursor and Antigravity get no **Always allow**, and an allow rule for
+  them only keeps the panel away.
 - Countersign reads Cursor's run mode and command allowlist from Cursor's local settings, which
   Cursor does not document. If it can't read them, it treats the mode as unknown and keeps the
   command waiting rather than letting Cursor run it.

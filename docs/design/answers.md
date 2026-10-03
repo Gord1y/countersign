@@ -327,15 +327,16 @@ handled before the request is parsed.
 Cursor's hook reply is `{"permission": ...}`, not a `hookSpecificOutput` envelope
 ([`CursorAdapter.swift`](../../Sources/ApprovalCore/CursorAdapter.swift), matched against
 `CursorAdapterTests`). The replies below were each tried by hand against Cursor 3.21.18 on
-2026-09-27; the reasoning is in "The Cursor adapter" in [hosts.md](hosts.md).
+2026-09-27, except where a row names a later check; the reasoning is in "The Cursor adapter" in
+[hosts.md](hosts.md).
 
 | When | stdout | Logged as | What Cursor does |
 | --- | --- | --- | --- |
-| **Approve** | `{"permission":"allow"}` | `outcome: allow` | Runs the command or MCP tool |
+| **Approve** | `{"permission":"allow"}` | `outcome: allow` | Ignores the `allow` and follows its own run mode: Allowlist shows its own approval prompt again unless the command is on its allowlist, Auto-review hands it to its AI review, Run Everything runs it (see "Approve is not enough yet" in [hosts.md](hosts.md); Allowlist checked on Cursor 3.22.12, 2026-10-04) |
 | **Deny**, with a reason or the default | `{"agent_message":"<reason>","permission":"deny","user_message":"<reason>"}` | `outcome: deny` | Blocks it, shows `user_message` to the person and hands `agent_message` to the agent |
 | **Deny & stop** | not offered: Cursor has no `interrupt` | — | — |
 | A deny rule matches | as **Deny** | `rule: denied by rules[<i>]`, `outcome: deny` | Blocks it, even a sandboxed command |
-| An allow rule matches, not sandboxed | as **Approve** | `rule: allowed by rules[<i>]`, `outcome: allow`, before `cursor: run mode …` | Runs the command or MCP tool, ahead of the allowlist check |
+| An allow rule matches, not sandboxed | as **Approve** | `rule: allowed by rules[<i>]`, `outcome: allow`, before `cursor: run mode …` | As after **Approve**: no panel, and Cursor follows its own run mode |
 | **Answer in chat**, <kbd>Esc</kbd>, or a click outside the panel, in Allowlist or Ask Every Time mode | `{"permission":"ask"}` | `outcome: no decision` | Shows its own approval prompt, even for a command it would run in its sandbox |
 | **Later**, <kbd>Esc</kbd>, or a click outside the panel, in Auto-review, Run Everything or an unknown mode | nothing yet: the request is parked and an approval card shows at once | `stepped aside: later`, `parked: back from the card or the menu` | Keeps waiting; the panel returns from the card's Show or the menu's Show Now |
 | Still unanswered 3540 s after the hook started, anywhere from the grace period to on screen, in Allowlist or Ask Every Time mode | `{"permission":"ask"}` | `handed back: cursor timeout near` | Shows its own approval prompt; the panel, if one was up, closes and the next request takes the display |

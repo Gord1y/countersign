@@ -59,7 +59,7 @@ struct RulesSection: View {
 private struct RulesList: View {
   static let emptyText =
     "No rules yet. Add one, pick a suggestion below, or choose Approve ▾ ▸ Always allow on a"
-    + " panel from Cursor, Codex or Antigravity."
+    + " panel from Codex."
 
   let model: SettingsModel
 

@@ -47,6 +47,13 @@ for something specific, or when it behaves differently from what you expected an
 
 ## Cursor
 
+- Cursor can't yet take an approval from a hook: it ignores "allow" and decides by its own run
+  mode, a bug Cursor's staff have confirmed
+  ([forum thread](https://forum.cursor.com/t/support-authoritative-allow-deny-and-ask-verdicts-from-hooks/161342)).
+  So in Allowlist mode **Approve** in the panel is followed by Cursor's own prompt, and you approve
+  twice; in Auto-review Cursor's AI review decides. **Deny** works right away. For the same reason
+  the panel offers no **Always allow** for Cursor. Once Cursor fixes it, Approve will be enough,
+  with nothing to change in Countersign.
 - Cursor is asked only about shell commands it runs outside its sandbox and about MCP tool calls;
   file edits and sandboxed commands follow Cursor's own settings.
 - Cursor's hooks cover only shell commands and MCP tool calls, so its own questions and its file
@@ -60,8 +67,8 @@ for something specific, or when it behaves differently from what you expected an
 - Antigravity can't yet take an approval from a hook: it ignores "allow" and asks you itself
   anyway ([google-antigravity/antigravity-cli#1053](https://github.com/google-antigravity/antigravity-cli/issues/1053)).
   So for now **Approve** in the panel is followed by Antigravity's own prompt, and you approve
-  twice; **Deny** works right away. Once Google fixes it, Approve will be enough, with nothing to
-  change in Countersign.
+  twice; **Deny** works right away. For the same reason the panel offers no **Always allow** for
+  Antigravity. Once Google fixes it, Approve will be enough, with nothing to change in Countersign.
 - Antigravity is asked only about commands and MCP tool calls, and a request is never noticed as
   answered elsewhere.
 - Only the `agy` CLI was tried by hand; the Antigravity app and IDE read the same hooks file but

@@ -82,12 +82,17 @@ decision history as `allowedByRule` and `deniedByRule`. See "Answered by a rule"
 
 ## Always allow
 
-Codex, Cursor and Antigravity have no "Always allow" of their own, so Approve ▾ offers one that
-saves rules to `config.json` (`AlwaysAllowOffer`, `RuleFileWriter`). Claude Code keeps its own
-suggestions and gets no such row.
+Codex has no "Always allow" of its own, so Approve ▾ offers one that saves rules to `config.json`
+(`AlwaysAllowOffer`, `RuleFileWriter`). Claude Code keeps its own suggestions and gets no such row.
+Cursor and Antigravity get none either: both ignore an `allow` from a hook and decide by their own
+settings (`Host.honorsHookAllow` is false; see "Approve is not enough yet" for each in
+[hosts.md](hosts.md)), so a saved allow rule would only hide Countersign's panel while the agent
+asked again, which is not what "Always allow" says. Measured for Cursor on 2026-10-04 with Cursor
+3.22.12 in Allowlist mode: the rule was saved, the hook printed `{"permission":"allow"}`, and
+Cursor showed its own prompt.
 
-- **Offered** on permission panels from those three agents only, never for a test panel or a
-  context checkpoint, and only when an offer can be built: the working directory must be known.
+- **Offered** on Codex permission panels only, never for a test panel or a context checkpoint, and
+  only when an offer can be built: the working directory must be known.
 - **Scope.** Every rule is `allow`, for the request's agent and its project, the working directory
   written with a leading `~` when it is under the home folder (the evaluator expands it, so the
   file stays portable between machines with the same layout).

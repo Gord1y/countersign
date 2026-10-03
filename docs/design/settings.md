@@ -961,8 +961,7 @@ project abbreviated with `~` or "Any project"), the pattern in the code font (th
 `tool <pattern>`, else "Any request"), for a deny rule with a message the message, and a trailing
 remove button laid out like the one in the handoff apps list. The trailing stack is an `HStack` so
 an edit button can sit beside the remove button. With no rules the pane says how to get some: the
-Add Rule… button, or the Always allow choice in the Approve ▾ menu of Cursor, Codex and Antigravity
-panels.
+Add Rule… button, or the Always allow choice in the Approve ▾ menu of Codex panels.
 
 The pane has no Restore Defaults and no `preferenceNames`. The default is "no rules", so restoring
 it would delete every rule the person wrote, and one wrong click would lose work that the other

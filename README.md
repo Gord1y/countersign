@@ -151,7 +151,9 @@ writes and sends: [Safety and privacy](docs/safety-and-privacy.md).
 - **Fails safe.** Any error, timeout or crash means "no decision": the agent falls back to its own
   prompt, and Cursor and Antigravity carry on as they would without Countersign.
 - **Cursor too.** Shell commands Cursor runs outside its sandbox, and every MCP tool call, get the
-  same panel. Commands inside Cursor's sandbox are left to Cursor.
+  same panel. Commands inside Cursor's sandbox are left to Cursor. Until Cursor fixes a hook bug,
+  its own run mode still decides after you approve, so in Allowlist mode it asks you again
+  ([Limitations](docs/limitations.md)).
 - **Antigravity too.** Every command and MCP tool call from the `agy` CLI, the Antigravity app and
   the IDE; reading files, edits and its other tools are left to Antigravity. Until Google fixes a
   hook bug, it still asks you itself after you approve ([Limitations](docs/limitations.md)).
