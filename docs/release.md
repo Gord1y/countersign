@@ -166,7 +166,8 @@ the workflow's `permissions: {}` default.
 
 1. Write `releases/release-<x.y.z>.md` with the [release-notes skill](../.claude/skills/release-notes/SKILL.md).
 2. Bump `CountersignVersion.current` in `Sources/ApprovalCore/CountersignVersion.swift` to
-   `<x.y.z>`.
+   `<x.y.z>`, and the version `CountersignVersionTests` expects, in the same commit; the gate fails
+   until both match.
 3. Open a pull request with both into `staging`, titled `chore: prepare release <x.y.z>`, and
    squash-merge it once its checks pass and the Claude review approves.
 4. Open a pull request from `staging` into `main`, titled `chore: release countersign <x.y.z>`,
