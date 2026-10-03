@@ -78,9 +78,11 @@ Go through these in order:
 
 The log, `~/Library/Logs/Countersign/countersign.log`, says what happened to each request. A
 request starts with a `start host=… tool=… project=…` line and ends with what became of it, such as
-`skipped: sandboxed command`, `handoff: <bundle id> frontmost`,
-`resolved during grace: registry` or `outcome: allow`; a paused Countersign logs just `paused`. If
-the agent asks and nothing at all is logged, the agent never ran the hook: check its wiring.
+`skipped: sandboxed command`, `skipped: on Cursor's allowlist`, `handoff: <bundle id> frontmost`,
+`resolved during grace: registry` or `outcome: allow`; a paused Countersign logs just `paused`.
+Each Cursor request that gets past the sandbox check logs `cursor: run mode …` first, naming the run
+mode and where the command allowlist came from. If the agent asks and nothing at all is logged,
+the agent never ran the hook: check its wiring.
 Cursor also runs Claude Code's hooks; those runs log `ignored: a Cursor payload in a Claude Code
 hook` and change nothing.
 

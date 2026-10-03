@@ -69,6 +69,16 @@ enum HookRunner {
       exit(0)
     }
 
+    if request.host == .cursor {
+      let cursorEnvironment = CursorEnvironment.read(
+        home: paths.home, workspaceRoot: request.cwd)
+      log.write(cursorEnvironment.logLine)
+      if cursorEnvironment.allowsWithoutAsking(request) {
+        log.write("skipped: on Cursor's allowlist")
+        exit(0)
+      }
+    }
+
     let hostApp = HostApp.resolve()
     if let hostApp {
       log.write("host app: \(hostApp.localizedName) (\(hostApp.bundleIdentifier))")

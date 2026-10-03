@@ -112,7 +112,9 @@ added before Countersign's) needs trusting again.
 
 **What gets a panel:** shell commands Cursor runs outside its sandbox, for example one that needs
 the network, and every MCP tool call. Commands inside the sandbox and file edits follow Cursor's
-own settings, as they would without Countersign.
+own settings, as they would without Countersign. Commands on Cursor's command allowlist (the
+in-app list, or `terminalAllowlist` in `permissions.json`) get no panel when Cursor would run them
+without asking; a compound command gets a panel unless every part is on the list.
 
 - **Approve** runs the command or tool. **Deny** blocks it, shows your reason to you and hands it to
   the agent. There is no **Deny & stop**, and no questions or plans.
@@ -128,7 +130,9 @@ own settings, as they would without Countersign.
 ### After wiring
 
 Nothing to do, but worth knowing: only commands Cursor runs outside its sandbox, and MCP tool
-calls, get a panel — the rest follow Cursor's own settings, as above. Cursor reloads `hooks.json` on
+calls, get a panel — the rest follow Cursor's own settings, as above. A command on Cursor's command
+allowlist gets no panel when Cursor would run it without asking, and a compound command gets one
+unless every part is on the list. Cursor reloads `hooks.json` on
 save, so wiring or updating takes effect right away; restart it only if a request still gets no
 panel.
 

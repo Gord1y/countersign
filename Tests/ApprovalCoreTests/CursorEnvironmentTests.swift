@@ -174,18 +174,9 @@ private func agentEntry(
     #expect(CursorPermissionsFile.terminalAllowlist(in: data) == ["git status", "pnpm *"])
   }
 
-  @Test func acceptsCommentsAndTrailingCommas() {
-    let data = Data(
-      """
-      {
-        \("/")/ commands that run without asking
-        "terminalAllowlist": [
-          "git status",
-          "ls",
-        ],
-      }
-      """.utf8)
-    #expect(CursorPermissionsFile.terminalAllowlist(in: data) == ["git status", "ls"])
+  @Test func acceptsCommentsAndTrailingCommas() throws {
+    let data = try FixtureLoader.data("cursor-permissions-jsonc")
+    #expect(CursorPermissionsFile.terminalAllowlist(in: data) == ["git", "pnpm lint"])
   }
 
   @Test func absentKeyIsNil() {

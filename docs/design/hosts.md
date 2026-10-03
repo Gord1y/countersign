@@ -390,6 +390,45 @@ The database is read through `import SQLite3`, the system library in the macOS S
 dependency. An in-process read takes about a millisecond; spawning `sqlite3` for every hook would
 cost a process launch each time, on a path that runs for every Cursor request.
 
+### Commands on Cursor's allowlist
+
+A shell command that Cursor would run without asking gets no panel. The skip applies only when the
+request is a shell command (never an MCP call; Cursor's MCP allowlist is not read), the run mode is
+allowlist, auto-review or run everything, and the allowlist is known. In Cursor's deprecated "Ask
+Every Time" mode, or when the mode is unknown, Cursor asks about every command whatever the list
+says, so the panel shows.
+
+Cursor documents the matching at cursor.com/docs/reference/permissions: "Matching is case-sensitive
+and uses prefix semantics: `git` matches `git status` but not `gitk`."; the entry `git status`
+matches "Only `git status` (and anything starting with `git status `)"; and `npm:install*` matches
+"`npm install`, `npm install express`, etc. The `:` separates the base command from an args glob."
+`CommandPattern` implements exactly that: without a colon the segment equals the pattern or starts
+with it followed by a space or tab; with a colon the segment's first word must equal the part
+before the first colon and the rest of the segment must match the glob as a whole, where `*` is the
+only wildcard.
+
+Cursor does not document how compound commands (`&&`, `|`, `;`) are matched, so Countersign is
+strict: `ShellCommandSegments` splits the command at `&&`, `||`, `;`, `|`, `|&`, a lone `&` and a
+newline, outside quotes, and every part must match a pattern. A backslash escapes the next
+character outside single quotes, single quotes are literal, and `&` inside a redirection (`2>&1`,
+`>&2`, `&>`, `&>>`) is not a separator. When the splitter cannot tell what runs, it returns
+`nil` and the panel shows: a command substitution `$(`, a backtick, a process substitution `<(` or
+`>(` outside single quotes, any parenthesis outside quotes (subshells, groupings, function
+definitions) or an unclosed quote. Showing a panel Cursor would not have shown is the cheaper
+mistake, the same reasoning as "Only unsandboxed commands" above; skipping a command Cursor would
+have asked about hands a decision back to Cursor that the person expected Countersign to ask.
+
+`CommandPattern` and `ShellCommandSegments` are general `ApprovalCore` API, not Cursor-only:
+Countersign's own allow and deny rules will match commands the same way.
+
+The skip is the same as the sandboxed skip: one log line, exit 0, empty stdout, so Cursor carries
+on with its own flow and an allowlisted command then runs. Countersign never prints `allow` here,
+because it is not the one deciding. Every Cursor request that reaches this check logs
+`cursor: run mode <mode>, allowlist <n> from <the app|permissions.json>` (or `allowlist
+unreadable`) first, and a skipped one then logs `skipped: on Cursor's allowlist`. The workspace
+root for `<workspace>/.cursor/permissions.json` is the request's `cwd`, which the adapter takes
+from the first `workspace_roots` entry, else Cursor's `cwd`.
+
 ## The Antigravity adapter
 
 Google Antigravity has no `PermissionRequest` event either. Its hooks live in one global file,

@@ -41,6 +41,17 @@ public struct CursorEnvironment: Sendable, Equatable {
     return parse(applicationUser: applicationUser, permissionsFiles: permissionsFiles)
   }
 
+  public func allowsWithoutAsking(_ request: ApprovalRequest) -> Bool {
+    guard request.host == .cursor,
+      case .permission(let prompt) = request.kind,
+      case .bash(let command, _) = prompt.body,
+      runMode == .allowlist || runMode == .autoReview || runMode == .runEverything,
+      let commandAllowlist
+    else { return false }
+    return CommandPattern.allMatch(
+      command, patterns: commandAllowlist.patterns.map(CommandPattern.init))
+  }
+
   public var logLine: String {
     guard let commandAllowlist else {
       return "cursor: run mode \(runMode.rawValue), allowlist unreadable"
