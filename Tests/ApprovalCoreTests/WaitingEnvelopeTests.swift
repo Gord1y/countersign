@@ -15,6 +15,33 @@ import Testing
         == "/Users/dev/.claude/projects/shop-api/c4d2e8f1-7a3b-4c5d-9e6f-1a2b3c4d5e6f.jsonl")
   }
 
+  @Test func readsCodexStop() throws {
+    let envelope = try #require(
+      WaitingEnvelope.parse(FixtureLoader.data("codex-stop"), host: .codex))
+    #expect(envelope.sessionID == "0199b2c4-5e6f-7a80-9b1c-2d3e4f5a6b7c")
+    #expect(envelope.projectPath == "/Users/dev/Projects/shop-api")
+    #expect(
+      envelope.transcriptPath
+        == "/Users/dev/.codex/sessions/2026/10/01/"
+        + "rollout-2026-10-01T18-33-18-0199b2c4-5e6f-7a80-9b1c-2d3e4f5a6b7c.jsonl")
+  }
+
+  @Test func readsCursorStop() throws {
+    let envelope = try #require(
+      WaitingEnvelope.parse(FixtureLoader.data("cursor-stop"), host: .cursor))
+    #expect(envelope.sessionID == "b7c8d9e0-f1a2-4b3c-8d4e-5f6a7b8c9d0e")
+    #expect(envelope.projectPath == "/Users/dev/Projects/shop-api")
+    #expect(
+      envelope.transcriptPath
+        == "/Users/dev/.cursor/projects/Users-dev-Projects-shop-api/agent-transcripts/"
+        + "b7c8d9e0-f1a2-4b3c-8d4e-5f6a7b8c9d0e/b7c8d9e0-f1a2-4b3c-8d4e-5f6a7b8c9d0e.jsonl")
+  }
+
+  @Test func cursorStopIsACursorPayloadInAClaudeHook() throws {
+    #expect(ClaudeAdapter.isCursorPayload(try FixtureLoader.data("cursor-stop")))
+    #expect(!ClaudeAdapter.isCursorPayload(try FixtureLoader.data("codex-stop")))
+  }
+
   @Test func readsCodexEnvelope() throws {
     let envelope = try #require(
       WaitingEnvelope.parse(FixtureLoader.data("codex-bash"), host: .codex))

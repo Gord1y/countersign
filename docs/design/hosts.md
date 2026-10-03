@@ -76,19 +76,30 @@ record's hash at write unknown (`CodexHashAtWrite.unread`).
 
 ## Stop hooks
 
-Waiting-agent notices hook each host's end-of-turn event. No payload of the Codex, Cursor and
-Antigravity events has been captured yet, so none is parsed and each entry's shape follows that
-host's existing Countersign entry; the unconfirmed details are named constants (see "The waiting
-entries of Codex, Cursor and Antigravity" in [setup.md](setup.md)). Every entry runs
-`<exe> hook --host <host> --event waiting` with a 30 second timeout and no `async`, which only
-Claude Code has.
+Waiting-agent notices hook each host's end-of-turn event. `WaitingEnvelope` reads only the
+session, the project folder and the transcript path from it. The Codex and Cursor `Stop` payloads
+were captured on 2026-10-01 (`codex-stop.json`, `cursor-stop.json` in the test fixtures); the
+Antigravity one has not been captured yet, so its entry's shape still follows the `countersign`
+hook and its unconfirmed details are named constants (see "The waiting entries of Codex, Cursor
+and Antigravity" in [setup.md](setup.md)). Every entry runs `<exe> hook --host <host> --event
+waiting` with a 30 second timeout and no `async`, which only Claude Code has.
+
+- Codex sends `session_id`, `turn_id`, `transcript_path` (the rollout file), `cwd`,
+  `hook_event_name` `"Stop"`, `model`, `permission_mode`, `stop_hook_active` and
+  `last_assistant_message`, the Claude Code field names.
+- Cursor sends `hook_event_name` `"stop"`, `conversation_id` and `session_id` (the same value),
+  `generation_id`, `status` (`"completed"`), `loop_count`, the model fields and token counts,
+  `cursor_version`, `workspace_roots`, `user_email` and `transcript_path`, and no `cwd`: the project
+  folder is the first workspace root. It carries `cursor_version`, so a Cursor turn that also runs
+  Claude Code's `Stop` hook is ignored there (see "Cursor payloads in Claude Code hooks").
 
 - Claude Code: `hooks.Stop` in `settings.json`, `async`.
 - Codex: `hooks.Stop` in `$CODEX_HOME/hooks.json`, in one group without a matcher. Codex runs it
   only after the person trusts it with `/hooks` in a Codex session, recorded under
-  `<hooks.json path>:stop:<group>:<hook>` in `config.toml` (the label `stop` is unconfirmed), so
-  the entry has its own trust record and Doctor line.
-- Cursor: `hooks.stop` in `~/.cursor/hooks.json`, outside `CursorAdapter.events`.
+  `<hooks.json path>:stop:<group>:<hook>` in `config.toml` (the label `stop` was confirmed by the
+  record Codex wrote for it), so the entry has its own trust record and Doctor line.
+- Cursor: `hooks.stop` in `~/.cursor/hooks.json`, outside `CursorAdapter.events` (confirmed: the
+  captured payload came from that entry).
 - Antigravity: the named hook `countersign-waiting` in `~/.gemini/config/hooks.json`, with `Stop`
   as its one event and the `*` matcher (unconfirmed for `Stop`), beside the `countersign` hook.
 

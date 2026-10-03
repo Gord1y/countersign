@@ -184,11 +184,12 @@ setup says so and exits 0.
 The other three hosts are wired the same way as Claude Code: setup adds the entry while notices
 are on and only refreshes it while they are off, the toggle adds and removes it through
 `WaitingHookRun` (every wired host's file appears in one diff), and `countersign setup --remove`
-and `HookSetup.uninstall` remove it. No `Stop` payload of these hosts has been captured yet, so
-each shape follows the host's existing Countersign entry, and each unconfirmed detail lives in one
-named constant of `WaitingHookSetup` (`cursorEventName`, `antigravityHookName`,
-`antigravityMatcher`, and `CodexHookTrust.waitingEventLabel`) so a fix after the captures is one
-line. None of the three has `async`, which only Claude Code has: the hook exits at once, with a
+and `HookSetup.uninstall` remove it. Each shape follows the host's existing Countersign entry, and
+each detail that needed a capture lives in one named constant of `WaitingHookSetup`
+(`cursorEventName`, `antigravityHookName`, `antigravityMatcher`, and
+`CodexHookTrust.waitingEventLabel`) so a fix is one line. The Codex and Cursor captures of
+2026-10-01 confirmed `waitingEventLabel` (`stop`) and `cursorEventName` (`stop`); the Antigravity
+pair is unconfirmed until its `Stop` payload is captured. None of the three has `async`, which only Claude Code has: the hook exits at once, with a
 30 second timeout.
 
 - Codex, `hooks.Stop`, the layout of Claude's entry without `async`: one group with no `matcher`
@@ -212,7 +213,7 @@ Codex runs a new hook only once the person trusts it, so the `Stop` entry has it
 `AppPaths.codexWaitingHookTrustFile` (`codex-waiting-hook-trust.json`), the same format as the
 approval entry's record with the key `<hooks.json path>:stop:<group>:<hook>`
 (`CodexHookTrust.current(hooksFileBytes:hooksFilePath:event:label:)`; the label `stop` is Codex's
-snake_case of the event name and is unconfirmed). `WaitingHookRun.apply` and `SetupRun` save that
+snake_case of the event name, confirmed by the record Codex wrote when the entry was trusted). `WaitingHookRun.apply` and `SetupRun` save that
 record whenever they write Codex's file and the `Stop` entry exists afterwards, and delete it
 otherwise. Nothing persists a learned hash for it: `countersign doctor` judges it from what was
 stored at write time, so a change of the stored hash still reads as trusted. Turning the
