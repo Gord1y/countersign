@@ -372,7 +372,8 @@ reaches it, as with a timeout hand-back. A request still queued or waiting for i
   right behind it and becomes next in line (`show now: next after the panel on screen`), and
   chains through warm standby when that panel is answered. Otherwise it goes to the very front
   (`show now: moved to the front`) and skips the idle gate the next time it would wait for it.
-  Quiet time still holds it, as it holds every panel. A request already on screen ignores `show`
+  Quiet time does not hold it, at either place: the person asked to see it (see "Asking for a
+  panel beats quiet time" in [panel.md](panel.md#quiet-time)). A request already on screen ignores `show`
   (`answered from the menu: show, already on screen`).
 - The new place is stored in the ticket, `TicketContent.menuPosition`, which the owning process
   rewrites atomically as ever, so every process computes the same order from a listing. A place

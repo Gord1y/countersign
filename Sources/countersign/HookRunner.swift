@@ -202,6 +202,7 @@ enum HookRunner {
 
     var menuOutcome: ApprovalOutcome?
     var showsWithoutIdle = false
+    var showRequested = false
     func shouldStopWaiting() -> Bool {
       if abandonReason() != nil || handBackIsDue() {
         return true
@@ -214,6 +215,7 @@ enum HookRunner {
       case .moved(let moved):
         ticket = moved.ticket
         showsWithoutIdle = moved.place == .front
+        showRequested = true
         return false
       case .ignored:
         return false
@@ -270,7 +272,8 @@ enum HookRunner {
       subagentChain: subagentChain, waitingEntries: initialWaitingEntries,
       sessionsDirectory: paths.claudeSessionsDirectory, history: DecisionHistory(paths: paths),
       hostApp: hostApp, paths: paths, checkpoint: checkpoint, showsWithoutIdle: showsWithoutIdle,
-      waitingHandBack: waitingHandBack, handBackPolicy: handBackPolicy,
+      showRequested: showRequested, waitingHandBack: waitingHandBack,
+      handBackPolicy: handBackPolicy,
       cardSlots: WaitingStore(directory: paths.waitingDirectory),
       abandonReason: abandonReason, handBackIsDue: handBackIsDue, isPaused: isPaused)
     let timer = Timer(
@@ -423,6 +426,8 @@ private final class DisplayWatch: NSObject {
   private let queue: TicketQueue
   private var ticket: Ticket
   private var showsWithoutIdle: Bool
+  private var showRequested: Bool
+  private var quietTimeAtDisplay: Date?
   private let log: EventLog
   private let activityGate: ActivityGate
   private let quietState: QuietState
@@ -466,7 +471,7 @@ private final class DisplayWatch: NSObject {
     quietState: QuietState, settings: Settings, subagentChain: [SubagentChainLink]?,
     waitingEntries: [WaitingEntry], sessionsDirectory: URL, history: DecisionHistory,
     hostApp: HostApp?, paths: AppPaths,
-    checkpoint: ContextCheckpointSession?, showsWithoutIdle: Bool,
+    checkpoint: ContextCheckpointSession?, showsWithoutIdle: Bool, showRequested: Bool,
     waitingHandBack: WaitingHandBack, handBackPolicy: HandBackPolicy, cardSlots: WaitingStore,
     abandonReason: @escaping () -> String?, handBackIsDue: @escaping () -> Bool,
     isPaused: @escaping () -> Bool
@@ -479,6 +484,7 @@ private final class DisplayWatch: NSObject {
     self.queue = queue
     self.ticket = ticket
     self.showsWithoutIdle = showsWithoutIdle
+    self.showRequested = showRequested
     self.lease = lease
     self.log = log
     self.activityGate = activityGate
@@ -532,7 +538,7 @@ private final class DisplayWatch: NSObject {
         giveWayToRequestShownFromMenu()
         return
       }
-      let quiet = quietTimeHoldsPanels()
+      let quiet = quietTimeHoldsPanels() && !showRequested
       if quiet {
         holdApprovalCardForQuietTime()
       }
@@ -549,7 +555,7 @@ private final class DisplayWatch: NSObject {
       showApprovalCardIfDue(quiet: quiet)
 
     case .shown(let controller):
-      if quietTimeHoldsPanels() {
+      if quietTimeHoldsPanels(), quietState.activeUntil() != quietTimeAtDisplay {
         closeShownPanel(controller)
         log.write("stepped aside: quiet time")
         waitForIdle(afterStepAside: false)
@@ -575,6 +581,12 @@ private final class DisplayWatch: NSObject {
 
   private func quietTimeHoldsPanels() -> Bool {
     mode.honorsQuietTime && quietState.activeUntil() != nil
+  }
+
+  private func markDisplayed() {
+    showsWithoutIdle = false
+    showRequested = false
+    quietTimeAtDisplay = quietState.activeUntil()
   }
 
   private func logMissionControlHold() {
@@ -657,12 +669,14 @@ private final class DisplayWatch: NSObject {
     case .waitingForIdle:
       closeApprovalCard()
       showsWithoutIdle = true
+      showRequested = true
       log.write("approval card: show")
     case .parked:
       log.write("approval card: show")
       guard let moved = HookRunner.showNow(ticket, queue: queue, log: log) else { return }
       ticket = moved.ticket
       showsWithoutIdle = moved.place == .front
+      showRequested = true
       leaveParking()
     case .queued, .shown, .showingResult:
       break
@@ -709,6 +723,7 @@ private final class DisplayWatch: NSObject {
     case .moved(let moved):
       ticket = moved.ticket
       showsWithoutIdle = moved.place == .front
+      showRequested = true
       if case .parked = state {
         leaveParking()
       }
@@ -794,7 +809,7 @@ private final class DisplayWatch: NSObject {
     app.show(controller)
     publishShownDisplay(of: controller)
     log.write("displayed")
-    showsWithoutIdle = false
+    markDisplayed()
     state = .shown(controller: controller)
   }
 
@@ -836,7 +851,7 @@ private final class DisplayWatch: NSObject {
     let milliseconds =
       (ProcessInfo.processInfo.systemUptime - handedOff.handoff.receivedAt) * 1000
     log.write("displayed after queue handoff in \(String(format: "%.1f", milliseconds)) ms")
-    showsWithoutIdle = false
+    markDisplayed()
     state = .shown(controller: handedOff.controller)
   }
 
@@ -1182,7 +1197,7 @@ private final class DisplayWatch: NSObject {
     preparation = nil
     guard let handedOff = pendingHandoff,
       handedOff.handoff.isFresh(at: ProcessInfo.processInfo.systemUptime),
-      !quietTimeHoldsPanels()
+      showRequested || !quietTimeHoldsPanels()
     else {
       discardHandoff()
       discardPreparedPanel("no handoff")

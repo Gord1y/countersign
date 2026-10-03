@@ -47,14 +47,15 @@ panel shows up in the icon within two seconds.
   snooze underneath it would only resurface later as a surprise.
 - **Snooze** starts quiet time for one of your presets (the top-level `snoozeMinutes` in the
   [config file](configuration.md)), like `countersign snooze`. Requests wait and come back one at a
-  time when it ends. Once quiet time is running, **Snooze** is replaced by a single **End Quiet
+  time when it ends, except one you bring up with **Show Now**. Once quiet time is running, **Snooze** is replaced by a single **End Quiet
   Time (until …)** entry that ends it early. The same entry appears during a quiet-hours window
   from your config file, and ending it skips that window.
 - The menu lists the requests waiting for a panel, in the order they will show, by agent, project
   and tool. Each one opens a submenu:
   - **Show Now** brings that request up next. With no panel on screen it appears at once, without
     waiting for a pause in your typing; with a panel on screen it becomes the next one, right
-    after you answer that panel. Quiet time still holds it until it ends.
+    after you answer that panel. It comes up during quiet time too, since you asked for it; the
+    other requests keep waiting for quiet time to end.
   - **Deny** denies it without opening the panel, exactly like the panel's **Deny** with no
     reason: the agent gets "Denied in the approval panel."
   - **Answer in Chat** hands it to the agent's own prompt, exactly like <kbd>Esc</kbd> in the

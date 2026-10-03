@@ -379,8 +379,9 @@ fed by the `SystemActivity` that `DisplayWatch` owns. Only once idle does a `Pan
 created and shown, moving the state to `shown(controller:)`. Every other queued request waits for
 the same idle gate once it reaches the head in turn. The one exception is a request moved to the
 front with Show Now from the menu bar while no panel is on screen: the person has just asked for
-it, so it skips the gate once, until it is displayed, and quiet time still holds it (see
-"Answering from the menu bar" in [queue.md](queue.md)).
+it, so it skips the gate once, until it is displayed, and quiet time does not hold it either (see
+"Answering from the menu bar" in [queue.md](queue.md) and "Asking for a panel beats quiet time"
+under "Quiet time").
 
 Every kind of input counts as activity:
 
@@ -604,6 +605,18 @@ Quiet time can start three ways, and all are handled where a panel could otherwi
   `QuietTime`, with the same titles from `SnoozeTitle.describe`, and so takes exactly the CLI's
   path above; its "End quiet time" is `countersign snooze off` (see "Menu-bar companion" in
   [app.md](app.md)).
+
+**Asking for a panel beats quiet time.** Show Now from the menu bar and the approval card's Show set
+`DisplayWatch.showRequested` (Show Now during the grace period or the queue wait sets it before
+`DisplayWatch` exists and passes it in). While it is set, quiet time holds neither `waitingForIdle`
+nor the queue handoff, so the panel comes up at once even mid-snooze or in quiet hours: the person
+asked to see this request, and holding it until quiet time ends is the opposite. The flag clears
+when the panel is displayed, and `markDisplayed()` stores `quietState.activeUntil()` at that
+moment. `shown` steps aside for quiet time only when `activeUntil()` differs from the stored
+value, so the panel shown on request stays up through the quiet time it was shown in, and still
+steps aside when quiet time starts, is extended or is replaced while it is up. A panel that later
+steps aside, for typing or a focus loss, waits for quiet time like any other, and so does every
+request nobody asked for, even one next in line behind a panel shown on request.
 
 Every waiting hook — whether it is mid-grace, queued, or holding the display lease — keeps
 running its own `ResolutionWatcher` poll throughout quiet time; none of this is special-cased for

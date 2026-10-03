@@ -51,7 +51,8 @@ testedWith:
   the menu-bar app.
 - Answer pending requests from the menu bar. Each waiting request offers **Show Now**, **Deny**
   and, where the agent can take it, **Answer in Chat**, so you can answer without opening the
-  panel. There is no Approve there.
+  panel. There is no Approve there. **Show Now** brings the panel up even during a snooze or quiet
+  hours.
 - **Recent Decisions** in the menu bar: your last ten answers, newest first, with a mark for
   approved, denied, answered in the chat or a checkpoint choice, and `rule` for requests a rule
   answered. **Clear History** empties it.
