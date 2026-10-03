@@ -16,8 +16,6 @@ paths:
   transcripts and subagent `*.meta.json` files, and the other hosts' files. Read them
   defensively. Any missing file, unknown field or parse failure means "unknown", never a crash
   and never a decision.
-- No `!`, `try!`, `as!` or implicitly unwrapped optionals, anywhere. No `Any`/`AnyObject` in
-  public APIs.
 - Rationale lives in `docs/`: design notes in `docs/design/<topic>.md` —
   [hosts](../../docs/design/hosts.md), [queue](../../docs/design/queue.md),
   [resolution](../../docs/design/resolution.md), [panel](../../docs/design/panel.md),

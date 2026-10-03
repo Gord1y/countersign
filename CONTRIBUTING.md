@@ -76,7 +76,8 @@ follow [releases/README.md](releases/README.md).
 
 ## House rules
 
-The full rules live in [CLAUDE.md](CLAUDE.md); in short:
+The full rules live in [CLAUDE.md](CLAUDE.md) and the area rules it lists under
+[.claude/rules/](.claude/rules); in short:
 
 - Zero comments in Swift source. Names carry the meaning; rationale that would have been a comment
   goes into `docs/design/<topic>.md` for an internal design note, or `docs/<topic>.md` for a
