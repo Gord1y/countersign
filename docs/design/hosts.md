@@ -342,6 +342,54 @@ Cursor's app, `com.todesktop.230313mzl4w4u92` in the log's `host app:` line, sta
 its extension host, so the process-tree walk above finds it like any other host app. `handoffApps`
 works for Cursor through that detection; there is no Cursor entry in the default list.
 
+### Reading Cursor's run mode and allowlist
+
+The hook uses Cursor's run mode and command allowlist to decide whether a request needs the panel.
+Both come from places Cursor does not promise to keep stable, so every read is defensive and every
+failure means "unknown", never a decision.
+
+The run mode and the in-app allowlist live in Cursor's settings database,
+`~/Library/Application Support/Cursor/User/globalStorage/state.vscdb`: a SQLite file in WAL mode
+with one table, `ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB)`. The row we read is
+the key
+`src.vs.platform.reactivestorage.browser.reactiveStorageServiceImpl.persistentStorage.applicationUser`,
+whose value is JSON text. This is an undocumented internal. `CursorStateDatabase` opens the file
+with `SQLITE_OPEN_READONLY`, which works while Cursor has it open, waits at most 200 ms on a busy
+lock, and returns `nil` for a missing file, a file that is not a database, a missing table or a
+missing row. Nothing is written to stderr.
+
+Inside that JSON, `composerState.modes4` is a list of modes, and the entry with id `agent` decides
+the run mode. `CursorRunMode.resolve` maps it in one function:
+
+1. The `agent` entry is missing, or `autoRun` is not a bool: unknown.
+2. `autoRun` is false: asks every time, Cursor's deprecated "Ask Every Time".
+3. `fullAutoRun` or `smartModeAutoRun` is missing or not a bool: unknown.
+4. `fullAutoRun` is true, or `composerState.yoloEnableRunEverything` is true: run everything.
+5. `smartModeAutoRun` is true: auto-review.
+6. Otherwise: allowlist.
+
+This mapping was inferred from one machine's database and the documented run modes (Auto-review,
+Allowlist, Run Everything), so the fixture is a trimmed copy of that one value. Keeping it in one
+function makes a correction a one-line change.
+
+`composerState.yoloCommandAllowlist` is the in-app command allowlist: an array of strings, or
+unknown when it is absent or holds anything else.
+
+Cursor also reads `terminalAllowlist`, an array of strings, from `~/.cursor/permissions.json` (per
+user) and `<workspace>/.cursor/permissions.json` (per repo). When both files exist Cursor
+concatenates the arrays, and once either file defines the field the in-app list is not used.
+`CursorCommandAllowlist.resolve` follows that: the defined arrays are joined in order, user file
+first, and only when neither file defines the field does the in-app list apply. An empty array is a
+defined, empty list. Cursor documents the file as `jsonc`, so it is decoded with
+`allowsJSON5` to accept comments and trailing commas. A missing file, an unparseable file, a root
+that is not an object, an absent key, a value that is not an array, or one non-string element all
+count as "the file does not define the field". With no list from any source the allowlist is
+unknown, and the hook shows the panel as it does today.
+
+The database is read through `import SQLite3`, the system library in the macOS SDK, so it adds no
+dependency. An in-process read takes about a millisecond; spawning `sqlite3` for every hook would
+cost a process launch each time, on a path that runs for every Cursor request.
+
 ## The Antigravity adapter
 
 Google Antigravity has no `PermissionRequest` event either. Its hooks live in one global file,
