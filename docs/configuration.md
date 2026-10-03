@@ -340,7 +340,8 @@ rule blocks it and tells the agent why. They apply to all four agents and live i
 `rules` array of `config.json`, in the order you write them. A request no rule decides gets its
 panel as usual. You can also add rules from a panel: on a Codex, Cursor or Antigravity request,
 **Approve ▾ → Always allow** saves a rule for that agent and project (see
-[What each agent gets](agents.md)) and shows up under Settings ▸ Rules.
+[What each agent gets](agents.md)) and shows up under Settings ▸ Rules, where you can also add a
+rule with **Add Rule…** and edit or remove any listed rule.
 
 Each rule is an object. Only `decision` is required; every other field narrows the rule, and a rule
 applies only when all the fields it sets match.

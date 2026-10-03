@@ -1,3 +1,4 @@
+import AppKit
 import ApprovalCore
 import SwiftUI
 
@@ -17,6 +18,13 @@ struct RulesSection: View {
           .foregroundStyle(.secondary)
           .fixedSize(horizontal: false, vertical: true)
           RulesList(model: model)
+          HStack(spacing: 8) {
+            Button("Add Rule…") {
+              RuleSheet.present(model: model, editing: nil, on: NSApp.keyWindow)
+            }
+            .buttonStyle(SecondaryButtonStyle())
+            Spacer(minLength: 0)
+          }
           if let error = model.rulesError {
             InlineMessage(error, tone: .problem)
           }
@@ -30,8 +38,8 @@ struct RulesSection: View {
 
 private struct RulesList: View {
   static let emptyText =
-    "No rules yet. On a panel from Cursor, Codex or Antigravity, Approve ▾ offers Always allow;"
-    + " you can also add rules in config.json."
+    "No rules yet. Add one here, or choose Approve ▾ ▸ Always allow on a panel from Cursor,"
+    + " Codex or Antigravity."
 
   let model: SettingsModel
 
@@ -84,6 +92,16 @@ private struct RuleRow: View {
       Spacer(minLength: 8)
       HStack(spacing: 8) {
         Button {
+          edit()
+        } label: {
+          Image(systemName: "pencil")
+            .font(.system(size: 13))
+            .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .help("Edit this rule")
+        .accessibilityLabel("Edit rule")
+        Button {
           model.removeRule(rule)
         } label: {
           Image(systemName: "minus.circle.fill")
@@ -102,6 +120,12 @@ private struct RuleRow: View {
       RoundedRectangle(cornerRadius: 6, style: .continuous)
         .fill(Color.primary.opacity(0.05))
     )
+    .contentShape(Rectangle())
+    .onTapGesture(count: 2) { edit() }
+  }
+
+  private func edit() {
+    RuleSheet.present(model: model, editing: rule, on: NSApp.keyWindow)
   }
 
   private var scopeText: String {

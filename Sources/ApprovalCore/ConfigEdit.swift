@@ -91,6 +91,7 @@ public enum PreferenceEdit: Sendable, Equatable {
   case addHandoffApp(String)
   case removeHandoffApp(String)
   case removeRule(ApprovalRule)
+  case replaceRule(old: ApprovalRule, new: ApprovalRule)
   case addRules([ApprovalRule])
   case editorApp(String)
   case contextCheckpointsEnabled(Bool)
@@ -108,7 +109,7 @@ public enum PreferenceEdit: Sendable, Equatable {
 
   public var key: PreferenceName? {
     switch self {
-    case .removeRule, .addRules: return nil
+    case .removeRule, .addRules, .replaceRule: return nil
     case .armDelay: return .armDelay
     case .chainedArmDelay: return .chainedArmDelay
     case .idleSeconds: return .idleSeconds
@@ -144,14 +145,16 @@ public enum PreferenceEdit: Sendable, Equatable {
     }
   }
 
-  public var removesRule: Bool {
-    if case .removeRule = self { return true }
-    return false
+  public var editsRules: Bool {
+    switch self {
+    case .removeRule, .addRules, .replaceRule: return true
+    default: return false
+    }
   }
 
   public var isOutsidePreferenceValues: Bool {
     switch self {
-    case .removeRule, .addRules, .forAgent: return true
+    case .removeRule, .addRules, .replaceRule, .forAgent: return true
     default: return false
     }
   }
@@ -252,6 +255,10 @@ public enum ConfigEdit {
       try add(rules, in: &document)
       return
     }
+    if case .replaceRule(let old, let new) = edit {
+      try replace(old, with: new, in: &document)
+      return
+    }
     guard let name = edit.key else { return }
     let path = prefix + name.keyPath
     let key = name.keyPath.first ?? name.rawValue
@@ -302,7 +309,7 @@ public enum ConfigEdit {
       try add(bundleID, key: key, in: &document)
     case .removeHandoffApp(let bundleID):
       try remove(bundleID, key: key, in: &document)
-    case .removeRule, .addRules:
+    case .removeRule, .addRules, .replaceRule:
       return
     case .editorApp(let bundleID):
       try set(path, to: .string(bundleID), in: &document) { $0.stringValue == bundleID }
@@ -452,6 +459,21 @@ public enum ConfigEdit {
       guard !alreadyThere else { continue }
       try document.appendElement(fragment, to: existing)
     }
+  }
+
+  private static func replace(
+    _ old: ApprovalRule, with new: ApprovalRule, in document: inout JSONSourceDocument
+  ) throws {
+    guard let array = document.root.member(named: "rules")?.value, let elements = array.elements
+    else { return }
+    let decoder = JSONDecoder()
+    let match = elements.first { element in
+      let raw = Data(document.bytes[element.range])
+      return (try? decoder.decode(JSONValue.self, from: raw)).flatMap(ConfigFileParser.rule)
+        == old
+    }
+    guard let match else { return }
+    try document.replaceValue(match, with: ruleFragment(new))
   }
 
   private static func remove(_ rule: ApprovalRule, in document: inout JSONSourceDocument) throws {

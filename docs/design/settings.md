@@ -944,7 +944,8 @@ project abbreviated with `~` or "Any project"), the pattern in the code font (th
 `tool <pattern>`, else "Any request"), for a deny rule with a message the message, and a trailing
 remove button laid out like the one in the handoff apps list. The trailing stack is an `HStack` so
 an edit button can sit beside the remove button. With no rules the pane says how to get some: the
-Always allow choice in the Approve ▾ menu of Cursor, Codex and Antigravity panels, or the file.
+Add Rule… button, or the Always allow choice in the Approve ▾ menu of Cursor, Codex and Antigravity
+panels.
 
 The pane has no Restore Defaults and no `preferenceNames`. The default is "no rules", so restoring
 it would delete every rule the person wrote, and one wrong click would lose work that the other
@@ -959,6 +960,26 @@ is not allowed per agent, because rules are top-level only (see
 [rules.md](rules.md#why-rules-are-top-level-only)). `PreferenceEdit.key` is optional for this
 reason: a rule edit writes no preference, so a failed write is reported in the pane
 (`SettingsModel.rulesError`) and not under a preference name.
+
+An "Add Rule…" button under the list opens the rule sheet, and each row has a pencil button (and a
+double-click) that opens the same sheet filled with that rule. The sheet is an AppKit sheet like the
+context notes sheet (`RuleSheet`), 440 pt wide: Decision (Allow | Deny), Agent, Project (a text
+field plus Choose…, an `NSOpenPanel` limited to one directory, shown abbreviated with `~`), Tool,
+Command (code font) and, only while Deny is selected, Message. Empty fields mean "any". The pure
+state lives in `RuleDraft` (`ApprovalCore`): its `problems` mirror what the file reader rejects
+(a project that is not a full path or does not start with `~`; a command that
+`ShellCommandSegments.split` cannot read or that splits into several parts, because a rule matches
+each part of a compound command on its own), and Save stays disabled while there are any. A
+message on an allow rule is dropped when the rule is built, as the reader would ignore it. An
+allow rule with no agent, project, tool and command shows the warning "This allows every request
+from every agent." in the warning style; it does not block saving, because a blanket allow is a
+legitimate choice that should only be a deliberate one.
+
+New rules go through `PreferenceEdit.addRules`, edits through `PreferenceEdit.replaceRule(old:new:)`,
+which replaces the first element that reads as a rule equal to `old` with the new object, in place,
+so the rule keeps its position in the file. Like removal it matches on the parsed rule and not on an index. Both
+run through `SettingsModel.write`, so a failed write keeps the sheet open and shows
+`rulesError` in it.
 
 Entries the parser dropped are counted from the config's log lines: every line that starts with
 `rules` except the "only used by deny rules" note, which does not drop an entry. When the count is

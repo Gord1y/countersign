@@ -15,7 +15,7 @@ enum SnapshotCommand {
     + " [--home <dir>] [--show-changes claude|codex|cursor|antigravity] [--show-copies]"
     + " [--status active|paused|paused-until-open|quiet] [--size <width>x<height>]"
     + " [--tab agents|panels|app|rules|context|help|advanced] [--restore-prompt panels|app]"
-    + " [--explanation <preferenceName>] [--editor-choice ask|missing]"
+    + " [--explanation <preferenceName>] [--editor-choice ask|missing] [--rule-sheet new|edit]"
     + " [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --quit-prompt [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --update-answer up-to-date|available|failed"
@@ -166,6 +166,10 @@ enum SnapshotCommand {
     }
     let model = SettingsModel(
       environment: environment, status: options.status.status, savesLearnedCodexTrust: false)
+    if let kind = options.ruleSheet {
+      runRuleSheet(
+        kind: kind, model: model, appearance: options.appearance, outputPath: options.outputPath)
+    }
     model.select(options.pane)
     for host in options.disclosedHosts {
       model.toggleChanges(host)
@@ -212,6 +216,39 @@ enum SnapshotCommand {
       .frame(width: width))
     let contentHeight = settledHeight(of: measuringView, maxHeight: .greatestFiniteMagnitude)
     return CGSize(width: width, height: contentHeight)
+  }
+
+  enum RuleSheetKind: String {
+    case new
+    case edit
+  }
+
+  @MainActor
+  private static func runRuleSheet(
+    kind: RuleSheetKind, model: SettingsModel, appearance: Appearance?, outputPath: String
+  ) -> Never {
+    let editing: ApprovalRule? =
+      kind == .edit
+      ? ApprovalRule(
+        decision: .deny, agent: .cursor, project: "~/Documents/app", tool: "Shell",
+        command: "git push:*", message: "Pushing is blocked here.")
+      : nil
+    let hostingView = NSHostingView(
+      rootView: RuleSheetView(model: model, editing: editing, close: {}))
+    hostingView.appearance = appearance?.appearance
+    var size = hostingView.fittingSize
+    for _ in 0..<settleTurnLimit {
+      hostingView.layoutSubtreeIfNeeded()
+      RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
+      let measured = hostingView.fittingSize
+      if measured == size { break }
+      size = measured
+    }
+    hostingView.setFrameSize(size)
+    guard let png = render(hostingView, background: .windowBackgroundColor) else {
+      CommandLineOutput.fail("error: could not render the rule sheet")
+    }
+    write(png, to: outputPath)
   }
 
   @MainActor
@@ -871,6 +908,7 @@ enum SnapshotCommand {
     let restorePrompt: SettingsPane?
     let explanation: PreferenceName?
     let editorChoice: EditorChoice?
+    let ruleSheet: RuleSheetKind?
   }
 
   private static func parseSettings(_ arguments: [String]) -> SettingsOptions? {
@@ -885,6 +923,7 @@ enum SnapshotCommand {
     var restorePrompt: SettingsPane?
     var explanation: PreferenceName?
     var editorChoice: EditorChoice?
+    var ruleSheet: RuleSheetKind?
     var index = arguments.startIndex
 
     while index < arguments.count {
@@ -946,6 +985,11 @@ enum SnapshotCommand {
         default:
           return nil
         }
+      case "--rule-sheet":
+        index += 1
+        guard index < arguments.count, let parsed = RuleSheetKind(rawValue: arguments[index])
+        else { return nil }
+        ruleSheet = parsed
       case "-o":
         index += 1
         guard index < arguments.count else { return nil }
@@ -960,7 +1004,8 @@ enum SnapshotCommand {
     return SettingsOptions(
       outputPath: outputPath, appearance: appearance, disclosedHosts: disclosedHosts,
       showsCopies: showsCopies, status: status, home: home, size: size, pane: pane,
-      restorePrompt: restorePrompt, explanation: explanation, editorChoice: editorChoice)
+      restorePrompt: restorePrompt, explanation: explanation, editorChoice: editorChoice,
+      ruleSheet: ruleSheet)
   }
 
   private static func parseSettingsSize(_ text: String) -> CGSize? {

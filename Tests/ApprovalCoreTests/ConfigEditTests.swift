@@ -305,6 +305,37 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
         + "    {\"decision\": \"allow\", \"tool\": \"Read\"}\n  ]\n}\n")
   }
 
+  @Test func replacesTheSecondOfThreeRulesInPlace() throws {
+    let old = ApprovalRule(decision: .deny, command: "rm *", message: "No.")
+    let new = ApprovalRule(decision: .allow, agent: .cursor, tool: "Shell", command: "git")
+    #expect(
+      try editing(Self.threeRules, .replaceRule(old: old, new: new))
+        == "{\n  \"idleSeconds\": 5,\n  \"rules\": [\n    {\"decision\": \"allow\", \"tool\": \"Read\"},\n"
+        + "    {\n      \"decision\": \"allow\",\n      \"agent\": \"cursor\",\n"
+        + "      \"tool\": \"Shell\",\n      \"command\": \"git\"\n    },\n"
+        + "    {\"decision\": \"allow\", \"agent\": \"codex\", \"command\": \"ls\"}\n  ]\n}\n")
+  }
+
+  @Test func replacingAnUnmatchedRuleChangesNothing() throws {
+    let missing = ApprovalRule(decision: .allow, tool: "Write")
+    let new = ApprovalRule(decision: .deny, tool: "Write")
+    #expect(
+      try editing(Self.threeRules, .replaceRule(old: missing, new: new)) == Self.threeRules)
+    #expect(try editing("{}", .replaceRule(old: missing, new: new)) == "{}")
+  }
+
+  @Test func replacesTheRightElementWhenAnEarlierEntryIsInvalid() throws {
+    let config =
+      "{\n  \"rules\": [\n    {\"decision\": \"maybe\"},\n    {\"decision\": \"allow\", \"tool\": \"Read\"},\n"
+      + "    {\"decision\": \"allow\", \"tool\": \"Read\"}\n  ]\n}\n"
+    let read = ApprovalRule(decision: .allow, tool: "Read")
+    let result = try editing(
+      config, .replaceRule(old: read, new: ApprovalRule(decision: .deny, tool: "Read")))
+    #expect(result.hasPrefix("{\n  \"rules\": [\n    {\"decision\": \"maybe\"},\n"))
+    #expect(result.hasSuffix("    {\"decision\": \"allow\", \"tool\": \"Read\"}\n  ]\n}\n"))
+    #expect(result.contains("\"deny\""))
+  }
+
   @Test func removingAnUnmatchedRuleChangesNothing() throws {
     let missing = ApprovalRule(decision: .allow, tool: "Write")
     #expect(try editing(Self.threeRules, .removeRule(missing)) == Self.threeRules)

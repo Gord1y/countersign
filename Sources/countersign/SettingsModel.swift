@@ -863,6 +863,14 @@ final class SettingsModel {
     write(.removeRule(rule))
   }
 
+  func addRule(_ rule: ApprovalRule) -> Bool {
+    write(.addRules([rule]))
+  }
+
+  func updateRule(old: ApprovalRule, new: ApprovalRule) -> Bool {
+    write(.replaceRule(old: old, new: new))
+  }
+
   func setCheckForUpdates(_ enabled: Bool) {
     write(.checkForUpdates(enabled))
   }
@@ -1279,7 +1287,7 @@ final class SettingsModel {
       for name in edits.compactMap(\.key) {
         writeErrors[name] = message
       }
-      if edits.contains(where: \.removesRule) {
+      if edits.contains(where: \.editsRules) {
         rulesError = message
       }
       preferences = shown
@@ -1289,7 +1297,7 @@ final class SettingsModel {
     for name in edits.compactMap(\.key) {
       writeErrors[name] = nil
     }
-    if edits.contains(where: \.removesRule) {
+    if edits.contains(where: \.editsRules) {
       rulesError = nil
     }
     recordVisit(of: edits)
@@ -1304,7 +1312,7 @@ final class SettingsModel {
       switch edit {
       case .reset(let name): reset.append(name)
       case .forAgent(_, .approvalCard): written.append(.approvalCard)
-      case .forAgent, .removeRule, .addRules: break
+      case .forAgent, .removeRule, .addRules, .replaceRule: break
       default: edit.key.map { written.append($0) }
       }
     }
