@@ -77,6 +77,17 @@ public enum ClaudeAdapter {
     return root["hook_event_name"]?.stringValue
   }
 
+  public static func isCursorPayload(_ data: Data) -> Bool {
+    guard let decoded = try? JSONDecoder().decode(JSONValue.self, from: data),
+      case .object(let root) = decoded
+    else { return false }
+    if root["cursor_version"] != nil {
+      return true
+    }
+    guard let firstLetter = root["hook_event_name"]?.stringValue?.first else { return false }
+    return firstLetter.isLowercase
+  }
+
   public static func parseUserPromptSubmit(_ data: Data) throws -> ContextCheckpointInput {
     let decoded: JSONValue
     do {

@@ -379,6 +379,23 @@ import Testing
     #expect(ClaudeAdapter.eventName(of: Data("not json".utf8)) == nil)
   }
 
+  @Test func recognizesACursorPayloadByItsVersionOrLowercaseEvent() throws {
+    #expect(ClaudeAdapter.isCursorPayload(try FixtureLoader.data("cursor-shell")))
+    #expect(ClaudeAdapter.isCursorPayload(Data(#"{"hook_event_name":"stop"}"#.utf8)))
+    #expect(
+      ClaudeAdapter.isCursorPayload(
+        Data(#"{"hook_event_name":"Stop","cursor_version":"3.22.12"}"#.utf8)))
+  }
+
+  @Test func doesNotTakeAClaudePayloadForACursorOne() throws {
+    #expect(!ClaudeAdapter.isCursorPayload(try FixtureLoader.data("claude-bash")))
+    #expect(!ClaudeAdapter.isCursorPayload(try FixtureLoader.data("claude-user-prompt-submit")))
+    #expect(!ClaudeAdapter.isCursorPayload(try FixtureLoader.data("claude-stop")))
+    #expect(!ClaudeAdapter.isCursorPayload(Data(#"{"session_id":"s"}"#.utf8)))
+    #expect(!ClaudeAdapter.isCursorPayload(Data("[1]".utf8)))
+    #expect(!ClaudeAdapter.isCursorPayload(Data("not json".utf8)))
+  }
+
   @Test func parsesTheUserPromptSubmitFixture() throws {
     let input = try ClaudeAdapter.parseUserPromptSubmit(
       FixtureLoader.data("claude-user-prompt-submit"))

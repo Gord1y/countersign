@@ -26,6 +26,11 @@ enum HookRunner {
 
     let input = FileHandle.standardInput.readDataToEndOfFile()
 
+    if options.host == .claude, ClaudeAdapter.isCursorPayload(input) {
+      log.write("ignored: a Cursor payload in a Claude Code hook")
+      exit(0)
+    }
+
     if options.event == .waiting {
       WaitingRecorder.recordTurnEnded(
         input: input, host: options.host, settings: settings, paths: paths, log: log)

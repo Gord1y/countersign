@@ -148,6 +148,19 @@ the text a person typed never leaves the parser. It returns a `ContextCheckpoint
 `Context checkpoint` and an empty tool input, so the panel and the queue treat it like any other
 request.
 
+## Cursor payloads in Claude Code hooks
+
+Cursor also runs the hooks in `~/.claude/settings.json`, through its Claude Code compatibility, so
+a Cursor prompt or end of turn reaches `countersign hook --host claude` with a Cursor payload: no
+`cwd`, Cursor's own fields, and an event name that is not Claude Code's. Before anything else, the
+hook checks the input with `ClaudeAdapter.isCursorPayload(_:)`: a JSON object with a
+`cursor_version` key (every captured Cursor payload has one), or whose `hook_event_name` starts
+with a lowercase letter (Claude Code's event names start with a capital, Cursor's with a lowercase
+letter). Such an input exits 0 with empty stdout and one log line, `ignored: a Cursor payload in a
+Claude Code hook`. Cursor's own entries in `~/.cursor/hooks.json` reach Countersign as
+`--host cursor`, so nothing is lost; before the check, every Cursor turn logged `unparseable input:
+missing cwd` and `waiting: unparseable input`.
+
 ## The waiting record's envelope
 
 A waiting entry (`hook --event waiting`, see [notice.md](notice.md)) reads only the envelope each

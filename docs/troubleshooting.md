@@ -81,6 +81,8 @@ request starts with a `start host=… tool=… project=…` line and ends with w
 `skipped: sandboxed command`, `handoff: <bundle id> frontmost`,
 `resolved during grace: registry` or `outcome: allow`; a paused Countersign logs just `paused`. If
 the agent asks and nothing at all is logged, the agent never ran the hook: check its wiring.
+Cursor also runs Claude Code's hooks; those runs log `ignored: a Cursor payload in a Claude Code
+hook` and change nothing.
 
 ## No waiting-agent notice appears
 
