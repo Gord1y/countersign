@@ -65,7 +65,7 @@ private struct RuleRow: View {
 
   var body: some View {
     HStack(alignment: .top, spacing: 10) {
-      Text(rule.decision == .allow ? "Allow" : "Deny")
+      Text(decisionText)
         .font(PanelTypography.caption)
         .foregroundStyle(rule.decision == .allow ? CountersignPalette.accentText : Color.red)
         .frame(width: 40, alignment: .leading)
@@ -102,7 +102,7 @@ private struct RuleRow: View {
         .help("Edit this rule")
         .accessibilityLabel("Edit rule")
         Button {
-          model.removeRule(rule)
+          remove()
         } label: {
           Image(systemName: "minus.circle.fill")
             .font(.system(size: 13))
@@ -126,6 +126,19 @@ private struct RuleRow: View {
 
   private func edit() {
     RuleSheet.present(model: model, editing: rule, on: NSApp.keyWindow)
+  }
+
+  private func remove() {
+    let removedRule = rule
+    RemoveRulePrompt.present(
+      lines: ["\(decisionText): \(patternText)", scopeText], on: NSApp.keyWindow
+    ) { [model] in
+      model.removeRule(removedRule)
+    }
+  }
+
+  private var decisionText: String {
+    rule.decision == .allow ? "Allow" : "Deny"
   }
 
   private var scopeText: String {

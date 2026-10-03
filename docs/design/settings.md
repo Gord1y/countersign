@@ -956,6 +956,11 @@ The pane has no Restore Defaults and no `preferenceNames`. The default is "no ru
 it would delete every rule the person wrote, and one wrong click would lose work that the other
 panes' resets only ever lose as a tuned number.
 
+The remove button asks first (`RemoveRulePrompt`, an `NSAlert` sheet on the Settings window like
+the Restore Defaults prompt): "Remove this rule?", the rule in two lines (decision and pattern,
+then the scope line), and Remove / Cancel. A rule has no undo, and a deny rule written by hand can
+take a while to get right, so one stray click on a small button should not lose it.
+
 Removal is `PreferenceEdit.removeRule(ApprovalRule)`. `ConfigEdit` reads each element of the
 top-level `rules` array through the same per-entry reader `ConfigFileParser` uses and removes the
 first element that reads as a rule equal to the one given. Matching on the parsed rule and not on

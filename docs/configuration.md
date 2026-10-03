@@ -436,7 +436,8 @@ ignored.
 
 Rules are off while Countersign is paused, like everything else it does.
 
-Settings ▸ Rules lists every rule in the order of the file and removes one with its minus button.
+Settings ▸ Rules lists every rule in the order of the file and removes one with its minus button,
+after asking you to confirm.
 Entries that couldn't be read aren't listed; the pane counts them and offers Open in Editor.
 
 ## Context checkpoints (Claude Code)
