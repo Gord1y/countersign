@@ -52,6 +52,11 @@ How each answer plays out, agent by agent, is in [agents.md](agents.md); the des
 - The agents' hook config files, when you run setup, doctor or the Settings window.
 - Codex's `config.toml`, at the same times, for one thing only: the trust Codex stores for its hooks,
   to tell whether Codex has trusted Countersign's hook. Everything else in that file is skipped.
+- For a Cursor request, Cursor's own settings: the run mode from Cursor's settings database
+  (`~/Library/Application Support/Cursor/User/globalStorage/state.vscdb`, opened read-only), and
+  for a shell command the command allowlist, from the same database or from the
+  `terminalAllowlist` in `~/.cursor/permissions.json` and the project's `.cursor/permissions.json`.
+  Nothing else in them is used.
 - Its own config file.
 
 None of this leaves your Mac, and none of it is written to the log.
