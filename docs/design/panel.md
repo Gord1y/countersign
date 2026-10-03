@@ -424,6 +424,33 @@ Every kind of input counts as activity:
   right before the hook's run loop starts. A change during the grace period or in the queue is not
   seen, which matters only for a change that came with no input event of its own within the idle
   threshold before the lease was won.
+- **Mission Control and App Exposé.** While either is on screen, `secondsSinceLastInput()` treats
+  the moment it was last seen as input, so the gate holds for as long as the overview is open and
+  for a full idle pause after it closes; a panel never opens over the overview or the instant it
+  goes. No public API says Mission Control is open. On each call `SystemActivity` reads the
+  on-screen window list (`CGWindowListCopyWindowInfo` with `.optionOnScreenOnly`, owner, layer and
+  bounds only, about 0.4 ms) and `MissionControl.isShowing` looks for a window owned by the Dock at
+  layer 18 that covers at least 90% of an active display (`CGDisplayBounds`). Measured on
+  2026-10-04 on macOS 26.6.2 with one display: at rest the Dock owns only the wallpaper (a layer
+  far below zero) and, while the Dock is up, the Dock window at layer 20. Every Mission Control and
+  App Exposé view added a full-display Dock window at layer 18, next to layer 0 and layer 20 Dock
+  windows that varied from one view to the next, and the layer 18 window went away as the view
+  closed. A Space switch added none. The first tick that sees the overview in `waitingForIdle` logs
+  `waiting: Mission Control is open`. If a later macOS draws the overview differently, the check
+  sees nothing and the gate behaves as it did before it existed.
+- **Space changes.** `SystemActivity` observes `NSWorkspace.activeSpaceDidChangeNotification`
+  and treats its arrival as input, like an input source change, so a swipe to another Space or a
+  full-screen app restarts the idle pause even when the pointer never moved. The notification
+  reaches an `.accessory` process, as the hook is, when the switch completes: about a second after
+  the swipe began (measured on 2026-10-04, same machine).
+
+Trackpad gestures are not counted as input. A swipe into Mission Control or between Spaces sends
+gesture events (`NSEvent` type 29, `gesture`, and type 30, `magnify`, which `CGEventType` has no
+names for), and `secondsSinceLastEventType` reports them, as it does for `kCGAnyInputEventType`.
+But fingers resting on the trackpad without moving send type 29 about every 100 ms for as long as
+they rest (measured on 2026-10-04, same machine), so counting gestures would hold every panel back
+while a hand sits on the trackpad. The overview and Space checks above cover what the gestures
+open instead.
 
 Once shown, the panel owns the keyboard (see "Keyboard alert without activation"), so a key typed
 while it is up lands in the panel, not elsewhere, and there is no key-down somewhere else to watch

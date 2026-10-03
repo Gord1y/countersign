@@ -440,6 +440,7 @@ private final class DisplayWatch: NSObject {
   private let isPaused: () -> Bool
   private var waitingForIdleSince = ProcessInfo.processInfo.systemUptime
   private var waitFollowsStepAside = false
+  private var missionControlHoldLogged = false
   private var approvalCard: CornerCard?
   private var approvalCardStage = ApprovalCardStage.notShown
   private var approvalClaim: ApprovalClaim?
@@ -544,6 +545,7 @@ private final class DisplayWatch: NSObject {
         showAfterIdle()
         return
       }
+      logMissionControlHold()
       showApprovalCardIfDue(quiet: quiet)
 
     case .shown(let controller):
@@ -573,6 +575,14 @@ private final class DisplayWatch: NSObject {
 
   private func quietTimeHoldsPanels() -> Bool {
     mode.honorsQuietTime && quietState.activeUntil() != nil
+  }
+
+  private func logMissionControlHold() {
+    let showing = systemActivity.isMissionControlShowing
+    if showing, !missionControlHoldLogged {
+      log.write("waiting: Mission Control is open")
+    }
+    missionControlHoldLogged = showing
   }
 
   private func waitForIdle(afterStepAside: Bool) {

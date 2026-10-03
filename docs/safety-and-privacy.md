@@ -46,6 +46,9 @@ How each answer plays out, agent by agent, is in [agents.md](agents.md); the des
 - With waiting-agent notices on, the growth of the session's transcript, to tell when the agent
   works again (see [below](#what-it-writes)). Message text is not used.
 - The chain of parent processes, to tell which app a request came from.
+- While a request waits for you to pause, which windows are on screen: for each, the app that owns
+  it, its layer and its size, to tell when Mission Control or App Exposé is open. Window titles and
+  contents are not used.
 - The agents' hook config files, when you run setup, doctor or the Settings window.
 - Codex's `config.toml`, at the same times, for one thing only: the trust Codex stores for its hooks,
   to tell whether Codex has trusted Countersign's hook. Everything else in that file is skipped.

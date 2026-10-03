@@ -8,6 +8,11 @@ for something specific, or when it behaves differently from what you expected an
 
 - Countersign cannot tell which chat tab you are looking at. The idle rule and the fast "answered
   in chat" detection are what keep it out of the way for the chat you are reading.
+- A panel waits while Mission Control or App Exposé is open. macOS has no public way to tell that
+  either is showing, so Countersign recognizes the Dock window macOS 26 draws for them; if a later
+  macOS draws them differently, a panel can again open while they are on screen after a pause.
+  Trackpad gestures on their own don't count as activity, because resting fingers on the trackpad
+  look the same to Countersign as a gesture.
 - The waiting-agent notice cannot bring a specific terminal tab or window forward, only the app
   the agent runs in: **Go there** opens that app, and you find the session yourself.
 - The notice cannot tell a turn that ends with a question in the chat from any other finished
