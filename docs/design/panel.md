@@ -131,19 +131,19 @@ hidden button could still fire.
 Instead, the monitor turns Return into `PanelKey.primary`, ⌘Return into `PanelKey.alternate`, and
 ⌫ (`kVK_Delete`, the backspace key — forward delete is not included) into `PanelKey.secondary`, and
 asks the view's `keyHandler` to perform it. `PanelController` performs `.alternate` only when the
-visible state's `keyHandler.uses(.alternate)` answers true; otherwise it performs `.primary`
-instead, so ⌘Return does whatever Return does everywhere `.alternate` has no meaning. The view
-knows which state is visible, so exactly one action fires:
+visible state's `keyHandler.uses(.alternate)` answers true; otherwise ⌘Return does nothing, so
+it never stands in for Return where it has no action of its own. The view knows which state is
+visible, so at most one action fires:
 
 | View | State | Return | ⌘Return |
 | --- | --- | --- | --- |
 | Permission | default, with suggestions | Approve (allow once) | Opens Approve ▾ |
-| Permission | default, no suggestions | Approve (allow once) | Same as Return |
-| Permission | deny | Deny, with the reason typed so far | Deny & stop, with the reason typed so far (only when `host.supportsInterrupt`; otherwise same as Return) |
-| Questions | all answered | Submit | Same as Return |
-| Questions | otherwise | Move to the next unanswered tab, wrapping around | Same as Return |
+| Permission | default, no suggestions | Approve (allow once) | Nothing |
+| Permission | deny | Deny, with the reason typed so far | Deny & stop, with the reason typed so far (only when `host.supportsInterrupt`; otherwise nothing) |
+| Questions | all answered | Submit | Nothing |
+| Questions | otherwise | Move to the next unanswered tab, wrapping around | Nothing |
 | Plan | default | Approve with the selected mode | Opens then: ▾ |
-| Plan | feedback | Send feedback | Same as Return |
+| Plan | feedback | Send feedback | Nothing |
 | Any | a dropdown is open | Picks the highlighted row | Closes the dropdown |
 
 | View | State | ⌫ |
@@ -168,8 +168,10 @@ used and performs them there, so nothing reaches the view behind it. The rules:
   `.default` step to open Approve ▾ when the request has suggestions, and in the `.deny` step with
   `host.supportsInterrupt`, where it fires "Deny & stop" with the reason typed so far instead.
   `PlanView` uses it in `.default` to open the "then:" mode menu. Everywhere `.alternate` isn't
-  used, `PanelController` falls back to `.primary`, so ⌘Return keeps doing whatever plain Return
-  does. While a dropdown is open, ⌘Return closes it instead — see the dropdown bullet below.
+  used, ⌘Return does nothing: an approval or an answer comes only from Return or a click, and a
+  shortcut no hint advertises never stands in for one (the user's call, 2026-10-04, after a
+  Cursor panel without Approve ▾ approved on ⌘Return). While a dropdown is open, ⌘Return closes it
+  instead — see the dropdown bullet below.
 - **Esc** calls `finish(.noDecision)` in every state, even while a text field is being edited.
   Otherwise `NSTextView` would take Esc as `cancelOperation:` and run completion instead.
   `cancelOperation` on the panel still covers ⌘. the same way. For a Cursor request that would run
@@ -1215,10 +1217,10 @@ up on "← Back" (see "Keeping the layout still when the content changes" for wh
 so Return there sends the feedback and Shift+Return starts a new line.
 
 No button carries a keyboard shortcut. Return commits the visible state: Approve (allow once) in
-`.default`, Deny with the typed reason in `.deny`. ⌘Return does the same in `.deny` when
-`host.supportsInterrupt` is false; otherwise it fires Deny & stop instead. In `.default`, ⌘Return
-opens Approve ▾ when the request has suggestions (see "The Approve button and its ▾" below), and
-otherwise does the same as Return. ⌫ opens the reason or feedback step from `.default` — see
+`.default`, Deny with the typed reason in `.deny`. In `.deny`, ⌘Return fires Deny & stop when
+`host.supportsInterrupt` is true and does nothing otherwise. In `.default`, ⌘Return opens
+Approve ▾ when the request has suggestions or an Always allow offer (see "The Approve button and
+its ▾" below), and does nothing otherwise. ⌫ opens the reason or feedback step from `.default` — see
 "Return, Esc and the other keys" for the full key. `PermissionView`'s `keyHandler` reads
 `footerState` when the key arrives, so the hidden state can never be the one that fires.
 
@@ -1431,8 +1433,8 @@ implying an immediate reaction. Four cards follow, numbered 1 to 4 (Continue, Co
 step, Hand off & start fresh, Not this session), each with a one-line description. The footer is one
 primary button titled with the highlighted choice.
 
-**Keys.** 1 to 4 and ↑/↓ move the highlight; Return and ⌘Return perform the highlighted choice
-(⌘Return has no menu here, so it does what Return does); Esc and a click outside answer "no
+**Keys.** 1 to 4 and ↑/↓ move the highlight; Return performs the highlighted choice (⌘Return has
+no menu here, so it does nothing); Esc and a click outside answer "no
 decision", which is Continue. Delete is not used. Digits move the highlight rather than performing
 the choice, so a mistyped digit is never an answer; a click on a card performs it. The arm lock
 applies as for every panel: `chooseCheckpoint` is guarded the way `finish` is.

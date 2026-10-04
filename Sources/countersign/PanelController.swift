@@ -361,8 +361,6 @@ final class PanelController {
     case .alternate:
       if keyHandler?.uses(.alternate) == true {
         keyHandler?.perform(.alternate)
-      } else {
-        keyHandler?.perform(.primary)
       }
     case .secondary:
       keyHandler?.perform(.secondary)

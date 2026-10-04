@@ -135,9 +135,9 @@ without asking; a compound command gets a panel unless every part is on the list
 - **Deny** blocks it, shows your reason to you and hands it to the agent. There is no
   **Deny & stop**, and no questions or plans.
 - **No Approve ▾ → Always allow.** Cursor would ignore the saved rule's approval too, so Approve
-  has no ▾ menu here and <kbd>⌘</kbd><kbd>Return</kbd> approves like <kbd>Return</kbd>. An allow
-  rule you add in Settings ▸ Rules keeps Countersign's panel away; Cursor still decides by its run
-  mode.
+  has no ▾ menu here and <kbd>⌘</kbd><kbd>Return</kbd> does nothing; <kbd>Return</kbd>
+  approves. An allow rule you add in Settings ▸ Rules keeps Countersign's panel away; Cursor still
+  decides by its run mode.
 - **Answer in chat** depends on Cursor's run mode. In Allowlist mode (and the old Ask Every Time),
   it makes Cursor show its own approval prompt, even for a command it would have run in its
   sandbox, and `handoffApps` does the same. In Auto-review or Run Everything mode, Cursor's prompt

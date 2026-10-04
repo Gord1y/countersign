@@ -74,6 +74,8 @@ testedWith:
 
 - The ⓘ explanations in Settings open when you hover them, not only when you click.
 - Panels ignore keys and clicks for their first 500 ms instead of 800 ms.
+- <kbd>⌘</kbd><kbd>Return</kbd> only opens a ▾ menu or fires **Deny & stop**. Where a panel has
+  neither, it does nothing; it no longer approves or answers in place of <kbd>Return</kbd>.
 - Esc on a Cursor request follows Cursor's Run Mode, so Cursor no longer runs a command you
   stepped away from. In Allowlist mode Esc hands the request back to Cursor's own prompt, as
   before. In Auto-review and Run Everything, where Cursor would run it without asking, Esc or a
