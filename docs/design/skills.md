@@ -24,3 +24,52 @@ addition, which is another folder laid out the same way, at `<folder>/catalog.js
   to show them.
 - **A missing list is an empty list.** A catalog with only a schema version is valid; a list that is
   present but not an array is not.
+
+## The installer's state
+
+The installer keeps its state in `${XDG_CONFIG_HOME:-$HOME/.config}/countersign/skills/`, which
+is `AppPaths.skillsStateDirectory`. `SkillsInstallState.read` reads it; every piece is optional,
+and a missing file or folder is an empty list, never an error.
+
+- `sources.tsv`: one absolute folder per line. The first is the countersign-skills checkout
+  itself (`setupFolder`), every later line an addition. The installer rewrites it on every
+  install. A fresh machine has none, which is how Countersign knows nothing is installed.
+- `additions.tsv`: one absolute folder per line, appended by `install.sh --addition <folder>`.
+- `manifest.tsv`: written only by `install.sh --copy`, one line per installed file with five tab
+  separated columns: agent, skill, version, file (relative to the skill folder) and sha256. A
+  linked install, the default, writes none, so an empty manifest means "linked or not installed",
+  not "broken".
+- `backups/<yyyymmdd-hhmmss>/`: one folder per install that moved something aside; the installer
+  keeps the newest five. The names sort by time, so the list is the names in reverse order.
+  Plain files in `backups` are not backups and are ignored, and so are hidden entries, here and
+  in an agent's skills folder.
+
+`settings-layer.json`, `base/` and `originals/` live in the same folder and are not read.
+
+- **A malformed line is skipped, not a failure.** The installer appends to `additions.tsv`, so a
+  half-written line can sit at the end of the file. One bad line must not hide the rest, so a
+  folder line that is not an absolute path, and a manifest line without exactly five fields or
+  without a 64-character lowercase hex sha256, is dropped and the other lines are kept.
+- **Trailing whitespace is trimmed from folder lines only.** A path may legitimately contain
+  inner spaces; the installer never writes trailing ones.
+
+### Where each agent's skills live
+
+`AppPaths.agentSkillsDirectory(for:)` computes the folder for the agents the setup knows:
+
+| Agent | Skills folder |
+| --- | --- |
+| `claude` | `${CLAUDE_CONFIG_DIR:-$HOME/.claude}/skills` |
+| `codex` | `$HOME/.agents/skills` |
+| `antigravity` | `$HOME/.gemini/antigravity-cli/skills` |
+
+Any other agent, Cursor included, has none and gets `nil`. The installer writes the Codex folder
+only when `$HOME/.codex` exists and the Antigravity folder only when
+`$HOME/.gemini/antigravity-cli` exists. `agentSkillsDirectory` is pure path computation and does
+not apply that rule: a caller checks that the folder exists before it reports the agent as
+installed or missing.
+
+`InstalledSkill.scan` lists one such folder. A linked install leaves a symbolic link per skill
+pointing into the source folder, which scans as `linked` with its target (a relative target is
+resolved against the scanned folder and standardized); a copy install leaves a real folder, which
+scans as `copied`. Plain files and hidden entries are not skills and are skipped.

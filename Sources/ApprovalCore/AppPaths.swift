@@ -120,4 +120,35 @@ public struct AppPaths: Sendable, Equatable {
   public var configFile: URL {
     configDirectory.appendingPathComponent("config.json")
   }
+
+  public var skillsStateDirectory: URL {
+    configDirectory.appendingPathComponent("skills")
+  }
+
+  public func agentSkillsDirectory(for agent: String) -> URL? {
+    switch agent {
+    case "claude":
+      return claudeConfigRoot.appendingPathComponent("skills")
+    case "codex":
+      return
+        home
+        .appendingPathComponent(".agents")
+        .appendingPathComponent("skills")
+    case "antigravity":
+      return
+        home
+        .appendingPathComponent(".gemini")
+        .appendingPathComponent("antigravity-cli")
+        .appendingPathComponent("skills")
+    default:
+      return nil
+    }
+  }
+
+  private var claudeConfigRoot: URL {
+    if let claudeConfigDir, !claudeConfigDir.isEmpty {
+      return URL(fileURLWithPath: claudeConfigDir)
+    }
+    return home.appendingPathComponent(".claude")
+  }
 }

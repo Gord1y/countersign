@@ -94,6 +94,36 @@ import Testing
     #expect(paths.claudeSessionsDirectory.path == "/Users/dev/.claude-work/sessions")
   }
 
+  @Test func skillsStateDirectoryFollowsTheConfigDirectory() {
+    let home = URL(fileURLWithPath: "/Users/dev")
+    #expect(
+      AppPaths(home: home).skillsStateDirectory.path == "/Users/dev/.config/countersign/skills")
+    #expect(
+      AppPaths(home: home, xdgConfigHome: "/Users/dev/.xdgconfig").skillsStateDirectory.path
+        == "/Users/dev/.xdgconfig/countersign/skills")
+  }
+
+  @Test func agentSkillsDirectoryForClaudeFollowsTheConfigDir() {
+    let home = URL(fileURLWithPath: "/Users/dev")
+    #expect(
+      AppPaths(home: home).agentSkillsDirectory(for: "claude")?.path == "/Users/dev/.claude/skills")
+    #expect(
+      AppPaths(home: home, claudeConfigDir: "").agentSkillsDirectory(for: "claude")?.path
+        == "/Users/dev/.claude/skills")
+    #expect(
+      AppPaths(home: home, claudeConfigDir: "/Users/dev/.claude-work")
+        .agentSkillsDirectory(for: "claude")?.path == "/Users/dev/.claude-work/skills")
+  }
+
+  @Test func agentSkillsDirectoryForTheOtherAgents() {
+    let paths = AppPaths(home: URL(fileURLWithPath: "/Users/dev"))
+    #expect(paths.agentSkillsDirectory(for: "codex")?.path == "/Users/dev/.agents/skills")
+    #expect(
+      paths.agentSkillsDirectory(for: "antigravity")?.path
+        == "/Users/dev/.gemini/antigravity-cli/skills")
+    #expect(paths.agentSkillsDirectory(for: "cursor") == nil)
+  }
+
   @Test func doesNotCreateAnyDirectories() {
     let home = URL(fileURLWithPath: "/tmp/countersign-app-paths-test-\(UUID().uuidString)")
     let paths = AppPaths(home: home)
