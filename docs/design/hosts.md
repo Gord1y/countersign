@@ -326,7 +326,8 @@ does not apply at all (see the next section).
 Cursor ignores a hook's `allow` and `ask` and decides by its own run mode; only `deny` is
 respected. On 2026-10-04, with Cursor 3.22.12 in Allowlist mode, Approve ▾ → Always allow on
 `curl -sI https://example.com` saved the rule, the hook printed `{"permission":"allow"}`
-(`outcome: allow`), and Cursor showed its own approval prompt. Cursor's staff call it "an open bug
+(`outcome: allow`), and Cursor showed its own approval prompt; after an update to Cursor 3.23.12 the same day, plain
+Approve in Allowlist mode still did. Cursor's staff call it "an open bug
 ticket" ("right now only `deny` is respected", 2026-05-23, in
 [Support authoritative allow, deny, and ask verdicts from hooks](https://forum.cursor.com/t/support-authoritative-allow-deny-and-ask-verdicts-from-hooks/161342));
 it has been reported since Cursor 2.1.36
