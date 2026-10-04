@@ -46,7 +46,8 @@ would appear, not when the request arrives (see "Handing off to the asking app" 
 - **Panel.** A borderless, non-activating `NSPanel` with SwiftUI content, centered on the display
   under your mouse over a softly blurred backdrop. Details in [panel](panel.md).
 - **Hosts.** One adapter per host translates requests in and decisions out. Codex supports only
-  allow and deny. Cursor supports allow, deny and ask: it is asked only about shell commands it
+  allow and deny. Cursor takes allow, deny and ask, but today respects only deny and otherwise
+  decides by its own run mode (a Cursor bug; see hosts.md). It is asked only about shell commands it
   runs outside its sandbox and about MCP tools, "Answer in chat" answers it with `ask` so it shows
   its own prompt, and its hook hands back with `ask` a minute before Cursor's timeout, since Cursor
   lets a command run when its hook times out. Under Auto-review and Run Everything, where `ask`
@@ -56,9 +57,9 @@ would appear, not when the request arrives (see "Handing off to the asking app" 
   minute before its timeout. It still asks the person itself after an Approve until it fixes
   google-antigravity/antigravity-cli#1053. Details in [hosts](hosts.md).
 - **Waiting notices.** When an agent's turn ends, or a request goes back to its own prompt, the
-  hook writes a record and starts a detached `countersign notice` process. After a few minutes
-  away from the agent's app, it shows a small corner card that never takes focus, and closes when
-  the agent resumes. Details in [notice](notice.md).
+  hook writes a record and starts a detached `countersign notice` process. After a short delay
+  (`waitingNoticeDelay`, 10 seconds by default) away from the agent's app, it shows a small corner
+  card that never takes focus, and closes when the agent resumes or after `waitingNoticeDuration`. Details in [notice](notice.md).
 
 The app icon is outside this flow; how it was drawn, why its accent is amber and how the panel's
 header draws the same mark in code are in [icon](icon.md).
