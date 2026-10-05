@@ -314,7 +314,7 @@ and `approvalCardDelay`.
 
 For a request from an agent, its `hosts` value wins over the top-level one, which wins over the
 default. This file is the only place settings live: the hook command takes nothing but
-`--host <agent>`. The menu-bar app's Snooze menu isn't tied to one agent, so it always uses the
+`--host <agent>`, plus `--event waiting` on the Stop entry of waiting-agent notices. The menu-bar app's Snooze menu isn't tied to one agent, so it always uses the
 top-level `snoozeMinutes`, and quiet hours are top-level only too.
 
 #### Mistakes in the file

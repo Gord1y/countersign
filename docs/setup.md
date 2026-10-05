@@ -41,7 +41,7 @@ these statuses:
 | Not installed | Countersign found no data directory for this agent | Nothing, until you install the agent |
 | Not wired | The agent's hook file has no Countersign entry | **Wire** |
 | Wired | The entry is there and up to date | Nothing, or **Remove** to take it out |
-| Needs an update | The entry points at another copy of `countersign`, runs it with anything but `hook --host <agent>`, lacks a field setup writes, or lacks the Stop entry of waiting-agent notices while they are on | **Update** |
+| Needs an update | The entry points at another copy of `countersign`, runs it with anything but `hook --host <agent>` (`hook --host <agent> --event waiting` for the Stop entry), lacks a field setup writes, or lacks the Stop entry of waiting-agent notices while they are on | **Update** |
 | Can't be set up | The file can't be read, isn't valid JSON or has a shape setup can't edit, or the running binary isn't named `countersign` | Fix what the row names; setup won't write until then |
 
 Each button first shows the exact diff it would write, in a popup with the button's name and

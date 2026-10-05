@@ -1037,7 +1037,7 @@ re-checks `isArmed` itself, so even a key or `cancelOperation` that somehow gets
 no-op.
 
 `armDuration` is a `PanelController` init parameter, clamped to `0...3` seconds and defaulting to
-0.8. `hook`, `test-panel` and `preview` feed it the `armDelay` resolved from the config file (see
+`Settings.defaultArmDelay`, 0.5. `hook`, `test-panel` and `preview` feed it the `armDelay` resolved from the config file (see
 [configuration.md](../configuration.md)), except that `hook` feeds a panel shown after a queue handoff the
 `chainedArmDelay` instead, 0.1 s by default; `countersign snapshot` never reads that file, so it
 always renders at the built-in default. `0` means the panel arms the instant `show()` runs, with no
