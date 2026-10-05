@@ -124,8 +124,14 @@ writes and sends: [Safety and privacy](docs/safety-and-privacy.md).
 - **Real context for edits.** The enclosing function or block, real line numbers, and "Show N
   unchanged lines" rows that expand up to the whole file. Codex patches get the same treatment.
 - **Approve, or deny with a reason.** Approve's ▾ menu holds the "Always allow" rules Claude Code
-  suggests, each with the exact rule and where it is saved. Deny takes a reason, and for Claude
-  Code also offers **Deny & stop**.
+  suggests, each with the exact rule and where it is saved; for Codex, **Always allow** saves a
+  Countersign rule for that project. Deny takes a reason, and for Claude Code also offers
+  **Deny & stop**.
+- **Allow and deny rules.** A rule answers a request before any panel shows: allow lets it
+  through, deny blocks it and tells the agent why. Narrow a rule by agent, project, tool or
+  command; deny always wins, and a compound command is allowed only when every part is. Add them
+  in Settings ▸ Rules, or pick a suggestion such as deny `sudo`; see
+  [Allow and deny rules](docs/configuration.md#allow-and-deny-rules).
 - **Questions and plans.** Claude's `AskUserQuestion` as tabs with numbered options, multi-select,
   an Other field and an optional note (off by default); plans as Markdown, with the mode Claude
   continues in.
@@ -137,11 +143,16 @@ writes and sends: [Safety and privacy](docs/safety-and-privacy.md).
 - **A sound cue (optional).** One macOS sound when a panel appears, off by default; see
   [Sound](docs/configuration.md#panels).
 - **Waiting-agent notices.** When an agent has finished a turn, or handed a request back
-  to its own prompt, and you have been away from it for a few minutes, a small corner card says
-  which agent is waiting, with a **Go there** button. On by default, and it never takes focus; see
-  [Waiting-agent notices](docs/configuration.md#panels).
+  to its own prompt, and you have been away from it for 10 seconds (by default), a small corner
+  card says which agent is waiting, with a **Go there** button. On by default, and it never takes
+  focus; see [Waiting-agent notices](docs/configuration.md#panels).
+- **Approval cards.** When a request is waiting for you to pause and you keep working, a corner
+  card such as "Cursor needs your approval · shop-api" has a **Show** button that brings the panel
+  up at once. On by default for Codex, Cursor and Antigravity; see
+  [Approval cards](docs/configuration.md#panels).
 - **Decision history and menu answers.** The menu-bar app lists your last ten answers, and lets you
-  deny a pending request or hand it back to its chat without opening its panel; see
+  deny a pending request, hand it back to its chat, or bring its panel up with **Show Now**, even
+  during a snooze, without waiting for a pause; see
   [the menu-bar app](docs/menu-bar-app.md#pause-snooze-and-pending-requests).
 - **Accessible.** Panels announce themselves to VoiceOver, read shortcuts and diff lines aloud, and
   honour Reduce Motion and Increase Contrast; see [design/panel.md](docs/design/panel.md#accessibility).
