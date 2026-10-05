@@ -115,6 +115,7 @@ jobs:
             8. **Read**: one line naming the files and commits you read.
             Before you finish, update your progress comment with the Verdict line, the Issues line and one line per Blocker, Major and Minor, so it stands on its own.
           claude_args: >-
+            --model claude-sonnet-5-5
             --allowedTools "Read,Glob,Grep"
             --disallowedTools "Bash,Edit,Write,MultiEdit,NotebookEdit,WebFetch,WebSearch"
             --json-schema '{"type":"object","properties":{"verdict":{"type":"string","enum":["APPROVE","REQUEST_CHANGES"]},"body":{"type":"string","minLength":1}},"required":["verdict","body"],"additionalProperties":false}'

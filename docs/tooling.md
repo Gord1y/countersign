@@ -331,7 +331,10 @@ posts a progress comment while it works and ends with a formal review from `gith
 request for changes when it finds a verified Blocker, an approval otherwise, with every finding
 graded in its body. On the owner's own pull requests that approval is the one the rulesets
 require (see [Branches and rulesets](#branches-and-rulesets)). Both jobs run on `ubuntu-latest`.
-There are two ways in, and only the repository owner can use either:
+The review runs on Claude Sonnet 5.5, pinned with `--model claude-sonnet-5-5`: without it, the
+model is whatever the action defaults to, which a Dependabot bump of the action can change without
+anything in this repository showing it. There are two ways in, and only the repository owner can
+use either:
 
 - **Automatic:** `pull_request` (`opened`, `synchronize`, `reopened`, `ready_for_review`), when the
   pull request is not a draft, its author is the repository owner
