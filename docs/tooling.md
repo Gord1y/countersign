@@ -470,10 +470,24 @@ same `head.sha` or `gate` output the checkout used. `gh pr review` always review
 current head, so a push landing while Claude read the old commit would have turned its approval
 into one for code it never read; pinned to the reviewed commit, that approval is stale on arrival
 and, with stale approvals dismissed, counts for nothing. The step then checks the review GitHub
-returns from that call: its state must be `APPROVED` or `CHANGES_REQUESTED` to match, and its
-commit the reviewed one. Reading the response, rather than listing the pull request's reviews,
-means no page limit can hide the review just posted. An empty body, an unknown verdict or a review
-GitHub does not record that way fails the job.
+returns from that call: its state must be `APPROVED`, `CHANGES_REQUESTED` or `COMMENTED` to match
+what it posted, and its commit the reviewed one. Reading the response, rather than listing the
+pull request's reviews, means no page limit can hide the review just posted. An empty body, an
+unknown verdict or a review GitHub does not record that way fails the job.
+
+Before it posts an approval, the step checks that the review opened the change. The prepare step
+writes every changed path under `Sources/`, `Tests/`, `scripts/`, `.github/` and `Package.swift`
+to `$RUNNER_TEMP/review-required.txt` before the action runs. The action's `execution_file` output
+is the session's transcript, every message and tool call. The step takes each `Read` call from it
+whose result was not an error and counts a path as opened when Claude read its diff under
+`.build/review/files/` or the file itself; a missing transcript counts as nothing opened. When an
+approval leaves any listed path unopened, the step posts it as a `COMMENT` instead, with the
+unopened paths above the body, and logs a warning. A request for changes is posted as it is. The
+check reads what the tools did, not what the review says: both reviews of 0.2.0 said in their own
+body that they had not opened the diff, and were posted as approvals. A comment is not an approval,
+so the pull request stays blocked until a run that opened everything approves. It also does not
+withdraw an approval the same reviewer gave earlier at that commit; a push dismisses that one as
+stale.
 
 A failed run, like a request for changes, leaves the owner's pull request without the approval the
 rulesets require. GitHub counts each reviewer's latest review, so the way out is a new run: push a
