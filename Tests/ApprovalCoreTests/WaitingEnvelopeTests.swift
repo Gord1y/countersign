@@ -37,6 +37,17 @@ import Testing
         + "b7c8d9e0-f1a2-4b3c-8d4e-5f6a7b8c9d0e/b7c8d9e0-f1a2-4b3c-8d4e-5f6a7b8c9d0e.jsonl")
   }
 
+  @Test func readsAntigravityStop() throws {
+    let envelope = try #require(
+      WaitingEnvelope.parse(FixtureLoader.data("antigravity-stop"), host: .antigravity))
+    #expect(envelope.sessionID == "a7b8c9d0-e1f2-4a3b-8c4d-5e6f7a8b9c0d")
+    #expect(envelope.projectPath == "/Users/dev/Projects/shop-api")
+    #expect(
+      envelope.transcriptPath
+        == "/Users/dev/.gemini/antigravity-cli/brain/a7b8c9d0-e1f2-4a3b-8c4d-5e6f7a8b9c0d/"
+        + ".system_generated/logs/transcript_full.jsonl")
+  }
+
   @Test func cursorStopIsACursorPayloadInAClaudeHook() throws {
     #expect(ClaudeAdapter.isCursorPayload(try FixtureLoader.data("cursor-stop")))
     #expect(!ClaudeAdapter.isCursorPayload(try FixtureLoader.data("codex-stop")))

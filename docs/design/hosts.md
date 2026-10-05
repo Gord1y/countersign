@@ -78,11 +78,11 @@ record's hash at write unknown (`CodexHashAtWrite.unread`).
 
 Waiting-agent notices hook each host's end-of-turn event. `WaitingEnvelope` reads only the
 session, the project folder and the transcript path from it. The Codex and Cursor `Stop` payloads
-were captured on 2026-10-01 (`codex-stop.json`, `cursor-stop.json` in the test fixtures); the
-Antigravity one has not been captured yet, so its entry's shape still follows the `countersign`
-hook and its unconfirmed details are named constants (see "The waiting entries of Codex, Cursor
-and Antigravity" in [setup.md](setup.md)). Every entry runs `<exe> hook --host <host> --event
-waiting` with a 30 second timeout and no `async`, which only Claude Code has.
+were captured on 2026-10-01 (`codex-stop.json`, `cursor-stop.json` in the test fixtures), and the
+Antigravity CLI 1.2.17 one on 2026-10-05 (`antigravity-stop.json`), once its entry had the flat
+shape Antigravity requires (see "The waiting entries of Codex, Cursor and Antigravity" in
+[setup.md](setup.md)). Every entry runs `<exe> hook --host <host> --event waiting` with a 30
+second timeout and no `async`, which only Claude Code has.
 
 - Codex sends `session_id`, `turn_id`, `transcript_path` (the rollout file), `cwd`,
   `hook_event_name` `"Stop"`, `model`, `permission_mode`, `stop_hook_active` and
@@ -92,6 +92,11 @@ waiting` with a 30 second timeout and no `async`, which only Claude Code has.
   `cursor_version`, `workspace_roots`, `user_email` and `transcript_path`, and no `cwd`: the project
   folder is the first workspace root. It carries `cursor_version`, so a Cursor turn that also runs
   Claude Code's `Stop` hook is ignored there (see "Cursor payloads in Claude Code hooks").
+- Antigravity sends camelCase keys: the fields every Antigravity hook carries (`conversationId`,
+  `workspacePaths`, `transcriptPath`, `artifactDirectoryPath`, `modelName`) plus `executionNum`,
+  `terminationReason` (`"NO_TOOL_CALL"` for a turn that ended without a tool call), `error` and
+  `fullyIdle`. There is no event name in it. Its reply may be `{"decision": "continue"}` to keep
+  the agent going; the waiting entry prints nothing, so the agent stops as usual.
 
 - Claude Code: `hooks.Stop` in `settings.json`, `async`.
 - Codex: `hooks.Stop` in `$CODEX_HOME/hooks.json`, in one group without a matcher. Codex runs it
@@ -176,9 +181,10 @@ missing cwd` and `waiting: unparseable input`.
 ## The waiting record's envelope
 
 A waiting entry (`hook --event waiting`, see [notice.md](notice.md)) reads only the envelope each
-host sends with every hook, never a Stop-specific field: only Claude Code's Stop payload is captured
-(`claude-stop.json`), and fields such as `stop_hook_active` wait for the other hosts' captures.
-`WaitingEnvelope.parse(_:host:)` reads, treating an empty string as missing:
+host sends with every hook, never a Stop-specific field: the hosts' Stop-only fields differ
+(`stop_hook_active`, `status`, `terminationReason`), and the envelope is what all four share with
+their permission payloads. `WaitingEnvelope.parse(_:host:)` reads, treating an empty string as
+missing:
 
 | Host | Session id | Project path | Transcript |
 | --- | --- | --- | --- |
