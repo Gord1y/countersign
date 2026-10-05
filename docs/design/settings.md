@@ -618,7 +618,9 @@ the two groups, so it shows whichever group is open; Launch at login, the test p
 
 The window reads the hosts' files again whenever it becomes key, and the config file too when its
 bytes changed on disk, so a change made in an editor shows up when the person comes back to the
-window. That reread never replaces text the person is typing: while the Snooze presets field has
+window. A config file that can no longer be read shows the same problem line as when the window
+opens on one, rather than leaving the old values up as if they were still the file's. That reread
+never replaces text the person is typing: while the Snooze presets field has
 the focus, or shows an error, it keeps its text, and the add field is never touched by a reread.
 Every other control shows the file's new value. A write reads the file again first, so it lands on
 top of an edit made elsewhere instead of undoing it.

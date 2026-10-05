@@ -443,6 +443,7 @@ final class SettingsModel {
     do {
       current = try ConfigFileStore.read(configFile)
     } catch {
+      loadPreferences()
       return
     }
     guard current != knownConfigBytes else { return }
