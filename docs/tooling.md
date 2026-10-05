@@ -421,12 +421,25 @@ needs to read the change, not run it, so the model gets no shell and no way to c
 
 With no shell, Claude cannot run `git diff` or `gh pr diff`, and when the workflow supplies its own
 prompt the action gives the model that prompt and nothing else: no diff, no file list, no commits.
-So a step before the action, with no secret in its environment, writes
-`git diff "$BASE_SHA...HEAD"` to `.build/review/changes.diff` and
-`git log --no-merges --format='%h %s' "$BASE_SHA..HEAD"` to `.build/review/commits.txt`, and the
-prompt tells Claude to read both first. `BASE_SHA` comes from `github.event.pull_request.base.sha`
-for the automatic trigger and from `gate`'s `base-sha` output for `/review`, only ever through
-`env:`. The checkout uses `fetch-depth: 0` so the base commit and the merge base are present.
+So a step before the action, with no secret in its environment, writes into `.build/review/`:
+
+- `commits.txt`: `git log --no-merges --format='%h %s' "$BASE_SHA..HEAD"`.
+- `files/<path>.diff`: one `git diff --no-renames "$BASE_SHA...HEAD" -- <path>` per changed file.
+- `index.txt`: one line per changed file, `Sources` first, then `Tests`, then the rest, with its
+  added and deleted line counts and the path of its diff.
+
+The prompt tells Claude to read the index and the commits, then open every listed diff with `Read`
+by its exact path. A release pull request carries a whole release: 0.2.0's was 294 files and
+1.5 MB of diff. As a single file that is far past what one `Read` returns, and both reviews of it
+approved without opening it. One file's diff is far smaller: 0.2.0's largest was 1,200
+lines. `.build/` is gitignored, and `Glob` and `Grep` skip gitignored paths, so
+the prompt names the exact paths rather than leaving the model to find them. `--no-renames` lists
+a moved file as a deletion and an addition, so every path in the index has a diff of its own.
+
+`BASE_SHA` comes from `github.event.pull_request.base.sha` for the automatic trigger and from
+`gate`'s `base-sha` output for `/review`, only ever through `env:`. The checkout uses
+`fetch-depth: 0` so the base commit and the merge base are present. The job's 60-minute timeout
+leaves room to read a release-sized pull request file by file.
 
 #### The verdict
 
