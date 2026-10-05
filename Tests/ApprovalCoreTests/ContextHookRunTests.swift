@@ -192,3 +192,75 @@ private struct Sandbox {
     #expect(sandbox.text == permissionOnly)
   }
 }
+
+private let demoSettings = """
+  {
+    "hooks": {
+      "PermissionRequest": [
+        {
+          "matcher": "",
+          "hooks": [
+            {
+              "type": "command",
+              "command": "/opt/homebrew/bin/countersign hook --host claude",
+              "timeout": 3600
+            }
+          ]
+        }
+      ],
+      "Stop": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "/opt/homebrew/bin/countersign hook --host claude --event waiting",
+              "async": true,
+              "timeout": 30
+            }
+          ]
+        }
+      ],
+      "UserPromptSubmit": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "/opt/homebrew/bin/countersign hook --host claude",
+              "async": true,
+              "timeout": 3600
+            }
+          ]
+        }
+      ]
+    }
+  }
+
+  """
+
+@Suite struct ContextHookStatusAgreementTests {
+  @Test func contextAndAgentsStatusesAgreeOnTheDemoSettings() throws {
+    let sandbox = try Sandbox(contents: demoSettings)
+    defer { sandbox.remove() }
+    let context = ContextHookRun.status(file: sandbox.file, executablePath: brewPath)
+    let agents = HostWiring.status(
+      host: .claude, directoryExists: true,
+      file: ConfigFileStore.fileState(sandbox.file), stablePath: brewPath,
+      addsWaitingEntry: true, addsContextEntry: true)
+    #expect(context == .wired)
+    #expect(agents == .wired)
+  }
+
+  @Test func contextAndAgentsStatusesAgreeWhenTheFileHoldsAnotherPath() throws {
+    let other = demoSettings.replacingOccurrences(
+      of: "/opt/homebrew/bin/countersign", with: "/opt/other/bin/countersign")
+    let sandbox = try Sandbox(contents: other)
+    defer { sandbox.remove() }
+    let context = ContextHookRun.status(file: sandbox.file, executablePath: brewPath)
+    let agents = HostWiring.status(
+      host: .claude, directoryExists: true,
+      file: ConfigFileStore.fileState(sandbox.file), stablePath: brewPath,
+      addsWaitingEntry: true, addsContextEntry: true)
+    #expect(context == .needsUpdate)
+    #expect(agents != .wired)
+  }
+}

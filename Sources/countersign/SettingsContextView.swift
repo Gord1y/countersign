@@ -153,9 +153,11 @@ private struct ContextHookRow: View {
         Text(model.contextHookStatus.title)
           .font(PanelTypography.body)
           .foregroundStyle(.secondary)
+          .multilineTextAlignment(.trailing)
         if offersUpdate {
           Button("Update") { model.requestContextHookUpdate() }
             .buttonStyle(SecondaryButtonStyle())
+            .fixedSize()
             .disabled(model.contextChange != nil)
         }
       }
