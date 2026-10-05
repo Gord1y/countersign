@@ -384,7 +384,8 @@ allow rule applies only when every part is matched by some allow rule in scope, 
 `ls && rm -rf build` is not allowed by an allow rule for `ls` alone. A command Countersign can't
 split safely is never decided by a rule with a `command`, allow or deny: it gets its panel. That is
 any command with a `$` outside single quotes (a variable, `$(...)`, `$'...'` or `${...}`),
-backticks, parentheses, braces, or a `#` comment.
+backticks, parentheses, braces, a `#` comment, or an output redirection to a file (`> out`, `>> log`;
+`2>&1`, `>&2` and `> /dev/null` are fine).
 
 A rule without a `command` decides every request in its scope, whatever the tool. An allow rule
 with only `"agent": "codex"` lets every Codex request through, so scope it with care.

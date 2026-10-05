@@ -22,11 +22,27 @@ import Testing
     #expect(ShellCommandSegments.split("echo a\\;b")?.count == 1)
   }
 
-  @Test func redirectionsAreNotSeparators() {
+  @Test func harmlessRedirectionsAreNotSeparators() {
     #expect(ShellCommandSegments.split("ls 2>&1") == ["ls 2>&1"])
     #expect(ShellCommandSegments.split("ls >&2") == ["ls >&2"])
-    #expect(ShellCommandSegments.split("ls &> out") == ["ls &> out"])
-    #expect(ShellCommandSegments.split("ls &>> out") == ["ls &>> out"])
+    #expect(ShellCommandSegments.split("ls >/dev/null") == ["ls >/dev/null"])
+    #expect(ShellCommandSegments.split("ls 2> /dev/null") == ["ls 2> /dev/null"])
+    #expect(ShellCommandSegments.split("ls &>/dev/null; pwd") == ["ls &>/dev/null", "pwd"])
+    #expect(ShellCommandSegments.split("sort < in.txt") == ["sort < in.txt"])
+  }
+
+  @Test func aRedirectionThatWritesAFileIsUnknown() {
+    #expect(ShellCommandSegments.split("ls > out") == nil)
+    #expect(ShellCommandSegments.split("ls >> out") == nil)
+    #expect(ShellCommandSegments.split("ls >| out") == nil)
+    #expect(ShellCommandSegments.split("ls &> out") == nil)
+    #expect(ShellCommandSegments.split("ls &>> out") == nil)
+    #expect(ShellCommandSegments.split("ls 2>out") == nil)
+    #expect(ShellCommandSegments.split("ls >&out") == nil)
+    #expect(ShellCommandSegments.split("ls >&1x") == nil)
+    #expect(ShellCommandSegments.split("ls >/dev/null.txt") == nil)
+    #expect(ShellCommandSegments.split("ls >\"/dev/null\"") == nil)
+    #expect(ShellCommandSegments.split("cat <> file") == nil)
   }
 
   @Test func substitutionsAndGroupingsAreUnknown() {

@@ -36,7 +36,8 @@ it must not depend on rule order or on an allow rule that happens to match too.
 ## An unsplittable command is never decided
 
 `ShellCommandSegments.split` returns nothing for a command it cannot split safely: one with a `$`
-outside single quotes, a backtick, a parenthesis, a brace, or a `#` that starts a word. For those,
+outside single quotes, a backtick, a parenthesis, a brace, a `#` that starts a word, or an output
+redirection to anything but `/dev/null` or another descriptor. For those,
 neither an allow nor a deny rule with a `command` decides: an allow would let an unseen `$(rm x)`
 through, and a deny that quietly fails to apply is no better than none. The panel is the safety
 net, so the person sees the whole command. Rules without a `command` do not look at the command and
@@ -56,6 +57,14 @@ rules are where 0.2.0's first splitter was bypassed. Each of these passed an all
 A variable in a command therefore always gets a panel. A `$` escaped with a backslash or inside
 single quotes is literal, and a `#` inside a word, as in a URL's fragment, is not a comment, so
 both still split.
+
+An output redirection writes a file the rule never named: an allow rule for `ls` would otherwise
+let `ls > ~/.zshrc` through. Only `/dev/null` and a copy onto another descriptor, such as `2>&1`
+and `>&2`, write nothing new, so those still split, with or without a descriptor number or a
+blank before the target. Anything else after `>`, `>>`, `>|`, `&>` or `&>>` is refused, the
+target included when it is quoted. A descriptor copy has to end its word, because `>&1x` writes a
+file named `1x`. An input redirection `<` only reads and still splits, while `<>` also opens the
+file for writing and is refused.
 
 ## One pattern language
 

@@ -162,6 +162,12 @@ import Testing
     #expect(decide(try shell("git log \"${(e)${:-\\$(rm -rf x)}}\""), rules) == nil)
   }
 
+  @Test func anAllowRuleNeverCoversARedirectionThatWritesAFile() throws {
+    let rules = [ApprovalRule(decision: .allow, command: "ls")]
+    #expect(decide(try shell("ls > ~/.zshrc"), rules) == nil)
+    #expect(decide(try shell("ls 2>/dev/null"), rules) == .allow(ruleIndex: 0))
+  }
+
   @Test func anUnsplittableCommandIsStillDecidedByARuleWithoutACommand() throws {
     let allow = [ApprovalRule(decision: .allow, agent: .cursor)]
     #expect(decide(try shell("echo $(rm x)"), allow) == .allow(ruleIndex: 0))

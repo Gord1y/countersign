@@ -113,8 +113,8 @@ testedWith:
   read Cursor's run mode, it keeps the command waiting rather than letting Cursor run it.
 - A command Countersign can't split safely is never decided by a command rule and shows the panel:
   any command with a `$` outside single quotes (a variable, `$(...)`, `$'...'` or `${...}`),
-  backticks, parentheses, braces or a `#` comment. A compound command is allowed only when an allow
-  rule covers every part of it.
+  backticks, parentheses, braces, a `#` comment, or an output redirection to a file. A compound
+  command is allowed only when an allow rule covers every part of it.
 - Still no account and no telemetry.
 
 ## Upgrading
