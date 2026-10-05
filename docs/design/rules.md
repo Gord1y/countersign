@@ -72,7 +72,9 @@ Every other unknown key in the config file is logged and ignored, but a rule wit
 whole. A rule's keys narrow it, so ignoring one makes the rule broader than written: with
 `"comand": "git status"` misspelled, an allow rule for `"tool": "Bash"` would let every shell
 command through. A key a later version adds to narrow rules is read the same way by an older one.
-Dropping the rule leaves its requests to the panel, the answer that is wrong only by asking.
+Dropping the rule leaves its requests to the panel, the answer that is wrong only by asking. The
+entry gets one log line that starts with its path, `rules[0]: unknown key "comand", dropped`, so
+Settings counts it among the rules it couldn't read, which it does by the `rules` prefix.
 
 ## One pattern language
 

@@ -54,14 +54,14 @@ import Testing
     let (file, logLines) = parse(
       #"{ "rules": [{ "decision": "allow", "tool": "Bash", "comand": "git status" }] }"#)
     #expect(file.rules == [])
-    #expect(logLines == ["unknown key \"rules[0].comand\", dropped"])
+    #expect(logLines == ["rules[0]: unknown key \"comand\", dropped"])
   }
 
-  @Test func anUnknownKeyDropsOnlyItsEntry() {
+  @Test func anUnknownKeyDropsOnlyItsEntryWithOneLineCountedAsUnreadable() {
     let (file, logLines) = parse(
-      #"{ "rules": [{ "decision": "allow", "when": "now" }, { "decision": "deny" }] }"#)
+      #"{ "rules": [{ "decision": "allow", "b": 1, "a": 2 }, { "decision": "deny" }] }"#)
     #expect(file.rules == [ApprovalRule(decision: .deny)])
-    #expect(logLines == ["unknown key \"rules[0].when\", dropped"])
+    #expect(logLines == ["rules[0]: unknown keys \"a\", \"b\", dropped"])
   }
 
   @Test func aMissingOrBadDecisionDropsTheEntry() {

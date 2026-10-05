@@ -835,9 +835,9 @@ public enum ConfigFileParser {
     }
     let unknownKeys = object.keys.sorted().filter { !ruleKeys.contains($0) }
     guard unknownKeys.isEmpty else {
-      for key in unknownKeys {
-        logLines.append("unknown key \"\(path).\(key)\", dropped")
-      }
+      let names = unknownKeys.map { "\"\($0)\"" }.joined(separator: ", ")
+      let noun = unknownKeys.count == 1 ? "key" : "keys"
+      logLines.append("\(path): unknown \(noun) \(names), dropped")
       return nil
     }
     guard let decision = object["decision"]?.stringValue.flatMap(ApprovalRule.Decision.init)

@@ -457,7 +457,7 @@ A bad entry never stops the others. An entry that isn't an object, has no `"allo
 decision, or has an `agent`, `project`, `tool`, `command` or `message` of the wrong kind is dropped
 and logged, for example `rules[2].agent: expected "claude", "codex", "cursor" or "antigravity",
 dropped`. An entry with a key Countersign doesn't know is dropped too, with a line such as
-`unknown key "rules[0].comand", dropped`: ignoring a misspelled `command` would leave an allow rule
+`rules[0]: unknown key "comand", dropped`: ignoring a misspelled `command` would leave an allow rule
 that lets every request in its scope through. A `rules` value that isn't an array is ignored.
 
 Rules are off while Countersign is paused, like everything else it does.
