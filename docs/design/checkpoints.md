@@ -29,7 +29,11 @@ the latest.
 Transcripts grow without bound, so the reader looks only at the last 512 KiB. When the read did
 not start at offset 0, the first line is cut off mid-row and is dropped. If the tail holds no
 usable row at all, for example because a long run of tool output pushed the last usage row out of
-it, the reader falls back to reading the whole file once.
+it, the hook's read, `read(transcriptURL:identity:)`, falls back to reading the whole file once.
+The tail-only `read(transcriptURL:)` that the watcher and the menu-bar meter call on every tick has
+no fallback and returns nothing: the meter shows the session's last saved tokens, and the watcher
+looks again when the file next grows. With a fallback there, a transcript of hundreds of
+megabytes would be read whole on every growth.
 
 A compaction writes a `system` row with `subtype: "compact_boundary"`, a `uuid` and
 `compactMetadata.postTokens`. When that row comes after the latest main usage row, the next usage
