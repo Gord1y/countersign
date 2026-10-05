@@ -255,8 +255,8 @@ group opens scrolled to its top. Only the content column scrolls, never the side
 
 #### Scrolling
 
-The content column is an AppKit `NSScrollView` (`SettingsScrollView`) whose document view is an
-`NSHostingView` of `SettingsContent`, not a SwiftUI `ScrollView`. On macOS, SwiftUI's `ScrollView`
+The content column is an AppKit `NSScrollView` (`SettingsScrollView`) whose document view hosts
+`SettingsContent` in an `NSHostingView`, not a SwiftUI `ScrollView`. On macOS, SwiftUI's `ScrollView`
 re-lays out the whole hosted pane and re-runs hover hit-testing through every row on each scroll
 frame: a `sample` of fast scrolling on Panels showed the main thread about 19% busy even with
 elasticity fixed, about 525 of 6434 samples in `NSHostingView.layout` and about 318 in hover
@@ -265,8 +265,8 @@ drawn, so a scroll frame runs neither. The document view is pinned to the clip v
 and trailing edges and takes its height from the hosted content's intrinsic size, so rows that
 expand or collapse resize it and the scroller follows.
 
-The document view is a plain flipped `NSView` (`SettingsDocumentView`) containing the hosting
-controller's view, not the hosting view itself. `NSHostingView` overrides
+The document view is a plain flipped `NSView` (`SettingsDocumentView`) with the `NSHostingView`
+pinned to all four of its edges, not the hosting view itself. `NSHostingView` overrides
 `scrollWheel(with:)`, so its class answers false to `isCompatibleWithResponsiveScrolling`, and
 AppKit then scrolls on the main thread (`NSScrollingBehaviorSingleThreadedVBL`) instead of its
 concurrent responsive path. An Animation Hitches trace of fast trackpad scrolling on Panels in that
@@ -283,22 +283,28 @@ representable scrolls the clip view to its origin when the selected group change
 `SettingsContent` carries its own trailing `SettingsMetrics.padding`, so the last card's bottom edge
 has room above the window's edge once scrolled all the way down.
 
-Every pane opens at its top because the document view is sized for the width it is shown at. The
-hosted view's own intrinsic height is measured with an unspecified width, so a line that only wraps
-at the real column width (Agents' long "Points at ..." paths) made it too short: the content was
-taller than the document view, SwiftUI centred the overflow, and the pane opened with about 60 pt
-of its top cut off while the clip view's origin was still 0. `SettingsDocumentView` therefore
-owns an `NSHostingController`, asks it `sizeThatFits` at the clip view's width on every layout,
-sets its own frame to that height and fills it with the hosting view; the controller's
-`preferredContentSize` is observed so a row that expands or collapses re-measures. No constraint
-carries the height, because changing one during a layout pass trapped the Rules pane. The clip
-view's origin stays 0 until the person scrolls, and the pane change still scrolls to it.
+Every pane opens at its top because the hosted root is measured at the width it is shown at.
+`NSHostingView` computes its intrinsic size from an unspecified proposal, so a line that only wraps
+at the real column width (Agents' long "Points at ..." paths) made the height too short: the
+content was taller than the document view, SwiftUI centred the overflow, and the pane opened with
+its top cut off while the clip view's origin was still 0. `SettingsDocumentView.layout()` therefore
+hands the hosted root (`SettingsDocumentContent`) the document view's width whenever it changes,
+and the root wraps `SettingsContent` in `.frame(width:)`, so the intrinsic height is the height at
+that width. Constraints still carry it to the document view.
 
-The hosted root is `SettingsContent` with `.fixedSize(horizontal: false, vertical: true)`, so the
-content is measured at its ideal height for the width. Without it the tall height proposal made
-views with a flexible height grow to fill it: the Rules suggestion cards (`maxHeight: .infinity`, so
-the cards of a grid row match heights) stretched into tall empty boxes. A grid row still stretches
-its cells to the row's tallest cell.
+The root also fixes its vertical size (`.fixedSize(horizontal: false, vertical: true)`), so the
+content keeps its ideal height for the width instead of compressing or stretching, and sits in
+`.frame(maxHeight: .infinity, alignment: .top)`, so in the pass between a width change and the new
+measurement it overflows at the bottom, never at the top. Views with a flexible height must never
+see a tall height proposal: the Rules suggestion cards (`maxHeight: .infinity`, so the cards of a
+grid row match heights) stretch into tall empty boxes under one. A grid row still stretches its
+cells to the row's tallest cell.
+
+A frame-based document view that measured the content with `NSHostingController.sizeThatFits` and
+set its own frame rendered correctly off-screen, yet in the on-screen window it opened panes with a
+large blank area above the content and stopped scrolling. Keep the height on constraints.
+`snapshot --settings` renders at the content's full height unless given `--size`, so it never
+exercises the scroll view: check a change to it with `--size` at two widths, then on screen.
 
 ### Header
 

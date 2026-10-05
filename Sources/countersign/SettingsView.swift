@@ -67,8 +67,17 @@ private struct SettingsScrollView: NSViewRepresentable {
     scrollView.drawsBackground = false
     scrollView.borderType = .noBorder
 
-    let documentView = SettingsDocumentView(content: SettingsDocumentContent(model: model))
+    let documentView = SettingsDocumentView(model: model)
+    documentView.translatesAutoresizingMaskIntoConstraints = false
     scrollView.documentView = documentView
+
+    let clipView = scrollView.contentView
+    NSLayoutConstraint.activate([
+      documentView.topAnchor.constraint(equalTo: clipView.topAnchor),
+      documentView.leadingAnchor.constraint(equalTo: clipView.leadingAnchor),
+      documentView.trailingAnchor.constraint(equalTo: clipView.trailingAnchor),
+      documentView.widthAnchor.constraint(equalTo: clipView.widthAnchor),
+    ])
     return scrollView
   }
 
@@ -90,26 +99,33 @@ private struct SettingsScrollView: NSViewRepresentable {
 
 private struct SettingsDocumentContent: View {
   let model: SettingsModel
+  let width: CGFloat?
 
   var body: some View {
     SettingsContent(model: model)
       .fixedSize(horizontal: false, vertical: true)
+      .frame(width: width)
+      .frame(maxHeight: .infinity, alignment: .top)
   }
 }
 
 private final class SettingsDocumentView: NSView {
-  private let hostingController: NSHostingController<SettingsDocumentContent>
-  private var contentSizeObservation: NSKeyValueObservation?
+  private let model: SettingsModel
+  private let hostingView: NSHostingView<SettingsDocumentContent>
 
-  init(content: SettingsDocumentContent) {
-    hostingController = NSHostingController(rootView: content)
-    hostingController.sizingOptions = [.preferredContentSize]
+  init(model: SettingsModel) {
+    self.model = model
+    hostingView = NSHostingView(rootView: SettingsDocumentContent(model: model, width: nil))
     super.init(frame: .zero)
-    autoresizingMask = [.width]
-    addSubview(hostingController.view)
-    contentSizeObservation = hostingController.observe(\.preferredContentSize) { [weak self] _, _ in
-      MainActor.assumeIsolated { self?.needsLayout = true }
-    }
+    hostingView.sizingOptions = [.intrinsicContentSize]
+    hostingView.translatesAutoresizingMaskIntoConstraints = false
+    addSubview(hostingView)
+    NSLayoutConstraint.activate([
+      hostingView.topAnchor.constraint(equalTo: topAnchor),
+      hostingView.bottomAnchor.constraint(equalTo: bottomAnchor),
+      hostingView.leadingAnchor.constraint(equalTo: leadingAnchor),
+      hostingView.trailingAnchor.constraint(equalTo: trailingAnchor),
+    ])
   }
 
   @available(*, unavailable)
@@ -120,15 +136,10 @@ private final class SettingsDocumentView: NSView {
   override var isFlipped: Bool { true }
 
   override func layout() {
-    let width = bounds.width
-    if width > 0 {
-      let height = hostingController.sizeThatFits(in: CGSize(width: width, height: 100_000)).height
-      if height > 0, abs(frame.height - height) > 0.5 {
-        setFrameSize(NSSize(width: width, height: height))
-      }
-    }
-    hostingController.view.frame = bounds
     super.layout()
+    let width = bounds.width
+    guard width > 0, hostingView.rootView.width != width else { return }
+    hostingView.rootView = SettingsDocumentContent(model: model, width: width)
   }
 }
 
