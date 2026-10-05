@@ -35,11 +35,27 @@ it must not depend on rule order or on an allow rule that happens to match too.
 
 ## An unsplittable command is never decided
 
-`ShellCommandSegments.split` returns nothing for a command it cannot split safely, such as one with
-a command substitution inside double quotes. For those, neither an allow nor a deny rule with a
-`command` decides: an allow would let an unseen `$(rm x)` through, and a deny that quietly fails to
-apply is no better than none. The panel is the safety net, so the person sees the whole command.
-Rules without a `command` do not look at the command and still apply.
+`ShellCommandSegments.split` returns nothing for a command it cannot split safely: one with a `$`
+outside single quotes, a backtick, a parenthesis, a brace, or a `#` that starts a word. For those,
+neither an allow nor a deny rule with a `command` decides: an allow would let an unseen `$(rm x)`
+through, and a deny that quietly fails to apply is no better than none. The panel is the safety
+net, so the person sees the whole command. Rules without a `command` do not look at the command and
+still apply.
+
+The splitter refuses every `$` rather than following each shell's expansion rules, because those
+rules are where 0.2.0's first splitter was bypassed. Each of these passed an allow rule for
+`git log` while the shell ran a second command:
+
+- `git log # '⏎rm -rf x⏎#'`: the shell reads `# '` as a comment and runs line 2, while a splitter
+  that does not know comments sees one quoted string.
+- `git log $'\'' ; rm -rf x⏎'`: inside `$'…'`, `\'` is an escaped quote, so bash and the splitter
+  disagree about where the quote ends.
+- `git log "${(e)${:-\$(rm -rf x)}}"`: zsh's `(e)` flag runs a command substitution from inside
+  double quotes.
+
+A variable in a command therefore always gets a panel. A `$` escaped with a backslash or inside
+single quotes is literal, and a `#` inside a word, as in a URL's fragment, is not a comment, so
+both still split.
 
 ## One pattern language
 

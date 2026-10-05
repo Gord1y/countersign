@@ -155,6 +155,13 @@ import Testing
     #expect(decide(try shell("echo $(rm x)"), rules) == nil)
   }
 
+  @Test func aCommentOrAnExpansionNeverHidesASecondCommandFromAnAllowRule() throws {
+    let rules = [ApprovalRule(decision: .allow, command: "git log")]
+    #expect(decide(try shell("git log # '\nrm -rf x\n#'"), rules) == nil)
+    #expect(decide(try shell("git log $'\\'' ; rm -rf x\n'"), rules) == nil)
+    #expect(decide(try shell("git log \"${(e)${:-\\$(rm -rf x)}}\""), rules) == nil)
+  }
+
   @Test func anUnsplittableCommandIsStillDecidedByARuleWithoutACommand() throws {
     let allow = [ApprovalRule(decision: .allow, agent: .cursor)]
     #expect(decide(try shell("echo $(rm x)"), allow) == .allow(ruleIndex: 0))

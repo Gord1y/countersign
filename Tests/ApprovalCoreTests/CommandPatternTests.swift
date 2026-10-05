@@ -38,6 +38,36 @@ import Testing
     #expect(ShellCommandSegments.split("(cd x && ls)") == nil)
   }
 
+  @Test func aCommentIsUnknown() {
+    #expect(ShellCommandSegments.split("git log # '\nrm -rf x\n#'") == nil)
+    #expect(ShellCommandSegments.split("ls #note") == nil)
+    #expect(ShellCommandSegments.split("ls;#note") == nil)
+  }
+
+  @Test func aHashInsideAWordIsKept() {
+    #expect(
+      ShellCommandSegments.split("curl https://example.test/#top")
+        == ["curl https://example.test/#top"])
+  }
+
+  @Test func aDollarOutsideSingleQuotesIsUnknown() {
+    #expect(ShellCommandSegments.split("echo $HOME") == nil)
+    #expect(ShellCommandSegments.split("echo \"$HOME\"") == nil)
+    #expect(ShellCommandSegments.split("git log $'\\'' ; rm -rf x\n'") == nil)
+    #expect(ShellCommandSegments.split("echo \"${(e)${:-\\$(id)}}\"") == nil)
+  }
+
+  @Test func anEscapedOrSingleQuotedDollarIsKept() {
+    #expect(ShellCommandSegments.split("echo \\$HOME")?.count == 1)
+    #expect(ShellCommandSegments.split("echo \"\\$HOME\"")?.count == 1)
+    #expect(ShellCommandSegments.split("echo '$HOME'")?.count == 1)
+  }
+
+  @Test func bracesAreUnknown() {
+    #expect(ShellCommandSegments.split("{ ls; }") == nil)
+    #expect(ShellCommandSegments.split("echo a{b,c}") == nil)
+  }
+
   @Test func singleQuotesHideSubstitutions() {
     #expect(ShellCommandSegments.split("echo '$(id)'")?.count == 1)
   }

@@ -111,9 +111,10 @@ testedWith:
 
 - Any error, crash or timeout still means "no decision", never an approval. If Countersign can't
   read Cursor's run mode, it keeps the command waiting rather than letting Cursor run it.
-- A command Countersign can't split safely, such as one with `$(...)` or backticks, is never
-  decided by a command rule and shows the panel, and a compound command is allowed only when an
-  allow rule covers every part of it.
+- A command Countersign can't split safely is never decided by a command rule and shows the panel:
+  any command with a `$` outside single quotes (a variable, `$(...)`, `$'...'` or `${...}`),
+  backticks, parentheses, braces or a `#` comment. A compound command is allowed only when an allow
+  rule covers every part of it.
 - Still no account and no telemetry.
 
 ## Upgrading

@@ -18,6 +18,11 @@ public enum ShellCommandSegments {
       current = String.UnicodeScalarView()
     }
 
+    func startsWord(at position: Int) -> Bool {
+      guard let previous = scalar(at: position - 1) else { return true }
+      return " \t\n;&|<>".unicodeScalars.contains(previous)
+    }
+
     while index < scalars.count {
       let character = scalars[index]
       let next = scalar(at: index + 1)
@@ -36,7 +41,7 @@ public enum ShellCommandSegments {
           index += 2
           continue
         }
-        if character == "`" || (character == "$" && next == "(") { return nil }
+        if character == "`" || character == "$" { return nil }
         current.append(character)
         if character == "\"" { inDoubleQuote = false }
         index += 1
@@ -56,9 +61,13 @@ public enum ShellCommandSegments {
         inDoubleQuote = true
         current.append(character)
         index += 1
-      case "`", "(", ")":
+      case "`", "(", ")", "{", "}", "$":
         return nil
-      case "$", "<", ">":
+      case "#":
+        if startsWord(at: index) { return nil }
+        current.append(character)
+        index += 1
+      case "<", ">":
         if next == "(" { return nil }
         current.append(character)
         index += 1

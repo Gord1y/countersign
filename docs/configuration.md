@@ -382,8 +382,9 @@ A compound command such as `cd app && pnpm lint | tee out.log` is split into its
 `||`, `;`, `|` and newlines, with quotes respected. A deny rule applies when any part matches. An
 allow rule applies only when every part is matched by some allow rule in scope, so
 `ls && rm -rf build` is not allowed by an allow rule for `ls` alone. A command Countersign can't
-split safely, for example one with `$(...)` or backticks, is never decided by a rule with a
-`command`, allow or deny: it gets its panel.
+split safely is never decided by a rule with a `command`, allow or deny: it gets its panel. That is
+any command with a `$` outside single quotes (a variable, `$(...)`, `$'...'` or `${...}`),
+backticks, parentheses, braces, or a `#` comment.
 
 A rule without a `command` decides every request in its scope, whatever the tool. An allow rule
 with only `"agent": "codex"` lets every Codex request through, so scope it with care.
