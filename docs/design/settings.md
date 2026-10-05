@@ -294,6 +294,12 @@ sets its own frame to that height and fills it with the hosting view; the contro
 carries the height, because changing one during a layout pass trapped the Rules pane. The clip
 view's origin stays 0 until the person scrolls, and the pane change still scrolls to it.
 
+The hosted root is `SettingsContent` with `.fixedSize(horizontal: false, vertical: true)`, so the
+content is measured at its ideal height for the width. Without it the tall height proposal made
+views with a flexible height grow to fill it: the Rules suggestion cards (`maxHeight: .infinity`, so
+the cards of a grid row match heights) stretched into tall empty boxes. A grid row still stretches
+its cells to the row's tallest cell.
+
 ### Header
 
 The header sits above the sidebar and the scroll view, full width, and never scrolls away: a 20 pt

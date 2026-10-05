@@ -67,7 +67,7 @@ private struct SettingsScrollView: NSViewRepresentable {
     scrollView.drawsBackground = false
     scrollView.borderType = .noBorder
 
-    let documentView = SettingsDocumentView(content: SettingsContent(model: model))
+    let documentView = SettingsDocumentView(content: SettingsDocumentContent(model: model))
     scrollView.documentView = documentView
     return scrollView
   }
@@ -88,11 +88,20 @@ private struct SettingsScrollView: NSViewRepresentable {
   }
 }
 
+private struct SettingsDocumentContent: View {
+  let model: SettingsModel
+
+  var body: some View {
+    SettingsContent(model: model)
+      .fixedSize(horizontal: false, vertical: true)
+  }
+}
+
 private final class SettingsDocumentView: NSView {
-  private let hostingController: NSHostingController<SettingsContent>
+  private let hostingController: NSHostingController<SettingsDocumentContent>
   private var contentSizeObservation: NSKeyValueObservation?
 
-  init(content: SettingsContent) {
+  init(content: SettingsDocumentContent) {
     hostingController = NSHostingController(rootView: content)
     hostingController.sizingOptions = [.preferredContentSize]
     super.init(frame: .zero)
