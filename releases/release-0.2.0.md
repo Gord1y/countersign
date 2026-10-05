@@ -87,8 +87,8 @@ testedWith:
   with "No answer in Countersign within an hour, so Cursor did not run this."
 - Pause and Snooze moved into a slimmer Settings header.
 - Settings always opens on Agents, instead of the group you last left it on.
-- Settings ▸ Panels, App and Context group their rows into titled blocks, such as Delays,
-  Interruptions and Corner cards, instead of one or two long cards.
+- Settings ▸ Panels and App group their rows into titled blocks, such as Delays, Interruptions
+  and Corner cards, as the new Context tab does.
 - **Wire**, **Update** and **Remove** in Settings ▸ Agents show the change in a popup and write
   only when you confirm it, replacing **Show changes**.
 - Settings scrolls more smoothly.
