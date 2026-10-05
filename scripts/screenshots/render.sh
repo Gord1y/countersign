@@ -6,7 +6,7 @@ root=$(cd "$here/../.." && pwd -P)
 demo="$here/demo"
 out=${1:-"$root/.build/screenshots"}
 countersign="$root/.build/debug/countersign"
-settings_readme_crop_height=1210
+settings_readme_crop_height=1092
 settings_rules_readme_crop_height=1490
 card_tile_width=1200
 

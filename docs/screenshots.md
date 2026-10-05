@@ -138,9 +138,11 @@ render as `<out-dir>/settings-<appearance>.png` and the crop as
 `CGImage.cropping(to:)` to the full width and the given height, measured from the top-left corner
 of the render. That height is `settings_readme_crop_height`, the one named value at the top of
 `render.sh`, in pixels at the render's 2x scale (points × 2; the render is 1640 px wide and as
-tall as the Agents tab's content, 1276 px in 0.2.0). It is pinned by rendering and looking, not
-computed from the layout, since it has to land just below the Agents card's bottom border, with the
-page background showing beneath it and nothing else —
+tall as the Agents tab's content, 1092 px in 0.2.0). Nothing follows the Agents card in 0.2.0, so
+the crop equals the render's height and keeps the content's 48 px of page background below the
+card. It is pinned by rendering and looking, not computed from the layout, since it has to land
+below the Agents card's bottom border, with the page background showing beneath it and nothing
+else —
 **re-check it, by rendering and looking, whenever the Settings layout changes.** `crop-top.swift`
 refuses a height taller than the render, so a layout that gets shorter stops `render.sh` rather
 than producing a wrong image.
