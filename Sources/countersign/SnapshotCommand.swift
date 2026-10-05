@@ -6,27 +6,36 @@ enum SnapshotCommand {
   private static let usage =
     "usage: countersign snapshot <request.json> --host claude|codex|cursor|antigravity"
     + " [--waiting N] [--appearance light|dark] [--accent #RRGGBB] [--unarmed] [--question-notes]"
-    + " [--open-menu approve|snooze|mode] -o <out.png>\n"
-    + "       countersign snapshot --test-panel command|question|plan"
+    + " [--open-menu approve|snooze|mode] [--later] -o <out.png>\n"
+    + "       countersign snapshot --test-panel command|question|plan|context"
     + " [--waiting N] [--appearance light|dark] [--accent #RRGGBB] [--unarmed] [--question-notes]"
-    + " [--open-menu approve|snooze|mode] -o <out.png>\n"
+    + " [--open-menu approve|snooze|mode] [--checkpoint-level soft|status|insist]"
+    + " -o <out.png>\n"
     + "       countersign snapshot --settings"
-    + " [--home <dir>] [--show-changes claude|codex|cursor|antigravity] [--show-copies]"
+    + " [--home <dir>] [--show-copies]"
     + " [--status active|paused|paused-until-open|quiet] [--size <width>x<height>]"
-    + " [--tab agents|panels|app|help|advanced] [--restore-prompt panels|app]"
-    + " [--explanation <preferenceName>] [--appearance light|dark] -o <out.png>\n"
+    + " [--tab agents|panels|app|rules|context|help|advanced] [--restore-prompt panels|app]"
+    + " [--explanation <preferenceName>] [--editor-choice ask|missing] [--rule-sheet new|edit]"
+    + " [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --quit-prompt [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --update-answer up-to-date|available|failed"
     + " [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --tour 1|2|3|4 [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --menu-bar-icon active|paused|quiet"
-    + " [--appearance light|dark] -o <out.png>"
+    + " [--appearance light|dark] -o <out.png>\n"
+    + "       countersign snapshot --waiting-notice claude|codex|cursor|antigravity"
+    + " [--project <name>] [--no-app] [--appearance light|dark] -o <out.png>\n"
+    + "       countersign snapshot --approval-card claude|codex|cursor|antigravity"
+    + " [--project <name>] [--appearance light|dark] -o <out.png>"
   private static let quietSnapshotMinutes: TimeInterval = 15
   private static let settingsFlag = "--settings"
   private static let quitPromptFlag = "--quit-prompt"
   private static let updateAnswerFlag = "--update-answer"
   private static let tourFlag = "--tour"
   private static let menuBarIconFlag = "--menu-bar-icon"
+  private static let waitingNoticeFlag = "--waiting-notice"
+  private static let approvalCardFlag = "--approval-card"
+  private static let waitingNoticeSampleProject = "shop-api"
   private static let menuBarIconStripPadding: CGFloat = 6
   private static let scale: CGFloat = 2
   private static let settleTurnLimit = 50
@@ -49,9 +58,15 @@ enum SnapshotCommand {
     if arguments.contains(menuBarIconFlag) {
       runMenuBarIcon(arguments)
     }
+    if arguments.contains(waitingNoticeFlag) {
+      runCornerCard(arguments, flag: waitingNoticeFlag)
+    }
+    if arguments.contains(approvalCardFlag) {
+      runCornerCard(arguments, flag: approvalCardFlag)
+    }
     guard let options = parse(arguments) else { CommandLineOutput.fail(usage) }
 
-    let request = loadRequest(options.source)
+    let request = loadRequest(options.source, checkpointLevel: options.checkpointLevel)
     let isTestPanel = options.source.isTestPanel
 
     NSApplication.shared.setActivationPolicy(.prohibited)
@@ -60,17 +75,21 @@ enum SnapshotCommand {
     let width = PanelController.panelWidth(screen: screen)
     let maxHeight = PanelController.maxContentHeight(screen: screen)
 
+    let subagentChain = SubagentDescription.chain(for: request)
     let waitingEntries = Array(
       repeating: WaitingEntry(
         summary: TicketSummary(
-          request: request, agentDescription: SubagentDescription.resolve(for: request))),
+          request: request, agentDescription: SubagentDescription.resolve(from: subagentChain))),
       count: options.waitingCount)
     let chatTrackingDrift =
       isTestPanel ? nil : ChatTrackingHealth.evaluateTranscript(request: request)
     CountersignPalette.use(options.accentColor)
     let model = PanelModel(
       request: request, waitingEntries: waitingEntries, questionNotes: options.questionNotes,
-      chatTrackingDrift: chatTrackingDrift, isTestPanel: isTestPanel,
+      chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
+      isTestPanel: isTestPanel, escapeKeepsWaiting: options.escapeKeepsWaiting,
+      alwaysAllowOffer: isTestPanel
+        ? nil : AlwaysAllowOffer.offer(for: request, home: AppPaths.standard.home),
       openDropdownOnAppear: options.openMenu)
     model.onSnooze = { _ in }
     if options.isArmed {
@@ -101,7 +120,9 @@ enum SnapshotCommand {
     write(png, to: options.outputPath)
   }
 
-  private static func loadRequest(_ source: RequestSource) -> ApprovalRequest {
+  private static func loadRequest(_ source: RequestSource, checkpointLevel: ContextLevel?)
+    -> ApprovalRequest
+  {
     switch source {
     case .file(let path, let host):
       let data: Data
@@ -116,6 +137,9 @@ enum SnapshotCommand {
         CommandLineOutput.fail("error: could not parse \(path) as a \(host.displayName) request")
       }
     case .testPanel(let kind):
+      if kind == .context, let checkpointLevel {
+        return TestPanelSample.contextRequest(level: checkpointLevel, settings: .default)
+      }
       do {
         return try TestPanelSample.request(for: kind)
       } catch {
@@ -135,12 +159,18 @@ enum SnapshotCommand {
     }
 
     let environment = options.home.map(SettingsEnvironment.current(home:)) ?? .current()
+    if let choice = options.editorChoice {
+      runEditorChoice(
+        choice: choice, configFile: environment.paths.configFile,
+        appearance: options.appearance, outputPath: options.outputPath)
+    }
     let model = SettingsModel(
       environment: environment, status: options.status.status, savesLearnedCodexTrust: false)
-    model.select(options.pane)
-    for host in options.disclosedHosts {
-      model.toggleChanges(host)
+    if let kind = options.ruleSheet {
+      runRuleSheet(
+        kind: kind, model: model, appearance: options.appearance, outputPath: options.outputPath)
     }
+    model.select(options.pane)
     if options.showsCopies, model.duplicateInstall != nil {
       model.toggleCopies()
     }
@@ -183,6 +213,62 @@ enum SnapshotCommand {
       .frame(width: width))
     let contentHeight = settledHeight(of: measuringView, maxHeight: .greatestFiniteMagnitude)
     return CGSize(width: width, height: contentHeight)
+  }
+
+  enum RuleSheetKind: String {
+    case new
+    case edit
+  }
+
+  @MainActor
+  private static func runRuleSheet(
+    kind: RuleSheetKind, model: SettingsModel, appearance: Appearance?, outputPath: String
+  ) -> Never {
+    let editing: ApprovalRule? =
+      kind == .edit
+      ? ApprovalRule(
+        decision: .deny, agent: .cursor, project: "~/Documents/app", tool: "Shell",
+        command: "git push:*", message: "Pushing is blocked here.")
+      : nil
+    let hostingView = NSHostingView(
+      rootView: RuleSheetView(model: model, editing: editing, close: {}))
+    hostingView.appearance = appearance?.appearance
+    var size = hostingView.fittingSize
+    for _ in 0..<settleTurnLimit {
+      hostingView.layoutSubtreeIfNeeded()
+      RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
+      let measured = hostingView.fittingSize
+      if measured == size { break }
+      size = measured
+    }
+    hostingView.setFrameSize(size)
+    guard let png = render(hostingView, background: .windowBackgroundColor) else {
+      CommandLineOutput.fail("error: could not render the rule sheet")
+    }
+    write(png, to: outputPath)
+  }
+
+  @MainActor
+  private static func runEditorChoice(
+    choice: EditorChoice, configFile: URL, appearance: Appearance?, outputPath: String
+  ) -> Never {
+    let hostingView = NSHostingView(
+      rootView: EditorChoiceSheet(
+        choice: choice, configFile: configFile, onOpen: { _, _ in }, onCancel: {}))
+    hostingView.appearance = appearance?.appearance
+    var size = hostingView.fittingSize
+    for _ in 0..<settleTurnLimit {
+      hostingView.layoutSubtreeIfNeeded()
+      RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
+      let measured = hostingView.fittingSize
+      if measured == size { break }
+      size = measured
+    }
+    hostingView.setFrameSize(size)
+    guard let png = render(hostingView, background: .windowBackgroundColor) else {
+      CommandLineOutput.fail("error: could not render the editor choice")
+    }
+    write(png, to: outputPath)
   }
 
   @MainActor
@@ -296,6 +382,33 @@ enum SnapshotCommand {
     hostingView.setFrameSize(size)
     guard let png = render(hostingView, background: .windowBackgroundColor) else {
       CommandLineOutput.fail("error: could not render the tour")
+    }
+    write(png, to: options.outputPath)
+  }
+
+  @MainActor
+  private static func runCornerCard(_ arguments: [String], flag: String) -> Never {
+    guard let options = parseCornerCard(arguments, flag: flag) else {
+      CommandLineOutput.fail(usage)
+    }
+
+    NSApplication.shared.setActivationPolicy(.prohibited)
+
+    let isApprovalCard = flag == approvalCardFlag
+    let model =
+      isApprovalCard
+      ? CornerCardModel.approval(hostName: options.host.displayName, projectName: options.project)
+      : CornerCardModel.waitingNotice(
+        hostName: options.host.displayName, projectName: options.project,
+        offersGoThere: options.offersGoThere)
+    let hostingView = NSHostingView(
+      rootView: CornerCardView(model: model).environment(\.panelSurface, .solid))
+    hostingView.appearance = options.appearance?.appearance
+    let height = settledHeight(of: hostingView, maxHeight: .greatestFiniteMagnitude)
+    hostingView.setFrameSize(NSSize(width: CornerCardView.width, height: height))
+    guard let png = render(hostingView) else {
+      CommandLineOutput.fail(
+        "error: could not render the \(isApprovalCard ? "approval card" : "waiting notice")")
     }
     write(png, to: options.outputPath)
   }
@@ -483,6 +596,17 @@ enum SnapshotCommand {
     let isArmed: Bool
     let questionNotes: Bool
     let openMenu: PanelDropdownID?
+    let checkpointLevel: ContextLevel?
+    let escapeKeepsWaiting: Bool
+  }
+
+  private static func contextLevel(named name: String) -> ContextLevel? {
+    switch name {
+    case "soft": return .soft
+    case "status": return .status
+    case "insist": return .insist
+    default: return nil
+    }
   }
 
   private static func parse(_ arguments: [String]) -> Options? {
@@ -496,6 +620,8 @@ enum SnapshotCommand {
     var isArmed = true
     var questionNotes = Settings.defaultQuestionNotes
     var openMenu: PanelDropdownID?
+    var checkpointLevel: ContextLevel?
+    var escapeKeepsWaiting = false
     var index = arguments.startIndex
 
     while index < arguments.count {
@@ -534,11 +660,18 @@ enum SnapshotCommand {
         isArmed = false
       case "--question-notes":
         questionNotes = true
+      case "--later":
+        escapeKeepsWaiting = true
       case "--open-menu":
         index += 1
         guard index < arguments.count, let menu = PanelDropdownID(rawValue: arguments[index])
         else { return nil }
         openMenu = menu
+      case "--checkpoint-level":
+        index += 1
+        guard index < arguments.count, let level = contextLevel(named: arguments[index])
+        else { return nil }
+        checkpointLevel = level
       case "-o":
         index += 1
         guard index < arguments.count else { return nil }
@@ -562,7 +695,8 @@ enum SnapshotCommand {
     return Options(
       source: source, outputPath: outputPath, waitingCount: waitingCount,
       appearance: appearance, accentColor: accentColor, isArmed: isArmed,
-      questionNotes: questionNotes, openMenu: openMenu)
+      questionNotes: questionNotes, openMenu: openMenu, checkpointLevel: checkpointLevel,
+      escapeKeepsWaiting: escapeKeepsWaiting)
   }
 
   private enum SnapshotStatus: String {
@@ -668,6 +802,57 @@ enum SnapshotCommand {
     return UpdateAnswerOptions(kind: kind, outputPath: outputPath, appearance: appearance)
   }
 
+  private struct CornerCardOptions {
+    let host: ApprovalCore.Host
+    let project: String
+    let offersGoThere: Bool
+    let outputPath: String
+    let appearance: Appearance?
+  }
+
+  private static func parseCornerCard(_ arguments: [String], flag: String) -> CornerCardOptions? {
+    var host: ApprovalCore.Host?
+    var project = waitingNoticeSampleProject
+    var offersGoThere = true
+    var outputPath: String?
+    var appearance: Appearance?
+    var index = arguments.startIndex
+
+    while index < arguments.count {
+      switch arguments[index] {
+      case flag:
+        index += 1
+        guard index < arguments.count, let parsed = ApprovalCore.Host(rawValue: arguments[index])
+        else { return nil }
+        host = parsed
+      case "--project":
+        index += 1
+        guard index < arguments.count, !arguments[index].isEmpty else { return nil }
+        project = arguments[index]
+      case "--no-app" where flag == waitingNoticeFlag:
+        offersGoThere = false
+      case "--appearance":
+        index += 1
+        guard index < arguments.count, let parsed = Appearance(rawValue: arguments[index]) else {
+          return nil
+        }
+        appearance = parsed
+      case "-o":
+        index += 1
+        guard index < arguments.count else { return nil }
+        outputPath = arguments[index]
+      default:
+        return nil
+      }
+      index += 1
+    }
+
+    guard let host, let outputPath else { return nil }
+    return CornerCardOptions(
+      host: host, project: project, offersGoThere: offersGoThere, outputPath: outputPath,
+      appearance: appearance)
+  }
+
   private struct TourOptions {
     let step: FirstRunTourStep
     let outputPath: String
@@ -711,7 +896,6 @@ enum SnapshotCommand {
   private struct SettingsOptions {
     let outputPath: String
     let appearance: Appearance?
-    let disclosedHosts: [ApprovalCore.Host]
     let showsCopies: Bool
     let status: SnapshotStatus
     let home: URL?
@@ -719,12 +903,13 @@ enum SnapshotCommand {
     let pane: SettingsPane
     let restorePrompt: SettingsPane?
     let explanation: PreferenceName?
+    let editorChoice: EditorChoice?
+    let ruleSheet: RuleSheetKind?
   }
 
   private static func parseSettings(_ arguments: [String]) -> SettingsOptions? {
     var outputPath: String?
     var appearance: Appearance?
-    var disclosedHosts: [ApprovalCore.Host] = []
     var showsCopies = false
     var status = SnapshotStatus.active
     var home: URL?
@@ -732,6 +917,8 @@ enum SnapshotCommand {
     var pane = SettingsPane.standard
     var restorePrompt: SettingsPane?
     var explanation: PreferenceName?
+    var editorChoice: EditorChoice?
+    var ruleSheet: RuleSheetKind?
     var index = arguments.startIndex
 
     while index < arguments.count {
@@ -742,11 +929,6 @@ enum SnapshotCommand {
         index += 1
         guard index < arguments.count else { return nil }
         home = URL(fileURLWithPath: arguments[index], isDirectory: true)
-      case "--show-changes":
-        index += 1
-        guard index < arguments.count, let host = ApprovalCore.Host(rawValue: arguments[index])
-        else { return nil }
-        disclosedHosts.append(host)
       case "--show-copies":
         showsCopies = true
       case "--status":
@@ -782,6 +964,22 @@ enum SnapshotCommand {
         guard index < arguments.count, let parsed = PreferenceName(rawValue: arguments[index])
         else { return nil }
         explanation = parsed
+      case "--editor-choice":
+        index += 1
+        guard index < arguments.count else { return nil }
+        switch arguments[index] {
+        case "ask":
+          editorChoice = EditorChoice(origin: .advanced, missingBundleID: nil)
+        case "missing":
+          editorChoice = EditorChoice(origin: .advanced, missingBundleID: "com.example.Editor")
+        default:
+          return nil
+        }
+      case "--rule-sheet":
+        index += 1
+        guard index < arguments.count, let parsed = RuleSheetKind(rawValue: arguments[index])
+        else { return nil }
+        ruleSheet = parsed
       case "-o":
         index += 1
         guard index < arguments.count else { return nil }
@@ -794,9 +992,10 @@ enum SnapshotCommand {
 
     guard let outputPath else { return nil }
     return SettingsOptions(
-      outputPath: outputPath, appearance: appearance, disclosedHosts: disclosedHosts,
-      showsCopies: showsCopies, status: status, home: home, size: size, pane: pane,
-      restorePrompt: restorePrompt, explanation: explanation)
+      outputPath: outputPath, appearance: appearance, showsCopies: showsCopies, status: status,
+      home: home, size: size, pane: pane,
+      restorePrompt: restorePrompt, explanation: explanation, editorChoice: editorChoice,
+      ruleSheet: ruleSheet)
   }
 
   private static func parseSettingsSize(_ text: String) -> CGSize? {

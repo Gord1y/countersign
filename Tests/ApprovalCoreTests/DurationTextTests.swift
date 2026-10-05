@@ -51,6 +51,55 @@ import Testing
     #expect(DurationText.parse("5x") == nil)
   }
 
+  @Test func parsesMillisecondsBeforeMinutesAndSeconds() {
+    #expect(DurationText.parse("500ms", bareUnit: 1) == 0.5)
+    #expect(DurationText.parse("250MS", bareUnit: 1) == 0.25)
+  }
+
+  @Test func parsesFractionalSeconds() {
+    #expect(DurationText.parse("0.5s", bareUnit: 1) == 0.5)
+  }
+
+  @Test func parsesEveryUnitWithTheBareUnitVariant() {
+    #expect(DurationText.parse("90s", bareUnit: 60) == 90)
+    #expect(DurationText.parse("2m", bareUnit: 1) == 120)
+    #expect(DurationText.parse("1h", bareUnit: 1) == 3600)
+  }
+
+  @Test func multipliesABareNumberByTheBareUnit() {
+    #expect(DurationText.parse("2", bareUnit: 1) == 2)
+    #expect(DurationText.parse("2", bareUnit: 60) == 120)
+    #expect(DurationText.parse("0.5", bareUnit: 1) == 0.5)
+  }
+
+  @Test func theBareUnitVariantAllowsZeroButTheDefaultDoesNot() {
+    #expect(DurationText.parse("0", bareUnit: 1) == 0)
+    #expect(DurationText.parse("0s", bareUnit: 60) == 0)
+    #expect(DurationText.parse("0") == nil)
+  }
+
+  @Test func theBareUnitVariantRejectsJunk() {
+    #expect(DurationText.parse("soon", bareUnit: 1) == nil)
+    #expect(DurationText.parse("ms", bareUnit: 1) == nil)
+    #expect(DurationText.parse("5x", bareUnit: 1) == nil)
+    #expect(DurationText.parse("-1s", bareUnit: 1) == nil)
+    #expect(DurationText.parse("", bareUnit: 1) == nil)
+  }
+
+  @Test func compactPicksTheLargestExactUnit() {
+    #expect(DurationText.compact(0.5) == "500ms")
+    #expect(DurationText.compact(1.5) == "1.5s")
+    #expect(DurationText.compact(5) == "5s")
+    #expect(DurationText.compact(90) == "90s")
+    #expect(DurationText.compact(120) == "2m")
+    #expect(DurationText.compact(3600) == "1h")
+    #expect(DurationText.compact(5400) == "90m")
+  }
+
+  @Test func compactWritesZeroInSeconds() {
+    #expect(DurationText.compact(0) == "0s")
+  }
+
   @Test func describesOneMinute() {
     #expect(DurationText.describe(60) == "1 minute")
   }

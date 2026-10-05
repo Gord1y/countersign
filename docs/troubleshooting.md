@@ -78,9 +78,65 @@ Go through these in order:
 
 The log, `~/Library/Logs/Countersign/countersign.log`, says what happened to each request. A
 request starts with a `start host=… tool=… project=…` line and ends with what became of it, such as
-`skipped: sandboxed command`, `handoff: <bundle id> frontmost`,
-`resolved during grace: registry` or `outcome: allow`; a paused Countersign logs just `paused`. If
-the agent asks and nothing at all is logged, the agent never ran the hook: check its wiring.
+`skipped: sandboxed command`, `skipped: on Cursor's allowlist`, `handoff: <bundle id> frontmost`,
+`resolved during grace: registry` or `outcome: allow`; a paused Countersign logs just `paused`.
+Each Cursor request that gets past the sandbox check logs `cursor: run mode …` first, naming the run
+mode and where the command allowlist came from. A request answered by one of your
+[rules](configuration.md#allow-and-deny-rules) logs `rule: allowed by rules[2]` or
+`rule: denied by rules[2]` and then `outcome: allow` or `outcome: deny`. The number is the rule's
+position in `config.json`, counting from 0 and counting only the rules Countersign could read;
+`countersign doctor` lists the entries it dropped. If the agent asks and nothing at all is logged,
+the agent never ran the hook: check its wiring.
+Cursor also runs Claude Code's hooks; those runs log `ignored: a Cursor payload in a Claude Code
+hook` and change nothing.
+
+## No waiting-agent notice appears
+
+Go through these in order:
+
+1. **Is the feature on?** It is on by default; check Settings ▸ Panels ▸ Waiting-agent notices.
+2. **Is the agent wired for it?** `countersign doctor` reports each agent's Stop entry on its
+   `claude waiting`, `codex waiting`, `cursor waiting` and `antigravity waiting` lines; if one is
+   not `ok`, run `countersign setup` or press Update in Settings ▸ Agents, which shows the change
+   before it writes the entry.
+3. **Codex:** has Codex trusted the new Stop entry? Doctor says `Codex has not trusted
+   Countersign's Stop entry yet` until you run `/hooks` in a Codex session and trust it.
+4. **Paused or in quiet time?** Both hold a notice back and show it when they end; see
+   [No panel appears](#no-panel-appears).
+5. **Were you in the agent's app?** Being there counts as having seen it, so leaving it restarts
+   the wait: the card comes after the delay (10 seconds by default, `waitingNoticeDelay`), counted
+   from when you left.
+6. **Is a Countersign panel for that session open?** The panel is its own notice, so the card waits
+   for it.
+7. **Did the agent resume first?** A notice closes as soon as the agent works again, such as when
+   you answered it in its chat, so one that was answered before the delay never shows.
+8. **A headless session?** Non-interactive runs such as `claude -p` never get a notice.
+
+A notice closes by itself once it has been on screen for Show notice for (10 seconds by default,
+`waitingNoticeDuration`), counting only the time it is visible and not hovered; the log says
+`notice: closed (shown long enough)`, and it does not come back for the same stop. A notice that
+nobody dismisses and never shows gives up after 12 hours. The log,
+`~/Library/Logs/Countersign/countersign.log`, says why one did not show, on lines starting with
+`waiting:` and `notice:`.
+
+## No context checkpoint appears
+
+Go through these in order:
+
+1. **Is the feature on?** It is on by default for Claude Code; if you turned it off, turn it back on
+   in Settings ▸ Panels ▸ Context checkpoints. `countersign test-panel context` shows a checkpoint
+   panel with your settings, whatever the session.
+2. **Is the hook wired?** `countersign doctor` reports it on its `claude context` line; if it is
+   not `ok`, open Settings ▸ Context: the Claude Code hook row says Not wired or Needs an update,
+   and Update shows the change before it writes the entry again (see [setup.md](setup.md)).
+3. **Paused or in quiet time?** Both hold checkpoints back, as they do any panel; see
+   [No panel appears](#no-panel-appears).
+4. **A headless session?** Non-interactive runs such as `claude -p` get no panel.
+5. **Below the first checkpoint?** Nothing fires until the context passes it: 100K tokens on a
+   200K window, 200K on a 1M window, or your own thresholds.
+6. **Already muted?** **Not this session** mutes the session; a new session starts unmuted.
+
+A reading can lag one turn, so a checkpoint may show one prompt after the size was crossed.
 
 ## A panel went away on its own
 
@@ -182,6 +238,15 @@ terminal, the next step clears by itself: the Codex row in Settings, `countersig
 `countersign doctor` stop asking. When Countersign can't tell, for example when `config.toml` holds
 something it doesn't understand, the row offers **Mark as done**; click it once you've trusted the
 hook. See [setup.md](setup.md#codex-asks-you-to-trust-the-hook).
+
+## Cursor asks again after you approve
+
+That is Cursor, not Countersign: it ignores an approval from a hook and decides by its own run
+mode, so in Allowlist mode it asks you itself and you approve twice. **Deny** works right away.
+Cursor's staff have confirmed the bug
+([forum thread](https://forum.cursor.com/t/support-authoritative-allow-deny-and-ask-verdicts-from-hooks/161342));
+once it is fixed, Approve in the panel will be enough, with nothing to change in Countersign. In
+Auto-review mode Cursor's AI review decides after you approve, which usually runs the command.
 
 ## Antigravity asks again after you approve
 

@@ -1,4 +1,4 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-swift test
+scripts/run-quietly.sh test swift test

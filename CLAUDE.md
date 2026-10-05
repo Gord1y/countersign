@@ -9,12 +9,8 @@ hook.
 - Zero comments in Swift source: no `//`, no `/* */`, no doc comments. Names carry the meaning.
   Rationale that would otherwise be a comment goes into `docs/design/<topic>.md` for an internal
   design note, or `docs/<topic>.md` for a user-facing page.
-- `ApprovalCore` never imports AppKit or SwiftUI. Every type in it is fully covered by
-  `ApprovalCoreTests`.
-- The `hook` path never writes to stderr and never exits non-zero. Every failure means "no
-  decision": exit 0, empty stdout.
-- No dependencies. No `Any`/`AnyObject` in public APIs, no force unwrap `!`, no `try!`, no `as!`
-  in Sources.
+- No dependencies. No force unwrap `!`, `try!`, `as!` or implicitly unwrapped optionals, and no
+  `Any`/`AnyObject` in public APIs.
 - Conventional Commits, one task per commit.
 
 ## Gates
@@ -25,6 +21,9 @@ scripts/check.sh
 ```
 
 Both must succeed before a change is done.
+
+Maintainers use the shared agent setup (`Gord1y/countersign-skills`); repo-specific values for its
+skills are in [.claude/repo-facts.md](.claude/repo-facts.md).
 
 ## Rules by area
 

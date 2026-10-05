@@ -1,3 +1,4 @@
+import AppKit
 import ApprovalCore
 import SwiftUI
 
@@ -88,23 +89,36 @@ struct PermissionView: View {
     }
     .onAppear {
       model.keyHandler = PanelKeyHandler(uses: usesKey, perform: handleKey)
-      if !prompt.suggestions.isEmpty, model.dropdown.takeRequest(for: .approve) {
+      if hasApproveMenu, model.dropdown.takeRequest(for: .approve) {
         toggleApproveDropdown()
       }
     }
   }
 
+  private var hasApproveMenu: Bool {
+    !prompt.suggestions.isEmpty || model.alwaysAllowOffer != nil
+  }
+
   private func toggleApproveDropdown() {
     let suggestions = prompt.suggestions
-    let suggestionRows = suggestions.map { suggestion in
+    let offer = suggestions.isEmpty ? model.alwaysAllowOffer : nil
+    var optionRows = suggestions.map { suggestion in
       let text = PermissionSuggestionText(suggestion)
       return PanelDropdownRow(title: text.title, detail: text.detail)
     }
+    if let offer {
+      optionRows.append(PanelDropdownRow(title: offer.title, detail: offer.detail))
+    }
     let menu = PanelDropdownMenu(
       id: .approve, direction: .up,
-      rows: [PanelDropdownRow(title: "Allow once")] + suggestionRows
+      rows: [PanelDropdownRow(title: "Allow once")] + optionRows
     ) { [model] row in
       guard row > 0 else {
+        model.finish(.allowAsIs)
+        return
+      }
+      if let offer, row == 1 {
+        model.onAlwaysAllow?(offer)
         model.finish(.allowAsIs)
         return
       }
@@ -118,7 +132,7 @@ struct PermissionView: View {
     switch key {
     case .primary: return true
     case .alternate:
-      return footerState == .deny ? host.supportsInterrupt : !prompt.suggestions.isEmpty
+      return footerState == .deny ? host.supportsInterrupt : hasApproveMenu
     case .secondary: return footerState == .default
     case .digit, .left, .right, .up, .down: return false
     }
@@ -186,14 +200,17 @@ struct PermissionView: View {
   }
 
   private func color(for kind: ShellTokenKind) -> Color {
-    switch kind {
-    case .command: return .purple
-    case .flag: return .orange
-    case .string: return .green
-    case .variable: return .teal
-    case .operator: return .pink
-    case .comment: return .secondary
-    }
+    guard
+      let light = PanelContrast.shellTokenColor(kind, dark: false),
+      let dark = PanelContrast.shellTokenColor(kind, dark: true)
+    else { return .secondary }
+    return Color(
+      nsColor: NSColor(name: nil) { appearance in
+        if appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua {
+          return NSColor(dark)
+        }
+        return NSColor(light)
+      })
   }
 
   private func webFetchBody(url: String, prompt: String?) -> some View {
@@ -352,10 +369,12 @@ struct PermissionView: View {
         }
       }
       .buttonStyle(DestructiveButtonStyle())
+      .panelButtonAccessibility(shortcut: "⌫")
       .disabled(!model.isArmed)
 
       ApproveButtons(
-        hasSuggestions: !prompt.suggestions.isEmpty,
+        model: model,
+        hasSuggestions: hasApproveMenu,
         isEnabled: model.isArmed && footerState == .default,
         onAllowOnce: { model.finish(.allowAsIs) },
         onToggleDropdown: toggleApproveDropdown
@@ -381,8 +400,8 @@ struct PermissionView: View {
             .fill(Color.primary.opacity(0.05))
         )
         .overlay(
-          RoundedRectangle(cornerRadius: 8, style: .continuous)
-            .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+          PanelBorder(
+            shape: RoundedRectangle(cornerRadius: 8, style: .continuous), opacity: 0.1)
         )
         .frame(maxWidth: .infinity)
         .focused($isReasonFieldFocused)
@@ -400,6 +419,7 @@ struct PermissionView: View {
           }
         }
         .buttonStyle(SecondaryButtonStyle())
+        .panelButtonAccessibility(shortcut: "⌘⏎")
         .disabled(!model.isArmed)
       }
 
@@ -414,12 +434,14 @@ struct PermissionView: View {
         }
       }
       .buttonStyle(DestructiveButtonStyle())
+      .panelButtonAccessibility(shortcut: "⏎")
       .disabled(!model.isArmed || footerState != .deny)
     }
   }
 }
 
 private struct ApproveButtons: View {
+  let model: PanelModel
   let hasSuggestions: Bool
   let isEnabled: Bool
   let onAllowOnce: () -> Void
@@ -438,6 +460,7 @@ private struct ApproveButtons: View {
         }
       }
       .buttonStyle(PrimaryButtonStyle())
+      .panelPrimaryAccessibility(shortcut: "⏎", model: model)
       .disabled(!isEnabled)
 
       if hasSuggestions {
@@ -445,12 +468,15 @@ private struct ApproveButtons: View {
           HStack(alignment: .keyHintMidline, spacing: 4) {
             Image(systemName: "chevron.down")
               .font(.system(size: 10, weight: .semibold))
+              .accessibilityHidden(true)
               .keyHintTextGuide(capHeight: LinkButtonStyle.labelCapHeight)
             KeyHint("⌘⏎", placement: .link)
               .keyHintGuide()
           }
         }
         .buttonStyle(LinkButtonStyle())
+        .accessibilityLabel("More approval options")
+        .panelButtonAccessibility(shortcut: "⌘⏎")
         .panelDropdownAnchor(.approve)
         .disabled(!isEnabled)
       }

@@ -4,14 +4,18 @@ public enum SettingsPane: String, CaseIterable, Sendable {
   case agents
   case panels
   case app
+  case rules
+  case context
   case help
   case advanced
 
   public static let standard = SettingsPane.agents
-  public static let sidebar: [SettingsPane] = [.agents, .app, .panels, .help]
+  public static let sidebar: [SettingsPane] = sidebar(showsContext: false)
 
-  public init(storedValue: String?) {
-    self = storedValue.flatMap(SettingsPane.init(rawValue:)) ?? .standard
+  public static func sidebar(showsContext: Bool) -> [SettingsPane] {
+    showsContext
+      ? [.agents, .app, .panels, .rules, .context, .help]
+      : [.agents, .app, .panels, .rules, .help]
   }
 
   public var title: String {
@@ -19,6 +23,8 @@ public enum SettingsPane: String, CaseIterable, Sendable {
     case .agents: return "Agents"
     case .panels: return "Panels"
     case .app: return "App"
+    case .rules: return "Rules"
+    case .context: return "Context"
     case .help: return "Help"
     case .advanced: return "Advanced"
     }
@@ -32,10 +38,16 @@ public enum SettingsPane: String, CaseIterable, Sendable {
         + " after showing you the change."
     case .panels:
       return
-        "How approval panels behave, for every agent. Saved to config.json as soon as you"
+        "How approval panels behave. Saved to config.json as soon as you"
         + " change them."
     case .app:
       return "What the menu-bar app does, and how panels and Settings look."
+    case .rules:
+      return "Allow or deny requests before a panel shows."
+    case .context:
+      return
+        "Context checkpoints for Claude Code sessions. Saved to config.json as soon as you"
+        + " change them."
     case .help:
       return "Guides and answers, updates, and ways to support Countersign."
     case .advanced:
@@ -45,13 +57,22 @@ public enum SettingsPane: String, CaseIterable, Sendable {
 
   public var preferenceNames: [PreferenceName] {
     switch self {
-    case .agents, .help, .advanced: return []
+    case .agents, .rules, .help, .advanced: return []
     case .panels:
       return [
-        .idleSeconds, .graceSeconds, .armDelay, .chainedArmDelay, .snoozeMinutes, .handoffApps,
-        .questionNotes, .modeAfterPlan,
+        .idleSeconds, .graceSeconds, .armDelay, .chainedArmDelay, .snoozeMinutes, .quietHours,
+        .handoffApps, .questionNotes, .modeAfterPlan,
+        .panelSound, .waitingNoticeDelay, .waitingNoticeDuration,
+        .approvalCard, .approvalCardDelay,
       ]
     case .app: return [.checkForUpdates, .quitBehavior, .appearance, .accentColor]
+    case .context:
+      return [
+        .contextMode, .contextStandardThresholds, .contextMillionThresholds,
+        .contextModelThresholds, .contextRearmBelow, .contextHandoffFile, .contextNoteSoft,
+        .contextNoteStatus, .contextNoteInsist, .contextNoteCompact, .contextNoteHandoff,
+        .contextMenuBarMeter,
+      ]
     }
   }
 }

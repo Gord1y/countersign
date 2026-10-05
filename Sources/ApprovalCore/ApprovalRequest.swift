@@ -23,6 +23,13 @@ public enum Host: String, Sendable, Codable, CaseIterable {
     self == .claude
   }
 
+  public var honorsHookAllow: Bool {
+    switch self {
+    case .claude, .codex: return true
+    case .cursor, .antigravity: return false
+    }
+  }
+
   public var handoffOutcome: ApprovalOutcome? {
     switch self {
     case .claude, .codex: return nil
@@ -92,6 +99,10 @@ public struct ApprovalRequest: Sendable, Equatable {
   }
 
   public var projectName: String {
+    Self.projectName(cwd: cwd)
+  }
+
+  public static func projectName(cwd: String) -> String {
     let lastComponent = (cwd as NSString).lastPathComponent
     return lastComponent.isEmpty ? cwd : lastComponent
   }
@@ -101,6 +112,26 @@ public enum RequestKind: Sendable, Equatable {
   case permission(PermissionPrompt)
   case questions([Question])
   case plan(PlanProposal)
+  case contextCheckpoint(ContextCheckpointPrompt)
+}
+
+extension ApprovalRequest {
+  public static func contextCheckpoint(
+    _ input: ContextCheckpointInput, prompt: ContextCheckpointPrompt
+  ) -> ApprovalRequest {
+    ApprovalRequest(
+      host: .claude,
+      sessionID: input.sessionID,
+      cwd: input.cwd,
+      permissionMode: input.permissionMode,
+      transcriptPath: input.transcriptPath,
+      agentID: nil,
+      agentType: nil,
+      toolName: "Context checkpoint",
+      toolInput: .object([:]),
+      kind: .contextCheckpoint(prompt)
+    )
+  }
 }
 
 public struct PermissionPrompt: Sendable, Equatable {

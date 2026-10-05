@@ -41,15 +41,15 @@ public enum QueueTurn: Sendable {
 
 extension TicketQueue {
   public func place(of ticket: Ticket) -> QueuePlace {
-    QueuePlace(of: ticket, among: liveTickets())
+    QueuePlace(of: ticket, among: contenders())
   }
 
   public func nextInLine(after ticket: Ticket) -> Ticket? {
-    QueuePlace.successor(of: ticket, among: liveTickets())
+    QueuePlace.successor(of: ticket, among: contenders())
   }
 
   public func ticketAhead(of ticket: Ticket) -> Ticket? {
-    QueuePlace.predecessor(of: ticket, among: liveTickets())
+    QueuePlace.predecessor(of: ticket, among: contenders())
   }
 
   public func waitForTurn(
@@ -147,9 +147,7 @@ public struct QueueHandoffChannel: Sendable, Equatable {
   public let displayName: String
 
   public init(ticket: Ticket) {
-    let stem =
-      ticket.fileName.hasSuffix(Ticket.fileSuffix)
-      ? String(ticket.fileName.dropLast(Ticket.fileSuffix.count)) : ticket.fileName
+    let stem = ticket.id
     requestName = "Countersign.handoff.\(stem)"
     readyName = "Countersign.ready.\(stem)"
     preparingName = "Countersign.preparing.\(stem)"

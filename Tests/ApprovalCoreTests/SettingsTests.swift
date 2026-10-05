@@ -10,7 +10,7 @@ import Testing
     #expect(settings.idleSeconds == Settings.defaultIdleSeconds)
     #expect(settings.graceSeconds == Settings.defaultGraceSeconds)
     #expect(settings.handoffApps == Settings.defaultHandoffApps)
-    #expect(settings.snoozeMinutes == Settings.defaultSnoozeMinutes)
+    #expect(settings.snoozePresets == Settings.defaultSnoozePresets)
     #expect(settings.checkForUpdates == Settings.defaultCheckForUpdates)
     #expect(settings.quitBehavior == .ask)
     #expect(settings.modeAfterPlan == Settings.defaultModeAfterPlan)
@@ -23,7 +23,7 @@ import Testing
   @Test func topLevelValuesOverrideBuiltInDefaults() {
     let file = ConfigFile(
       armDelay: 1.5, chainedArmDelay: 0.4, idleSeconds: 10, graceSeconds: 2,
-      handoffApps: ["com.apple.Terminal"], snoozeMinutes: [2, 4], checkForUpdates: true,
+      handoffApps: ["com.apple.Terminal"], snoozePresets: [120, 240], checkForUpdates: true,
       quitBehavior: .pause, modeAfterPlan: .acceptEdits, includeHeadlessSessions: true,
       questionNotes: true, appearance: .light, accentColor: AccentPreset.pink.color)
     let settings = Settings.resolve(file: file, host: .claude)
@@ -34,7 +34,7 @@ import Testing
     #expect(settings.idleSeconds == 10)
     #expect(settings.graceSeconds == 2)
     #expect(settings.handoffApps == ["com.apple.Terminal"])
-    #expect(settings.snoozeMinutes == [2, 4])
+    #expect(settings.snoozePresets == [120, 240])
     #expect(settings.checkForUpdates == true)
     #expect(settings.quitBehavior == .pause)
     #expect(settings.modeAfterPlan == .acceptEdits)
@@ -147,11 +147,11 @@ import Testing
     #expect(Settings.resolve(file: file, host: .claude).chainedArmDelay == 0.5)
   }
 
-  @Test func snoozeMinutesUsesHostThenTopLevel() {
+  @Test func snoozePresetsUseHostThenTopLevel() {
     let file = ConfigFile(
-      snoozeMinutes: [1, 2], codex: ConfigFile.HostOverrides(snoozeMinutes: [3, 4]))
+      snoozePresets: [60, 120], codex: ConfigFile.HostOverrides(snoozePresets: [180, 240]))
     let settings = Settings.resolve(file: file, host: .codex)
-    #expect(settings.snoozeMinutes == [3, 4])
+    #expect(settings.snoozePresets == [180, 240])
   }
 
   @Test func includeHeadlessSessionsHostOverrideWinsOverTopLevel() {

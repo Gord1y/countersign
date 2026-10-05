@@ -18,19 +18,32 @@ The scripts that change this repository's own gates or a person's machine have a
 `scripts/check.sh` runs: `scripts/test-commit-msg.sh` covers `scripts/git-hooks/commit-msg`, the
 commit message rules; `scripts/test-worktree-cleanup.sh` covers `scripts/worktree-cleanup.sh`,
 which removes a builder's landed worktrees and branches; `scripts/test-release-index.sh` covers
-`scripts/release-index.swift`, which regenerates `releases/index.json`; and
-`scripts/test-install.sh` covers `install.sh`, the installer people run on their own machine.
+`scripts/release-index.swift`, which regenerates `releases/index.json`;
+`scripts/test-install.sh` covers `install.sh`, the installer people run on their own machine; and
+`scripts/test-run-quietly.sh` covers `scripts/run-quietly.sh`, which shapes what the gates print.
 `scripts/build-app.sh`, `scripts/package-release.sh` and `scripts/screenshots/render.sh` have no
 test script; they are checked by running them.
 
 `scripts/check.sh` runs four parts in order, and each also runs on its own:
 `scripts/check-build.sh` runs `swift build`, which compiles every target except the tests;
 `scripts/check-test.sh` runs `swift test`; `scripts/check-lint.sh` runs
-`swift format lint --strict` and rejects code comments; `scripts/check-scripts.sh` runs the four
+`swift format lint --strict` and rejects code comments; `scripts/check-scripts.sh` runs the five
 test scripts above. CI runs the parts as parallel jobs; see [`ci.yml`](#ciyml--ci). Last,
 `check.sh` runs `swift scripts/release-index.swift --check` against the repository's own
 `releases/index.json`, which CI checks in its separate `release-index` job; the test script only
 exercises `--check` on fixtures, so without this line a stale index passed locally.
+
+`check-build.sh`, `check-test.sh` and `check-lint.sh` run their tool through
+`scripts/run-quietly.sh`, which keeps the output in a temporary log. When the tool passes, it
+prints one line: the tool's own summary (`Build complete!`, `Test run with N tests … passed`) or
+`<label>: ok`. When it fails, it prints the lines naming the problem (`error:`, `warning:`, `✘`),
+or the last 30 lines when none match, then the log's path, and exits with the tool's status. A
+passing `check.sh` therefore prints a handful of lines instead of every compiled file and every
+test. That is what a person needs from a passing gate, and what a coding agent otherwise carries in
+its context after every run: in agent sessions, gate logs were the largest single kind of command
+output, often cut off at the 30,000-character limit. `CHECK_VERBOSE=1` prints the full output
+locally. CI always prints it, since GitHub Actions sets `CI` and a failed job's log is the only
+place to read it, so `ci.yml` needs no change.
 
 `swift test` compiles everything again with testing enabled rather than reusing `swift build`'s
 output, so the two compiles cannot be merged into one. Measured on CI on 2026-09-28, with each
@@ -97,6 +110,11 @@ leaves a sentence such as "The images are generated with the snapshot command." 
 
 The header length counts characters, not bytes. The hook runs in the C locale so its patterns
 behave the same everywhere, and it counts UTF-8 lead bytes, so `…` counts as one character.
+
+The hook uses no here-documents. A shell writes a here-document to a temporary file, and where it
+can't create one, as inside an agent's sandbox, the loop reading it never runs: the trailer went
+unreported and the hook exited 0. Each check pipes its matching lines through `sed` instead, and
+`scripts/test-commit-msg.sh` fails if the hook contains `<<`.
 
 ## Strict formatting rules
 
@@ -242,7 +260,9 @@ Triggers: `push` to `main`, `pull_request`, `workflow_dispatch`.
   3 minutes 38 seconds on 2026-09-28: 41 seconds to build, 73 to rebuild for the tests, 12 to run
   them and about 90 for lint and the script suites, one after another, each build time as SwiftPM
   reported it. Split into these three jobs, the whole CI run took 2 minutes 23 seconds, with
-  `test` the longest at 2 minutes 9 seconds.
+  `test` the longest at 2 minutes 9 seconds, so `test` is the critical path. Building the tests
+  in a separate step (`swift build --build-tests`, then `swift test --skip-build`) was measured
+  and saves nothing; caching `.build` between runs has not been tried.
 - `gates` is the check the rulesets require. It runs on `ubuntu-latest` once `build`, `test` and
   `static` have finished and fails unless all three ended in `success`. It runs even when one of
   them failed (`!cancelled()`), because a required check that is skipped counts as passing.

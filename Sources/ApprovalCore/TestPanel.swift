@@ -4,6 +4,9 @@ public enum TestPanelKind: String, CaseIterable, Sendable {
   case command
   case question
   case plan
+  case context
+
+  public static let panelsTabKinds: [TestPanelKind] = [.command, .question, .plan]
 
   public static func parse(_ arguments: [String]) -> TestPanelKind? {
     switch arguments.count {
@@ -18,6 +21,7 @@ public enum TestPanelKind: String, CaseIterable, Sendable {
     case .command: return "Command"
     case .question: return "Question"
     case .plan: return "Plan"
+    case .context: return "Context"
     }
   }
 }
@@ -46,12 +50,33 @@ public enum TestPanelSample {
       root["permission_mode"] = .string("plan")
       root["tool_name"] = .string("ExitPlanMode")
       root["tool_input"] = planInput
+    case .context:
+      root["permission_mode"] = .string("default")
+      root["hook_event_name"] = .string("UserPromptSubmit")
     }
     return .object(root)
   }
 
-  public static func request(for kind: TestPanelKind) throws -> ApprovalRequest {
-    try ClaudeAdapter.parse(JSONEncoder().encode(payload(for: kind)))
+  public static func request(
+    for kind: TestPanelKind, settings: ContextCheckpointSettings = .default
+  ) throws -> ApprovalRequest {
+    if kind == .context {
+      return contextRequest(level: .soft, settings: settings)
+    }
+    return try ClaudeAdapter.parse(JSONEncoder().encode(payload(for: kind)))
+  }
+
+  public static func contextRequest(level: ContextLevel, settings: ContextCheckpointSettings)
+    -> ApprovalRequest
+  {
+    let ladder = settings.millionThresholds
+    let threshold = ladder.indices.contains(level.rawValue - 1) ? ladder[level.rawValue - 1] : 0
+    let prompt = ContextCheckpointPrompt(
+      tokens: threshold + 12_345, level: level, ladder: ladder, modelID: nil,
+      handoffFile: settings.handoffFile, notes: settings.notes)
+    let input = ContextCheckpointInput(
+      sessionID: sessionID, cwd: workingDirectory, transcriptPath: nil, permissionMode: "default")
+    return .contextCheckpoint(input, prompt: prompt)
   }
 
   private static let commandInput: JSONValue = .object([
@@ -139,21 +164,25 @@ public enum TestPanelLog {
 
   public static let closedForRealRequest = "test panel: closed for a real request"
 
+  public static let resultShown = "test panel: result shown"
+
   private static func describe(_ outcome: ApprovalOutcome, kind: TestPanelKind) -> String {
     switch outcome {
     case .noDecision:
-      return "answered in chat"
+      return kind == .context ? "continued" : "answered in chat"
     case .allow(_, let updatedPermissions):
       switch kind {
       case .command: return updatedPermissions.isEmpty ? "approved" : "approved with a suggestion"
       case .question: return "submitted"
-      case .plan: return "approved"
+      case .plan, .context: return "approved"
       }
     case .deny(_, let interrupt):
       if kind == .plan {
         return "kept planning"
       }
       return interrupt ? "denied and stopped" : "denied"
+    case .addContext:
+      return "chose a context note"
     }
   }
 }

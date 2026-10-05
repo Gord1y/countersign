@@ -37,4 +37,25 @@ import Testing
   @Test func rejectsARepeatedHost() {
     #expect(HookOptions.parse(["--host", "claude", "--host", "codex"]) == nil)
   }
+
+  @Test func theTwoArgumentFormHasNoEvent() {
+    #expect(HookOptions.parse(["--host", "claude"])?.event == nil)
+  }
+
+  @Test func parsesTheWaitingEvent() {
+    #expect(
+      HookOptions.parse(["--host", "claude", "--event", "waiting"])
+        == HookOptions(host: .claude, event: .waiting))
+    #expect(
+      HookOptions.parse(["--host", "antigravity", "--event", "waiting"])
+        == HookOptions(host: .antigravity, event: .waiting))
+  }
+
+  @Test func rejectsAnUnknownEventOrAMissingEventValue() {
+    #expect(HookOptions.parse(["--host", "claude", "--event", "stop"]) == nil)
+    #expect(HookOptions.parse(["--host", "claude", "--event"]) == nil)
+    #expect(HookOptions.parse(["--host", "claude", "--event", "waiting", "extra"]) == nil)
+    #expect(HookOptions.parse(["--host", "claude", "--other", "waiting"]) == nil)
+    #expect(HookOptions.parse(["--event", "waiting", "--host", "claude"]) == nil)
+  }
 }

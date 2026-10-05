@@ -96,6 +96,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     DistributedNotificationCenter.default().addObserver(
       self, selector: #selector(openSettingsRequested(_:)), name: Self.openSettingsNotification,
       object: nil, suspensionBehavior: .deliverImmediately)
+    if opensSettingsAfterUpgrade() { return }
     let launchEvent = NSAppleEventManager.shared().currentAppleEvent
     let opensSettings = CompanionLaunch.opensSettings(
       launchEventID: launchEvent?.eventID,
@@ -160,7 +161,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
 
   private func refreshIcon() {
     let icon = CompanionMenu.icon(
-      isPaused: pauseSwitch.isPaused, quietUntil: quietTime.activeUntil())
+      isPaused: pauseSwitch.isPaused, quietUntil: QuietState(paths: paths).activeUntil())
     guard icon != shownIcon, let button = statusItem?.button else { return }
     button.image = MenuBarIcon.image(for: icon)
     shownIcon = icon
@@ -168,18 +169,31 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
 
   private func currentInput() -> CompanionMenuInput {
     let configFile = loadConfigFile()
+    let checkpointSettings = Settings.resolve(file: configFile, host: .claude).contextCheckpoints
+    let contextRows =
+      checkpointSettings.enabled && checkpointSettings.menuBarMeter
+      ? ContextMeter.rows(
+        store: ContextCheckpointStore(directory: paths.contextCheckpointsDirectory),
+        isLive: {
+          ContextMeter.isLive(sessionID: $0, sessionsDirectory: paths.claudeSessionsDirectory)
+        })
+      : []
     return CompanionMenuInput(
       isPaused: pauseSwitch.isPaused,
-      quietUntil: quietTime.activeUntil(),
+      quietUntil: QuietState(paths: paths, schedule: configFile.quietSchedule).activeUntil(),
       pendingEntries: queue.waitingEntries(),
-      snoozeMinutes: CompanionMenu.snoozeMinutes(for: configFile),
+      snoozePresets: CompanionMenu.snoozePresets(for: configFile),
       launchAtLogin: launchAtLoginState(),
       updateAvailable: currentUpdateAvailability(),
-      manualCheckResult: manualCheckResult)
+      manualCheckResult: manualCheckResult,
+      contextRows: contextRows,
+      recentDecisions: DecisionHistory(paths: paths).recent(
+        limit: CompanionMenu.recentDecisionLimit))
   }
 
   private func loadConfigFile() -> ConfigFile {
-    let (configFile, configLogLines) = ConfigFileLoader.load(paths: paths)
+    let (configFile, configLogLines) = ConfigFileLoader.load(
+      paths: paths, soundNames: SystemSounds.installedNames)
     if configLogLines != lastConfigLogLines {
       for line in configLogLines {
         log.write("config: \(line)")
@@ -308,15 +322,16 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
       attempt("paused", failure: "failed to pause") { try stateSwitches.pause() }
     case .resume:
       attempt("resumed", failure: "failed to resume") { try pauseSwitch.resume() }
-    case .snooze(let minutes):
-      let seconds = TimeInterval(minutes * 60)
+    case .snooze(let seconds):
       let until = Date().addingTimeInterval(seconds)
       attempt(
         "quiet time until \(TimeOfDayText.describe(until)) (\(DurationText.describe(seconds)))",
         failure: "failed to set quiet time"
       ) { try stateSwitches.snooze(until: until) }
     case .endQuietTime:
-      attempt("quiet time ended", failure: "failed to end quiet time") { try quietTime.clear() }
+      attempt("quiet time ended", failure: "failed to end quiet time") {
+        try QuietState(paths: paths).endNow()
+      }
     case .openSettings:
       openSettings()
     case .showTestPanel(let kind):
@@ -342,8 +357,26 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
       performUpdateCheck(manual: true)
     case .copyUpgradeCommand(let command):
       copyToPasteboard(command)
+    case .clearDecisionHistory:
+      attempt("cleared the decision history", failure: "failed to clear the decision history") {
+        try DecisionHistory(paths: paths).clear()
+      }
+    case .answerPending(let ticketID, let answer):
+      answerPending(ticketID: ticketID, answer: answer)
     case .quit:
       quitFromMenu()
+    }
+  }
+
+  private func answerPending(ticketID: String, answer: MenuAnswer) {
+    do {
+      guard try queue.sendMenuAnswer(answer, toTicketID: ticketID) else {
+        log.write("companion: request \(ticketID) was already gone")
+        return
+      }
+      log.write("companion: answered request \(ticketID) from the menu: \(answer.rawValue)")
+    } catch {
+      log.write("companion: failed to answer request \(ticketID) from the menu: \(error)")
     }
   }
 
@@ -418,9 +451,54 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     }
   }
 
-  private func openSettings(forceTour: Bool = false) {
+  private func opensSettingsAfterUpgrade() -> Bool {
+    let current = CountersignVersion.current
+    let isUpgrade = UpgradeNudge.isUpgrade(
+      lastSeenVersion: UpgradeNudge.readLastSeenVersion(file: paths.lastSeenVersionFile),
+      tourShown: FileManager.default.fileExists(atPath: paths.tourShownFile.path),
+      currentVersion: current)
+    do {
+      try UpgradeNudge.recordVersion(current, file: paths.lastSeenVersionFile)
+    } catch {
+      log.write("companion: could not record the version: \(error)")
+    }
+    guard isUpgrade else { return false }
+    guard UpgradeNudge.needsAgentUpdate(agentWiringStatuses()) else {
+      log.write("companion: first run of \(current); agents are up to date")
+      return false
+    }
+    log.write(
+      "companion: first run of \(current); an agent needs an update, opening Settings ▸ Agents")
+    openSettings(pane: .agents)
+    return true
+  }
+
+  private func agentWiringStatuses() -> [HostWiringStatus] {
+    let home = FileManager.default.homeDirectoryForCurrentUser
+    let environment = ProcessInfo.processInfo.environment
+    guard let resolved = Bundle.main.executableURL?.resolvingSymlinksInPath().path else {
+      return []
+    }
+    let stablePath = StableExecutablePath.stable(
+      forResolved: resolved, home: home, isExecutable: FileManager.default.isExecutableFile(atPath:)
+    )
+    let (configFile, _) = ConfigFileLoader.load(
+      paths: paths, soundNames: SystemSounds.installedNames)
+    let settings = Settings.resolve(file: configFile, host: .claude)
+    return ApprovalCore.Host.allCases.map { host in
+      let location = HookConfigLocation.location(for: host, environment: environment, home: home)
+      return HostWiring.status(
+        host: host, directoryExists: DoctorCommand.isInstalled(location),
+        file: ConfigFileStore.fileState(location.file), stablePath: stablePath,
+        addsWaitingEntry: settings.waitingNotices,
+        addsContextEntry: settings.contextCheckpoints.enabled)
+    }
+  }
+
+  private func openSettings(forceTour: Bool = false, pane: SettingsPane? = nil) {
     if let settingsWindow {
       settingsWindow.show(forceTour: forceTour)
+      if let pane { settingsWindow.model.select(pane) }
       return
     }
     SettingsMenu.install()
@@ -431,6 +509,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
       })
     settingsWindow = controller
     controller.show(forceTour: forceTour)
+    if let pane { controller.model.select(pane) }
     log.write("companion: opened settings")
   }
 

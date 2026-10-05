@@ -19,6 +19,12 @@ import Testing
     }
   }
 
+  @Test func theTestPanelLineNamesEveryKind() throws {
+    let lines = CommandLineHelp.text(version: "1.2.3").components(separatedBy: "\n")
+    let line = try #require(lines.first { $0.hasPrefix("  test-panel") })
+    #expect(line.contains("command, question, plan or context"))
+  }
+
   @Test func containsEveryCompanionMenuURLAndTheBugFormURL() throws {
     let text = CommandLineHelp.text(version: "1.2.3")
     let documentationURL = try #require(CompanionMenu.documentationURL)

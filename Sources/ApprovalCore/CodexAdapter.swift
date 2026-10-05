@@ -54,7 +54,7 @@ public enum CodexAdapter {
 
   public static func encode(_ outcome: ApprovalOutcome) -> Data? {
     switch outcome {
-    case .noDecision:
+    case .noDecision, .addContext:
       return nil
     case .allow:
       return encodeEnvelope(["behavior": .string("allow")])

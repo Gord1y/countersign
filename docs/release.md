@@ -164,9 +164,11 @@ the workflow's `permissions: {}` default.
 
 ## Cutting a release
 
-1. Write `releases/release-<x.y.z>.md` with the [release-notes skill](../.claude/skills/release-notes/SKILL.md).
+1. Write `releases/release-<x.y.z>.md` following [releases/README.md](../releases/README.md), then
+   run `swift scripts/release-index.swift` and `swift scripts/release-index.swift --check`.
 2. Bump `CountersignVersion.current` in `Sources/ApprovalCore/CountersignVersion.swift` to
-   `<x.y.z>`.
+   `<x.y.z>`, and the version `CountersignVersionTests` expects, in the same commit; the gate fails
+   until both match.
 3. Open a pull request with both into `staging`, titled `chore: prepare release <x.y.z>`, and
    squash-merge it once its checks pass and the Claude review approves.
 4. Open a pull request from `staging` into `main`, titled `chore: release countersign <x.y.z>`,

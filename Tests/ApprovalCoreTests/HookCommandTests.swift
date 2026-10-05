@@ -87,6 +87,24 @@ private func words(_ command: String, limit: Int = 2) -> [HookCommandWord] {
       !HookCommand.isCommand("/old/countersign hook --host claude", running: path, for: .claude))
   }
 
+  @Test func roundTripsTheWaitingEventThroughTheCommandLine() {
+    let path = "/opt/homebrew/bin/countersign"
+    let command = HookCommand.command(host: .claude, executablePath: path, event: .waiting)
+    #expect(command == "\(path) hook --host claude --event waiting")
+    #expect(HookCommand.isCommand(command, running: path, for: .claude, event: .waiting))
+    #expect(!HookCommand.isCommand(command, running: path, for: .claude))
+    #expect(
+      !HookCommand.isCommand(
+        "\(path) hook --host claude", running: path, for: .claude, event: .waiting))
+    #expect(HookCommand.isCountersignHook(command))
+    let words = command.split(separator: " ").dropFirst().map(String.init)
+    #expect(
+      HookOptions.parse(Array(words.dropFirst())) == HookOptions(host: .claude, event: .waiting))
+    #expect(
+      HookCommand.arguments(for: .claude, event: .waiting)
+        == ["hook", "--host", "claude", "--event", "waiting"])
+  }
+
   @Test func buildsTheHookCommandForAHost() {
     #expect(
       HookCommand.command(host: .claude, executablePath: "/opt/homebrew/bin/countersign")

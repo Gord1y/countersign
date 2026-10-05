@@ -32,7 +32,7 @@ public enum LaunchAtLoginState: Sendable, Equatable {
 public enum CompanionMenuAction: Sendable, Equatable {
   case pause
   case resume
-  case snooze(minutes: Int)
+  case snooze(seconds: TimeInterval)
   case endQuietTime
   case openSettings
   case showTestPanel(TestPanelKind)
@@ -44,6 +44,8 @@ public enum CompanionMenuAction: Sendable, Equatable {
   case reportProblem
   case checkForUpdatesNow
   case copyUpgradeCommand(String)
+  case clearDecisionHistory
+  case answerPending(ticketID: String, answer: MenuAnswer)
   case quit
 }
 
@@ -98,30 +100,36 @@ public struct CompanionMenuInput: Sendable, Equatable {
   public var isPaused: Bool
   public var quietUntil: Date?
   public var pendingEntries: [WaitingEntry]
-  public var snoozeMinutes: [Int]
+  public var snoozePresets: [TimeInterval]
   public var launchAtLogin: LaunchAtLoginState
   public var sponsorURL: URL?
   public var buyMeACoffeeURL: URL?
   public var version: String
   public var updateAvailable: UpdateAvailability?
   public var manualCheckResult: ManualUpdateCheckResult?
+  public var contextRows: [ContextMeterRow]
+  public var recentDecisions: [DecisionHistoryEntry]
 
   public init(
     isPaused: Bool,
     quietUntil: Date?,
     pendingEntries: [WaitingEntry],
-    snoozeMinutes: [Int],
+    snoozePresets: [TimeInterval],
     launchAtLogin: LaunchAtLoginState,
     sponsorURL: URL? = CompanionMenu.sponsorURL,
     buyMeACoffeeURL: URL? = CompanionMenu.buyMeACoffeeURL,
     version: String = CountersignVersion.current,
     updateAvailable: UpdateAvailability? = nil,
-    manualCheckResult: ManualUpdateCheckResult? = nil
+    manualCheckResult: ManualUpdateCheckResult? = nil,
+    contextRows: [ContextMeterRow] = [],
+    recentDecisions: [DecisionHistoryEntry] = []
   ) {
+    self.contextRows = contextRows
+    self.recentDecisions = recentDecisions
     self.isPaused = isPaused
     self.quietUntil = quietUntil
     self.pendingEntries = pendingEntries
-    self.snoozeMinutes = snoozeMinutes
+    self.snoozePresets = snoozePresets
     self.launchAtLogin = launchAtLogin
     self.sponsorURL = sponsorURL
     self.buyMeACoffeeURL = buyMeACoffeeURL
@@ -143,8 +151,8 @@ public enum CompanionMenu {
     CountersignStatus.current(pause: isPaused ? .paused : .active, quietUntil: quietUntil).icon
   }
 
-  public static func snoozeMinutes(for file: ConfigFile) -> [Int] {
-    file.snoozeMinutes ?? Settings.defaultSnoozeMinutes
+  public static func snoozePresets(for file: ConfigFile) -> [TimeInterval] {
+    file.snoozePresets ?? Settings.defaultSnoozePresets
   }
 
   public static func items(
@@ -153,11 +161,18 @@ public enum CompanionMenu {
     var items: [CompanionMenuItem] = [
       .entry(CompanionMenuEntry(title: statusTitle(input, timeZone: timeZone), isEnabled: false)),
       .entry(pendingEntry(input.pendingEntries)),
+    ]
+    if !input.contextRows.isEmpty {
+      items.append(.entry(contextEntry(input.contextRows)))
+    }
+    items.append(
+      .entry(decisionsEntry(input.recentDecisions, timeZone: timeZone)))
+    items += [
       .separator,
       .entry(pauseEntry(isPaused: input.isPaused)),
       .entry(
         snoozeEntry(
-          minutes: input.snoozeMinutes, isPaused: input.isPaused, quietUntil: input.quietUntil,
+          presets: input.snoozePresets, isPaused: input.isPaused, quietUntil: input.quietUntil,
           timeZone: timeZone)),
       .separator,
       .entry(CompanionMenuEntry(title: "Settings…", keyEquivalent: ",", action: .openSettings)),
@@ -213,8 +228,66 @@ public enum CompanionMenu {
     }
   }
 
+  private static func contextEntry(_ rows: [ContextMeterRow]) -> CompanionMenuEntry {
+    CompanionMenuEntry(
+      title: "Context in live sessions",
+      submenu: rows.map { .entry(CompanionMenuEntry(title: $0.title, isEnabled: false)) })
+  }
+
+  public static let recentDecisionLimit = 10
+
+  public static func decisionRowTitle(
+    for entry: DecisionHistoryEntry, timeZone: TimeZone = .current
+  ) -> String {
+    let time = TimeOfDayText.describe(entry.date, timeZone: timeZone)
+    let ruleMarker =
+      entry.answer == .allowedByRule || entry.answer == .deniedByRule ? " · rule" : ""
+    return
+      "\(decisionGlyph(entry.answer)) \(entry.tool) · \(entry.project)\(ruleMarker) · \(time) — \(entry.title)"
+  }
+
+  private static func decisionGlyph(_ answer: DecisionAnswer) -> String {
+    switch answer {
+    case .approved, .allowedByRule: return "✓"
+    case .denied, .deniedByRule: return "✕"
+    case .answeredInChat, .resolvedElsewhere: return "↩"
+    case .continued, .compactAfterStep, .handOff, .notThisSession, .dismissed: return "•"
+    }
+  }
+
+  private static func decisionsEntry(_ entries: [DecisionHistoryEntry], timeZone: TimeZone)
+    -> CompanionMenuEntry
+  {
+    guard !entries.isEmpty else {
+      return CompanionMenuEntry(
+        title: "Recent Decisions",
+        submenu: [.entry(CompanionMenuEntry(title: "No decisions yet", isEnabled: false))])
+    }
+    var submenu: [CompanionMenuItem] = entries.prefix(recentDecisionLimit).map {
+      .entry(
+        CompanionMenuEntry(
+          title: decisionRowTitle(for: $0, timeZone: timeZone), isEnabled: false))
+    }
+    submenu.append(.separator)
+    submenu.append(
+      .entry(CompanionMenuEntry(title: "Clear History", action: .clearDecisionHistory)))
+    return CompanionMenuEntry(title: "Recent Decisions", submenu: submenu)
+  }
+
   private static func pendingRows(_ entries: [WaitingEntry]) -> [CompanionMenuItem] {
-    entries.map { .entry(CompanionMenuEntry(title: pendingRowTitle(for: $0), isEnabled: false)) }
+    entries.map { .entry(pendingRow($0)) }
+  }
+
+  private static func pendingRow(_ entry: WaitingEntry) -> CompanionMenuEntry {
+    let title = pendingRowTitle(for: entry)
+    guard let ticketID = entry.ticketID else {
+      return CompanionMenuEntry(title: title, isEnabled: false)
+    }
+    let answers: [CompanionMenuItem] = MenuAnswer.offered(for: entry.summary).map {
+      .entry(
+        CompanionMenuEntry(title: $0.title, action: .answerPending(ticketID: ticketID, answer: $0)))
+    }
+    return CompanionMenuEntry(title: title, submenu: answers)
   }
 
   private static func pauseEntry(isPaused: Bool) -> CompanionMenuEntry {
@@ -224,7 +297,7 @@ public enum CompanionMenu {
   }
 
   private static func snoozeEntry(
-    minutes: [Int], isPaused: Bool, quietUntil: Date?, timeZone: TimeZone
+    presets: [TimeInterval], isPaused: Bool, quietUntil: Date?, timeZone: TimeZone
   ) -> CompanionMenuEntry {
     if isPaused {
       return CompanionMenuEntry(title: "Snooze", isEnabled: false)
@@ -234,11 +307,11 @@ public enum CompanionMenu {
         title: "End Quiet Time (until \(TimeOfDayText.describe(quietUntil, timeZone: timeZone)))",
         action: .endQuietTime)
     }
-    let submenu: [CompanionMenuItem] = minutes.enumerated().map { index, value in
+    let submenu: [CompanionMenuItem] = presets.enumerated().map { index, value in
       .entry(
         CompanionMenuEntry(
-          title: SnoozeTitle.describe(minutes: value, isFirst: index == 0),
-          action: .snooze(minutes: value)))
+          title: SnoozeTitle.describe(seconds: value, isFirst: index == 0),
+          action: .snooze(seconds: value)))
     }
     return CompanionMenuEntry(title: "Snooze", isEnabled: !submenu.isEmpty, submenu: submenu)
   }

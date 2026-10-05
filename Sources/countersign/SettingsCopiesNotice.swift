@@ -132,6 +132,7 @@ private struct InstalledCopyRow: View {
         Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
           .font(.system(size: 13))
           .foregroundStyle(isSelected ? CountersignPalette.accent : Color.secondary)
+          .accessibilityHidden(true)
         VStack(alignment: .leading, spacing: 3) {
           HStack(spacing: 6) {
             Text(entry.label)

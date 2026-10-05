@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 cd "$(dirname "$0")/.."
-swift format lint --strict --recursive Package.swift Sources Tests
+scripts/run-quietly.sh lint swift format lint --strict --recursive Package.swift Sources Tests
 if grep -rnE --include='*.swift' '(^|[[:space:]])//|/\*' Sources Tests; then
   echo "check: comments are not allowed"
   exit 1

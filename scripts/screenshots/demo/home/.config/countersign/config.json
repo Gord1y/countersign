@@ -1,0 +1,20 @@
+{
+  "rules": [
+    {
+      "decision": "allow",
+      "agent": "codex",
+      "project": "~/Projects/shop-api",
+      "command": "swift test"
+    },
+    {
+      "decision": "allow",
+      "project": "~/Projects/shop-api",
+      "command": "swift build"
+    },
+    {
+      "decision": "deny",
+      "command": "sudo",
+      "message": "Countersign denies sudo. Ask the user to run it."
+    }
+  ]
+}

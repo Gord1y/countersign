@@ -28,6 +28,7 @@ struct PlanView: View {
         if let planFilePath = plan.planFilePath {
           HStack(spacing: 6) {
             Image(systemName: "doc.text")
+              .accessibilityHidden(true)
             Text(planFilePath)
               .fixedSize(horizontal: false, vertical: true)
           }
@@ -112,6 +113,7 @@ struct PlanView: View {
           .fill(CountersignPalette.accentText)
           .frame(width: 5, height: 5)
           .padding(.top, 6)
+          .accessibilityHidden(true)
         inlineText(text)
           .font(.system(size: 13))
           .lineSpacing(3)
@@ -142,6 +144,7 @@ struct PlanView: View {
       Rectangle()
         .fill(Color.primary.opacity(0.1))
         .frame(height: 1)
+        .accessibilityHidden(true)
     case .paragraph(let text):
       inlineText(text)
         .font(.system(size: 13))
@@ -217,6 +220,7 @@ struct PlanView: View {
         }
       }
       .buttonStyle(SecondaryButtonStyle())
+      .panelButtonAccessibility(shortcut: "⌫")
       .disabled(!model.isArmed)
 
       Button(action: toggleModeDropdown) {
@@ -225,6 +229,7 @@ struct PlanView: View {
             Text("then: \(mode.title)")
             Image(systemName: "chevron.down")
               .font(.system(size: 9, weight: .semibold))
+              .accessibilityHidden(true)
           }
           .keyHintTextGuide(capHeight: LinkButtonStyle.labelCapHeight)
           KeyHint("⌘⏎", placement: .link)
@@ -235,6 +240,7 @@ struct PlanView: View {
       .buttonStyle(.plain)
       .font(PanelTypography.secondary)
       .foregroundStyle(.secondary)
+      .panelButtonAccessibility(shortcut: "⌘⏎")
       .disabled(!model.isArmed)
       .panelDropdownAnchor(.mode)
 
@@ -249,6 +255,7 @@ struct PlanView: View {
         }
       }
       .buttonStyle(PrimaryButtonStyle())
+      .panelPrimaryAccessibility(shortcut: "⏎", model: model)
       .disabled(!model.isArmed || showingFeedback)
     }
   }
@@ -278,6 +285,7 @@ struct PlanView: View {
         }
       }
       .buttonStyle(SecondaryButtonStyle())
+      .panelButtonAccessibility(shortcut: "⏎")
       .disabled(!model.isArmed)
     }
   }

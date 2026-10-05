@@ -7,7 +7,7 @@ request](https://github.com/Gord1y/countersign/issues/new/choose).
 
 ## More agent hosts
 
-### Next (v0.2)
+### Next
 
 Hosts whose hook fires only when they're about to show their own approval prompt, the same shape
 Claude Code's `PermissionRequest` already is:
@@ -66,34 +66,30 @@ not the model behind it.
 
 ## Panel and behaviour
 
-### Next
-
-- A waiting-agent notice. Countersign exists so an agent never sits waiting on you for an hour
-  without you knowing, but today it only helps when a hook hands it a decision. When Claude Code,
-  Codex, Cursor or Antigravity stops for something it doesn't send to Countersign, such as a
-  question, a plan, or its own prompt after a request was handed back to the chat, a notice would
-  say "<Agent> is waiting for you · <project>", with a **Go there** button that brings the agent's
-  app forward. You answer in the agent itself.
-
 ### Later
 
-- Countersign's own allow and deny rules per project or host, most useful for every-call hosts
-  like Cursor that have no "Always allow" suggestions of their own.
 - Detecting "answered in the host" for Cursor, from its agent transcripts, and for Codex, if it
   ever gains a session registry.
-- A faster subagent header chain, read straight from Claude Code's `parentAgentId` metadata
-  instead of walking the transcript tree.
-- Decision history in the menu-bar app, and answering pending requests straight from the menu.
+- Context checkpoints for Codex, Cursor and Antigravity, once they expose a transcript with token
+  counts.
 - Touch ID confirmation for risky commands.
 - Editing a command before approving it, on hosts that accept updated input back.
-- Scheduled quiet hours.
-- An optional sound or haptic cue.
 - Approvals from a phone or an Apple Watch.
+
+### Watching
+
+- Approve and **Always allow** that Cursor and Antigravity honor. Both ignore an approval from a
+  hook today and ask again (Cursor's open bug ticket; Antigravity's
+  [antigravity-cli#1053](https://github.com/google-antigravity/antigravity-cli/issues/1053)), so
+  their panels offer no Always allow. Moves forward when either fixes it. For Cursor, Always allow
+  could instead write the command into Cursor's own allowlist, but a `terminalAllowlist` in
+  `~/.cursor/permissions.json` replaces the in-app list and locks it, so that waits for a cleaner
+  way in.
+- A haptic cue. macOS plays haptics only on a Force Touch trackpad during a touch, so a panel
+  appearing on its own cannot trigger one.
 
 ## Quality
 
 ### Later
 
-- A VoiceOver and accessibility pass across the panel and the settings window.
 - Localization through translation catalogs.
-- More multi-display polish.

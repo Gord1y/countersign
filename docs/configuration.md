@@ -33,22 +33,25 @@ press Return, move to another field or close the window, so there's nothing to s
 never asks. An entry with a mistake shows a red line under it and isn't saved; the file keeps what
 it had.
 
-Changed a setting and want it back the way it was? A row with a changed value shows a small reset
+Changed a setting and want it back the way it was? A row you just changed shows a small reset
 button beside its control; clicking it removes that key from `config.json`, so the setting follows
-the built-in default again, even if that default later changes. **Panels** and **App** each also
-have a **Restore Defaults** button that resets every changed setting in that group at once, after
-you confirm.
+the built-in default again, even if that default later changes. The button is an undo for the
+current visit: once you close the Settings window or switch to another tab, it is gone from that
+row, even though the value still differs from the default. **Panels** and **App** each also have a
+**Restore Defaults** button that resets every changed setting in that group at once, after you
+confirm, whenever it was changed.
 
-Its settings are in a sidebar with four groups — Agents, App, Panels and Help, the last holding the
-tour, documentation, questions and problem reports, updates, and support links — in that order at
-every window width, plus **Advanced**, opened through a button at the bottom of App. Drag the
-window's edges to resize it: the sidebar's order never changes. It opens again at the size, place
-and group you left it with.
+Its settings are in a sidebar — Agents, App, Panels, Rules, Context while context checkpoints are
+on, and Help, the last holding the tour, documentation, questions and problem reports, updates,
+and support links — in that order at every window width, plus **Advanced**, opened through a button
+at the bottom of App. Drag the
+window's edges to resize it: the sidebar's order never changes. It opens again at the size and
+place you left it with, always on Agents.
 
 ### Agents
 
-Connects your agents — **Wire**, **Update**, **Remove**, and **Show changes** first, for Claude
-Code, Codex, Cursor and Antigravity; see [setup.md](setup.md) for what each writes. It sets no key
+Connects your agents — **Wire**, **Update** and **Remove**, each showing its change before it
+writes, for Claude Code, Codex, Cursor and Antigravity; see [setup.md](setup.md) for what each writes. It sets no key
 in `config.json` itself; that group edits each agent's own hook file instead. When `hosts.<agent>`
 sets one of the Panels keys below for that agent, its row shows the values in one line, with a
 link to open the file — see "Settings for one agent" under [Advanced](#advanced).
@@ -56,30 +59,48 @@ link to open the file — see "Settings for one agent" under [Advanced](#advance
 ### Panels
 
 How approval panels behave, for every agent unless a key is overridden for one under
-`hosts.<agent>` (see "Settings for one agent" under Advanced):
+`hosts.<agent>` (see "Settings for one agent" under Advanced). Settings sets the delays for all
+agents at once, or, with "Same delays for all agents" off, for one agent at a time under
+`hosts.<agent>`; its Approval card checkboxes choose which agents show the card. Settings shows
+these in five blocks: Delays, Interruptions, Corner cards, Claude Code and Try it.
 
 | Setting | Key | Default |
 | --- | --- | --- |
 | Wait for idle | `idleSeconds` | `5` |
 | Grace period | `graceSeconds` | `0` |
-| Arm delay | `armDelay` | `0.8` |
+| Arm delay | `armDelay` | `0.5` |
 | Arm delay after an answer | `chainedArmDelay` | `0.1` |
 | Hand off when frontmost | `handoffApps` | `[]` |
 | Snooze presets | `snoozeMinutes` | `[1, 5, 15, 30]` |
+| Quiet hours | `quietHours` | `[]` |
 | Notes on answers | `questionNotes` | `false` |
 | Mode after a plan | `modeAfterPlan` | `"default"` |
+| Sound | `panelSound` | `"none"` |
+| Waiting-agent notices | `waitingNotices` | `true` |
+| Notice after | `waitingNoticeDelay` | `10` (seconds) |
+| Show notice for | `waitingNoticeDuration` | `10` (seconds) |
 
-All of these except **Notes on answers** and **Mode after a plan** live at the top level of
-`config.json` and can also be set per agent, under `hosts.<agent>`. `questionNotes` and
-`modeAfterPlan` are top-level only, like the App group's keys below.
+Every time setting takes a number in its own unit or a string with a unit, so `"500ms"`, `"0.5s"`,
+`"90s"`, `"2m"` and `"1h"` all work (`ms`, `s`, `m` and `h`, written without a space). A bare number
+keeps the unit in the key: seconds for `idleSeconds`, `graceSeconds`, `armDelay`,
+`chainedArmDelay`, `waitingNoticeDelay`, `waitingNoticeDuration` and `approvalCardDelay`, minutes for `snoozeMinutes`. The
+range of each key applies after the unit is converted, so `"90s"` is a valid `waitingNoticeDelay`
+and `"2m"` is out of range for `idleSeconds`. Settings writes a whole number of minutes back as a number, and anything
+shorter as a string, for example `["30s", 5, 15]`.
+
+All of these except **Quiet hours**, **Notes on answers**, **Mode after a plan**, **Sound** and
+**Waiting-agent notices** live at the top level of `config.json` and can
+also be set per agent, under `hosts.<agent>`. `quietHours`, `questionNotes`, `modeAfterPlan`,
+`panelSound` and `waitingNotices` are top-level only, like the App group's
+keys below.
 
 - **Wait for idle** (`idleSeconds`): how long since your last keyboard, mouse or scroll input a
   panel needs before it appears — counted from that last input, not from when the request
-  arrives, so if you've already been away that long the panel appears at once. Any number
-  `>= 0`. Raise it if panels still appear while you pause mid-thought; lower it if you want them
+  arrives, so if you've already been away that long the panel appears at once. `1` to `30`
+  seconds. Raise it if panels still appear while you pause mid-thought; lower it if you want them
   sooner.
 - **Grace period** (`graceSeconds`): how long a request waits for you to answer it in the chat
-  before it joins the queue. Any number `>= 0`. Set it to a few seconds if you often answer Claude
+  before it joins the queue. `0` to `30` seconds. Set it to a few seconds if you often answer Claude
   Code in the chat right away — a request you answer there during the grace period never gets a
   panel at all. Only Claude Code's chat answers are noticed, so for the other agents it only
   delays the panel.
@@ -98,9 +119,35 @@ All of these except **Notes on answers** and **Mode after a plan** live at the t
   meanwhile). A request from any other app still gets a panel. Cursor and Antigravity show their
   own approval prompt in this case.
 - **Snooze presets** (`snoozeMinutes`): the durations the Snooze menus offer, in order. 1 to 6
-  whole numbers, each `1` to `1440`. Set the presets you actually use. The menu-bar app's own
+  durations, each from 10 seconds to 24 hours: a number of minutes, or a string such as `"30s"` or
+  `"1h"`. Set the presets you actually use. The menu-bar app's own
   Snooze menu isn't tied to one agent, so it always uses the top-level value, even when an agent's
   `hosts` block sets its own.
+- **Quiet hours** (`quietHours`): recurring windows in which panels wait, like a snooze that
+  repeats. Up to 7 entries, each with `days` (any of `"mon"` to `"sun"`), `from` and `to` as
+  a time of day in your local time: `9`, `09`, `9:30`, `0930` and `21:30` all work, and
+  Countersign writes `HH:mm`. Panels wait exactly as during a snooze: requests go to their chats
+  and can still be answered there. The window is over at the minute `to` is reached.
+
+  ```json
+  {
+    "quietHours": [
+      { "days": ["mon", "tue", "wed", "thu", "fri"], "from": "19:00", "to": "09:00" },
+      { "days": ["sat", "sun"], "from": "00:00", "to": "12:00" }
+    ]
+  }
+  ```
+
+  A `to` earlier than `from` makes the window run past midnight, and `days` names the day it
+  starts: the first entry above starts Monday 19:00 and ends Tuesday 09:00, so Saturday 03:00 is
+  quiet because Friday's window is still running. `from` and `to` must differ. Windows that touch or
+  overlap, such as Mon 19:00 to 00:00 and Tue 00:00 to 09:00, are one quiet period that lasts
+  until the last end, and End now skips the whole period. A snooze that ends later than a window
+  extends it. End now (the menu, the Settings
+  header, `countersign snooze off`) ends a snooze and also skips the window that is running now;
+  the next day's window applies as usual. Pause still wins over quiet hours. A bad entry gets one
+  line in the log and is dropped, and the rest apply. `countersign status` prints `quiet: until
+  09:00 (quiet hours)` while a window is running. Settings, Panels, adds and removes windows.
 - **Notes on answers** (`questionNotes`): off by default, so a question panel shows only its
   options. Turn it on if you want a way to add context to the option you pick; it shows a **+ Add
   a note** link under a question's options, and the note you type comes back to Claude in the
@@ -110,6 +157,39 @@ All of these except **Notes on answers** and **Mode after a plan** live at the t
   edit files without asking; `"auto"` hands the decisions to Claude Code's auto mode. The plan
   panel's **then: …** menu starts on this choice, and you can still pick another there for a
   single plan. Only Claude Code sends plans, so the other agents are unaffected.
+- **Sound** (`panelSound`): a macOS sound played once when a panel appears, `"none"` (nothing)
+  unless you change it. Use `"Basso"`, `"Blow"`, `"Bottle"`, `"Frog"`, `"Funk"`, `"Glass"`,
+  `"Hero"`, `"Morse"`, `"Ping"`, `"Pop"`, `"Purr"`, `"Sosumi"`, `"Submarine"` or `"Tink"`, the
+  files in `/System/Library/Sounds`; a name that is not installed logs one line and falls back to
+  `"none"`. It plays for approval panels, context checkpoints and test panels, so you can hear
+  your choice, but not for the next panel in a chain you are already answering, and never for the
+  result card or a notice. The speaker button beside the menu in Settings plays the chosen sound.
+- **Waiting-agent notices** (`waitingNotices`): `true` shows a corner card, "Claude Code is
+  waiting for you", once an agent has finished a turn and waited for you. `true` unless you change
+  it. While it is on, `countersign setup` and Update in Settings ▸ Agents add Countersign's `Stop`
+  hook next to the permission hook in each agent's hook file (Claude Code, Codex, Cursor and
+  Antigravity), in the same diff. Turning it off also closes a notice that is already waiting.
+  Turn it off from Settings, not by editing the file: that removes those hooks, after showing you
+  the change, and writes `false`, and setup then leaves them out.
+  Codex asks you to trust its new hook once; see
+  [agents.md](agents.md#the-waiting-agent-notice). At most two corner cards show at once; a
+  third notice waits for room. Notices hide while any Countersign panel is on screen, a test panel
+  included, and come back when it closes.
+- **Notice after** (`waitingNoticeDelay`): how long an agent has been waiting before the
+  notice appears, from 10 seconds to 1 hour: a number of seconds or a string such as `"90s"` or
+  `"2m"`, `10` unless you change it. A value outside the range or of another type logs one line
+  and falls back to `10`. It can also be set for one agent, under `hosts.<agent>`, and wins there;
+  Settings shows only the top-level value, in a field under the Waiting-agent notices switch,
+  disabled while notices are off.
+- **Show notice for** (`waitingNoticeDuration`): how long a notice stays on screen before it
+  closes by itself, from 3 seconds to 1 hour: a number of seconds or a string such as `"10s"` or
+  `"1m"`, `10` unless you change it. A value outside the range or of another type logs one line
+  and falls back to `10`. Only the time the notice is visible counts: while a panel, quiet time or
+  a pause hides it, or while the pointer rests on it, the clock stops. A notice that closes this
+  way is deleted like one you dismiss with the ✕, and the log reads
+  `notice: closed (shown long enough)`. It is top level only: `hosts.<agent>` does not take it.
+  Settings shows it directly under Notice after, disabled while notices are off. Approval cards
+  never close by themselves.
 
 #### Try your settings
 
@@ -121,7 +201,8 @@ and accent colour, and the idle wait if you switch away and it steps aside. It s
 without the grace period or the idle wait. Only one test panel shows at a time, and a real request
 always comes first: while a panel is on screen or a request is waiting for one, the test panel
 doesn't show and says why, and a request that arrives while it is up closes it. Nothing you choose
-in it reaches an agent. It reads the file when it starts, so save your changes first, and it uses
+in it reaches an agent, and once you answer, a small card says what you picked and what a real
+request would have done. It reads the file when it starts, so save your changes first, and it uses
 Claude Code's settings, `hosts.claude` included. More in
 [menu-bar-app.md](menu-bar-app.md#test-panel).
 
@@ -163,11 +244,12 @@ What the menu-bar app does, and how panels and the Settings window look:
 Shows the config file's path, **Open in Editor** (creates the file with the `$schema` line when
 it's missing), **Copy Path**, the schema's URL as a link, and what only the file can set.
 
-- **Open with** (`editorApp`, default: the default app): which app **Open in Editor** opens
-  `config.json` with, on this row and on an agent's own "Open in Editor" link. Absent, it's
-  whatever macOS opens JSON files with. Pick one from the menu, or **Other…** for an app the menu
-  doesn't offer; if the chosen app is later uninstalled, Countersign opens the file with the
-  default app instead and says so.
+- **Open with** (`editorApp`, default: ask every time): which app **Open in Editor** opens
+  `config.json` with, on this row and on an agent's own "Open in Editor" link. Absent means ask:
+  Open in Editor shows a list of the apps that open JSON files, with "Always use this app" ticked,
+  and a pick with it ticked is stored here so later clicks open directly. Pick one from the menu
+  yourself, or **Other…** for an app the menu doesn't offer; **Ask every time** removes the key.
+  If the chosen app is later uninstalled, Open in Editor asks again and says so.
 
 The menu-bar app started from the Finder or at login doesn't see variables set in your shell
 profile. If you set `XDG_CONFIG_HOME` only there, its Settings window edits
@@ -181,13 +263,40 @@ profile. If you set `XDG_CONFIG_HOME` only there, its Settings window edits
   is at a chat to answer it; it gets Claude Code's own handling instead. Set it to `true` to see
   panels for those runs as well. It has no effect for Codex, Cursor or Antigravity. It can be set
   at the top level or per agent, under `hosts.<agent>`, like the Panels keys above.
+- **`approvalCard`** (default: on for Codex, Cursor and Antigravity, off for Claude Code): a small
+  corner card, "Cursor needs your approval · shop-api", with a **Show** button, when a request has
+  waited `approvalCardDelay` seconds for **Wait for idle** while you keep typing or moving the
+  mouse. A panel waits for a pause so it never takes keys meant for something else, but if you
+  never pause, Cursor and Antigravity just stop and wait, with no prompt of their own, and Codex
+  only says "Waiting for the approval panel". The card never takes focus, so your typing is safe.
+  **Show** brings the panel up at once, still with the arm delay; the close button dismisses the
+  card and the panel waits for a pause as before. If the panel appears and steps aside because you
+  went back to work without answering, the card comes back at once, unless you dismissed it. No
+  card shows during quiet time or while paused (a card that is up when quiet time starts closes,
+  and comes back after it), and never for a test panel or a context checkpoint; it goes away when
+  the panel appears or the request ends. At most two corner cards show at once, and an approval
+  card goes first: when both places hold waiting-agent notices, the newer notice steps back until
+  there is room again. Claude Code is off by default because its
+  request also waits in the chat, where you can answer it while you work. Set it at the top level
+  for every agent, or per agent under `hosts.<agent>`, which wins: for example
+  `"hosts": { "claude": { "approvalCard": true } }` turns it on for Claude Code alone. A value
+  that isn't `true` or `false` logs one line and the agent's default applies. Turning it off, and
+  changing `approvalCardDelay`, also applies to a request that is already waiting: a card that is up
+  closes.
+- **`approvalCardDelay`** (default `5`): how long a request waits for a pause before its
+  card appears, from `1` second to `10` minutes: a number of seconds or a string with a unit, such
+  as `"1.5s"` or `"2m"`. Counted from when the request's turn comes and it
+  starts waiting for your pause, not from when it arrived; after its panel steps aside unanswered
+  there is no delay. A value outside the
+  range or of another type logs one line, `expected a duration from 1s to 10m, using default 5s`, and falls back to `5`. It can be set at the top level or
+  per agent, under `hosts.<agent>`.
 - **`hosts.claude`, `hosts.codex`, `hosts.cursor`, `hosts.antigravity`**: per-agent values; see
   "Settings for one agent" below.
 
 #### Settings for one agent
 
-Every key except `checkForUpdates`, `questionNotes`, `quitBehavior`, `modeAfterPlan`, `appearance`,
-`accentColor` and `editorApp` can also be set for one agent, under
+Every key except `checkForUpdates`, `questionNotes`, `quitBehavior`, `modeAfterPlan`, `panelSound`,
+`waitingNotices`, `appearance`, `accentColor` and `editorApp` can also be set for one agent, under
 `hosts.claude`, `hosts.codex`, `hosts.cursor` or `hosts.antigravity`:
 
 ```json
@@ -199,10 +308,14 @@ Every key except `checkForUpdates`, `questionNotes`, `quitBehavior`, `modeAfterP
 }
 ```
 
+The keys an agent block takes are `armDelay`, `chainedArmDelay`, `idleSeconds`, `graceSeconds`,
+`handoffApps`, `snoozeMinutes`, `includeHeadlessSessions`, `waitingNoticeDelay`, `approvalCard`
+and `approvalCardDelay`.
+
 For a request from an agent, its `hosts` value wins over the top-level one, which wins over the
 default. This file is the only place settings live: the hook command takes nothing but
 `--host <agent>`. The menu-bar app's Snooze menu isn't tied to one agent, so it always uses the
-top-level `snoozeMinutes`.
+top-level `snoozeMinutes`, and quiet hours are top-level only too.
 
 #### Mistakes in the file
 
@@ -210,8 +323,9 @@ A mistake never stops a panel and never answers anything; Countersign falls back
 
 - A file that can't be read or isn't a valid JSON object: every setting uses its default.
 - A key with the wrong type or a value outside its range: that key uses its default, and every
-  other key is read as usual. `armDelay` and `chainedArmDelay` are the exception: a number outside
-  `0` to `3` is moved to the nearest end instead.
+  other key is read as usual. `armDelay` and `chainedArmDelay` are the exception: a value outside
+  `0` to `3` seconds is moved to the nearest end instead. A string that isn't a number followed by
+  `ms`, `s`, `m` or `h` counts as the wrong type; the log line quotes a value as you wrote it.
 - An unknown key: ignored.
 
 Each mistake is written to the log, `~/Library/Logs/Countersign/countersign.log`, on a line starting
@@ -223,6 +337,164 @@ with `config: `, and `countersign doctor` lists them as `warn` lines.
 `$schema` at `https://raw.githubusercontent.com/Gord1y/countersign/main/schema/config.schema.json`,
 as in the example above, and an editor that understands JSON Schema completes and checks keys as
 you type. `$schema` itself is ignored by Countersign; it only lets your editor validate the file.
+
+## Allow and deny rules
+
+Countersign's own rules answer a request before a panel shows: an allow rule lets it through, a deny
+rule blocks it and tells the agent why. They apply to all four agents and live in the top-level
+`rules` array of `config.json`, in the order you write them. A request no rule decides gets its
+panel as usual. You can also add rules from a panel: on a Codex request, **Approve ▾ → Always
+allow** saves a rule for Codex and that project (see [What each agent gets](agents.md)) and shows
+up under Settings ▸ Rules, where you can also add a rule with **Add Rule…** and edit or remove any
+listed rule. Cursor and Antigravity currently ignore an approval from a hook and decide by their own
+settings, so for them an allow rule only keeps Countersign's panel away; a deny rule blocks as for
+every agent.
+
+Each rule is an object. Only `decision` is required; every other field narrows the rule, and a rule
+applies only when all the fields it sets match.
+
+- **`decision`**: `"allow"` or `"deny"`.
+- **`agent`**: `"claude"`, `"codex"`, `"cursor"` or `"antigravity"`. Leave it out for all four.
+- **`project`**: a folder, as an absolute path or one starting with `~`, like `"~/code/shop"`. The
+  rule applies to requests whose working directory is that folder or anywhere inside it; a trailing
+  `/` makes no difference, and `/a/b` covers `/a/b/c` but not `/a/bc`.
+- **`tool`**: the tool's name as the agent reports it, like `"Bash"`, `"apply_patch"` or
+  `"mcp__github__*"`. `*` is the only wildcard and the whole name must match, case-sensitively.
+  Cursor reports a shell command as `Shell` and Antigravity as `run_command`; an MCP call carries
+  the MCP tool's own name.
+- **`command`**: a shell command pattern, in the same language as Cursor's command allowlist. A
+  rule with a `command` applies only to shell commands, whichever agent runs them.
+- **`message`**: for deny rules, the reason the agent sees. It defaults to
+  `Denied by a Countersign rule.` On an allow rule it is ignored and logged.
+
+### The command pattern
+
+A pattern is either a command prefix or a base command with an argument glob:
+
+- `"git status"` matches `git status` and `git status --short`, but not `git statusx`: the prefix
+  must end on a word boundary.
+- `"npm"` matches `npm` and `npm run lint`.
+- `"npm:run *"` matches `npm run lint` and `npm run test -- --watch`, but not `npm install`: the
+  command's first word must be `npm`, and what follows must fit the glob, where `*` matches
+  anything.
+
+A compound command such as `cd app && pnpm lint | tee out.log` is split into its parts at `&&`,
+`||`, `;`, `|` and newlines, with quotes respected. A deny rule applies when any part matches. An
+allow rule applies only when every part is matched by some allow rule in scope, so
+`ls && rm -rf build` is not allowed by an allow rule for `ls` alone. A command Countersign can't
+split safely, for example one with `$(...)` or backticks, is never decided by a rule with a
+`command`, allow or deny: it gets its panel.
+
+A rule without a `command` decides every request in its scope, whatever the tool. An allow rule
+with only `"agent": "codex"` lets every Codex request through, so scope it with care.
+
+### When rules apply
+
+A deny rule blocks a matching request straight away, even one Countersign would otherwise have left
+alone, such as a Cursor command in its sandbox. An allow rule lets a matching request through only
+if Countersign would have asked about it: a sandboxed Cursor command or a tool Countersign does not
+ask about stays as it is without Countersign. An allowed request skips Cursor's command allowlist
+check and the panel. Rules do nothing while Countersign is paused, in a test panel or on a context
+checkpoint. The answer is logged and shows in **Recent Decisions** with `rule` after the project.
+
+### Which rule wins
+
+Deny rules are checked first, in order, and the first one that applies blocks the request. Only
+when none applies are the allow rules considered. So a deny rule beats an allow rule that also
+matches, wherever each sits in the list.
+
+The decision is logged with the rule's position in the list. Positions count the rules Countersign
+kept: an entry that was dropped for a mistake (below) does not take a number.
+
+### Suggestions
+
+Settings ▸ Rules offers four cards under the list, and **Add** on a card writes all its rules at
+once. They apply to every agent and project; edit a rule afterwards to narrow it. A card goes away
+once its rules are in the list.
+
+- **Deny rm -rf**: deny `rm -rf` and `rm -fr`.
+- **Deny git history rewrites**: deny `git:push*--force*`, `git:push* -f*`, `git:reset*--hard*` and
+  `git clean`.
+- **Deny sudo**: deny `sudo`.
+- **Allow read-only git**: allow `git status`, `git diff`, `git log` and `git show`.
+
+A deny card catches the common spellings. Anything else, such as `rm -r -f` or `git -C dir push -f`,
+is not denied by it and still shows the panel. `git diff --output=<file>` and
+`git log --output=<file>` write a file even under **Allow read-only git**.
+
+### Examples
+
+Let Cursor run `pnpm lint` and `git status` without a panel in one project:
+
+```json
+{
+  "rules": [
+    { "decision": "allow", "agent": "cursor", "project": "~/code/shop", "command": "pnpm lint" },
+    { "decision": "allow", "agent": "cursor", "project": "~/code/shop", "command": "git status" }
+  ]
+}
+```
+
+Block `rm -rf` for every agent, with your own reason:
+
+```json
+{
+  "rules": [
+    {
+      "decision": "deny",
+      "command": "rm:-rf *",
+      "message": "Delete with the trash, not rm -rf."
+    }
+  ]
+}
+```
+
+### Mistakes in rules
+
+A bad entry never stops the others. An entry that isn't an object, has no `"allow"` or `"deny"`
+decision, or has an `agent`, `project`, `tool`, `command` or `message` of the wrong kind is dropped
+and logged, for example `rules[2].agent: expected "claude", "codex", "cursor" or "antigravity",
+dropped`. An unknown key in an entry is logged and ignored. A `rules` value that isn't an array is
+ignored.
+
+Rules are off while Countersign is paused, like everything else it does.
+
+Settings ▸ Rules lists every rule in the order of the file and removes one with its minus button,
+after asking you to confirm.
+Entries that couldn't be read aren't listed; the pane counts them and offers Open in Editor.
+
+## Context checkpoints (Claude Code)
+
+On by default, and for Claude Code only. While on, Countersign watches how large a Claude Code
+session's context has grown and adds a note asking it to wrap up, compact or hand off. The
+`contextCheckpoints` object takes these keys, all optional and all edited in the file only:
+
+- `enabled`: `true` or `false`. Default `true`.
+- `mode`: `"panel"` asks you in a panel, `"silent"` only adds the note. Default `"panel"`.
+- `thresholds`: the three checkpoints, in tokens, by context window. `200k` defaults to
+  `[100000, 130000, 160000]` and `1m` to `[200000, 300000, 400000]`. Each is exactly three whole
+  numbers of 1 or more, strictly ascending.
+- `modelThresholds`: an object from a model identifier, as Claude Code reports it, to a ladder of
+  three ascending whole numbers. It wins over `thresholds`. A bad entry is dropped.
+- `rearmBelow`: a number from `0.1` to `0.95`. Default `0.6`. A checkpoint fires again only once
+  the context has fallen below this fraction of its size, for example after `/compact`.
+- `handoffFile`: a non-empty path. Default `"notes/handoff.md"`.
+- `notes`: the text of `soft`, `status`, `insist`, `compact` and `handoff`, each 1 to 4000
+  characters. Two placeholders work in every note: `{tokens}` becomes the context size (`212K`, or
+  `1.3M` from 999,500 tokens up) and `{handoffFile}` becomes `handoffFile`.
+- `menuBarMeter`: `true` or `false`. Default `false`.
+- `hosts.claude`: any of the keys above except `hosts`, winning over the top-level value, note by
+  note. `hosts.codex`, `hosts.cursor` and `hosts.antigravity` are ignored with a log line.
+
+A key with a mistake uses its default and the rest of the block is read as usual, like every other
+key on this page.
+
+`countersign setup`, and Update in Settings > Agents, add Countersign's `UserPromptSubmit` entry to
+Claude Code's settings while checkpoints are on; turning them off in Settings removes it.
+
+To turn the feature off, use the "Context checkpoints (Claude Code)" switch in Settings > Panels or
+the "Turn Off Context Checkpoints" button at the bottom of the Context tab. Both show what changes
+in Claude Code's `settings.json` before anything is written.
 
 #### Ask your coding agent
 

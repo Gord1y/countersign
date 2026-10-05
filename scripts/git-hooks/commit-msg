@@ -51,20 +51,14 @@ fi
 
 ai_coauthors=$(each_line_matching "$ai_coauthor_pattern")
 if [ -n "$ai_coauthors" ]; then
-  while IFS= read -r line; do
-    violation "remove the AI co-author trailer: $line"
-  done <<EOF
-$ai_coauthors
-EOF
+  printf '%s\n' "$ai_coauthors" | sed 's/^/commit-msg: remove the AI co-author trailer: /' >&2
+  status=1
 fi
 
 generated_lines=$(each_line_matching "$generated_pattern")
 if [ -n "$generated_lines" ]; then
-  while IFS= read -r line; do
-    violation "remove the generated-with line: $line"
-  done <<EOF
-$generated_lines
-EOF
+  printf '%s\n' "$generated_lines" | sed 's/^/commit-msg: remove the generated-with line: /' >&2
+  status=1
 fi
 
 exit "$status"

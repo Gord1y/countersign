@@ -29,11 +29,15 @@ enum StatusCommand {
     let paths = AppPaths.standard
     let pauseSwitch = PauseSwitch(file: paths.pauseFile)
     let queue = TicketQueue(directory: paths.queueDirectory, lockFile: paths.displayLockFile)
-    let quietTime = QuietTime(file: paths.quietFile)
+    let quietState = QuietState(paths: paths)
     print("state: \(pauseSwitch.state.description)")
     print("queue: \(queue.liveTickets().count) live ticket(s)")
-    if let until = quietTime.activeUntil() {
-      print("quiet: until \(TimeOfDayText.describe(until))")
+    if let until = quietState.activeUntil() {
+      if quietState.windowEnd() == until {
+        print("quiet: until \(TimeOfDayText.describe(until)) (quiet hours)")
+      } else {
+        print("quiet: until \(TimeOfDayText.describe(until))")
+      }
     } else {
       print("quiet: off")
     }
@@ -48,7 +52,7 @@ enum StatusCommand {
     let quietTime = QuietTime(file: paths.quietFile)
     if argument == "off" {
       do {
-        try quietTime.clear()
+        try QuietState(paths: paths).endNow()
         print("active")
       } catch {
         CommandLineOutput.fail("error: \(error)")

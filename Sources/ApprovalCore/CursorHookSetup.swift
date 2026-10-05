@@ -107,13 +107,13 @@ enum CursorHookSetup {
     ])
   }
 
-  private static func addVersionIfMissing(to document: inout JSONSourceDocument) throws {
+  static func addVersionIfMissing(to document: inout JSONSourceDocument) throws {
     guard document.root.member(named: versionKey) == nil else { return }
     try document.appendMember(
       JSONFragmentMember(key: versionKey, value: .integer(version)), to: document.root)
   }
 
-  private static func hooksObject(in root: JSONSpanNode) throws -> JSONSpanNode? {
+  static func hooksObject(in root: JSONSpanNode) throws -> JSONSpanNode? {
     guard let hooks = root.member(named: hooksKey)?.value else { return nil }
     guard hooks.members != nil else {
       throw HookSetupError.unexpectedType(key: hooksKey, expected: "an object")
@@ -121,7 +121,7 @@ enum CursorHookSetup {
     return hooks
   }
 
-  private static func eventArray(named event: String, in hooks: JSONSpanNode) throws
+  static func eventArray(named event: String, in hooks: JSONSpanNode) throws
     -> JSONSpanNode?
   {
     guard let entries = hooks.member(named: event)?.value else { return nil }

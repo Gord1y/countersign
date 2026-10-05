@@ -42,15 +42,20 @@ enum HookCommand {
     return isCountersignExecutable(words[0].value) && words[1].value == subcommand
   }
 
-  static func arguments(for host: Host) -> [String] {
-    [subcommand, hostOption, host.rawValue]
+  static let eventOption = "--event"
+
+  static func arguments(for host: Host, event: HookEventOption? = nil) -> [String] {
+    let base = [subcommand, hostOption, host.rawValue]
+    guard let event else { return base }
+    return base + [eventOption, event.rawValue]
   }
 
-  static func isCommand(_ command: String, running executablePath: String, for host: Host)
-    -> Bool
-  {
+  static func isCommand(
+    _ command: String, running executablePath: String, for host: Host,
+    event: HookEventOption? = nil
+  ) -> Bool {
     words(in: Array(command.unicodeScalars), limit: Int.max).map(\.value)
-      == [executablePath] + arguments(for: host)
+      == [executablePath] + arguments(for: host, event: event)
   }
 
   static func isCountersignExecutable(_ path: String) -> Bool {
@@ -69,8 +74,10 @@ enum HookCommand {
     return "'" + path.replacingOccurrences(of: "'", with: "'\\''") + "'"
   }
 
-  static func command(host: Host, executablePath: String) -> String {
-    ([shellWord(executablePath)] + arguments(for: host)).joined(separator: " ")
+  static func command(host: Host, executablePath: String, event: HookEventOption? = nil)
+    -> String
+  {
+    ([shellWord(executablePath)] + arguments(for: host, event: event)).joined(separator: " ")
   }
 
   private static func isWhitespace(_ scalar: Unicode.Scalar) -> Bool {

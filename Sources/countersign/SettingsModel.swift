@@ -53,7 +53,6 @@ struct HostRow: Identifiable {
   let location: HookConfigLocation
   var status: HostWiringStatus
   var preview: SetupPreview?
-  var showsChanges = false
   var error: String?
   var followUp: AgentFollowUp?
 
@@ -70,6 +69,13 @@ struct HostRow: Identifiable {
 
   var problem: String? {
     error ?? preview?.failures.first
+  }
+
+  var isWiredOrStale: Bool {
+    switch status {
+    case .wired, .needsUpdate: return true
+    case .notInstalled, .notWired, .unusable: return false
+    }
   }
 
   var canApply: Bool {
@@ -96,11 +102,73 @@ enum SettingsUpdateCheckPhase: Equatable {
 
 enum ConfigEditorOrigin: Equatable {
   case advanced
+  case rules
   case host(ApprovalCore.Host)
 }
 
 struct EditorOpenFailure {
   let origin: ConfigEditorOrigin
+  let message: String
+}
+
+struct EditorChoice: Identifiable, Equatable {
+  let origin: ConfigEditorOrigin
+  let missingBundleID: String?
+
+  var id: String { missingBundleID ?? "" }
+
+  var missingNotice: String? {
+    missingBundleID.map { "\($0) is not installed. Pick another app." }
+  }
+}
+
+enum ContextHookChangeOrigin: Equatable {
+  case toggle
+  case hookStatus
+}
+
+struct ContextHookChange {
+  let origin: ContextHookChangeOrigin
+  let enable: Bool
+  let preview: SetupPreview
+
+  var canApply: Bool {
+    preview.failures.isEmpty
+  }
+
+  var confirmTitle: String {
+    guard origin == .toggle else { return "Update" }
+    return enable ? "Turn On" : "Turn Off"
+  }
+}
+
+struct HostHookChange {
+  let host: ApprovalCore.Host
+  let action: HostWiringAction
+  let preview: SetupPreview
+  let createsFile: Bool
+
+  var canApply: Bool {
+    preview.failures.isEmpty
+  }
+}
+
+struct WaitingHookChange {
+  let enable: Bool
+  let preview: SetupPreview
+  let asksCodexTrust: Bool
+
+  var canApply: Bool {
+    preview.failures.isEmpty
+  }
+
+  var confirmTitle: String {
+    enable ? "Turn On" : "Turn Off"
+  }
+}
+
+struct ContextHookFailure {
+  let origin: ContextHookChangeOrigin
   let message: String
 }
 
@@ -125,21 +193,44 @@ final class SettingsModel {
   private(set) var status: CountersignStatus
   private(set) var statusError: String?
   private(set) var selectedPane = SettingsPane.standard
-  var rememberPane: ((SettingsPane) -> Void)?
 
   private(set) var preferences = PreferenceValues()
   private(set) var configFileContents = ConfigFile()
-  private(set) var snoozeText = PreferenceRules.snoozeText(Settings.defaultSnoozeMinutes)
+  private(set) var configLogLines: [String] = []
+  private(set) var rulesError: String?
+  private(set) var snoozeText = PreferenceRules.snoozeText(Settings.defaultSnoozePresets)
   private(set) var snoozeError: String?
   private(set) var newHandoffApp = ""
   private(set) var handoffError: String?
+  private(set) var newQuietDays: Set<QuietWeekday> = []
+  private(set) var newQuietFrom = ""
+  private(set) var newQuietTo = ""
+  private(set) var quietHoursError: String?
   private(set) var writeErrors: [PreferenceName: String] = [:]
+  private(set) var durationTexts: [PreferenceName: String] = [:]
+  private(set) var durationErrors: [PreferenceName: String] = [:]
+  private(set) var visit = SettingsVisit()
   private(set) var launchAtLogin = LaunchAtLoginState.unavailable
   private(set) var launchAtLoginError: String?
   private(set) var ownValueNotes: [ApprovalCore.Host: String] = [:]
   private(set) var configProblem: String?
   private(set) var editorOpenFailure: EditorOpenFailure?
+  private(set) var editorChoice: EditorChoice?
   private(set) var testPanelError: String?
+  private(set) var testCardError: String?
+  private(set) var contextChange: ContextHookChange?
+  private(set) var contextHookFailure: ContextHookFailure?
+  private(set) var contextHookStatus = ContextHookStatus.notWired
+  private(set) var waitingChange: WaitingHookChange?
+  private(set) var hostChange: HostHookChange?
+  private(set) var waitingHookFailure: String?
+  private(set) var delaysPerAgent = false
+  private(set) var delayAgent = ApprovalCore.Host.codex
+  private(set) var sameDelaysChange: [ApprovalCore.Host]?
+  private(set) var contextTexts: [PreferenceName: String] = [:]
+  private(set) var contextErrors: [PreferenceName: String] = [:]
+  private(set) var newContextModelPrefix = ""
+  private(set) var newContextModelLadder = ""
   private(set) var copied: SettingsCopyTarget?
   private(set) var customAccentColor: HexColor?
   private(set) var updateCheckPhase = SettingsUpdateCheckPhase.idle
@@ -147,6 +238,7 @@ final class SettingsModel {
   var requestTour: (() -> Void)?
   var applyAppearance: ((AppearanceChoice) -> Void)?
 
+  @ObservationIgnored private let testCornerCards = TestCornerCards()
   @ObservationIgnored private var copiedTask: Task<Void, Never>?
   @ObservationIgnored private var customAccentTask: Task<Void, Never>?
   @ObservationIgnored private var configWritten = false
@@ -193,16 +285,64 @@ final class SettingsModel {
   var idleSeconds: Double { preferences.idleSeconds }
   var graceSeconds: Double { preferences.graceSeconds }
   var handoffApps: [String] { preferences.handoffApps }
+  var quietHours: [QuietWindow] { preferences.quietHours }
   var checkForUpdates: Bool { preferences.checkForUpdates }
   var quitBehavior: QuitBehavior { preferences.quitBehavior }
   var modeAfterPlan: PlanApprovalMode { preferences.modeAfterPlan }
+  var panelSound: String { preferences.panelSound }
+  var waitingNotices: Bool { preferences.waitingNotices }
+  var waitingNoticeDelay: TimeInterval { preferences.waitingNoticeDelay }
+  var waitingNoticeDuration: TimeInterval { preferences.waitingNoticeDuration }
   var questionNotes: Bool { preferences.questionNotes }
   var appearance: AppearanceChoice { preferences.appearance }
   var accentColor: HexColor { customAccentColor ?? preferences.accentColor }
   var editorApp: String? { preferences.editorApp }
 
+  var contextCheckpoints: ContextCheckpointSettings { preferences.contextCheckpoints }
+  var contextCheckpointsEnabled: Bool { contextCheckpoints.enabled }
+
+  var claudeLocation: HookConfigLocation? {
+    environment.locations.first { $0.host == .claude }
+  }
+
+  var claudeIsInstalled: Bool {
+    claudeLocation.map { DoctorCommand.isInstalled($0) } ?? false
+  }
+
+  var contextToggleProblem: String? {
+    contextHookProblem(for: .toggle) ?? writeErrors[.contextCheckpointsEnabled]
+  }
+
+  var contextModelProblem: String? {
+    contextErrors[.contextModelThresholds] ?? writeErrors[.contextModelThresholds]
+  }
+
+  var contextModelThresholds: [(prefix: String, ladder: [Int])] {
+    contextCheckpoints.modelThresholds.keys.sorted().map {
+      ($0, contextCheckpoints.modelThresholds[$0] ?? [])
+    }
+  }
+
+  func contextHookProblem(for origin: ContextHookChangeOrigin) -> String? {
+    guard let contextHookFailure, contextHookFailure.origin == origin else { return nil }
+    return contextHookFailure.message
+  }
+
+  func contextChange(for origin: ContextHookChangeOrigin) -> ContextHookChange? {
+    guard let contextChange, contextChange.origin == origin else { return nil }
+    return contextChange
+  }
+
+  func contextProblem(_ name: PreferenceName) -> String? {
+    contextErrors[name] ?? writeErrors[name]
+  }
+
   var snoozeProblem: String? {
     snoozeError ?? writeErrors[.snoozeMinutes]
+  }
+
+  var quietHoursProblem: String? {
+    quietHoursError ?? writeErrors[.quietHours]
   }
 
   var handoffProblem: String? {
@@ -212,7 +352,30 @@ final class SettingsModel {
   func select(_ pane: SettingsPane) {
     guard pane != selectedPane else { return }
     selectedPane = pane
-    rememberPane?(pane)
+    visit.begin()
+  }
+
+  func beginVisit() {
+    visit.begin()
+  }
+
+  func isResettable(_ name: PreferenceName) -> Bool {
+    guard resetsAgentValue(name) else { return isChanged(name) && visit.contains(name) }
+    return ownDelay(name) != nil
+  }
+
+  func resetHelp(_ name: PreferenceName) -> String {
+    guard resetsAgentValue(name) else { return "Reset to default: \(name.defaultText)" }
+    return "Use the shared value: \(DurationText.compact(sharedDelay(name)))"
+  }
+
+  func resetAccessibilityLabel(_ name: PreferenceName) -> String {
+    guard resetsAgentValue(name) else { return "Reset \(name.title) to default" }
+    return "Reset \(name.title) for \(delayAgent.displayName) to the shared value"
+  }
+
+  private func resetsAgentValue(_ name: PreferenceName) -> Bool {
+    delaysPerAgent && PreferenceName.agentDelays.contains(name)
   }
 
   func refreshStatus() {
@@ -221,20 +384,47 @@ final class SettingsModel {
     status = current
   }
 
-  func performStatusAction() {
+  var headerControls: SettingsHeaderControls {
+    SettingsHeaderControls(status: status)
+  }
+
+  var snoozeChoices: [TimeInterval] {
+    CompanionMenu.snoozePresets(for: configFileContents)
+  }
+
+  func togglePause() {
+    let controls = headerControls
     let paths = environment.paths
-    do {
-      switch status.action {
-      case .pause:
-        try StateSwitches(
-          pauseSwitch: PauseSwitch(file: paths.pauseFile),
-          quietTime: QuietTime(file: paths.quietFile)
-        ).pause()
-      case .resume:
+    changeStatus {
+      if controls.isPaused {
         try PauseSwitch(file: paths.pauseFile).resume()
-      case .endQuietTime:
-        try QuietTime(file: paths.quietFile).clear()
+      } else {
+        try stateSwitches(paths).pause()
       }
+    }
+  }
+
+  func snooze(seconds: TimeInterval) {
+    let paths = environment.paths
+    let until = now().addingTimeInterval(seconds)
+    changeStatus { try stateSwitches(paths).snooze(until: until) }
+  }
+
+  func endQuietTime() {
+    let paths = environment.paths
+    let endedAt = now()
+    changeStatus { try QuietState(paths: paths).endNow(now: endedAt) }
+  }
+
+  private func stateSwitches(_ paths: AppPaths) -> StateSwitches {
+    StateSwitches(
+      pauseSwitch: PauseSwitch(file: paths.pauseFile),
+      quietTime: QuietTime(file: paths.quietFile))
+  }
+
+  private func changeStatus(_ change: () throws -> Void) {
+    do {
+      try change()
       statusError = nil
     } catch {
       statusError = SetupRun.describe(error)
@@ -264,12 +454,11 @@ final class SettingsModel {
       var row = shown[location.host] ?? HostRow(location: location, status: .notInstalled)
       row.status = status(for: location)
       row.preview = row.action.map { preview(of: location, action: $0) }
-      if row.preview?.hasChanges != true {
-        row.showsChanges = false
-      }
       row.followUp = AgentFollowUps.current(
         host: location.host, wiringStatus: row.status,
-        codexTrust: location.host == .codex ? codexHookTrustState(at: location) : .unknown)
+        codexTrust: location.host == .codex ? codexHookTrustState(at: location) : .unknown,
+        codexHasWaitingEntry: AgentFollowUps.codexHasWaitingEntry(
+          in: ConfigFileStore.fileState(location.file)))
       return row
     }
     appLinkOffer = environment.resolvedExecutable.flatMap {
@@ -290,6 +479,15 @@ final class SettingsModel {
     installVersionMismatch = InstallCopiesCheck.versionMismatch(
       home: environment.home, root: environment.installRoot,
       probesVersions: environment.probesInstallVersions)
+    contextHookStatus = currentContextHookStatus()
+  }
+
+  private static let unresolvedExecutable = "the countersign executable could not be resolved"
+
+  private func currentContextHookStatus() -> ContextHookStatus {
+    guard let location = claudeLocation else { return .notWired }
+    guard let stablePath else { return .unusable(Self.unresolvedExecutable) }
+    return ContextHookRun.status(file: location.file, executablePath: stablePath)
   }
 
   func toggleCopies() {
@@ -305,22 +503,35 @@ final class SettingsModel {
     return duplicateInstall.steps(keeping: selectedCopyIndex)
   }
 
-  func toggleChanges(_ host: ApprovalCore.Host) {
-    guard let index = hostRows.firstIndex(where: { $0.id == host }) else { return }
-    hostRows[index].showsChanges.toggle()
+  func requestHostChange(_ host: ApprovalCore.Host) {
+    guard let row = hostRows.first(where: { $0.id == host }), let action = row.action else {
+      return
+    }
+    hostChange = HostHookChange(
+      host: host, action: action, preview: preview(of: row.location, action: action),
+      createsFile: !Self.somethingExists(row.location.file.path))
   }
 
-  func apply(_ host: ApprovalCore.Host) {
-    guard let index = hostRows.firstIndex(where: { $0.id == host }),
-      let action = hostRows[index].action
-    else { return }
+  func cancelHostChange() {
+    hostChange = nil
+  }
+
+  func confirmHostChange() {
+    guard let change = hostChange, change.canApply else { return }
+    hostChange = nil
+    apply(change.action, to: change.host)
+  }
+
+  private func apply(_ action: HostWiringAction, to host: ApprovalCore.Host) {
+    guard let index = hostRows.firstIndex(where: { $0.id == host }) else { return }
     var run = SetupRun(
       executablePath: stablePath ?? "", uninstall: action.uninstalls,
-      codexHookTrustFile: environment.paths.codexHookTrustFile, now: now,
+      addsWaitingEntry: waitingNotices, addsContextEntry: contextCheckpointsEnabled,
+      codexHookTrustFile: environment.paths.codexHookTrustFile,
+      codexWaitingHookTrustFile: environment.paths.codexWaitingHookTrustFile, now: now,
       output: { _ in }, confirm: { _ in true })
     _ = run.apply(hostRows[index].location)
     hostRows[index].error = run.failures.first
-    hostRows[index].showsChanges = false
     refreshHosts()
   }
 
@@ -364,9 +575,17 @@ final class SettingsModel {
     }
     knownConfigBytes = bytes
     configProblem = ConfigEdit.problem(in: bytes)
-    let parsedFile = bytes.map { ConfigFileParser.parse(Data($0)).file } ?? ConfigFile()
+    let parsed = bytes.map {
+      ConfigFileParser.parse(Data($0), soundNames: SystemSounds.installedNames)
+    }
+    let parsedFile = parsed?.file ?? ConfigFile()
+    configLogLines = parsed?.logLines ?? []
     configFileContents = parsedFile
     preferences = PreferenceValues(file: parsedFile)
+    if !delaysPerAgent, let first = PreferenceOverrides.agentsWithOwnDelays(in: parsedFile).first {
+      delaysPerAgent = true
+      delayAgent = first
+    }
     CountersignPalette.use(accentColor)
     applyAppearance?(appearance)
     if !isEditingSnoozeMinutes, snoozeError == nil {
@@ -379,28 +598,180 @@ final class SettingsModel {
     if launchAtLoginAvailable {
       launchAtLogin = LaunchAtLogin.state
     }
+    if selectedPane == .context, !contextCheckpointsEnabled {
+      select(.panels)
+    }
   }
 
   func setArmDelay(_ value: Double) {
-    write(.armDelay(PreferenceRules.armDelay(value)))
+    writeDelay(.armDelay(PreferenceRules.armDelay(value)))
   }
 
   func setChainedArmDelay(_ value: Double) {
-    write(.chainedArmDelay(PreferenceRules.chainedArmDelay(value)))
+    writeDelay(.chainedArmDelay(PreferenceRules.chainedArmDelay(value)))
   }
 
   func setIdleSeconds(_ value: Double) {
-    write(.idleSeconds(PreferenceRules.idleSeconds(value)))
+    writeDelay(.idleSeconds(PreferenceRules.idleSeconds(value)))
   }
 
   func setGraceSeconds(_ value: Double) {
-    write(.graceSeconds(PreferenceRules.graceSeconds(value)))
+    writeDelay(.graceSeconds(PreferenceRules.graceSeconds(value)))
+  }
+
+  func setApprovalCardDelay(_ value: TimeInterval) {
+    writeDelay(.approvalCardDelay(value))
+  }
+
+  private func writeDelay(_ edit: PreferenceEdit) {
+    guard let name = edit.key else { return }
+    dropDurationText(name)
+    write(resetsAgentValue(name) ? .forAgent(delayAgent, edit) : edit)
+  }
+
+  private func dropDurationText(_ name: PreferenceName) {
+    durationTexts[name] = nil
+    durationErrors[name] = nil
+  }
+
+  private func dropAgentDelayTexts() {
+    for name in PreferenceName.agentDelays {
+      dropDurationText(name)
+      writeErrors[name] = nil
+    }
+  }
+
+  func setDelayAgent(_ host: ApprovalCore.Host) {
+    guard host != delayAgent else { return }
+    dropAgentDelayTexts()
+    delayAgent = host
+  }
+
+  func requestSameDelays(_ enable: Bool) {
+    guard enable == delaysPerAgent else { return }
+    guard enable else {
+      dropAgentDelayTexts()
+      delaysPerAgent = true
+      return
+    }
+    let agents = PreferenceOverrides.agentsWithOwnDelays(in: configFileContents)
+    guard agents.isEmpty else {
+      sameDelaysChange = agents
+      return
+    }
+    dropAgentDelayTexts()
+    delaysPerAgent = false
+  }
+
+  func cancelSameDelays() {
+    sameDelaysChange = nil
+  }
+
+  func confirmSameDelays() {
+    guard sameDelaysChange != nil else { return }
+    sameDelaysChange = nil
+    dropAgentDelayTexts()
+    guard write(PreferenceEdit.removingAgentDelays(in: configFileContents)) else { return }
+    delaysPerAgent = false
+  }
+
+  var approvalCardAgents: [ApprovalCore.Host] { preferences.approvalCardAgents }
+
+  func setApprovalCard(_ enabled: Bool, for host: ApprovalCore.Host) {
+    write(.forAgent(host, .approvalCard(enabled)))
+  }
+
+  var showsApprovalCardDelay: Bool {
+    delaysPerAgent ? approvalCardAgents.contains(delayAgent) : !approvalCardAgents.isEmpty
+  }
+
+  func shownDelay(_ name: PreferenceName) -> TimeInterval {
+    guard resetsAgentValue(name) else { return sharedDelay(name) }
+    return ownDelay(name) ?? sharedDelay(name)
+  }
+
+  private func sharedDelay(_ name: PreferenceName) -> TimeInterval {
+    switch name {
+    case .idleSeconds: return preferences.idleSeconds
+    case .graceSeconds: return preferences.graceSeconds
+    case .armDelay: return preferences.armDelay
+    case .chainedArmDelay: return preferences.chainedArmDelay
+    case .waitingNoticeDelay: return preferences.waitingNoticeDelay
+    case .waitingNoticeDuration: return preferences.waitingNoticeDuration
+    case .approvalCardDelay: return preferences.approvalCardDelay
+    default: return 0
+    }
+  }
+
+  private func ownDelay(_ name: PreferenceName) -> TimeInterval? {
+    guard let overrides = configFileContents.overrides(for: delayAgent) else { return nil }
+    switch name {
+    case .idleSeconds: return overrides.idleSeconds
+    case .graceSeconds: return overrides.graceSeconds
+    case .armDelay: return overrides.armDelay
+    case .chainedArmDelay: return overrides.chainedArmDelay
+    case .approvalCardDelay: return overrides.approvalCardDelay
+    default: return nil
+    }
+  }
+
+  func durationText(_ name: PreferenceName) -> String {
+    if let pending = durationTexts[name] { return pending }
+    guard resetsAgentValue(name) else { return DurationText.compact(sharedDelay(name)) }
+    return ownDelay(name).map { DurationText.compact($0) } ?? ""
+  }
+
+  func durationPlaceholder(_ name: PreferenceName) -> String {
+    guard resetsAgentValue(name) else { return name.title }
+    return DurationText.compact(sharedDelay(name))
+  }
+
+  func setDurationText(_ text: String, for name: PreferenceName) {
+    guard let spec = name.durationField else { return }
+    durationTexts[name] = text
+    if resetsAgentValue(name), text.trimmingCharacters(in: .whitespaces).isEmpty {
+      durationErrors[name] = nil
+      return
+    }
+    switch PreferenceRules.duration(from: text, spec: spec) {
+    case .success:
+      durationErrors[name] = nil
+    case .failure(let error):
+      durationErrors[name] = error.description
+    }
+  }
+
+  func commitDuration(_ name: PreferenceName) {
+    guard let spec = name.durationField, let text = durationTexts[name] else { return }
+    if resetsAgentValue(name), text.trimmingCharacters(in: .whitespaces).isEmpty {
+      dropDurationText(name)
+      write(.forAgent(delayAgent, .reset(name)))
+      return
+    }
+    guard case .success(let seconds) = PreferenceRules.duration(from: text, spec: spec) else {
+      return
+    }
+    switch name {
+    case .idleSeconds: setIdleSeconds(seconds)
+    case .graceSeconds: setGraceSeconds(seconds)
+    case .armDelay: setArmDelay(seconds)
+    case .chainedArmDelay: setChainedArmDelay(seconds)
+    case .waitingNoticeDelay: setWaitingNoticeDelay(seconds)
+    case .waitingNoticeDuration: setWaitingNoticeDuration(seconds)
+    case .approvalCardDelay: setApprovalCardDelay(seconds)
+    default: return
+    }
+    dropDurationText(name)
+  }
+
+  func durationProblem(_ name: PreferenceName) -> String? {
+    durationErrors[name] ?? writeErrors[name]
   }
 
   func setSnoozeText(_ text: String) {
     guard text != snoozeText else { return }
     snoozeText = text
-    switch PreferenceRules.snoozeMinutes(from: text) {
+    switch PreferenceRules.snoozePresets(from: text) {
     case .success:
       snoozeError = nil
     case .failure(let error):
@@ -415,11 +786,56 @@ final class SettingsModel {
   }
 
   func commitSnoozeMinutes() {
-    guard case .success(let minutes) = PreferenceRules.snoozeMinutes(from: snoozeText) else {
+    guard case .success(let presets) = PreferenceRules.snoozePresets(from: snoozeText) else {
       return
     }
-    write(.snoozeMinutes(minutes))
+    write(.snoozePresets(presets))
     showSnoozeMinutes()
+  }
+
+  func toggleNewQuietDay(_ day: QuietWeekday) {
+    if newQuietDays.contains(day) {
+      newQuietDays.remove(day)
+    } else {
+      newQuietDays.insert(day)
+    }
+    quietHoursError = nil
+  }
+
+  func setNewQuietFrom(_ text: String) {
+    newQuietFrom = text
+    quietHoursError = nil
+  }
+
+  func setNewQuietTo(_ text: String) {
+    newQuietTo = text
+    quietHoursError = nil
+  }
+
+  func addQuietWindow() {
+    let days = QuietWeekday.allCases.filter { newQuietDays.contains($0) }
+    switch PreferenceRules.quietWindow(
+      days: days, from: newQuietFrom, to: newQuietTo, joining: quietHours)
+    {
+    case .success(let window):
+      quietHoursError = nil
+      if write(.quietHours(quietHours + [window])) {
+        clearNewQuietWindow()
+      }
+    case .failure(let error):
+      quietHoursError = error.description
+    }
+  }
+
+  func removeQuietWindow(_ window: QuietWindow) {
+    write(.quietHours(quietHours.filter { $0 != window }))
+  }
+
+  private func clearNewQuietWindow() {
+    newQuietDays = []
+    newQuietFrom = ""
+    newQuietTo = ""
+    quietHoursError = nil
   }
 
   func setNewHandoffApp(_ text: String) {
@@ -448,6 +864,36 @@ final class SettingsModel {
     write(.removeHandoffApp(bundleID))
   }
 
+  var rules: [ApprovalRule] { configFileContents.rules ?? [] }
+
+  var unreadableRuleCount: Int {
+    configLogLines.filter {
+      $0.hasPrefix("rules") && !$0.contains("only used by deny rules")
+    }.count
+  }
+
+  func projectText(for rule: ApprovalRule) -> String {
+    rule.project.map { HomePath.abbreviating($0, relativeTo: environment.home) } ?? "Any project"
+  }
+
+  func removeRule(_ rule: ApprovalRule) {
+    write(.removeRule(rule))
+  }
+
+  func addRule(_ rule: ApprovalRule) -> Bool {
+    write(.addRules([rule]))
+  }
+
+  func addSuggestion(_ suggestion: RuleSuggestion) -> Bool {
+    let missing = suggestion.missingRules(in: rules)
+    guard !missing.isEmpty else { return false }
+    return write(.addRules(missing))
+  }
+
+  func updateRule(old: ApprovalRule, new: ApprovalRule) -> Bool {
+    write(.replaceRule(old: old, new: new))
+  }
+
   func setCheckForUpdates(_ enabled: Bool) {
     write(.checkForUpdates(enabled))
   }
@@ -458,6 +904,69 @@ final class SettingsModel {
 
   func setModeAfterPlan(_ mode: PlanApprovalMode) {
     write(.modeAfterPlan(mode))
+  }
+
+  func setPanelSound(_ name: String) {
+    write(.panelSound(name))
+  }
+
+  func setWaitingNoticeDelay(_ seconds: TimeInterval) {
+    writeDelay(.waitingNoticeDelay(seconds))
+  }
+
+  func setWaitingNoticeDuration(_ seconds: TimeInterval) {
+    write(.waitingNoticeDuration(seconds))
+  }
+
+  var homeDirectory: URL {
+    environment.home
+  }
+
+  var waitingToggleProblem: String? {
+    waitingHookFailure ?? writeErrors[.waitingNotices]
+  }
+
+  var waitingLocations: [HookConfigLocation] {
+    hostRows
+      .filter { WaitingHookSetup.supportedHosts.contains($0.id) && $0.isWiredOrStale }
+      .map(\.location)
+  }
+
+  func requestWaitingNotices(_ enable: Bool) {
+    guard enable != waitingNotices else { return }
+    waitingHookFailure = nil
+    let locations = waitingLocations
+    if enable, !locations.isEmpty, stablePath == nil {
+      waitingChange = nil
+      waitingHookFailure = Self.unresolvedExecutable
+      return
+    }
+    let preview = WaitingHookRun.preview(
+      locations: locations, executablePath: stablePath ?? "", enable: enable)
+    let codexFile = locations.first { $0.host == .codex }?.file
+    waitingChange = WaitingHookChange(
+      enable: enable, preview: preview,
+      asksCodexTrust: enable && codexFile.map { preview.changedFiles.contains($0) } == true)
+  }
+
+  func cancelWaitingChange() {
+    waitingChange = nil
+  }
+
+  func confirmWaitingChange() {
+    guard let change = waitingChange, change.canApply else { return }
+    waitingChange = nil
+    let failures = WaitingHookRun.apply(
+      locations: waitingLocations, executablePath: stablePath ?? "", enable: change.enable,
+      now: now(), codexWaitingTrustFile: environment.paths.codexWaitingHookTrustFile)
+    guard failures.isEmpty else {
+      waitingHookFailure = failures.joined(separator: "\n")
+      refreshHosts()
+      return
+    }
+    waitingHookFailure = nil
+    write(.waitingNotices(change.enable))
+    refreshHosts()
   }
 
   func setQuestionNotes(_ enabled: Bool) {
@@ -507,6 +1016,214 @@ final class SettingsModel {
     commitSnoozeMinutes()
     commitNewHandoffApp()
     commitCustomAccentColor()
+    for name in Self.editableContextTexts {
+      commitContextText(name)
+    }
+    commitNewContextModel()
+  }
+
+  static let editableContextTexts: [PreferenceName] = [
+    .contextStandardThresholds, .contextMillionThresholds, .contextHandoffFile,
+  ]
+
+  static let contextNoteNames: [PreferenceName] = [
+    .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteCompact,
+    .contextNoteHandoff,
+  ]
+
+  var contextHookFileText: String? {
+    claudeLocation.map { HomePath.abbreviating($0.file.path, relativeTo: environment.home) }
+  }
+
+  func saveContextNotes(_ drafts: [PreferenceName: String]) -> Bool {
+    var edits: [(name: PreferenceName, edit: PreferenceEdit)] = []
+    var allValid = true
+    for name in Self.contextNoteNames {
+      guard let text = drafts[name], text != contextText(for: name) else { continue }
+      switch contextEdit(for: name, text: text) {
+      case .success(let edit):
+        contextErrors[name] = nil
+        edits.append((name, edit))
+      case .failure(let error):
+        contextErrors[name] = error.description
+        allValid = false
+      }
+    }
+    guard allValid else { return false }
+    var allWritten = true
+    for entry in edits {
+      if !write(entry.edit) {
+        allWritten = false
+      }
+    }
+    return allWritten
+  }
+
+  func clearContextNoteErrors() {
+    for name in Self.contextNoteNames {
+      contextErrors[name] = nil
+      writeErrors[name] = nil
+    }
+  }
+
+  func requestContextCheckpoints(_ enable: Bool) {
+    guard enable != contextCheckpointsEnabled else { return }
+    requestContextHookChange(origin: .toggle, enable: enable)
+  }
+
+  func requestContextHookUpdate() {
+    requestContextHookChange(origin: .hookStatus, enable: true)
+  }
+
+  private func requestContextHookChange(origin: ContextHookChangeOrigin, enable: Bool) {
+    guard let location = claudeLocation else { return }
+    contextHookFailure = nil
+    if enable, stablePath == nil {
+      contextChange = nil
+      contextHookFailure = ContextHookFailure(origin: origin, message: Self.unresolvedExecutable)
+      return
+    }
+    contextChange = ContextHookChange(
+      origin: origin, enable: enable,
+      preview: ContextHookRun.preview(
+        file: location.file, executablePath: stablePath ?? "", enable: enable))
+  }
+
+  func cancelContextChange() {
+    if let change = contextChange, let line = change.preview.failures.first {
+      contextHookFailure = ContextHookFailure(origin: change.origin, message: line)
+    }
+    contextChange = nil
+  }
+
+  func confirmContextChange() {
+    guard let change = contextChange, change.canApply, let location = claudeLocation else {
+      return
+    }
+    contextChange = nil
+    if let line = ContextHookRun.apply(
+      file: location.file, executablePath: stablePath ?? "", enable: change.enable, now: now())
+    {
+      contextHookFailure = ContextHookFailure(origin: change.origin, message: line)
+      refreshHosts()
+      return
+    }
+    contextHookFailure = nil
+    if change.origin == .toggle {
+      if !change.enable {
+        ContextCheckpointStore(directory: environment.paths.contextCheckpointsDirectory)
+          .removeAll()
+      }
+      write(.contextCheckpointsEnabled(change.enable))
+    }
+    refreshHosts()
+  }
+
+  func contextText(for name: PreferenceName) -> String {
+    if let pending = contextTexts[name] { return pending }
+    let values = contextCheckpoints
+    switch name {
+    case .contextStandardThresholds:
+      return PreferenceRules.contextLadderText(values.standardThresholds)
+    case .contextMillionThresholds:
+      return PreferenceRules.contextLadderText(values.millionThresholds)
+    case .contextHandoffFile: return values.handoffFile
+    case .contextNoteSoft: return values.notes.soft
+    case .contextNoteStatus: return values.notes.status
+    case .contextNoteInsist: return values.notes.insist
+    case .contextNoteCompact: return values.notes.compact
+    case .contextNoteHandoff: return values.notes.handoff
+    default: return ""
+    }
+  }
+
+  func setContextText(_ text: String, for name: PreferenceName) {
+    contextTexts[name] = text
+    switch contextEdit(for: name, text: text) {
+    case .success: contextErrors[name] = nil
+    case .failure(let error): contextErrors[name] = error.description
+    }
+  }
+
+  func commitContextText(_ name: PreferenceName) {
+    guard let text = contextTexts[name] else { return }
+    switch contextEdit(for: name, text: text) {
+    case .success(let edit):
+      contextErrors[name] = nil
+      if write(edit) {
+        contextTexts[name] = nil
+      }
+    case .failure(let error):
+      contextErrors[name] = error.description
+    }
+  }
+
+  private func contextEdit(for name: PreferenceName, text: String) -> Result<
+    PreferenceEdit, ContextTextError
+  > {
+    switch name {
+    case .contextStandardThresholds:
+      return PreferenceRules.contextLadder(fromThousands: text).map {
+        PreferenceEdit.contextStandardThresholds($0)
+      }
+    case .contextMillionThresholds:
+      return PreferenceRules.contextLadder(fromThousands: text).map {
+        PreferenceEdit.contextMillionThresholds($0)
+      }
+    case .contextHandoffFile:
+      return PreferenceRules.contextHandoffFile(text).map { PreferenceEdit.contextHandoffFile($0) }
+    default:
+      return PreferenceRules.contextNote(text).map { PreferenceEdit.contextNote(name, $0) }
+    }
+  }
+
+  func setContextMode(_ mode: ContextCheckpointMode) {
+    write(.contextMode(mode))
+  }
+
+  func setContextRearmBelow(_ ratio: Double) {
+    write(.contextRearmBelow(ratio))
+  }
+
+  func setContextMenuBarMeter(_ enabled: Bool) {
+    write(.contextMenuBarMeter(enabled))
+  }
+
+  func setNewContextModelPrefix(_ text: String) {
+    newContextModelPrefix = text
+    contextErrors[.contextModelThresholds] = nil
+  }
+
+  func setNewContextModelLadder(_ text: String) {
+    newContextModelLadder = text
+    contextErrors[.contextModelThresholds] = nil
+  }
+
+  func addContextModel() {
+    switch (
+      PreferenceRules.contextModelPrefix(newContextModelPrefix),
+      PreferenceRules.contextLadder(fromThousands: newContextModelLadder)
+    ) {
+    case (.failure(let error), _), (_, .failure(let error)):
+      contextErrors[.contextModelThresholds] = error.description
+    case (.success(let prefix), .success(let ladder)):
+      contextErrors[.contextModelThresholds] = nil
+      if write(.setContextModelThresholds(prefix: prefix, ladder: ladder)) {
+        newContextModelPrefix = ""
+        newContextModelLadder = ""
+      }
+    }
+  }
+
+  func commitNewContextModel() {
+    guard !newContextModelPrefix.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+      !newContextModelLadder.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    else { return }
+    addContextModel()
+  }
+
+  func removeContextModel(_ prefix: String) {
+    write(.removeContextModelThresholds(prefix: prefix))
   }
 
   func isChanged(_ name: PreferenceName) -> Bool {
@@ -526,7 +1243,11 @@ final class SettingsModel {
 
   func reset(_ name: PreferenceName) {
     discardPendingText(for: [name])
-    write(.reset(name))
+    guard resetsAgentValue(name) else {
+      write(.reset(name))
+      return
+    }
+    write(.forAgent(delayAgent, .reset(name)))
   }
 
   func resetGroup(_ names: [PreferenceName]) {
@@ -545,8 +1266,21 @@ final class SettingsModel {
       newHandoffApp = ""
       handoffError = nil
     }
+    if names.contains(.quietHours) {
+      clearNewQuietWindow()
+    }
     if names.contains(.accentColor) {
       discardCustomAccentColor()
+    }
+    for name in names {
+      durationTexts[name] = nil
+      durationErrors[name] = nil
+      contextTexts[name] = nil
+      contextErrors[name] = nil
+    }
+    if names.contains(.contextModelThresholds) {
+      newContextModelPrefix = ""
+      newContextModelLadder = ""
     }
   }
 
@@ -559,7 +1293,8 @@ final class SettingsModel {
   private func write(_ edits: [PreferenceEdit]) -> Bool {
     let shown = preferences
     let chosen = edits.reduce(shown) { $0.applying($1) }
-    guard chosen != shown else { return true }
+    let editsOutsidePreferenceValues = edits.contains(where: \.isOutsidePreferenceValues)
+    guard chosen != shown || editsOutsidePreferenceValues else { return true }
     preferences = chosen
     do {
       let original = try ConfigFileStore.read(configFile)
@@ -571,18 +1306,41 @@ final class SettingsModel {
         configWritten = true
       }
     } catch {
-      for edit in edits {
-        writeErrors[edit.key] = "\(configPath): error: \(SetupRun.describe(error))"
+      let message = "\(configPath): error: \(SetupRun.describe(error))"
+      for name in edits.compactMap(\.key) {
+        writeErrors[name] = message
+      }
+      if edits.contains(where: \.editsRules) {
+        rulesError = message
       }
       preferences = shown
       loadPreferences()
       return false
     }
-    for edit in edits {
-      writeErrors[edit.key] = nil
+    for name in edits.compactMap(\.key) {
+      writeErrors[name] = nil
     }
+    if edits.contains(where: \.editsRules) {
+      rulesError = nil
+    }
+    recordVisit(of: edits)
     loadPreferences()
     return true
+  }
+
+  private func recordVisit(of edits: [PreferenceEdit]) {
+    var written: [PreferenceName] = []
+    var reset: [PreferenceName] = []
+    for edit in edits {
+      switch edit {
+      case .reset(let name): reset.append(name)
+      case .forAgent(_, .approvalCard): written.append(.approvalCard)
+      case .forAgent, .removeRule, .addRules, .replaceRule: break
+      default: edit.key.map { written.append($0) }
+      }
+    }
+    visit.record(written)
+    visit.forget(reset)
   }
 
   func setLaunchAtLogin(_ enabled: Bool) {
@@ -615,28 +1373,39 @@ final class SettingsModel {
       return
     }
     guard let bundleID = editorApp else {
-      openWithDefaultApp(origin: origin)
+      editorChoice = EditorChoice(origin: origin, missingBundleID: nil)
       return
     }
     guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
-      openWithDefaultApp(origin: origin, missingBundleID: bundleID)
+      editorChoice = EditorChoice(origin: origin, missingBundleID: bundleID)
       return
     }
-    NSWorkspace.shared.open(
-      [configFile], withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration())
+    open(configFileWith: appURL)
     editorOpenFailure = nil
   }
 
-  private func openWithDefaultApp(origin: ConfigEditorOrigin, missingBundleID: String? = nil) {
-    guard NSWorkspace.shared.open(configFile) else {
+  func chooseEditor(bundleID: String, always: Bool) {
+    guard let choice = editorChoice else { return }
+    editorChoice = nil
+    guard let appURL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else {
       editorOpenFailure = EditorOpenFailure(
-        origin: origin, message: "\(configPath) could not be opened")
+        origin: choice.origin, message: "\(bundleID) is not installed.")
       return
     }
-    editorOpenFailure = missingBundleID.map {
-      EditorOpenFailure(
-        origin: origin, message: "\($0) is not installed; opened with the default app.")
+    open(configFileWith: appURL)
+    editorOpenFailure = nil
+    if always {
+      setEditorApp(bundleID)
     }
+  }
+
+  func cancelEditorChoice() {
+    editorChoice = nil
+  }
+
+  private func open(configFileWith appURL: URL) {
+    NSWorkspace.shared.open(
+      [configFile], withApplicationAt: appURL, configuration: NSWorkspace.OpenConfiguration())
   }
 
   func editorOpenProblem(at origin: ConfigEditorOrigin) -> String? {
@@ -647,6 +1416,10 @@ final class SettingsModel {
   var isTestPanelRunning: Bool { TestPanelLauncher.shared.isRunning }
 
   func showTestPanel(_ kind: TestPanelKind) {
+    if TestPanelLauncher.shared.isRunning {
+      TestPanelLauncher.shared.showRunning()
+      return
+    }
     commitEditing()
     do {
       try TestPanelLauncher.shared.launch(kind: kind) { [weak self] refusal in
@@ -656,6 +1429,25 @@ final class SettingsModel {
     } catch {
       testPanelError = "The test panel could not start: \(SetupRun.describe(error))"
     }
+  }
+
+  func showTestCard(_ kind: TestCornerCardKind) {
+    let outcome = testCornerCards.show(
+      kind, store: WaitingStore(directory: environment.paths.waitingDirectory),
+      appearance: appearance, noticeDuration: waitingNoticeDuration,
+      onShowTestPanel: { [weak self] in self?.showTestPanel(.command) })
+    switch outcome {
+    case .shown:
+      testCardError = nil
+    case .alreadyUp:
+      break
+    case .noFreeSlot:
+      testCardError = TestCornerCards.noFreeSlotMessage
+    }
+  }
+
+  func closeTestCards() {
+    testCornerCards.closeAll()
   }
 
   func copy(_ target: SettingsCopyTarget) {
@@ -711,7 +1503,7 @@ final class SettingsModel {
   }
 
   private func showSnoozeMinutes() {
-    snoozeText = PreferenceRules.snoozeText(preferences.snoozeMinutes)
+    snoozeText = PreferenceRules.snoozeText(preferences.snoozePresets)
     snoozeError = nil
   }
 
@@ -721,13 +1513,16 @@ final class SettingsModel {
     }
     return HostWiring.status(
       host: location.host, directoryExists: DoctorCommand.isInstalled(location),
-      file: ConfigFileStore.fileState(location.file), stablePath: stablePath)
+      file: ConfigFileStore.fileState(location.file), stablePath: stablePath,
+      addsWaitingEntry: waitingNotices, addsContextEntry: contextCheckpointsEnabled)
   }
 
   private func preview(of location: HookConfigLocation, action: HostWiringAction)
     -> SetupPreview
   {
-    SetupRun.preview(location, executablePath: stablePath ?? "", uninstall: action.uninstalls)
+    SetupRun.preview(
+      location, executablePath: stablePath ?? "", uninstall: action.uninstalls,
+      addsWaitingEntry: waitingNotices, addsContextEntry: contextCheckpointsEnabled)
   }
 
   private func codexHookTrustState(at location: HookConfigLocation) -> CodexHookTrustState {
@@ -739,7 +1534,7 @@ final class SettingsModel {
   private static func readStatus(_ paths: AppPaths) -> CountersignStatus {
     CountersignStatus.current(
       pause: PauseSwitch(file: paths.pauseFile).state,
-      quietUntil: QuietTime(file: paths.quietFile).activeUntil())
+      quietUntil: QuietState(paths: paths).activeUntil())
   }
 
   private static func somethingExists(_ path: String) -> Bool {

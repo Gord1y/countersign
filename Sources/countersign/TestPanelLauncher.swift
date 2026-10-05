@@ -21,6 +21,23 @@ final class TestPanelLauncher {
 
   var isRunning: Bool { !running.isEmpty }
 
+  func showRunning() {
+    let paths = AppPaths.standard
+    let log = EventLog(file: paths.logFile)
+    let queue = TicketQueue(directory: paths.queueDirectory, lockFile: paths.displayLockFile)
+    let runningPids = Set(running.map { $0.processIdentifier })
+    guard let ticket = queue.liveTickets().first(where: { runningPids.contains($0.pid) }) else {
+      return
+    }
+    do {
+      if try queue.sendMenuAnswer(.show, toTicketID: ticket.id) {
+        log.write("test panel: brought back")
+      }
+    } catch {
+      log.write("test panel: failed to bring back: \(error)")
+    }
+  }
+
   func launch(kind: TestPanelKind, onRefusal: @escaping @MainActor (String) -> Void) throws {
     guard running.isEmpty else { return }
     guard let executable = Bundle.main.executableURL else { throw LaunchError.noExecutable }

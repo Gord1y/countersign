@@ -130,6 +130,73 @@ import Testing
     #expect(temporary.queue.realRequestCount(excluding: ownTicket) == 2)
   }
 
+  @Test func approvalCountSkipsTestPanelsCheckpointsAndOurs() throws {
+    let temporary = try TemporaryQueue()
+    defer { temporary.remove() }
+    let own = getpid()
+    let ownTicket = try temporary.queue.enqueue(.probe)
+    let encoder = JSONEncoder()
+
+    let approval = TicketSummary(host: .claude, project: "shop-api", tool: "Bash", agentType: nil)
+    _ = try temporary.writeTicket(
+      timestamp: 100, pid: own,
+      content: encoder.encode(TicketContent(processStart: nil, summary: approval)))
+    #expect(temporary.queue.approvalCount(excluding: ownTicket) == 1)
+
+    let testPanel = TicketSummary(
+      host: .claude, project: "Countersign test", tool: "Bash", agentType: nil, isTestPanel: true)
+    _ = try temporary.writeTicket(
+      timestamp: 200, pid: own,
+      content: encoder.encode(TicketContent(processStart: nil, summary: testPanel)))
+    let checkpoint = TicketSummary(
+      host: .claude, project: "shop-api", tool: "Context checkpoint", agentType: nil,
+      isContextCheckpoint: true)
+    _ = try temporary.writeTicket(
+      timestamp: 300, pid: own,
+      content: encoder.encode(TicketContent(processStart: nil, summary: checkpoint)))
+    #expect(temporary.queue.approvalCount(excluding: ownTicket) == 1)
+    #expect(temporary.queue.approvalCount(excluding: nil) == 2)
+  }
+
+  @Test func aSummaryWithoutTheCheckpointFlagDecodesAsNotACheckpoint() throws {
+    let json = Data(#"{"host":"claude","project":"p","tool":"Bash"}"#.utf8)
+    let summary = try JSONDecoder().decode(TicketSummary.self, from: json)
+    #expect(!summary.isContextCheckpoint)
+  }
+
+  @Test func aSummaryThatDoesNotAnswerInChatRoundTrips() throws {
+    let summary = TicketSummary(
+      host: .cursor, project: "shop-api", tool: "Shell", agentType: nil, answersInChat: false)
+    let decoded = try JSONDecoder().decode(
+      TicketSummary.self, from: JSONEncoder().encode(summary))
+    #expect(decoded == summary)
+    #expect(!decoded.answersInChat)
+  }
+
+  @Test func aSummaryWithoutTheChatFlagDecodesAsAnsweringInChat() throws {
+    let json = Data(#"{"host":"cursor","project":"p","tool":"Shell"}"#.utf8)
+    let summary = try JSONDecoder().decode(TicketSummary.self, from: json)
+    #expect(summary.answersInChat)
+  }
+
+  @Test func aSummaryBuiltFromARequestAnswersInChatByDefault() throws {
+    let request = try ClaudeAdapter.parse(FixtureLoader.data("claude-bash-subagent"))
+    #expect(TicketSummary(request: request).answersInChat)
+    #expect(!TicketSummary(request: request, answersInChat: false).answersInChat)
+  }
+
+  @Test func aCheckpointRequestFillsTheSummaryFlag() {
+    let input = ContextCheckpointInput(
+      sessionID: "s", cwd: "/tmp/shop-api", transcriptPath: nil, permissionMode: nil)
+    let prompt = ContextCheckpointPrompt(
+      tokens: 1, level: .soft, ladder: [1, 2, 3], modelID: nil, handoffFile: "h.md",
+      notes: .default)
+    let summary = TicketSummary(request: .contextCheckpoint(input, prompt: prompt))
+    #expect(summary.isContextCheckpoint)
+    #expect(summary.tool == "Context checkpoint")
+    #expect(summary.project == "shop-api")
+  }
+
   @Test func waitingEntriesAreOldestFirstExcludingSelf() throws {
     let temporary = try TemporaryQueue()
     defer { temporary.remove() }
@@ -141,17 +208,24 @@ import Testing
       agentDescription: "Fix the tests")
     let encoder = JSONEncoder()
 
-    _ = try temporary.writeTicket(
+    let first = try temporary.writeTicket(
       timestamp: 100, pid: own,
       content: encoder.encode(TicketContent(processStart: nil, summary: firstSummary)))
-    _ = try temporary.writeTicket(
+    let second = try temporary.writeTicket(
       timestamp: 200, pid: own,
       content: encoder.encode(TicketContent(processStart: nil, summary: secondSummary)))
     let ownTicket = try temporary.queue.enqueue(.probe)
 
     #expect(
       temporary.queue.waitingEntries(excluding: ownTicket)
-        == [WaitingEntry(summary: firstSummary), WaitingEntry(summary: secondSummary)])
+        == [
+          WaitingEntry(summary: firstSummary, ticketID: Self.id(first)),
+          WaitingEntry(summary: secondSummary, ticketID: Self.id(second)),
+        ])
+  }
+
+  private static func id(_ fileName: String) -> String {
+    String(fileName.dropLast(Ticket.fileSuffix.count))
   }
 
   @Test func waitingEntriesRepresentAnUnreadableSummaryAsUnknownRatherThanDroppingIt() throws {
@@ -160,8 +234,9 @@ import Testing
     let own = getpid()
     let summary = TicketSummary(host: .claude, project: "shop-api", tool: "Bash", agentType: nil)
 
-    _ = try temporary.writeTicket(timestamp: 1, pid: own, content: Data("not json".utf8))
-    _ = try temporary.writeTicket(
+    let unreadable = try temporary.writeTicket(
+      timestamp: 1, pid: own, content: Data("not json".utf8))
+    let readable = try temporary.writeTicket(
       timestamp: 2, pid: own,
       content: JSONEncoder().encode(TicketContent(processStart: nil, summary: summary)))
     let ownTicket = try temporary.queue.enqueue(.probe)
@@ -169,7 +244,10 @@ import Testing
     #expect(temporary.queue.waitingCount(excluding: ownTicket) == 2)
     #expect(
       temporary.queue.waitingEntries(excluding: ownTicket)
-        == [WaitingEntry(summary: nil), WaitingEntry(summary: summary)])
+        == [
+          WaitingEntry(summary: nil, ticketID: Self.id(unreadable)),
+          WaitingEntry(summary: summary, ticketID: Self.id(readable)),
+        ])
   }
 
   @Test func waitingEntriesWithoutExclusionListEveryLiveTicketOldestFirst() throws {
@@ -183,11 +261,12 @@ import Testing
       host: .codex, project: "other-api", tool: "apply_patch", agentType: "Explore")
     let encoder = JSONEncoder()
 
-    _ = try temporary.writeTicket(
+    let last = try temporary.writeTicket(
       timestamp: 300, pid: own,
       content: encoder.encode(TicketContent(processStart: nil, summary: lastSummary)))
-    _ = try temporary.writeTicket(timestamp: 200, pid: own, content: Data("not json".utf8))
-    _ = try temporary.writeTicket(
+    let unreadable = try temporary.writeTicket(
+      timestamp: 200, pid: own, content: Data("not json".utf8))
+    let first = try temporary.writeTicket(
       timestamp: 100, pid: own,
       content: encoder.encode(TicketContent(processStart: nil, summary: firstSummary)))
     let deadName = try temporary.writeTicket(timestamp: 50, pid: dead, processStart: nil)
@@ -195,10 +274,10 @@ import Testing
 
     #expect(
       temporary.queue.waitingEntries() == [
-        WaitingEntry(summary: firstSummary),
-        WaitingEntry(summary: nil),
-        WaitingEntry(summary: lastSummary),
-        WaitingEntry(summary: .probe),
+        WaitingEntry(summary: firstSummary, ticketID: Self.id(first)),
+        WaitingEntry(summary: nil, ticketID: Self.id(unreadable)),
+        WaitingEntry(summary: lastSummary, ticketID: Self.id(last)),
+        WaitingEntry(summary: .probe, ticketID: ownTicket.id),
       ])
     #expect(temporary.queue.waitingEntries().count == temporary.queue.liveTickets().count)
     #expect(temporary.queue.waitingEntries(excluding: ownTicket).count == 3)

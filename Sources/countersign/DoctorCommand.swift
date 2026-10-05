@@ -30,14 +30,15 @@ enum DoctorCommand {
     }
 
     let configExists = FileManager.default.fileExists(atPath: paths.configFile.path)
-    let (_, configLogLines) = ConfigFileLoader.load(paths: paths)
+    let (configFile, configLogLines) = ConfigFileLoader.load(
+      paths: paths, soundNames: SystemSounds.installedNames)
 
     let queue = TicketQueue(directory: paths.queueDirectory, lockFile: paths.displayLockFile)
     let liveTicketCount = queue.liveTickets().count
 
     let pauseSwitch = PauseSwitch(file: paths.pauseFile)
-    let quietTime = QuietTime(file: paths.quietFile)
-    let quietUntilDescription = quietTime.activeUntil().map(formattedTime)
+    let quietState = QuietState(paths: paths, schedule: configFile.quietSchedule)
+    let quietUntilDescription = quietState.activeUntil().map(formattedTime)
 
     let logSize =
       (try? FileManager.default.attributesOfItem(atPath: paths.logFile.path))?[.size]
@@ -61,7 +62,14 @@ enum DoctorCommand {
       hookExecutables: hosts.flatMap { $0.executableChecks.keys },
       runningExecutable: Bundle.main.executableURL?.resolvingSymlinksInPath().path, home: home)
     input.installVersionMismatch = InstallCopiesCheck.versionMismatch(home: home)
+    input.contextCheckpointsEnabled =
+      Settings.resolve(file: configFile, host: .claude).contextCheckpoints.enabled
+    input.waitingNoticesEnabled =
+      Settings.resolve(file: configFile, host: .claude).waitingNotices
+    input.rules = Settings.resolve(file: configFile, host: .claude).rules
     input.codexHookTrustRecord = CodexHookTrustRecordStore.load(file: paths.codexHookTrustFile)
+    input.codexWaitingHookTrustRecord = CodexHookTrustRecordStore.load(
+      file: paths.codexWaitingHookTrustFile)
     input.codexConfigFile = readFileState(
       CodexHookTrust.configFile(
         for: HookConfigLocation.location(for: .codex, environment: environment, home: home)))

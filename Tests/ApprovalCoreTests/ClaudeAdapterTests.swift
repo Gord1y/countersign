@@ -238,6 +238,11 @@ import Testing
     #expect(request.projectName == "")
   }
 
+  @Test func projectNameFromCWDIsTheLastPathComponent() {
+    #expect(ApprovalRequest.projectName(cwd: "/Users/dev/shop-api") == "shop-api")
+    #expect(ApprovalRequest.projectName(cwd: "") == "")
+  }
+
   @Test func throwsWhenNotAnObject() {
     #expect(throws: AdapterError.self) {
       _ = try ClaudeAdapter.parse(Data("[]".utf8))
@@ -362,5 +367,82 @@ import Testing
     let decoded = try JSONDecoder().decode(JSONValue.self, from: data)
     let message = decoded["hookSpecificOutput"]?["decision"]?["message"]?.stringValue
     #expect(message == ApprovalOutcome.defaultDenyMessage)
+  }
+
+  @Test func namesTheEventOfAUserPromptSubmitAndAPermissionRequest() throws {
+    #expect(
+      ClaudeAdapter.eventName(of: try FixtureLoader.data("claude-user-prompt-submit"))
+        == "UserPromptSubmit")
+    #expect(
+      ClaudeAdapter.eventName(of: try FixtureLoader.data("claude-bash")) == "PermissionRequest")
+    #expect(ClaudeAdapter.eventName(of: Data("[1]".utf8)) == nil)
+    #expect(ClaudeAdapter.eventName(of: Data("not json".utf8)) == nil)
+  }
+
+  @Test func recognizesACursorPayloadByItsVersionOrLowercaseEvent() throws {
+    #expect(ClaudeAdapter.isCursorPayload(try FixtureLoader.data("cursor-shell")))
+    #expect(ClaudeAdapter.isCursorPayload(Data(#"{"hook_event_name":"stop"}"#.utf8)))
+    #expect(
+      ClaudeAdapter.isCursorPayload(
+        Data(#"{"hook_event_name":"Stop","cursor_version":"3.22.12"}"#.utf8)))
+  }
+
+  @Test func doesNotTakeAClaudePayloadForACursorOne() throws {
+    #expect(!ClaudeAdapter.isCursorPayload(try FixtureLoader.data("claude-bash")))
+    #expect(!ClaudeAdapter.isCursorPayload(try FixtureLoader.data("claude-user-prompt-submit")))
+    #expect(!ClaudeAdapter.isCursorPayload(try FixtureLoader.data("claude-stop")))
+    #expect(!ClaudeAdapter.isCursorPayload(Data(#"{"session_id":"s"}"#.utf8)))
+    #expect(!ClaudeAdapter.isCursorPayload(Data("[1]".utf8)))
+    #expect(!ClaudeAdapter.isCursorPayload(Data("not json".utf8)))
+  }
+
+  @Test func parsesTheUserPromptSubmitFixture() throws {
+    let input = try ClaudeAdapter.parseUserPromptSubmit(
+      FixtureLoader.data("claude-user-prompt-submit"))
+    #expect(input.sessionID == "c4d2e8f1-7a3b-4c5d-9e6f-1a2b3c4d5e6f")
+    #expect(input.cwd == "/Users/dev/Projects/shop-api")
+    #expect(
+      input.transcriptPath
+        == "/Users/dev/.claude/projects/shop-api/c4d2e8f1-7a3b-4c5d-9e6f-1a2b3c4d5e6f.jsonl")
+    #expect(input.permissionMode == "default")
+  }
+
+  @Test func aUserPromptSubmitWithoutASessionIDThrows() {
+    let data = Data(
+      #"{"cwd":"/tmp","hook_event_name":"UserPromptSubmit"}"#.utf8)
+    #expect(throws: AdapterError.malformedInput("missing session_id")) {
+      try ClaudeAdapter.parseUserPromptSubmit(data)
+    }
+  }
+
+  @Test func aUserPromptSubmitWithoutACwdOrTheRightEventThrows() {
+    #expect(throws: AdapterError.malformedInput("missing cwd")) {
+      try ClaudeAdapter.parseUserPromptSubmit(
+        Data(#"{"session_id":"a","hook_event_name":"UserPromptSubmit"}"#.utf8))
+    }
+    #expect(throws: AdapterError.malformedInput("unexpected hook_event_name")) {
+      try ClaudeAdapter.parseUserPromptSubmit(
+        Data(#"{"session_id":"a","cwd":"/tmp","hook_event_name":"Stop"}"#.utf8))
+    }
+    #expect(throws: AdapterError.malformedInput("invalid JSON")) {
+      try ClaudeAdapter.parseUserPromptSubmit(Data("nope".utf8))
+    }
+    #expect(throws: AdapterError.malformedInput("expected a JSON object")) {
+      try ClaudeAdapter.parseUserPromptSubmit(Data("[]".utf8))
+    }
+  }
+
+  @Test func parseStillRejectsAUserPromptSubmit() {
+    #expect(throws: AdapterError.self) {
+      try ClaudeAdapter.parse(FixtureLoader.data("claude-user-prompt-submit"))
+    }
+  }
+
+  @Test func encodesAddContextAsAdditionalContextExactly() throws {
+    let data = try #require(ClaudeAdapter.encode(.addContext("Use /compact soon.")))
+    #expect(
+      String(decoding: data, as: UTF8.self)
+        == #"{"hookSpecificOutput":{"additionalContext":"Use /compact soon.","hookEventName":"UserPromptSubmit"}}"#
+    )
   }
 }

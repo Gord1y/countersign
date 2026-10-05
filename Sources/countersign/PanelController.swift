@@ -34,10 +34,13 @@ final class PanelModel {
   var waitingEntries: [WaitingEntry]
   var waitingCount: Int { waitingEntries.count }
   let armDuration: TimeInterval
-  let snoozeMinutes: [Int]
+  let snoozePresets: [TimeInterval]
   let questionNotes: Bool
   let modeAfterPlan: PlanApprovalMode
   let isTestPanel: Bool
+  let sessionIdle: Bool
+  let escapeKeepsWaiting: Bool
+  let alwaysAllowOffer: AlwaysAllowOffer?
   let dropdown: PanelDropdownState
   private(set) var hasStartedArming = false
   private(set) var isArmed = false
@@ -45,34 +48,39 @@ final class PanelModel {
   private var hasSnoozed = false
   var onFinish: ((ApprovalOutcome) -> Void)?
   var onSnooze: ((TimeInterval) -> Void)?
+  var onCheckpointChoice: ((ContextCheckpointChoice) -> Void)?
+  var onAlwaysAllow: ((AlwaysAllowOffer) -> Void)?
   var keyHandler: PanelKeyHandler?
   var onPreferredHeightChange: ((CGFloat) -> Void)?
 
   init(
-    request: ApprovalRequest, waitingEntries: [WaitingEntry], armDuration: TimeInterval = 0.8,
-    snoozeMinutes: [Int] = Settings.defaultSnoozeMinutes,
+    request: ApprovalRequest, waitingEntries: [WaitingEntry],
+    armDuration: TimeInterval = Settings.defaultArmDelay,
+    snoozePresets: [TimeInterval] = Settings.defaultSnoozePresets,
     questionNotes: Bool = Settings.defaultQuestionNotes,
     modeAfterPlan: PlanApprovalMode = Settings.defaultModeAfterPlan,
     chatTrackingDrift: ChatTrackingDrift? = nil,
+    subagentChain: [SubagentChainLink]? = nil,
     isTestPanel: Bool = false,
+    sessionIdle: Bool = false,
+    escapeKeepsWaiting: Bool = false,
+    alwaysAllowOffer: AlwaysAllowOffer? = nil,
     openDropdownOnAppear: PanelDropdownID? = nil
   ) {
     self.request = request
+    self.alwaysAllowOffer = alwaysAllowOffer
+    self.sessionIdle = sessionIdle
+    self.escapeKeepsWaiting = escapeKeepsWaiting
     self.waitingEntries = waitingEntries
     self.armDuration = armDuration
-    self.snoozeMinutes = snoozeMinutes
+    self.snoozePresets = snoozePresets
     self.questionNotes = questionNotes
     self.modeAfterPlan = modeAfterPlan
     self.chatTrackingDrift = chatTrackingDrift
     self.isTestPanel = isTestPanel
     self.dropdown = PanelDropdownState(requestedOnAppear: openDropdownOnAppear)
     self.fileDiffs = FileDiffBuilder.load(for: request)
-    if let transcriptPath = request.transcriptPath, let agentID = request.agentID {
-      self.subagentChain = SubagentChainReader.chain(
-        transcriptPath: transcriptPath, agentID: agentID)
-    } else {
-      self.subagentChain = nil
-    }
+    self.subagentChain = subagentChain
   }
 
   func startArming() {
@@ -89,6 +97,12 @@ final class PanelModel {
     onFinish?(outcome)
   }
 
+  func chooseCheckpoint(_ choice: ContextCheckpointChoice, prompt: ContextCheckpointPrompt) {
+    guard isArmed, !hasFinished else { return }
+    onCheckpointChoice?(choice)
+    finish(choice.outcome(for: prompt))
+  }
+
   func snooze(_ seconds: TimeInterval) {
     guard isArmed, !hasFinished, !hasSnoozed else { return }
     hasSnoozed = true
@@ -102,10 +116,11 @@ final class PanelController {
   private let backdrop: BackdropWindow?
   private let model: PanelModel
   private let hostingController: NSHostingController<PanelRootView>
-  private let targetScreen: NSScreen?
+  private var targetScreen: NSScreen?
   private var armTask: Task<Void, Never>?
   private let onStepAside: (@MainActor (StepAsideReason) -> Void)?
   private let isAfterHandoff: Bool
+  private let panelSound: String
   private var keyMonitor: Any?
   private var keyWindowObserver: (any NSObjectProtocol)?
   private var workspaceObserver: (any NSObjectProtocol)?
@@ -121,25 +136,32 @@ final class PanelController {
   private static let rightArrowKeyCode: UInt16 = 124
   private static let downArrowKeyCode: UInt16 = 125
   private static let upArrowKeyCode: UInt16 = 126
-  private static let defaultArmDuration: TimeInterval = 0.8
+  private static let defaultArmDuration: TimeInterval = Settings.defaultArmDelay
   private static let armDurationRange: ClosedRange<TimeInterval> = 0...3
 
   init(
     request: ApprovalRequest,
     waitingEntries: [WaitingEntry],
     armDuration: TimeInterval = PanelController.defaultArmDuration,
-    snoozeMinutes: [Int] = Settings.defaultSnoozeMinutes,
+    snoozePresets: [TimeInterval] = Settings.defaultSnoozePresets,
     questionNotes: Bool = Settings.defaultQuestionNotes,
     modeAfterPlan: PlanApprovalMode = Settings.defaultModeAfterPlan,
+    panelSound: String = Settings.defaultPanelSound,
     appearance: AppearanceChoice = Settings.defaultAppearance,
     accentColor: HexColor = Settings.defaultAccentColor,
     chatTrackingDrift: ChatTrackingDrift? = nil,
+    subagentChain: [SubagentChainLink]? = nil,
     isTestPanel: Bool = false,
     handoffBackdrop: BackdropWindow? = nil,
     afterHandoff: Bool = false,
     onFinish: @escaping @MainActor (ApprovalOutcome) -> Void,
     onSnooze: (@MainActor (TimeInterval) -> Void)? = nil,
-    onStepAside: (@MainActor (StepAsideReason) -> Void)? = nil
+    onStepAside: (@MainActor (StepAsideReason) -> Void)? = nil,
+    sessionIdle: Bool = false,
+    escapeKeepsWaiting: Bool = false,
+    alwaysAllowOffer: AlwaysAllowOffer? = nil,
+    onAlwaysAllow: ((AlwaysAllowOffer) -> Void)? = nil,
+    onCheckpointChoice: ((ContextCheckpointChoice) -> Void)? = nil
   ) {
     let targetScreen = handoffBackdrop?.targetScreen ?? Self.resolveTargetScreen()
     let maxHeight = Self.maxContentHeight(screen: targetScreen)
@@ -149,8 +171,10 @@ final class PanelController {
 
     let model = PanelModel(
       request: request, waitingEntries: waitingEntries, armDuration: clampedArmDuration,
-      snoozeMinutes: snoozeMinutes, questionNotes: questionNotes, modeAfterPlan: modeAfterPlan,
-      chatTrackingDrift: chatTrackingDrift, isTestPanel: isTestPanel)
+      snoozePresets: snoozePresets, questionNotes: questionNotes, modeAfterPlan: modeAfterPlan,
+      chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
+      isTestPanel: isTestPanel, sessionIdle: sessionIdle, escapeKeepsWaiting: escapeKeepsWaiting,
+      alwaysAllowOffer: alwaysAllowOffer)
     CountersignPalette.use(accentColor)
     let panel = ApprovalPanel()
     panel.appearance = appearance.windowAppearance
@@ -165,6 +189,7 @@ final class PanelController {
     self.targetScreen = targetScreen
     self.onStepAside = onStepAside
     self.isAfterHandoff = afterHandoff
+    self.panelSound = panelSound
 
     panel.contentViewController = hostingController
     model.onFinish = { [weak self] outcome in
@@ -172,6 +197,8 @@ final class PanelController {
       onFinish(outcome)
     }
     model.onSnooze = onSnooze
+    model.onCheckpointChoice = onCheckpointChoice
+    model.onAlwaysAllow = onAlwaysAllow
     panel.onEscape = { [weak model] in
       model?.finish(.noDecision)
     }
@@ -196,7 +223,8 @@ final class PanelController {
   func show() {
     showTime = Date()
     layOut()
-    let fadesIn = !isAfterHandoff
+    let fadesIn = !isAfterHandoff && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+    panel.setAccessibilityTitle("Countersign approval")
     panel.alphaValue = fadesIn ? 0 : 1
     backdrop?.alphaValue = fadesIn ? 0 : 1
     backdrop?.orderFrontRegardless()
@@ -206,6 +234,10 @@ final class PanelController {
     isPresented = true
     installKeyMonitor()
     installStepAsideTriggers()
+    announcePresentation()
+    if !isAfterHandoff {
+      SystemSounds.play(panelSound)
+    }
     if fadesIn {
       NSAnimationContext.runAnimationGroup { context in
         context.duration = 0.15
@@ -220,6 +252,10 @@ final class PanelController {
     targetScreen?.displayID
   }
 
+  var frame: NSRect {
+    panel.frame
+  }
+
   var fileDiffs: [FileDiff]? {
     model.fileDiffs
   }
@@ -230,6 +266,33 @@ final class PanelController {
     backdrop?.orderOut(nil)
   }
 
+  func followScreenChange() {
+    guard let placed = NSScreen.placement(for: panel.frame) else { return }
+    let screen = placed.screen
+    let maxHeight = Self.maxContentHeight(screen: screen)
+    targetScreen = screen
+    hostingController.rootView = PanelRootView(
+      model: model, width: Self.panelWidth(screen: screen), maxHeight: maxHeight)
+    backdrop?.cover(screen)
+    lastAppliedHeight = nil
+    topEdgeY = nil
+    applyHeight(min(panel.frame.height, maxHeight))
+  }
+
+  private func announcePresentation() {
+    NSAccessibility.post(element: hostingController.view, notification: .focusedUIElementChanged)
+    postAnnouncement(PanelAnnouncement.text(for: model.request))
+  }
+
+  private func postAnnouncement(_ text: String) {
+    NSAccessibility.post(
+      element: panel, notification: .announcementRequested,
+      userInfo: [
+        .announcement: text,
+        .priority: NSAccessibilityPriorityLevel.high.rawValue,
+      ])
+  }
+
   private func startArming() {
     armTask?.cancel()
     let model = self.model
@@ -238,11 +301,12 @@ final class PanelController {
       model.arm()
       return
     }
-    armTask = Task {
+    armTask = Task { [weak self] in
       let nanoseconds = UInt64(model.armDuration * 1_000_000_000)
       try? await Task.sleep(nanoseconds: nanoseconds)
       guard !Task.isCancelled else { return }
       model.arm()
+      self?.postAnnouncement(PanelAnnouncement.ready)
     }
   }
 
@@ -297,8 +361,6 @@ final class PanelController {
     case .alternate:
       if keyHandler?.uses(.alternate) == true {
         keyHandler?.perform(.alternate)
-      } else {
-        keyHandler?.perform(.primary)
       }
     case .secondary:
       keyHandler?.perform(.secondary)
@@ -309,7 +371,9 @@ final class PanelController {
     case .insertNewline:
       editor?.insertNewlineIgnoringFieldEditor(nil)
     case .stepAside:
-      stepAside(.typing)
+      if !model.isTestPanel {
+        stepAside(.typing)
+      }
     case .closeDropdown:
       model.dropdown.close()
     }

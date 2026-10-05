@@ -69,6 +69,8 @@ public enum AntigravityAdapter {
 
   public static func encode(_ outcome: ApprovalOutcome) -> Data? {
     switch outcome {
+    case .addContext:
+      return nil
     case .noDecision:
       return encodeReply(["decision": .string("ask")])
     case .allow:

@@ -1,0 +1,7 @@
+{
+  // commands that run without asking
+  "terminalAllowlist": [
+    "git",
+    "pnpm lint",
+  ],
+}

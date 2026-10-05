@@ -12,5 +12,14 @@
         ]
       }
     ]
+  },
+  "countersign-waiting": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "{{EXECUTABLE}} hook --host antigravity --event waiting",
+        "timeout": 30
+      }
+    ]
   }
 }

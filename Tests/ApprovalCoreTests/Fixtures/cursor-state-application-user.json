@@ -1,0 +1,56 @@
+{
+  "composerState": {
+    "modes4": [
+      {
+        "id": "agent",
+        "name": "Agent",
+        "autoRun": true,
+        "fullAutoRun": false,
+        "smartModeAutoRun": true
+      },
+      {
+        "id": "plan",
+        "name": "Plan",
+        "autoRun": false
+      },
+      {
+        "id": "chat",
+        "name": "Ask",
+        "autoRun": false
+      },
+      {
+        "id": "triage",
+        "name": "Triage",
+        "autoRun": true,
+        "fullAutoRun": false
+      },
+      {
+        "id": "spec",
+        "name": "Spec",
+        "autoRun": false
+      },
+      {
+        "id": "debug",
+        "name": "Debug",
+        "autoRun": false
+      },
+      {
+        "id": "multitask",
+        "name": "Multitask",
+        "autoRun": true,
+        "fullAutoRun": false
+      },
+      {
+        "id": "project",
+        "name": "Project",
+        "autoRun": false
+      }
+    ],
+    "yoloCommandAllowlist": [
+      "cd",
+      "pnpm lint"
+    ],
+    "yoloCommandDenylist": [],
+    "yoloEnableRunEverything": false
+  }
+}

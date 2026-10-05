@@ -14,7 +14,17 @@ swift scripts/screenshots/compose-hero.swift <out-dir>/claude-edit-dark.png docs
 `<out-dir>/<request>-<appearance>.png`, and the settings window's Agents tab as
 `<out-dir>/settings-<appearance>.png`
 plus a README crop, `<out-dir>/settings-<appearance>-readme.png` (see "The README settings crop"
-below). The default `out-dir` is `.build/screenshots`, which git ignores. `claude-edit` renders with
+below). It then renders the 0.2.0 surfaces, each in light and dark:
+
+- `context-soft`, `context-status` and `context-insist`, the context checkpoint panel at each
+  level (`--test-panel context --checkpoint-level <level>`),
+- `settings-rules`, the Rules tab (`--tab rules`), plus its README crop `settings-rules-readme`,
+- `notice`, the waiting-agent corner card (`--waiting-notice codex --project shop-api`),
+- `approval-card`, the approval corner card (`--approval-card cursor --project shop-api`).
+
+The last two are only inputs of the cards tile (see the table below), not README images.
+
+The default `out-dir` is `.build/screenshots`, which git ignores. `claude-edit` renders with
 `--waiting 2` so the waiting chip shows.
 
 ## What is in `scripts/screenshots`
@@ -27,6 +37,7 @@ below). The default `out-dir` is `.build/screenshots`, which git ignores. `claud
 | `requests/<host>-<name>.json` | One request each. The prefix before the first `-` is the `--host`. |
 | `render.sh` | Substitutes the demo path and renders every request and the settings window, then composes the README screenshot tiles. |
 | `compose-hero.swift` | Puts one snapshot on the gradient background used for the README hero. |
+| `compose-stack.swift` | Stacks two snapshots vertically with a fixed gap into one PNG, for the corner-cards tile. |
 | `compose-tile.swift` | Puts one snapshot, scaled down to fit and centred, on the same gradient background as a fixed 1600×1200 opaque JPEG tile (quality 0.92, square corners) for the README's Screenshots table — about 150 KB instead of a 1.3 MB PNG, and JPEG has no transparency for a rounded canvas. |
 | `crop-top.swift` | Crops the settings render to the README image (see "The README settings crop" below). |
 
@@ -89,45 +100,58 @@ the file `<host>-<name>.json`.
 roots every host's hook file under `<dir>` instead of the real home, so the settings window can be
 rendered against a made-up setup. `demo/home/` holds that made-up setup: each host's hook file
 (`.claude/settings.json`, `.codex/hooks.json`, `.cursor/hooks.json`, `.gemini/config/hooks.json`),
-already containing a countersign hook entry, plus empty `.gemini/antigravity-cli/`,
-`.gemini/antigravity/` and `.gemini/antigravity-ide/` directories so Antigravity reads as
-installed. It holds no installed copy of Countersign, neither `.local/bin/countersign`,
-`Applications/Countersign.app` nor a `root/` folder, where `--home` looks for `/opt/homebrew`,
-`/usr/local` and `/Applications`, so the render never shows the notice about a second copy,
-whatever the rendering Mac has installed. Each hook entry's executable path is the placeholder `{{EXECUTABLE}}`, substituted by
-`render.sh` the same way `{{DEMO}}` is substituted, but with the absolute path of the `countersign`
-binary doing the rendering, resolved past the `.build/debug` symlink exactly as
+already containing every entry setup writes by default in 0.2.0: the permission hook, the `Stop`
+entry of the waiting-agent notices (Antigravity's is the flat `countersign-waiting` object, and
+Claude Code's carries `"async": true`) and Claude Code's async `UserPromptSubmit` checkpoint entry.
+A file missing one of them would read "Needs an update" instead of "Wired". The home also holds
+`.config/countersign/config.json`, a `rules` list of three rules: Allow `swift test` for Codex in
+`~/Projects/shop-api`, Allow `swift build` for any agent there, and the "Deny sudo" suggestion's
+rule with its message, so the Rules tab shows rules and no config problem. Empty
+`.gemini/antigravity-cli/`, `.gemini/antigravity/` and `.gemini/antigravity-ide/` directories make
+Antigravity read as installed. The home holds no installed copy of Countersign, neither
+`.local/bin/countersign`, `Applications/Countersign.app` nor a `root/` folder, where `--home` looks
+for `/opt/homebrew`, `/usr/local` and `/Applications`, so the render never shows the notice about a
+second copy, whatever the rendering Mac has installed. Each hook entry's executable path is the
+placeholder `{{EXECUTABLE}}`, substituted by `render.sh` the same way `{{DEMO}}` is substituted, but
+with the absolute path of the `countersign` binary doing the rendering, resolved past the `.build/debug` symlink exactly as
 `Bundle.main.executableURL?.resolvingSymlinksInPath()` resolves it at runtime — a mismatched
 resolution makes every host read as needing an update instead of wired.
 
-That substitution is what makes every host row read "Wired" and the status row read "Countersign is
-on": `HostWiring.status` compares each file against what installing again would produce, byte for
+That substitution is what makes every host row read "Wired" and the header show no pause or quiet
+caption: `HostWiring.status` compares each file against what installing again would produce, byte for
 byte, and a hook entry already pointing at the exact path the rendering binary resolves to compares
-equal. **The settings render must never pass `--show-changes`, and every demo host must stay wired.**
-`resolvedExecutable` and the `stablePath` derived from it name the binary taking the snapshot, not
-the `--home` directory, and `--home` does not touch them: a host that needed an update, or one whose
-"Show changes" was expanded, would render that real path — the checkout's own `.build/debug/countersign`
-— into the image.
+equal. **Every demo host must stay wired.** `resolvedExecutable` and the `stablePath` derived from
+it name the binary taking the snapshot, not the `--home` directory, and `--home` does not touch
+them: a host that needed an update would render the path its entry points at, a path under the
+checkout such as its own `.build/debug/countersign`, into its "points at" line.
 
 ## The README settings crop
 
 The README's settings image is a crop of the dark settings render, not the full window. The render
 shows the Agents group, selected in the sidebar, at the window's default size, so neither the
 config path nor the "Ask your coding agent" prompt, both in Advanced, appear in a shared image; the
-crop stops just below the Agents group's card, so the image is the header, the status row, the
+crop stops just below the Agents group's card, so the image is the header, the
 sidebar and the Agents group, with nothing half-shown below the card. `render.sh` writes the full
 render as `<out-dir>/settings-<appearance>.png` and the crop as
 `<out-dir>/settings-<appearance>-readme.png`, made by
 `crop-top.swift <in.png> <height-in-pixels> <out.png>`: it opens no window either, and crops with
 `CGImage.cropping(to:)` to the full width and the given height, measured from the top-left corner
 of the render. That height is `settings_readme_crop_height`, the one named value at the top of
-`render.sh`, in pixels at the render's 2x scale (points × 2; the render is the window's default
-size, `SettingsWindowPlacement.defaultContentSize` = 820 x 800 pt = 1640 x 1600 px). It is pinned by
-rendering and looking, not computed from the layout, since it has to land just below the Agents
-card's bottom border, with the page background showing beneath it and nothing else —
+`render.sh`, in pixels at the render's 2x scale (points × 2; the render is 1640 px wide and as
+tall as the Agents tab's content, 1092 px in 0.2.0). Nothing follows the Agents card in 0.2.0, so
+the crop equals the render's height and keeps the content's 48 px of page background below the
+card. It is pinned by rendering and looking, not computed from the layout, since it has to land
+below the Agents card's bottom border, with the page background showing beneath it and nothing
+else —
 **re-check it, by rendering and looking, whenever the Settings layout changes.** `crop-top.swift`
 refuses a height taller than the render, so a layout that gets shorter stops `render.sh` rather
 than producing a wrong image.
+
+The Rules tab's README image, `settings-rules-<appearance>-readme.png`, is cropped the same way at
+`settings_rules_readme_crop_height`. The Rules tab shows only rules and suggestions, nothing from
+Advanced, and its render ends where the Suggestions card ends, so the crop height equals the
+render's (1490 px in 0.2.0). It is a separate value because the two tabs' heights change
+independently; the same rule applies: re-check it by rendering and looking.
 
 ## The hero image
 
@@ -157,3 +181,13 @@ The images in `docs/images/` are rendered by this tooling. Regenerate them from 
 | `tile-cursor.jpg` | `compose-tile.swift` over `cursor-command-dark.png` |
 | `tile-antigravity.jpg` | `compose-tile.swift` over `antigravity-command-dark.png` |
 | `tile-settings.jpg` | `compose-tile.swift` over `settings-dark-readme.png` |
+| `tile-rules.jpg` | `compose-tile.swift` over `settings-rules-dark-readme.png` |
+| `tile-checkpoint.jpg` | `compose-tile.swift` over `context-insist-dark.png` |
+| `tile-cards.jpg` | `compose-tile.swift` over the stack of `notice-dark.png` and `approval-card-dark.png` |
+
+`tile-cards.jpg` is one tile for both corner cards. A card alone is about 40% of a tile's width and
+reads as a small card lost on the gradient, so `render.sh` upscales each dark card render with
+`sips --resampleWidth "$card_tile_width"` (1200 px, 75% of the tile), stacks the notice above the
+approval card with `compose-stack.swift`, and composes the stack like any other snapshot.
+`compose-stack.swift <top.png> <bottom.png> <stack.png>` uses only CoreGraphics and ImageIO,
+centres both images horizontally and leaves a fixed 48 px transparent gap between them.

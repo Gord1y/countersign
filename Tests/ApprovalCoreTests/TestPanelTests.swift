@@ -35,11 +35,17 @@ import Testing
     #expect(TestPanelKind.parse(["command"]) == .command)
     #expect(TestPanelKind.parse(["question"]) == .question)
     #expect(TestPanelKind.parse(["plan"]) == .plan)
-    #expect(TestPanelKind.allCases.map(\.rawValue) == ["command", "question", "plan"])
+    #expect(TestPanelKind.parse(["context"]) == .context)
+    #expect(
+      TestPanelKind.allCases.map(\.rawValue) == ["command", "question", "plan", "context"])
   }
 
   @Test func eachKindHasAButtonTitle() {
-    #expect(TestPanelKind.allCases.map(\.title) == ["Command", "Question", "Plan"])
+    #expect(TestPanelKind.allCases.map(\.title) == ["Command", "Question", "Plan", "Context"])
+  }
+
+  @Test func thePanelsTabOffersTheThreePermissionKindsOnly() {
+    #expect(TestPanelKind.panelsTabKinds == [.command, .question, .plan])
   }
 
   @Test func anUnknownKindOrAnExtraArgumentIsRejected() {
@@ -49,7 +55,7 @@ import Testing
     #expect(TestPanelKind.parse(["command", "plan"]) == nil)
   }
 
-  @Test(arguments: TestPanelKind.allCases)
+  @Test(arguments: TestPanelKind.panelsTabKinds)
   func everySampleUsesOnlyKeysItsCapturedFixtureHas(_ kind: TestPanelKind) throws {
     let fixtureName = try #require(Self.fixtureForKind[kind])
     let fixture = try JSONDecoder().decode(JSONValue.self, from: FixtureLoader.data(fixtureName))
@@ -132,6 +138,57 @@ import Testing
     #expect(proposal.plan.hasSuffix("Nothing else changes."))
     let blocks = MarkdownBlocks.parse(proposal.plan)
     #expect(blocks.count > 3)
+  }
+
+  @Test func theContextSampleIsASoftCheckpointOnTheDefaultMillionLadder() throws {
+    let request = try TestPanelSample.request(for: .context)
+
+    #expect(request.toolName == "Context checkpoint")
+    guard case .contextCheckpoint(let prompt) = request.kind else {
+      Issue.record("expected a context checkpoint")
+      return
+    }
+    #expect(prompt.tokens == 212_345)
+    #expect(prompt.level == .soft)
+    #expect(prompt.ladder == [200_000, 300_000, 400_000])
+    #expect(prompt.handoffFile == ContextCheckpointSettings.defaultHandoffFile)
+    #expect(prompt.notes == ContextCheckpointNotes.default)
+  }
+
+  @Test func theContextSampleFollowsACustomMillionLadderAndHandoffFile() throws {
+    var settings = ContextCheckpointSettings.default
+    settings.millionThresholds = [150_000, 250_000, 350_000]
+    settings.handoffFile = "docs/next.md"
+
+    let request = try TestPanelSample.request(for: .context, settings: settings)
+
+    guard case .contextCheckpoint(let prompt) = request.kind else {
+      Issue.record("expected a context checkpoint")
+      return
+    }
+    #expect(prompt.tokens == 162_345)
+    #expect(prompt.level == .soft)
+    #expect(prompt.ladder == [150_000, 250_000, 350_000])
+    #expect(prompt.handoffFile == "docs/next.md")
+  }
+
+  @Test func theContextSampleAtAHigherLevelStartsAboveThatThreshold() throws {
+    let insist = TestPanelSample.contextRequest(level: .insist, settings: .default)
+
+    guard case .contextCheckpoint(let prompt) = insist.kind else {
+      Issue.record("expected a context checkpoint")
+      return
+    }
+    #expect(prompt.tokens == 412_345)
+    #expect(prompt.level == .insist)
+  }
+
+  @Test func contextOutcomesReadAsAChosenNoteOrContinuing() {
+    #expect(
+      TestPanelLog.outcome(.addContext("note"), kind: .context)
+        == "test panel: chose a context note")
+    #expect(TestPanelLog.outcome(.noDecision, kind: .context) == "test panel: continued")
+    #expect(TestPanelLog.start(.context) == "test panel: start kind=context")
   }
 
   @Test func theStartLineNamesTheKind() {

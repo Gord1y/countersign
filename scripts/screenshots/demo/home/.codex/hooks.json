@@ -12,6 +12,17 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{EXECUTABLE}} hook --host codex --event waiting",
+            "timeout": 30
+          }
+        ]
+      }
     ]
   }
 }

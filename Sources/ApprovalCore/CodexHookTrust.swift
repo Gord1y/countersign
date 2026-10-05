@@ -60,17 +60,19 @@ public struct CodexHookTrustCurrent: Sendable, Equatable {
 }
 
 public enum CodexHookTrust {
-  static let eventLabel = "permission_request"
+  public static let eventLabel = "permission_request"
+  public static let waitingEventLabel = "stop"
   static let configFileName = "config.toml"
 
-  public static func current(hooksFileBytes: [UInt8], hooksFilePath: String)
-    -> CodexHookTrustCurrent?
-  {
+  public static func current(
+    hooksFileBytes: [UInt8], hooksFilePath: String, event: String = HookSetup.eventName,
+    label: String = eventLabel
+  ) -> CodexHookTrustCurrent? {
     guard let root = try? JSONSpanReader.parse(hooksFileBytes) else { return nil }
-    let sites = HookSetup.sites(in: root)
+    let sites = HookSetup.sites(in: root, event: event)
     guard let first = sites.first else { return nil }
     let command = first.hook.member(named: "command")?.value.stringValue ?? ""
-    let key = "\(hooksFilePath):\(eventLabel):\(first.groupIndex):\(first.hookIndex)"
+    let key = "\(hooksFilePath):\(label):\(first.groupIndex):\(first.hookIndex)"
     return CodexHookTrustCurrent(
       hookKey: key, command: command, hasMultipleEntries: sites.count > 1)
   }
@@ -80,9 +82,12 @@ public enum CodexHookTrust {
   }
 
   public static func writtenRecord(
-    hooksFileBytes: [UInt8], hooksFilePath: String, config: Doctor.FileState
+    hooksFileBytes: [UInt8], hooksFilePath: String, config: Doctor.FileState,
+    event: String = HookSetup.eventName, label: String = eventLabel
   ) -> CodexHookTrustRecord? {
-    guard let current = current(hooksFileBytes: hooksFileBytes, hooksFilePath: hooksFilePath)
+    guard
+      let current = current(
+        hooksFileBytes: hooksFileBytes, hooksFilePath: hooksFilePath, event: event, label: label)
     else { return nil }
     let hashAtWrite: CodexHashAtWrite
     switch config {
@@ -96,6 +101,41 @@ public enum CodexHookTrust {
     }
     return CodexHookTrustRecord(
       hookKey: current.hookKey, command: current.command, hashAtWrite: hashAtWrite)
+  }
+
+  public static func recordWritten(
+    _ written: [UInt8]?, at location: HookConfigLocation, in recordFile: URL,
+    event: String = HookSetup.eventName, label: String = eventLabel
+  ) {
+    guard let written,
+      let record = writtenRecord(
+        hooksFileBytes: written, hooksFilePath: location.file.path,
+        config: ConfigFileStore.fileState(configFile(for: location)), event: event, label: label)
+    else {
+      CodexHookTrustRecordStore.delete(file: recordFile)
+      return
+    }
+    do {
+      try CodexHookTrustRecordStore.save(record, to: recordFile)
+    } catch {
+      CodexHookTrustRecordStore.delete(file: recordFile)
+    }
+  }
+
+  public static func recordWrittenWaiting(
+    _ written: [UInt8]?, at location: HookConfigLocation, in recordFile: URL
+  ) {
+    recordWritten(
+      written, at: location, in: recordFile, event: WaitingHookSetup.eventName,
+      label: waitingEventLabel)
+  }
+
+  public static func currentWaiting(hooksFileBytes: [UInt8], hooksFilePath: String)
+    -> CodexHookTrustCurrent?
+  {
+    current(
+      hooksFileBytes: hooksFileBytes, hooksFilePath: hooksFilePath,
+      event: WaitingHookSetup.eventName, label: waitingEventLabel)
   }
 
   public static func markedRecord(

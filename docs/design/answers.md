@@ -127,6 +127,23 @@ prompt for that request, the same fallback as every row in "No answer at all" be
 "Antigravity" below). Why no decision rather than a deny is in "Why "Answer in chat" returns no
 decision" in [panel.md](panel.md).
 
+## Deny and Answer in Chat from the menu bar
+
+The menu bar's pending list offers **Deny** and **Answer in Chat** for each request (see
+"Answering from the menu bar" in [queue.md](queue.md)). They send exactly the outcomes above:
+**Deny** is `ApprovalOutcome.deny(reason: "", interrupt: false)`, the "Deny, with or without a
+reason" body with the default message for every host, and **Answer in Chat** is `.noDecision`,
+empty stdout for Claude Code and Codex, `ask` for Cursor and Antigravity. The log shows
+`answered from the menu: deny` or `answered from the menu: chat`, then the same `outcome: deny` or
+`outcome: no decision` a panel answer leaves.
+
+A Cursor request under Auto-review, Run Everything or an unknown run mode is offered Show Now and
+Deny only: there `ask` would run the command unasked, so its ticket's summary carries
+`answersInChat: false` and `MenuAnswer.offered(for:)` drops **Answer in Chat** (see "Esc under
+Auto-review and Run Everything" in [hosts.md](hosts.md)). An answer of `chat` that reaches such a
+request anyway is logged as `answered from the menu: chat, not offered for this request` and
+ignored.
+
 ## A question submitted (Claude `AskUserQuestion` only)
 
 Answering every tab and choosing **Submit** calls `ApprovalCore.QuestionResponse.outcome`, which
@@ -207,6 +224,35 @@ which is a plain deny, `interrupt: false`, with its own default message, not the
 Blank feedback sends that default message; typed feedback replaces it verbatim. This is Claude-only
 for the same reason as plan approval: Codex has no `ExitPlanMode` hook to answer.
 
+## A context checkpoint (Claude `UserPromptSubmit`)
+
+A context checkpoint answers `UserPromptSubmit`, not `PermissionRequest`. The hook entry is async:
+Claude Code runs it in the background and puts `hookSpecificOutput.additionalContext` in front of
+Claude at its next request. `ClaudeAdapter.encode(.addContext(text))` prints exactly this, with
+sorted keys, and every other host encodes `.addContext` as `nil`:
+
+```json
+{"hookSpecificOutput":{"additionalContext":"<the rendered note>","hookEventName":"UserPromptSubmit"}}
+```
+
+`ContextCheckpointChoice.outcome(for:)` maps each panel choice:
+
+| Choice | Output |
+| --- | --- |
+| **Continue** | Nothing on stdout (`.noDecision`) |
+| **Not this session** | Nothing on stdout (`.noDecision`); the session is also muted |
+| **Compact after this step** | The JSON above with `notes.compact` rendered |
+| **Hand off & start fresh** | The JSON above with `notes.handoff` rendered |
+
+Rendering fills `{tokens}` (for example `131K`) and `{handoffFile}`. Silent mode prints the same
+JSON with the note of the level that fired (`soft`, `status` or `insist`), without a panel.
+
+Nothing on stdout, exit 0, means "nothing to add" in every other case: Esc, a click outside the
+panel, a panel closed or abandoned (parent exited, session compacted meanwhile, another checkpoint
+took over), a reading that is unknown, a level that did not cross, a muted session and a disabled
+feature. An async hook's `systemMessage` is never shown to the user, so this feature never prints
+one.
+
 ## No answer at all
 
 Every row here ends the hook process with nothing on stdout and exit 0, the same "no decision" the
@@ -219,6 +265,7 @@ file can explain why a panel never showed or went away on its own.
 | Snoozed (quiet time active) | An already-shown panel closes; a queued one never shows until quiet time ends | `stepped aside: quiet time` while shown; a request that arrives during quiet time simply waits in `.waitingForIdle` until it ends | Falls back to its own prompt if quiet time doesn't end before the host's own timeout |
 | The host-app handoff (`handoffApps`) | Nothing; checked each time its panel is about to appear, after the idle gate or right before a panel chained from a queue handoff, so it holds its place in the queue until then (see "Handing off to the asking app" in [panel.md](panel.md)) | `handoff: <bundle id> frontmost` | Falls back to its own prompt (Cursor gets `{"permission":"ask"}` and Antigravity `{"decision":"ask"}` on stdout instead of nothing here; see "Cursor" and "Antigravity" below) |
 | A headless Claude session (`claude -p`, no chat to answer) | Nothing; checked once, before the grace period, for Claude only | `skipped: non-interactive session (kind=<kind>)` | Falls back to its own prompt |
+| A Cursor payload in a Claude Code hook (Cursor runs `~/.claude/settings.json` hooks too) | Nothing; checked before anything else, for `--host claude` only | `ignored: a Cursor payload in a Claude Code hook` | Carries on as it would without Countersign; Cursor's own hook entries still reach Countersign |
 | Answered in the chat during the grace period | Nothing; the panel is never built | `resolved during grace: registry` or `resolved during grace: transcript` | Nothing further; the chat's own answer already stands |
 | Answered in the chat while queued | Nothing; ticket removed before display | `resolved while queued: registry` or `resolved while queued: transcript` | Nothing further |
 | Answered in the chat while idling for a pause, or while on screen | An on-screen panel closes | `resolved while waiting for idle: <reason>` or `resolved while displayed: <reason>` | Nothing further |
@@ -245,22 +292,59 @@ Every other row (paused, snoozed, the handoff, the parent exiting, a hook timeou
 error) applies to Claude Code and Codex the same way; how Cursor and Antigravity read them is in
 "Cursor" and "Antigravity" below.
 
+## Answered by a rule
+
+A request that matches an allow or deny rule from `config.json` (see "Allow and deny rules" in
+[../configuration.md](../configuration.md) and [rules.md](rules.md)) is answered by the hook
+itself, with no panel, no queue and no grace period. `HookRunner.run` evaluates the rules once,
+right after the `start host=…` line, and the order is:
+
+1. A **deny** answers at once, before every skip below: a rule that says never must hold even for
+   a sandboxed command or a tool Countersign would not otherwise ask about.
+2. The sandboxed-command skip and the not-asked-about skip run as they always do.
+3. An **allow** answers next, before Cursor's allowlist check and before the panel. It comes after
+   the two skips so that a sandboxed Cursor command or a tool Countersign does not ask about stays
+   exactly as it would be without Countersign; a rule never turns those into an explicit allow.
+4. No match carries on to Cursor's allowlist, the host-app handoff, the headless gate and the panel.
+
+Each host receives the same stdout as for **Approve** or **Deny** in its own table: the deny uses
+the rule's `message`, or `Denied by a Countersign rule.` when it has none, and never interrupts.
+
+| When | stdout | Logged as | What the host does |
+| --- | --- | --- | --- |
+| A deny rule matches | as **Deny** for that host | `rule: denied by rules[<i>]`, then `outcome: deny` | Blocks the call and shows the rule's message |
+| An allow rule matches, not sandboxed and asked about | as **Approve** for that host | `rule: allowed by rules[<i>]`, then `outcome: allow` | Runs the call (Antigravity still asks, see "Antigravity" below) |
+
+`<i>` is the rule's position among the rules Countersign could read, counting from 0 in file order.
+Both answers are recorded in the decision history as `allowedByRule` and `deniedByRule`.
+
+Rules are off while Countersign is paused, because a paused hook exits before it parses the
+request; for test panels, which are not hook requests; and for context checkpoints, which are
+handled before the request is parsed.
+
 ## Cursor
 
 Cursor's hook reply is `{"permission": ...}`, not a `hookSpecificOutput` envelope
 ([`CursorAdapter.swift`](../../Sources/ApprovalCore/CursorAdapter.swift), matched against
 `CursorAdapterTests`). The replies below were each tried by hand against Cursor 3.21.18 on
-2026-09-27; the reasoning is in "The Cursor adapter" in [hosts.md](hosts.md).
+2026-09-27, except where a row names a later check; the reasoning is in "The Cursor adapter" in
+[hosts.md](hosts.md).
 
 | When | stdout | Logged as | What Cursor does |
 | --- | --- | --- | --- |
-| **Approve** | `{"permission":"allow"}` | `outcome: allow` | Runs the command or MCP tool |
+| **Approve** | `{"permission":"allow"}` | `outcome: allow` | Ignores the `allow` and follows its own run mode: Allowlist shows its own approval prompt again unless the command is on its allowlist, Auto-review hands it to its AI review, Run Everything runs it (see "Approve is not enough yet" in [hosts.md](hosts.md); Allowlist checked on Cursor 3.22.12, 2026-10-04) |
 | **Deny**, with a reason or the default | `{"agent_message":"<reason>","permission":"deny","user_message":"<reason>"}` | `outcome: deny` | Blocks it, shows `user_message` to the person and hands `agent_message` to the agent |
 | **Deny & stop** | not offered: Cursor has no `interrupt` | — | — |
-| **Answer in chat**, <kbd>Esc</kbd>, or a click outside the panel | `{"permission":"ask"}` | `outcome: no decision` | Shows its own approval prompt, even for a command it would run in its sandbox |
-| Still unanswered 3540 s after the hook started, anywhere from the grace period to on screen | `{"permission":"ask"}` | `handed back: cursor timeout near` | Shows its own approval prompt; the panel, if one was up, closes and the next request takes the display |
+| A deny rule matches | as **Deny** | `rule: denied by rules[<i>]`, `outcome: deny` | Blocks it, even a sandboxed command |
+| An allow rule matches, not sandboxed | as **Approve** | `rule: allowed by rules[<i>]`, `outcome: allow`, before `cursor: run mode …` | As after **Approve**: no panel, and Cursor follows its own run mode |
+| **Answer in chat**, <kbd>Esc</kbd>, or a click outside the panel, in Allowlist or Ask Every Time mode | `{"permission":"ask"}` | `outcome: no decision` | Shows its own approval prompt, even for a command it would run in its sandbox |
+| **Later**, <kbd>Esc</kbd>, or a click outside the panel, in Auto-review, Run Everything or an unknown mode | nothing yet: the request is parked and an approval card shows at once | `stepped aside: later`, `parked: back from the card or the menu` | Keeps waiting; the panel returns from the card's Show or the menu's Show Now |
+| Still unanswered 3540 s after the hook started, anywhere from the grace period to on screen, in Allowlist or Ask Every Time mode | `{"permission":"ask"}` | `handed back: cursor timeout near` | Shows its own approval prompt; the panel, if one was up, closes and the next request takes the display |
+| Still unanswered 3540 s after the hook started, anywhere from the grace period to parked or on screen, in Auto-review, Run Everything or an unknown mode | `{"agent_message":"No answer in Countersign within an hour, so Cursor did not run this.","permission":"deny","user_message":"No answer in Countersign within an hour, so Cursor did not run this."}` | `denied: cursor timeout near` | Blocks it; the deny is recorded in the decision history, and no waiting notice is |
 | A shell command Cursor runs in its sandbox (`sandbox: true`) | nothing | `skipped: sandboxed command`, right after parsing, before the grace period | Carries on as it would without Countersign |
-| The host-app handoff (`handoffApps`) | `{"permission":"ask"}` | `handoff: <bundle id> frontmost` | Shows its own approval prompt, the same as "Answer in chat" |
+| A shell command on Cursor's allowlist, in Allowlist, Auto-review or Run Everything mode | nothing | `skipped: on Cursor's allowlist`, after `cursor: run mode …` | Runs it, as it would without Countersign |
+| The host-app handoff (`handoffApps`), in Allowlist or Ask Every Time mode | `{"permission":"ask"}` | `handoff: <bundle id> frontmost` | Shows its own approval prompt, the same as "Answer in chat" |
+| The host-app handoff, in Auto-review, Run Everything or an unknown mode | nothing: the panel shows anyway | `handoff: <bundle id> frontmost, kept (Cursor would run it unasked)` | Keeps waiting for the panel |
 | Every other row of "No answer at all" above (paused, unparseable input, resolved during grace or while queued, a hook timeout, any other error) | nothing | as in that table | Carries on as it would without Countersign, which under auto-run can mean running the command without asking |
 | A hook timeout (an entry whose `timeout` is below the hand-back, edited by hand) | nothing; the process is killed | nothing | Runs the command: Cursor fails open on a timeout, per cursor.com/docs/hooks; `countersign doctor` warns below 600 s |
 
@@ -282,6 +366,8 @@ runs for the Antigravity app and the Antigravity IDE, which read the same hooks 
 | **Approve** | `{"decision":"allow"}` | `outcome: allow` | Shows its own approval prompt anyway, so the person approves a second time there: Antigravity ignores a hook's `allow` until it fixes [google-antigravity/antigravity-cli#1053](https://github.com/google-antigravity/antigravity-cli/issues/1053). Once fixed, it runs the command or MCP tool |
 | **Deny**, with a reason or the default | `{"decision":"deny","reason":"<reason>"}` | `outcome: deny` | Blocks it and shows the reason, also under `--dangerously-skip-permissions` |
 | **Deny & stop** | not offered: Antigravity has no `interrupt` | — | — |
+| A deny rule matches | as **Deny** | `rule: denied by rules[<i>]`, `outcome: deny` | Blocks it and shows the rule's message |
+| An allow rule matches | as **Approve** | `rule: allowed by rules[<i>]`, `outcome: allow` | Same as **Approve**: its own prompt still shows until the Antigravity bug is fixed |
 | **Answer in chat**, <kbd>Esc</kbd>, or a click outside the panel | `{"decision":"ask"}` | `outcome: no decision` | Shows its own approval prompt. Under `--dangerously-skip-permissions` it ignored even `force_ask` in the spike, so expect it to run the call there |
 | Still unanswered 3540 s after the hook started, anywhere from the grace period to on screen | `{"decision":"ask"}` | `handed back: antigravity timeout near` | Shows its own approval prompt; the panel, if one was up, closes and the next request takes the display |
 | Any tool call other than `run_command` and `call_mcp_tool` (reading or editing files, searches, the browser, …) | nothing | `skipped: <tool name> not asked about`, right after parsing, before the grace period | Carries on as it would without Countersign |

@@ -10,12 +10,13 @@ anything the person sees or types into, or when the panel does something you did
 ## Keyboard alert without activation
 
 The panel behaves like an alert: while it is on screen it owns the keyboard. Return approves, Esc
-answers in chat, and nothing typed reaches the app underneath while the panel is up. When the
-person turns to something else, switching apps or typing a key the panel has no use for, the panel
-steps aside and comes back after the next pause (see "Stepping aside"). The opposite, a panel that
-never becomes key until clicked, leaves the keyboard with the person's app: a Return meant for the
-panel goes out as a message in the Cursor chat underneath, and ⌘-Tab works as if no prompt were
-up.
+answers in chat (or, for a Cursor request whose run mode would run it unasked, puts it away as
+"Later", see "Later" below), and nothing typed reaches the app underneath while the panel is up.
+When the person turns to something else, switching apps or typing a key the panel has no use for,
+the panel steps aside and comes back after the next pause (see "Stepping aside"). The opposite, a
+panel that never becomes key until clicked, leaves the keyboard with the person's app: a Return
+meant for the panel goes out as a message in the Cursor chat underneath, and ⌘-Tab works as if no
+prompt were up.
 
 ### Key without activating
 
@@ -74,6 +75,23 @@ idle gate counts the ⌘ still held on the switcher, the typing that caused the 
 pointer moving in the other app (see "Waiting for a pause before showing"), so the panel comes back
 only once the person has stopped. `preview` prints `stepped aside: <reason>` and exits instead.
 
+#### Later
+
+A Cursor request under Auto-review, Run Everything or an unknown run mode cannot be handed back,
+because Cursor would run it without asking (see "Esc under Auto-review and Run Everything" in
+[hosts.md](hosts.md)). `makeController` sets `escapeKeepsWaiting` for it, and the footer link reads
+"Later" instead of "Answer in chat", with the same `esc` hint. Esc, a click outside and the link
+still call `finish(.noDecision)`, but `DisplayWatch.finish` turns that into Later: it hands the
+display to the next request in line as an answer would, closes the panel, parks the ticket (see
+"Parked tickets" in [queue.md](queue.md)), releases the lease, enters `parked` and logs
+`stepped aside: later` and `parked: back from the card or the menu`. In `parked` a tick never takes
+the display and never asks the idle gate; it shows the approval card at once (no delay), hides it
+for quiet time, and otherwise waits for the card's Show or the menu's Show Now. Both unpark through
+`TicketQueue.showNow` and return the request to `queued` with warm standby, so it shows like any
+request moved by Show Now: at once when it is at the front, or after the panel on screen. With
+approval cards off, Later is a plain step-aside instead (`stepped aside: later`, lease kept, back
+on the next idle).
+
 Nothing re-grabs the keyboard: `makeKey()` runs once, in `show()`. Calling it again on every
 resignation while the panel's `occlusionState` is visible hands the keyboard straight back to the
 panel after ⌘-Tab or a click into another app; the occlusion condition would only keep a locked
@@ -113,19 +131,19 @@ hidden button could still fire.
 Instead, the monitor turns Return into `PanelKey.primary`, ⌘Return into `PanelKey.alternate`, and
 ⌫ (`kVK_Delete`, the backspace key — forward delete is not included) into `PanelKey.secondary`, and
 asks the view's `keyHandler` to perform it. `PanelController` performs `.alternate` only when the
-visible state's `keyHandler.uses(.alternate)` answers true; otherwise it performs `.primary`
-instead, so ⌘Return does whatever Return does everywhere `.alternate` has no meaning. The view
-knows which state is visible, so exactly one action fires:
+visible state's `keyHandler.uses(.alternate)` answers true; otherwise ⌘Return does nothing, so
+it never stands in for Return where it has no action of its own. The view knows which state is
+visible, so at most one action fires:
 
 | View | State | Return | ⌘Return |
 | --- | --- | --- | --- |
 | Permission | default, with suggestions | Approve (allow once) | Opens Approve ▾ |
-| Permission | default, no suggestions | Approve (allow once) | Same as Return |
-| Permission | deny | Deny, with the reason typed so far | Deny & stop, with the reason typed so far (only when `host.supportsInterrupt`; otherwise same as Return) |
-| Questions | all answered | Submit | Same as Return |
-| Questions | otherwise | Move to the next unanswered tab, wrapping around | Same as Return |
+| Permission | default, no suggestions | Approve (allow once) | Nothing |
+| Permission | deny | Deny, with the reason typed so far | Deny & stop, with the reason typed so far (only when `host.supportsInterrupt`; otherwise nothing) |
+| Questions | all answered | Submit | Nothing |
+| Questions | otherwise | Move to the next unanswered tab, wrapping around | Nothing |
 | Plan | default | Approve with the selected mode | Opens then: ▾ |
-| Plan | feedback | Send feedback | Same as Return |
+| Plan | feedback | Send feedback | Nothing |
 | Any | a dropdown is open | Picks the highlighted row | Closes the dropdown |
 
 | View | State | ⌫ |
@@ -150,11 +168,14 @@ used and performs them there, so nothing reaches the view behind it. The rules:
   `.default` step to open Approve ▾ when the request has suggestions, and in the `.deny` step with
   `host.supportsInterrupt`, where it fires "Deny & stop" with the reason typed so far instead.
   `PlanView` uses it in `.default` to open the "then:" mode menu. Everywhere `.alternate` isn't
-  used, `PanelController` falls back to `.primary`, so ⌘Return keeps doing whatever plain Return
-  does. While a dropdown is open, ⌘Return closes it instead — see the dropdown bullet below.
+  used, ⌘Return does nothing: an approval or an answer comes only from Return or a click, and a
+  shortcut no hint advertises never stands in for one (the user's call, 2026-10-04, after a
+  Cursor panel without Approve ▾ approved on ⌘Return). While a dropdown is open, ⌘Return closes it
+  instead — see the dropdown bullet below.
 - **Esc** calls `finish(.noDecision)` in every state, even while a text field is being edited.
   Otherwise `NSTextView` would take Esc as `cancelOperation:` and run completion instead.
-  `cancelOperation` on the panel still covers ⌘. the same way.
+  `cancelOperation` on the panel still covers ⌘. the same way. For a Cursor request that would run
+  unasked, that `.noDecision` becomes Later (see "Later" under "Stepping aside").
 - **Shift+Return and Option+Return** call `insertNewlineIgnoringFieldEditor` on the field editor, so
   the multi-line reason, feedback, Other and note fields take a line break. With no field being
   edited they are plain keys the panel doesn't use, so they step aside.
@@ -290,12 +311,55 @@ put up and appears at full opacity with no fade, so one panel replaces the other
 (see "Why no fade between chained panels" in [queue.md](queue.md)). Only the target screen gets a
 backdrop — a second display, if any, is untouched.
 
+A panel on screen follows the displays when they change. The screen used to be fixed when the
+panel was built, and the hook watched `NSApplication.didChangeScreenParametersNotification` only
+while it was queued, so a panel whose display was unplugged, rearranged or changed resolution kept
+a stale `NSScreen`: its width, its 80% height cap and its centre came from a visible frame that no
+longer existed, and its backdrop covered empty space or the wrong part of a display. `DisplayWatch`
+now observes that notification in every state. Queued, it rebuilds the prepared panel as before
+(see "Warm standby and the queue handoff" in [queue.md](queue.md)). Shown, it calls
+`PanelController.followScreenChange()`, which gives the panel's current frame to `ScreenPlacement`
+in `ApprovalCore`: the screen to use is the one holding the frame's centre, else the one the frame
+overlaps most, else the first screen, the one with the menu bar. The controller then re-applies
+the width and the height cap against that screen, re-centers the panel in its `visibleFrame` at
+its current height (lower if the new screen is shorter), and moves the backdrop onto that screen's
+full frame, and the hook publishes the display again so a request next in line prepares for the
+display the panel is on now. The frame is the input, not the display the panel was built for,
+because a display that is gone cannot be looked up and AppKit may already have moved the window
+onto a remaining one. After a rearrangement the panel lands on whichever display now holds its
+centre; whether AppKit carries a borderless panel along with its display when the arrangement
+changes has not been checked on screen. Re-centering drops the settled top edge that keeps the
+panel still while its content changes (see "Keeping the layout still when the content changes"):
+that edge is in coordinates the new arrangement may not have. Which display a new panel picks is
+unchanged: the mouse's.
+
 Neither window uses AppKit's own ordering animations: both set `animationBehavior = .none`. That
 changes nothing today. AppKit's private `_effectiveAnimationBehaviorIfModal:`, called offscreen on
 a borderless `.nonactivatingPanel` `NSPanel` configured like each window, already answers `.none`,
 where a plain borderless `NSWindow` gets the document-window animation and a titled utility panel
 the utility-window one. Setting it explicitly keeps a later macOS from animating the head's
 `orderOut` or the next panel's `orderFront` between two chained panels.
+
+## Sound when a panel appears
+
+`show()` plays the `panelSound` config value once, through `NSSound(named:)`, right after the panel
+is ordered front and before the fade starts. The name is `none` or a file name without extension in
+`/System/Library/Sounds`; `none`, the default, plays nothing. Only `PanelController` plays it, so
+the result card and notices, which are not panels, stay silent, while real requests, context
+checkpoints and test panels all sound: a test panel is how someone hears their choice, next to the
+play button in Settings' Panels tab.
+
+A panel shown after a queue handoff (`isAfterHandoff`) does not play it. That panel is the next
+question in a run of answers the user is already working through, arriving at full opacity with no
+fade for the same reason: one panel replaces the other, and a chime per panel across a burst of
+requests would turn into noise. The sound marks the start of a chain, when the user's attention is
+elsewhere.
+
+The config parser validates the name against a list it is handed, never the disk. The app passes
+the names it finds in `/System/Library/Sounds` (falling back to the fourteen macOS ships when the
+folder cannot be read), so an unknown name logs one line and falls back to `none`. Haptics are not
+an option: macOS plays them only on a Force Touch trackpad during a touch, so they cannot serve as
+an alert.
 
 ## Click outside answers in chat, once armed
 
@@ -304,7 +368,9 @@ to `model.finish(.noDecision)` — the same "leave it for chat" path as the Esca
 "Answer in chat" button. `finish` still gates on `isArmed`, so a click meant for whatever was under
 the previous panel during the arm lock (see "The arm lock") is swallowed rather than dismissing the
 one that just appeared. While one of the panel's dropdowns is open, the click closes only the
-dropdown, as Esc does then (see "Countersign's own dropdown"); the next click answers in chat.
+dropdown, as Esc does then (see "Countersign's own dropdown"); the next click answers in chat. For
+a Cursor request that would run unasked, the click is Later instead, as Esc is (see "Later" under
+"Stepping aside").
 
 ## Waiting for a pause before showing
 
@@ -313,7 +379,11 @@ holds off in a `waitingForIdle` state after the lease is acquired instead of sho
 right away. Each 250 ms tick asks `ActivityGate.isIdle(secondsSinceLastInput:modifiersHeld:)`,
 fed by the `SystemActivity` that `DisplayWatch` owns. Only once idle does a `PanelController` get
 created and shown, moving the state to `shown(controller:)`. Every other queued request waits for
-the same idle gate once it reaches the head in turn.
+the same idle gate once it reaches the head in turn. The one exception is a request moved to the
+front with Show Now from the menu bar while no panel is on screen: the person has just asked for
+it, so it skips the gate once, until it is displayed, and quiet time does not hold it either (see
+"Answering from the menu bar" in [queue.md](queue.md) and "Asking for a panel beats quiet time"
+under "Quiet time").
 
 Every kind of input counts as activity:
 
@@ -357,6 +427,33 @@ Every kind of input counts as activity:
   right before the hook's run loop starts. A change during the grace period or in the queue is not
   seen, which matters only for a change that came with no input event of its own within the idle
   threshold before the lease was won.
+- **Mission Control and App Exposé.** While either is on screen, `secondsSinceLastInput()` treats
+  the moment it was last seen as input, so the gate holds for as long as the overview is open and
+  for a full idle pause after it closes; a panel never opens over the overview or the instant it
+  goes. No public API says Mission Control is open. On each call `SystemActivity` reads the
+  on-screen window list (`CGWindowListCopyWindowInfo` with `.optionOnScreenOnly`, owner, layer and
+  bounds only, about 0.4 ms) and `MissionControl.isShowing` looks for a window owned by the Dock at
+  layer 18 that covers at least 90% of an active display (`CGDisplayBounds`). Measured on
+  2026-10-04 on macOS 26.6.2 with one display: at rest the Dock owns only the wallpaper (a layer
+  far below zero) and, while the Dock is up, the Dock window at layer 20. Every Mission Control and
+  App Exposé view added a full-display Dock window at layer 18, next to layer 0 and layer 20 Dock
+  windows that varied from one view to the next, and the layer 18 window went away as the view
+  closed. A Space switch added none. The first tick that sees the overview in `waitingForIdle` logs
+  `waiting: Mission Control is open`. If a later macOS draws the overview differently, the check
+  sees nothing and the gate behaves as it did before it existed.
+- **Space changes.** `SystemActivity` observes `NSWorkspace.activeSpaceDidChangeNotification`
+  and treats its arrival as input, like an input source change, so a swipe to another Space or a
+  full-screen app restarts the idle pause even when the pointer never moved. The notification
+  reaches an `.accessory` process, as the hook is, when the switch completes: about a second after
+  the swipe began (measured on 2026-10-04, same machine).
+
+Trackpad gestures are not counted as input. A swipe into Mission Control or between Spaces sends
+gesture events (`NSEvent` type 29, `gesture`, and type 30, `magnify`, which `CGEventType` has no
+names for), and `secondsSinceLastEventType` reports them, as it does for `kCGAnyInputEventType`.
+But fingers resting on the trackpad without moving send type 29 about every 100 ms for as long as
+they rest (measured on 2026-10-04, same machine), so counting gestures would hold every panel back
+while a hand sits on the trackpad. The overview and Space checks above cover what the gestures
+open instead.
 
 Once shown, the panel owns the keyboard (see "Keyboard alert without activation"), so a key typed
 while it is up lands in the panel, not elsewhere, and there is no key-down somewhere else to watch
@@ -393,14 +490,87 @@ rule from "Why the handoff rule is per-app" in [hosts.md](hosts.md) to
 resolved when the request arrived. When it holds, `DisplayWatch` logs
 `handoff: <bundle id> frontmost`, writes `Host.handoffOutcome` when the host has one (Cursor and
 Antigravity), closes any prebuilt panel, removes its ticket, releases the lease and exits 0. The
-next request then takes the lease and waits for this gate as usual.
+next request then takes the lease and waits for this gate as usual. A Cursor request whose run
+mode would run it unasked never hands off: `DisplayWatch` logs `handoff: <bundle id> frontmost,
+kept (Cursor would run it unasked)` and shows the panel (see "Esc under Auto-review and Run
+Everything" in [hosts.md](hosts.md)).
 
 Deciding at arrival read a frontmost app that is often gone by the time a panel could show: a
 request that arrived while the asking app was in front exited at once, and a person who then
 switched to another app never got a panel for it, because nothing was left waiting. The cost of
 deciding later falls on the person who stays in the asking app: its own prompt comes only after
 the grace period, the queue and this idle pause, not at once, and Codex shows "Waiting for the
-approval panel" in the meantime. A test panel never hands off (see "The test panel").
+approval panel" in the meantime. A test panel never hands off (see "The test panel"), and neither
+does a context checkpoint, which Claude Code has no prompt of its own for (see "The hook path" in
+[checkpoints.md](checkpoints.md)).
+
+### The approval card
+
+The gate has a cost for a person who never stops: while they keep typing or moving the mouse,
+`ActivityGate.isIdle` never turns true, and a request sits in `waitingForIdle` until
+`TimeoutHandBack` gives it back (3540 s for Cursor and Antigravity, never for Claude Code and
+Codex). Cursor shows no prompt of its own while its hook runs, so the agent simply stops and the
+person does not know it is waiting. The approval card tells them without taking anything from
+them: a corner card, `<Host.displayName> needs your approval · <projectName>`, with a `Show`
+button and the close button. It is the waiting notice's card with its own content (see "The card"
+and "The shared corner card" in [notice.md](notice.md)): non-activating and never key, so it takes
+no keystroke, at the top right of `PanelController.resolveTargetScreen()` in the lowest free
+notice slot, and it posts an accessibility announcement with its line and plays no sound.
+
+`DisplayWatch` records `waitingForIdleSince` (`systemUptime`) on every entry into
+`waitingForIdle`: on arrival with the lease, after `takeDisplayIfFree` wins the lease without a
+fresh handoff, and after a shown panel steps aside, for quiet time, a snooze or the panel's own
+reasons. A tick in `waitingForIdle` that does not show the panel asks
+`ApprovalCardTiming.shouldShow(enabled:mode:secondsWaiting:delay:quiet:paused:stage:)`. It is true
+only when `approvalCard` is on for the request's agent, the run is `.hook` (never a test panel or a
+context checkpoint), quiet time does not hold panels, the pause switch is off, no card has been
+shown or dismissed for this request (`ApprovalCardStage.notShown`), and the delay has passed since
+`waitingForIdleSince`. `ApprovalCardTiming.delay(afterStepAside:configured:)` gives the delay:
+`approvalCardDelay` seconds (5 by default), or 0 when this wait began with the panel's own
+step-aside (below). With both slots taken the card stays unshown, writes a claim so that waiting
+notices make room for it (see "Two corner cards at most" in [notice.md](notice.md)), logs
+`approval card: waiting for a slot`, and the next tick tries again. The panel check runs first in
+the tick, so a request that turns idle in the same tick shows its panel and never flashes a card.
+
+`Show` does what the menu's Show Now does for a request at the front: it sets `showsWithoutIdle`,
+closes the card, and the next tick shows the panel with the usual `armDelay`, quiet time still
+holding it. The close button (`Dismiss`) closes the card and leaves the request waiting for a
+pause; it gets no second card, not even after a step-aside. A panel that steps aside for its own
+reasons (`handleStepAside`: an app switch, lost focus or typing) went unanswered while the person
+went back to work, so the request returns to `waitingForIdle` with
+`approvalCardStage.afterStepAside` (`shown` and `notShown` become `notShown`, `dismissed` stays)
+and no delay for this wait: the card shows again on the next tick while the person keeps working,
+and the panel itself comes back once they pause. A step-aside for quiet time or a snooze keeps the
+quiet-time rule (below). The card also closes, and releases its slot and any claim, whenever the
+request leaves
+`waitingForIdle`: its panel shows (Show Now from the menu bar included), it is answered from the
+menu bar, it gives way to a request shown from the menu, it is resolved elsewhere or paused, it is
+handed back or handed off to the asking app, or it yields to a real request. Quiet time holds the card as it holds panels and waiting notices: a card that is up when
+quiet time starts closes, and every tick of quiet time restarts `waitingForIdleSince`, so the delay
+counts from the end of quiet time. A card closed this way may show again after it
+(`ApprovalCardStage.afterQuietTime` turns `shown` back into `notShown`), because the person never
+got to act on it and the request is still waiting; a dismissed card stays dismissed. Log lines:
+`approval card: shown`, `approval card: show`, `approval card: dismissed`,
+`approval card: closed for quiet time`, `approval card: closed (cards turned off)`,
+`approval card: waiting for a slot`, and
+`approval card: failed to claim a slot: <error>` when the claim file cannot be written (the card
+then waits for a free slot without priority).
+
+The card follows its switch while the request waits. Each tick the hook asks `ConfigReload` (bytes
+compared, see "Following the switch" in [notice.md](notice.md)) whether `config.json` changed and,
+when it did, resolves `approvalCard` and `approvalCardDelay` again for its agent. A card that is up
+when the switch turns off closes and the stage goes back to `notShown`, so turning cards on again
+can show it; nothing else the hook resolved at start is re-read.
+
+The card is per agent (`approvalCard` and `approvalCardDelay`, top level and under
+`hosts.<agent>`, see [configuration.md](../configuration.md)) because the hosts differ in what a
+waiting request costs. Cursor, Codex and Antigravity are on by default: Cursor and Antigravity
+show nothing of their own while the hook runs, and Codex only says "Waiting for the approval
+panel". Claude Code is off by default, a product decision: its request also sits in the chat,
+where the person can answer it while they work and Countersign notices the answer (see
+`ResolutionWatcher` and "Why "Answer in chat" returns no decision"), so it is not stuck the way
+the others are. Turning it on is one key, `hosts.claude.approvalCard` or the top-level
+`approvalCard`.
 
 ## Quiet time
 
@@ -445,6 +615,18 @@ Quiet time can start three ways, and all are handled where a panel could otherwi
   path above; its "End quiet time" is `countersign snooze off` (see "Menu-bar companion" in
   [app.md](app.md)).
 
+**Asking for a panel beats quiet time.** Show Now from the menu bar and the approval card's Show set
+`DisplayWatch.showRequested` (Show Now during the grace period or the queue wait sets it before
+`DisplayWatch` exists and passes it in). While it is set, quiet time holds neither `waitingForIdle`
+nor the queue handoff, so the panel comes up at once even mid-snooze or in quiet hours: the person
+asked to see this request, and holding it until quiet time ends is the opposite. The flag clears
+when the panel is displayed, and `markDisplayed()` stores `quietState.activeUntil()` at that
+moment. `shown` steps aside for quiet time only when `activeUntil()` differs from the stored
+value, so the panel shown on request stays up through the quiet time it was shown in, and still
+steps aside when quiet time starts, is extended or is replaced while it is up. A panel that later
+steps aside, for typing or a focus loss, waits for quiet time like any other, and so does every
+request nobody asked for, even one next in line behind a panel shown on request.
+
 Every waiting hook — whether it is mid-grace, queued, or holding the display lease — keeps
 running its own `ResolutionWatcher` poll throughout quiet time; none of this is special-cased for
 quiet time, since abandonment was already checked before any panel decision on every tick. That is
@@ -453,7 +635,7 @@ allowed to show a panel, never whether a hook keeps watching for its own resolut
 
 ## The test panel
 
-`countersign test-panel [command|question|plan]` (`command` when no kind is given) shows a real
+`countersign test-panel [command|question|plan|context]` (`command` when no kind is given) shows a real
 panel for a built-in sample request, so a person can see what their settings do and try the keys
 without any agent asking for anything. The menu-bar companion's "Show a Test Panel" starts it with
 `command` as a process of its own (see "Show a Test Panel" in [app.md](app.md)). It is an
@@ -473,6 +655,10 @@ panel shows exactly what a real request of that shape shows:
   and a multi-select one.
 - **plan**: `ExitPlanMode` with a short Markdown plan and `permission_mode` `plan`, as a real plan
   arrives.
+- **context**: not a `PermissionRequest`. `TestPanelSample.request(for:settings:)` builds the
+  context checkpoint request directly (see "The context checkpoint panel"). The Panels tab offers
+  only `TestPanelKind.panelsTabKinds` (command, question, plan); `context` is reached from the CLI
+  and from snapshots.
 
 Each payload uses only key paths the matching captured fixture has, `claude-bash.json`,
 `claude-questions.json` and `claude-plan.json`, which `TestPanelTests` checks path by path, so no
@@ -516,6 +702,14 @@ how `TestPanelLauncher` learns the reason (see "Show a Test Panel" in [app.md](a
 the app has launched, without the idle gate. The gate still applies after the test panel steps
 aside, so it comes back only once the person has stopped, like a real panel.
 
+A test panel swallows a key it has no use for instead of stepping aside (`PanelController` turns
+`KeyRouter`'s `.stepAside` into nothing when `PanelModel.isTestPanel`). A real request steps aside
+because such a key is meant for the app underneath; a test panel is one the person opened on
+purpose and is trying keys on, so stepping aside would hide it behind the idle gate, for as long as
+they kept moving the mouse, with no result shown. An app switch or focus loss still steps it
+aside, as for a real panel, and Settings' test buttons bring a hidden one back with
+`MenuAnswer.show` (`TestPanelLauncher.showRunning()`, logged as `test panel: brought back`).
+
 On every tick, and once more right before it first shows, a test panel counts the other live
 tickets that are not themselves test panels (`TicketQueue.realRequestCount(excluding:)`). Any at
 all, a real request past its grace period, closes the test panel, removes its ticket, releases the
@@ -556,6 +750,47 @@ one logs `test panel: snoozed for <duration>, quiet time not started`, closes th
 the process without writing the quiet-time file, and without a queue handoff, since a snooze never
 chains.
 
+### The result card
+
+A test panel that ends in an answer does not simply vanish: the person could not tell what Approve
+with a suggestion or Deny & stop would have done, or how "Compact after this step" differs from
+"Hand off & start fresh", without reading `docs/agents.md`. So `DisplayWatch.finish` closes the
+panel, does what it always did (offers the display on, removes the ticket, releases the lease) and
+then shows a result card in the panel's place instead of exiting.
+
+`TestPanelResult.describe(_:kind:checkpointChoice:)` in `ApprovalCore` returns the card's title,
+what was picked (`Approved`, `Approved with a suggestion`, `Denied`, `Denied and stopped`,
+`Answered in chat`, `Submitted`, `Kept planning`, `Continued`, `Compact after this step`,
+`Hand off & start fresh` or `Not this session`), and its detail: one or two sentences on what
+Claude Code would do, taken from [agents.md](../agents.md) and always ending with `Nothing reached
+an agent.` For the two context notes the detail is the note Claude would receive, filled in with
+the sample's tokens and handoff file, in quotes. The outcome alone cannot tell Continue from Not
+this session (both are no decision), so a test panel passes `onCheckpointChoice` too, as a
+checkpoint does, and `DisplayWatch` keeps the choice. In test mode the callback only records it: no
+mute, no state write, no `context choice:` line.
+
+The card is `TestPanelResultCard`, an `ApprovalPanel` (borderless, non-activating, floating) with
+the panel's material, corner radius, border and typography: the title, then the detail, which
+scrolls past eight lines, and nothing else. It is 420 pt wide and centred on the frame the test
+panel had when it closed (`PanelController.frame`), and it takes the height its content reports,
+the same way the panel does. Every frame it takes goes through `ScreenPlacement` first, so it is
+clamped into the visible frame of the screen that holds it, and on a display change `DisplayWatch`
+moves it the same way it moves a shown panel (see "Centered on the mouse's display, over a blurred
+backdrop"): the card never waits out its 4 seconds on a display that is gone. It closes on a click,
+on its close button (a borderless `xmark` in the top-right corner, labelled and helped `Dismiss`),
+on Esc or after 4 seconds, and the process exits when it closes, so the card never outlives its use.
+The countdown is short because the card only explains an answer already given. While the pointer is
+over the card the countdown stops, so a long detail can be read at leisure; when the pointer leaves,
+a fresh 4 seconds start. It is key like the panel was, which is what
+lets Esc reach it, but as a non-activating panel it takes no focus from the app the person is in
+beyond what the test panel already had.
+
+A real request that queues while the card shows closes it at once, by the rule that closes the
+test panel (see "One at a time, never ahead of a real request"): `DisplayWatch` keeps ticking in
+the `showingResult` state, and `test panel: closed for a real request` is logged. The card is not
+shown after Snooze (there is no answer), after a real request closed the test panel, or after a
+refusal. It logs `test panel: result shown` once, and never the note's text.
+
 ## Countersign's mark and one accent
 
 Every panel looks the same whichever agent is asking. The header starts with Countersign's own
@@ -586,8 +821,7 @@ color".
 accent by `ApprovalCore.AccentPalette`:
 
 - `accent`, the chosen color itself (`fill`), fills: `PrimaryButtonStyle`'s default fill (Approve,
-  Submit, the plan's Approve, the Settings window's Wire and Update, and the status row's Resume and
-  End now) and the Approve split button's `chevron.down` segment.
+  Submit, the plan's Approve, and the Settings window's Wire and Update) and the Approve split button's `chevron.down` segment.
 - `onAccent` (`label`), the label and glyph on an accent fill, including the `⏎` hint (`KeyHint`
   placement `.onAccent`, at 80%): `#1D1B18` or white, whichever has the higher contrast ratio with
   the fill. On amber `#1D1B18` has about 8.7:1 and white about 2:1, too low to read; on each of the
@@ -638,8 +872,7 @@ follows macOS again. Everything inside, `accentText` and every system color incl
 against that appearance. The handoff backdrop draws only a black dimming layer, the same in either
 appearance, so it is left alone.
 
-Deny stays red (`DestructiveButtonStyle`) whatever the accent. Every other filled button, the
-Settings window's status row's Resume and End now included, uses `PrimaryButtonStyle`'s accent
+Deny stays red (`DestructiveButtonStyle`) whatever the accent. Every other filled button uses `PrimaryButtonStyle`'s accent
 fill: none of them takes the system accent, which is no agent's color either. The menu-bar icon is
 a monochrome template image and takes neither the accent nor the appearance choice.
 
@@ -666,9 +899,14 @@ list" uses for the "+N" chip's dropdown — plain, non-focusable `Text` in a `VS
 
 A single `subagent · <agentType>` chip says a subagent is asking, but not what it or its ancestors
 are actually doing, which matters most for a subagent spawned by another subagent. `PanelModel`
-computes `ApprovalCore.SubagentChainReader.chain(transcriptPath:agentID:)` once at init (see
-"Walking the subagent chain" in [hosts.md](hosts.md) for how it walks the meta files), so both
-`hook` and `snapshot` render from the same chain.
+receives the `ApprovalCore.SubagentChainReader.chain(transcriptPath:agentID:)` result from its
+caller (see "Walking the subagent chain" in [hosts.md](hosts.md)): `HookRunner`, `preview` and
+`snapshot` each compute it once per request and hand the same chain to the panel header and to
+the ticket summary's task description, so nothing walks the files twice. The walk is meta-first:
+`parentAgentId` in each `agent-<id>.meta.json` names the next hop, a meta without it and with
+`spawnDepth` 1 ends the chain at the main session, and only an older or inconsistent meta falls
+back to searching transcripts. The cost is one small meta read per level, not a full transcript
+read per level and sibling.
 
 The header shows only the agent that is asking, the one whose answer this panel actually records;
 its parents are context, and context is a hover away. One crumb per agent, from the depth-1 root
@@ -747,7 +985,8 @@ The waiting chip reads just "+N", not "+N waiting" — the one-row header needs 
 the word does — and what is actually waiting is listed in its dropdown. `WaitingChipView` (`WaitingListView.swift`) wraps the same `Chip` and adds a
 read-only dropdown that lists it: host, project, tool, and the subagent (its task description,
 falling back to its agent type, `TicketSummary.agentLabel`, which the menu-bar companion's pending
-list reuses) when the ticket has one, oldest first — one row per `WaitingEntry`
+list reuses) when the ticket has one, in queue order (oldest first unless a Show Now from the menu
+bar moved one) — one row per `WaitingEntry`
 in `PanelModel.waitingEntries`, the same array the chip's own count comes from (see "Listing
 waiters, not just counting them" in [queue.md](queue.md)). An entry whose ticket could not be
 decoded still gets a row, "Unknown request", rather than vanishing from the list: the count and the
@@ -870,8 +1109,11 @@ Antigravity gets `{"decision":"ask"}` for the same reason (see "What each answer
 
 ## Handing back before Cursor's timeout
 
-Nothing is decided by a timeout, and that holds for Cursor too, but Cursor makes it take one more
-step. Cursor lets a command run when its hook times out, so a Cursor panel left unanswered until
+Nothing is decided by a timeout, and that holds for Cursor in Allowlist and Ask Every Time mode,
+but Cursor makes it take one more step. Under Auto-review, Run Everything or an unknown run mode
+the same deadline denies instead, logged `denied: cursor timeout near`, because `ask` would run the
+command unasked (see "Esc under Auto-review and Run Everything" in [hosts.md](hosts.md)). Cursor
+lets a command run when its hook times out, so a Cursor panel left unanswered until
 the entry's 3600-second timeout would approve by silence. The Cursor hook hands back instead: 60
 seconds before that timeout, 3540 seconds after the hook started, `HookRunner` prints the same
 `{"permission":"ask"}` that "Answer in chat" prints, logs `handed back: cursor timeout near`, and
@@ -982,10 +1224,10 @@ up on "← Back" (see "Keeping the layout still when the content changes" for wh
 so Return there sends the feedback and Shift+Return starts a new line.
 
 No button carries a keyboard shortcut. Return commits the visible state: Approve (allow once) in
-`.default`, Deny with the typed reason in `.deny`. ⌘Return does the same in `.deny` when
-`host.supportsInterrupt` is false; otherwise it fires Deny & stop instead. In `.default`, ⌘Return
-opens Approve ▾ when the request has suggestions (see "The Approve button and its ▾" below), and
-otherwise does the same as Return. ⌫ opens the reason or feedback step from `.default` — see
+`.default`, Deny with the typed reason in `.deny`. In `.deny`, ⌘Return fires Deny & stop when
+`host.supportsInterrupt` is true and does nothing otherwise. In `.default`, ⌘Return opens
+Approve ▾ when the request has suggestions or an Always allow offer (see "The Approve button and
+its ▾" below), and does nothing otherwise. ⌫ opens the reason or feedback step from `.default` — see
 "Return, Esc and the other keys" for the full key. `PermissionView`'s `keyHandler` reads
 `footerState` when the key arrives, so the hidden state can never be the one that fires.
 
@@ -996,8 +1238,14 @@ Approve is a `PrimaryButtonStyle` button that allows once, its own full rounded 
 "⌘⏎" keycap in `LinkButtonStyle`, no fill, the same pattern as "Answer in chat"'s "esc" keycap.
 Clicking it, or ⌘Return while `.default` is visible, opens Countersign's dropdown (see
 "Countersign's own dropdown" below) with "Allow once" plus one row per suggestion. Codex, Cursor
-and Antigravity requests never populate `permission_suggestions`, so the ▾ control simply never
-appears — no host check needed, the suggestions array already carries that distinction.
+and Antigravity requests never populate `permission_suggestions`, so they get the second source of
+rows instead: `PanelModel.alwaysAllowOffer`, an `ApprovalCore.AlwaysAllowOffer` built by
+`makeController` for a real permission panel (never a test panel or a checkpoint). The ▾ shows
+when there are suggestions or an offer, and ⌘Return opens it in both cases. The menu is "Allow
+once" plus one row with the offer's title and detail. Choosing it calls `onAlwaysAllow`, which
+writes the rules to `config.json` and logs the result, then approves as "Allow once" does; a failed
+write is logged and the approval goes ahead. What the offer saves is in "Always allow" in
+[rules.md](rules.md).
 
 A suggestion's row shows the exact rule and where it is saved, from
 `ApprovalCore.PermissionSuggestionText`: an `addRules` entry's title is `<toolName>(<ruleContent>)`,
@@ -1175,6 +1423,50 @@ each:
 | First draw | 267–287 ms | 16–17 ms |
 | 50 scroll steps, layout and draw each | 10,171–10,572 ms | 611–623 ms |
 | Mean scroll step | 203–211 ms | 12.2–12.5 ms |
+
+## The context checkpoint panel
+
+`ContextCheckpointView` shows a `ContextCheckpointPrompt`: the session's context has crossed a
+rung of the configured ladder and the person picks what Claude should do about it. It lives in the
+same `PanelScaffold` as the other views, with the question view's option cards (`OptionCard`).
+
+**Layout.** The headline is `Context ~<tokenText> tokens`. Under it the ladder reads `Soft`,
+`Status` and `Insist` with each rung's threshold from `prompt.ladder`; the rung that fired is drawn
+in the accent and the other two are secondary, so the person sees how far along the ladder the
+session is. One line per level says why the panel appeared. When `PanelModel.sessionIdle` is true a
+caption adds that Claude is idle and the choice reaches it with the next message: a note added to
+an idle session is only delivered when the person types again, and the panel says so instead of
+implying an immediate reaction. Four cards follow, numbered 1 to 4 (Continue, Compact after this
+step, Hand off & start fresh, Not this session), each with a one-line description. The footer is one
+primary button titled with the highlighted choice.
+
+**Keys.** 1 to 4 and ↑/↓ move the highlight; Return performs the highlighted choice (⌘Return has
+no menu here, so it does nothing); Esc and a click outside answer "no
+decision", which is Continue. Delete is not used. Digits move the highlight rather than performing
+the choice, so a mistyped digit is never an answer; a click on a card performs it. The arm lock
+applies as for every panel: `chooseCheckpoint` is guarded the way `finish` is.
+
+**The highlight rule.** The starting highlight is `ContextCheckpointChoice.highlighted(for:)`:
+Compact after this step for the soft and status levels, Hand off & start fresh for insist. The
+highlighted card is what Return does, so the default follows how urgent the level is.
+
+**Why choices go through `chooseCheckpoint`.** Not this session must mute the session, yet its
+outcome is `.noDecision`, the same as Continue and Esc; the outcome alone cannot tell them apart.
+The view therefore never calls `finish` for a choice: it calls `PanelModel.chooseCheckpoint(_:prompt:)`,
+which reports the choice through `onCheckpointChoice` and then finishes with
+`choice.outcome(for: prompt)`. The runtime uses the callback to persist the mute. Esc and click
+outside call `finish(.noDecision)` directly and are never a mute.
+
+**What the panel cannot do.** It cannot run /compact or /clear; those are the person's commands. It
+steers Claude with a note, and Claude's reply tells the person what to run.
+
+**Test panel and snapshots.** `countersign test-panel context` shows the sample: a soft checkpoint
+at the first million-window threshold plus 12,345 tokens, on the configured 1M ladder, with the
+configured handoff file and notes. `countersign snapshot --test-panel context` builds the same
+sample from the defaults, never the config file, and `--checkpoint-level soft|status|insist` picks
+the level (tokens are that level's million-window threshold plus 12,345, and the highlight follows
+the level). A context test panel logs `test panel: chose a context note` when a note was chosen and
+`test panel: continued` for no decision.
 
 ## Size limits
 
@@ -1467,6 +1759,63 @@ request kinds reading as one product:
   and why `PlanView`'s footer swaps to a feedback state instead of keeping a feedback `TextField`
   permanently docked next to Approve.
 
+## Accessibility
+
+The panel is shortcut-driven and non-activating, so VoiceOver reaches it through announcements and
+the accessibility tree rather than through a Tab loop. `PanelAnnouncement` in `ApprovalCore` holds
+every string that is pure logic, so the wording is tested.
+
+What VoiceOver hears:
+
+- **On show.** `PanelController.show()` gives the panel the accessibility title "Countersign
+  approval", posts `focusedUIElementChanged` on the hosting view so the panel's content is the
+  VoiceOver focus, and posts a high-priority announcement with a one-line summary, from
+  `PanelAnnouncement.text(for:)`: host, project and, for a subagent, "subagent <type>", then what
+  is asked, for example "Claude Code, countersign: asks permission to use Bash", "asks a question",
+  "asks 2 questions", "proposes a plan" or "suggests a context checkpoint".
+- **During the arm lock.** The primary button (Approve, Submit, the plan's Approve, the checkpoint's
+  choice) has the accessibility value "Not available yet" while the panel is unarmed, and the
+  panel announces "Ready" once when the lock ends. With no arm delay there is nothing to wait for
+  and nothing is announced.
+- **Shortcuts.** `KeyHint` chips are hidden from the tree, so a chip is never read as a stray
+  glyph. Each button, option card and dropdown row carries the shortcut as its accessibility hint
+  instead: "Shortcut: Return", "Shortcut: Command-Return", "Shortcut: Delete", "Shortcut: Escape",
+  "Shortcut: 1".
+- **Choices.** An `OptionCard` is one element (`.combine`) with the selected trait on the chosen
+  card and its indicator glyph hidden. A question tab reads "Answered" once it has an answer and
+  carries the selected trait when current. A dropdown row is a button; the highlighted row has the
+  selected trait and the checked row's value is "Current".
+- **Chips.** `Chip` has an explicit label ("Test panel", "Subagent <type>", "Permission mode:
+  <mode>") and hides its symbol. The "+N waiting" chip is a `Button`, so VoiceOver and the keyboard
+  can open the list; it is labelled "N waiting" and its hint says whether the list is open.
+- **Diffs.** `DiffRunHostView` draws its gutter itself, so it exposes one accessibility element per
+  row instead of the text view. `DiffLineSpeech` builds each label: "Added, line 12: <text>",
+  "Removed, line 11: <text>", "line 4: <text>" for context, and no line numbers in the
+  marker-only gutter. The gap button's icon is hidden and its label is its title.
+- **Decoration.** Chevrons, `doc.text`, the plan's bullet dots and rules, the Countersign mark and
+  the arm line are hidden.
+
+Reduce Motion: with `accessibilityDisplayShouldReduceMotion` the panel does not fade in, and with
+the SwiftUI `accessibilityReduceMotion` environment value the arm line jumps to full instead of
+growing across the arm delay. The arm lock itself still lasts the full delay.
+
+Increase Contrast: with `colorSchemeContrast == .increased`, the hairlines and card borders that
+are `primary` at 8 to 12% (the panel, code cards, diff cards, the deny reason field, hover cards,
+the waiting list and dropdown cards) use `PanelBorder`, which draws `primary` at 50%, about 4:1 on
+either panel background.
+
+Shell highlighting: every shell token colour except comments (`.secondary`) is the system colour
+made readable by `PanelContrast.shellTokenColor`: darkened on the light card (`#F2F2F2`), or
+lightened on the dark card (`#292929`), in the same 0.005 HSL steps as the accent's text colours
+until it reaches 4.5:1, at every contrast setting. The raw system colours measured on the light
+card, before to after: purple 3.72 to 4.52, orange 2.06 to 4.54, green 1.98 to 4.57, teal 1.93
+to 4.51, pink 3.26 to 4.57. On the dark card orange, green and teal already pass and stay as they
+are; purple and pink are lightened.
+
+Known limit: there is no Tab loop. The panel owns the keyboard through its key monitor, so VoiceOver
+navigates it with its own cursor and presses controls with VoiceOver's press command, while every
+action also has its shortcut. Dynamic Type is not supported.
+
 ## Snapshots
 
 `countersign snapshot` renders a request's panel to a PNG without putting anything on screen, so
@@ -1476,8 +1825,11 @@ layout work can be checked by builders, agents and scripts while the person keep
 swift build
 .build/debug/countersign snapshot <request.json> --host claude|codex|cursor|antigravity \
   [--waiting N] [--appearance light|dark] [--accent #RRGGBB] [--unarmed] [--question-notes] \
-  [--open-menu approve|snooze|mode] -o <out.png>
+  [--open-menu approve|snooze|mode] [--later] -o <out.png>
 ```
+
+`--later` sets `PanelModel.escapeKeepsWaiting`, so the footer's link reads "Later" as it does for a
+Cursor request whose run mode would run it unasked (see "Later" under "Stepping aside").
 
 `--open-menu` renders the panel with one of its dropdowns open (see "Countersign's own dropdown"),
 as a click on its button would open it: `approve` for Approve ▾, `snooze` for the header's Snooze,
@@ -1508,10 +1860,11 @@ The settings window (see "The window" in [setup.md](setup.md)) has a mode of its
 ```sh
 CLAUDE_CONFIG_DIR=<dir> CODEX_HOME=<dir> XDG_CONFIG_HOME=<dir> \
   .build/debug/countersign snapshot --settings \
-  [--home <dir>] [--show-changes claude|codex|cursor|antigravity] [--show-copies] \
+  [--home <dir>] [--show-copies] \
   [--status active|paused|paused-until-open|quiet] [--size <width>x<height>] \
   [--tab agents|panels|app|advanced] [--restore-prompt panels|app] \
-  [--explanation <preferenceName>] [--appearance light|dark] -o <out.png>
+  [--explanation <preferenceName>] [--editor-choice ask|missing] \
+  [--appearance light|dark] -o <out.png>
 ```
 
 It builds the window's `SettingsModel` exactly as the window does, reading the hosts' files and the
@@ -1524,13 +1877,10 @@ dir)` instead of `SettingsEnvironment.current()`, which roots `AppPaths` and eve
 `CLAUDE_CONFIG_DIR`, `CODEX_HOME` and `XDG_CONFIG_HOME`, so a snapshot can show all four hosts as set
 up against a made-up home with nothing read from the real one. `resolvedExecutable` and the
 `stablePath` derived from it still come from the running binary regardless of `--home`, since they
-describe the binary taking the snapshot, not a host's config; a host row whose "Show changes" is
-expanded still renders that real path in its diff, `--home` does not cover that case. It draws
+describe the binary taking the snapshot, not a host's config. It draws
 `SettingsRootView`, the
 window's root view, the same way as the panel below: `.prohibited` activation policy, a borderless
-`defer: true` window never ordered in, `cacheDisplay` into a 2× bitmap. `--show-changes`, which
-may be repeated, opens
-that agent's "Show changes" under Agents as a click would.
+`defer: true` window never ordered in, `cacheDisplay` into a 2× bitmap.
 
 The notice about a second installed copy (see "More than one copy" in [settings.md](settings.md))
 comes from the same files on disk. Without `--home`, the snapshot looks at the real
@@ -1553,8 +1903,8 @@ without its app shows "version unknown" too. The running binary is never one of 
 copies, so the kept copy is the one a demo hook entry names, or none. `--show-copies` opens the
 notice's "Show copies" as a click would, when there is a notice.
 
-The status row never reads the real pause switch or quiet-time file, which have no variable to
-redirect them: it shows "Countersign is on" unless `--status` picks paused, paused until
+The header's pause and snooze controls never read the real pause switch or quiet-time file, which
+have no variable to redirect them: they show the active state (no caption) unless `--status` picks paused, paused until
 Countersign opens (the pause the companion's quit question sets, see "Quit" in [app.md](app.md)),
 or quiet time ending 15 minutes after the snapshot is taken.
 `--tab` picks the group the sidebar shows — `agents`, `panels`, `app`, `help` or `advanced` —
@@ -1580,12 +1930,17 @@ reset confirmation can be checked without opening the window or clicking Restore
 and `--tab` are ignored when it is given, since there is no window content to size or select a
 group in.
 
+`--editor-choice ask|missing`, only accepted with `--settings`, renders the Open in Editor sheet
+(`EditorChoiceSheet`) on its own: `ask` is the first-time sheet, `missing` adds the line for a
+stored app that is no longer installed. The list is this machine's real apps for `config.json`;
+an offscreen render draws their icons as empty placeholders.
+
 `--explanation <preferenceName>`, also only accepted with `--settings`, renders a `PreferenceName`'s
 info popover instead of the window: `SettingsExplanationView`'s content view alone, sized to its own
 fitting size rather than the window's, since a real `.popover` draws chrome and an arrow that only
 exist once AppKit itself positions and orders in a popover window, which this command never does. It
 needs no `--home` and reads no config, since `explanation` and `defaultText` depend only on the name
-and the built-in defaults; `--home`, `--tab`, `--size`, `--status`, `--show-changes` and
+and the built-in defaults; `--home`, `--tab`, `--size`, `--status` and
 `--show-copies` are all ignored when it is given.
 
 The menu-bar companion's quit question (see "Quit" in [app.md](app.md)) has one too:
@@ -1650,6 +2005,9 @@ and `#2B2B2B` for `--appearance dark`, tinted black or white to match: no `NSSta
 `NSWindow`, and no dependence on the real menu bar's own appearance, so the two states can be
 compared side by side without switching System Settings. Like the other snapshots, it renders at
 2×.
+
+The corner cards, the waiting notice and the approval card (see "The approval card"), have
+`--waiting-notice` and `--approval-card`, described in "Snapshots" in [notice.md](notice.md).
 
 ### Never on screen
 

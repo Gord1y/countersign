@@ -32,6 +32,22 @@ private func codexHooksJSON(groups: [[String]]) -> [UInt8] {
     #expect(current?.hasMultipleEntries == false)
   }
 
+  @Test func currentBuildsTheStopKeyFromTheStopEventAndLabel() {
+    let bytes = Array(
+      """
+      { "hooks": { "Stop": [
+        { "hooks": [{ "type": "command", "command": "\(brewPath) hook --host codex --event waiting", "timeout": 30 }] }
+      ] } }
+      """.utf8)
+    let current = CodexHookTrust.current(
+      hooksFileBytes: bytes, hooksFilePath: hooksPath, event: "Stop", label: "stop")
+    #expect(current?.hookKey == "\(hooksPath):stop:0:0")
+    #expect(current?.command == "\(brewPath) hook --host codex --event waiting")
+    #expect(CodexHookTrust.current(hooksFileBytes: bytes, hooksFilePath: hooksPath) == nil)
+    #expect(
+      CodexHookTrust.currentWaiting(hooksFileBytes: bytes, hooksFilePath: hooksPath) == current)
+  }
+
   @Test func currentUsesTheSecondGroupsIndexWhenTheFirstHasNoEntryOfOurs() {
     let bytes = Array(
       """

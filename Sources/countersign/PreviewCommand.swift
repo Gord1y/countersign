@@ -29,7 +29,8 @@ enum PreviewCommand {
     let diagnosticLog: (String) -> Void = { FileHandle.standardError.write(Data("\($0)\n".utf8)) }
     let app = PanelApplication(log: diagnosticLog)
 
-    let (configFile, configLogLines) = ConfigFileLoader.load(paths: AppPaths.standard)
+    let (configFile, configLogLines) = ConfigFileLoader.load(
+      paths: AppPaths.standard, soundNames: SystemSounds.installedNames)
     for line in configLogLines {
       diagnosticLog(line)
     }
@@ -41,17 +42,18 @@ enum PreviewCommand {
       diagnosticLog("chat tracking: \(chatTrackingDrift.reason)")
     }
 
+    let subagentChain = SubagentDescription.chain(for: request)
     let waitingEntries = Array(
       repeating: WaitingEntry(
         summary: TicketSummary(
-          request: request, agentDescription: SubagentDescription.resolve(for: request))),
+          request: request, agentDescription: SubagentDescription.resolve(from: subagentChain))),
       count: options.waitingCount)
     let controller = PanelController(
       request: request, waitingEntries: waitingEntries, armDuration: settings.armDelay,
-      snoozeMinutes: settings.snoozeMinutes, questionNotes: settings.questionNotes,
-      modeAfterPlan: settings.modeAfterPlan,
+      snoozePresets: settings.snoozePresets, questionNotes: settings.questionNotes,
+      modeAfterPlan: settings.modeAfterPlan, panelSound: settings.panelSound,
       appearance: settings.appearance, accentColor: settings.accentColor,
-      chatTrackingDrift: chatTrackingDrift,
+      chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
       onFinish: { outcome in
         if let data = options.host.encode(outcome), let string = String(data: data, encoding: .utf8)
         {

@@ -79,6 +79,47 @@ or config file's content, only paths and our own hook entry's command.
        works. `countersign setup` rewrites the command (see "Install" in [setup.md](setup.md)).
      - an entry with none of the above prints a single `ok` line naming its path and timeout, so a
        clean host still shows up in the output instead of staying silent.
+
+   After the lines above, for Claude Code's file only, when it is valid JSON, lines with the check
+   name **`claude context`** cover the `hooks.UserPromptSubmit` entry that Context checkpoints
+   need (see "The Context checkpoints entry" in [setup.md](setup.md)). They depend on
+   `Doctor.Input.contextCheckpointsEnabled`, which the caller fills from `config.json`:
+   - enabled (the default) and no entry of ours: `warn`, since the feature is on and nothing calls
+     the hook; `countersign setup`, or Update in Settings ▸ Agents, adds the entry. The line reads
+     "context checkpoints are on, but <file> has no UserPromptSubmit entry of Countersign's; run
+     countersign setup, or choose Update in Settings ▸ Agents".
+   - disabled and an entry of ours present: `warn`; turning Context checkpoints off in
+     `countersign settings` removes it.
+   - an entry whose `async` is not `true`: `warn`, because without `async` every prompt waits for
+     the checkpoint panel; `countersign setup` refreshes it.
+   - the entry's executable path, missing executable and `timeout` are checked with the same rules
+     and wording as the `PermissionRequest` entry's, labelled `UserPromptSubmit entry`.
+   - enabled and the entry fine: one `ok` line, `UserPromptSubmit entry in <path>, async`.
+   - disabled and no entry: no line.
+
+   Lines named **`claude waiting`** cover the `hooks.Stop` entry of Waiting-agent notices (see "The
+   waiting-agent entry" in [setup.md](setup.md)), with the same shape, driven by
+   `Doctor.Input.waitingNoticesEnabled`:
+   - enabled and no entry: `warn`, "waiting-agent notices are on, but <file> has no <event> entry
+     of Countersign's; run countersign setup, or Update in Settings ▸ Agents", which adds it.
+   - disabled and an entry present: `warn`; turning the notices off removes it.
+   - not async: `warn`, because every turn end would wait for it; `countersign setup` refreshes it.
+   - the path and executable checks are the `PermissionRequest` entry's, and the arguments must
+     include `--event waiting`; the 600 second minimum timeout does not apply, since the entry
+     runs for 30 seconds.
+   - enabled and fine: one `ok` line, `Stop entry in <path>, async`.
+
+   Lines named **`codex waiting`**, **`cursor waiting`** and **`antigravity waiting`** cover the
+   other hosts' entries (`hooks.Stop`, `hooks.stop` and the `countersign-waiting` hook) with the
+   same three cases and the same path, executable and arguments checks, without the async line:
+   the `ok` line is `<event> entry in <path>` (`stop` for Cursor), since only Claude Code's entry
+   is async. For Codex, while the notices are on and the entry exists, one more line is the trust
+   verdict for the `Stop` entry, judged from `Doctor.Input.codexWaitingHookTrustRecord`
+   (`codex-waiting-hook-trust.json`) the way the approval entry is (see "The verdict" in
+   [setup.md](setup.md)): pending is a `warn`, `Codex has not trusted Countersign's Stop entry yet;
+   run /hooks in a Codex session and trust it`; unknown is an `info`, `cannot tell whether Codex
+   trusts Countersign's Stop entry; run /hooks in a Codex session to check`; trusted or marked as
+   done adds nothing.
 3. Right after each host's lines, only when that host ends up wired and up to date (the same gate
    the Agents rows use for "Wired"; see "Follow-up lines" in [setup.md](setup.md)): for Codex, one
    line for the state `CodexTrustVerdict.judge` gives (see "The verdict" in [setup.md](setup.md)),

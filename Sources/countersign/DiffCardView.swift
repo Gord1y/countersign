@@ -39,8 +39,7 @@ private func diffCardBackground() -> some View {
 }
 
 private func diffCardStroke() -> some View {
-  RoundedRectangle(cornerRadius: 10, style: .continuous)
-    .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+  PanelBorder(shape: RoundedRectangle(cornerRadius: 10, style: .continuous), opacity: 0.08)
 }
 
 private enum NumberedDiffBlock {
@@ -123,12 +122,14 @@ struct NumberedDiffCard: View {
       } label: {
         HStack(spacing: 6) {
           Image(systemName: "arrow.up.and.down")
+            .accessibilityHidden(true)
           Text(FileDiffBuilder.gapTitle(hiddenCount: remaining, of: lines))
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
       }
       .buttonStyle(.plain)
+      .accessibilityLabel(FileDiffBuilder.gapTitle(hiddenCount: remaining, of: lines))
 
       Button("Show all") {
         revealed[segmentIndex] = GapRevealState(fromTop: total, fromBottom: 0)

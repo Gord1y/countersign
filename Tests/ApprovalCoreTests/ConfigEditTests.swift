@@ -33,7 +33,7 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
   @Test func keepsAValueThatAlreadyHoldsTheChoice() throws {
     let config = "{\"armDelay\": 0.80, \"snoozeMinutes\": [5, 10], \"checkForUpdates\": false}"
     #expect(
-      try editing(config, .armDelay(0.8), .snoozeMinutes([5, 10]), .checkForUpdates(false))
+      try editing(config, .armDelay(0.8), .snoozePresets([300, 600]), .checkForUpdates(false))
         == config)
   }
 
@@ -71,11 +71,53 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
 
   @Test func writesSnoozePresetsAndTheUpdateCheck() throws {
     #expect(
-      try editing("{\n  \"snoozeMinutes\": [5, 10]\n}\n", .snoozeMinutes([1, 60]))
+      try editing("{\n  \"snoozeMinutes\": [5, 10]\n}\n", .snoozePresets([60, 3600]))
         == "{\n  \"snoozeMinutes\": [\n    1,\n    60\n  ]\n}\n")
     #expect(
       try editing("{\n  \"checkForUpdates\": false\n}\n", .checkForUpdates(true))
         == "{\n  \"checkForUpdates\": true\n}\n")
+  }
+
+  @Test func writesSubMinuteSnoozePresetsAsUnitStrings() throws {
+    #expect(
+      try editing("{\n  \"snoozeMinutes\": [5, 10]\n}\n", .snoozePresets([30, 300]))
+        == "{\n  \"snoozeMinutes\": [\n    \"30s\",\n    5\n  ]\n}\n")
+  }
+
+  @Test func keepsSnoozePresetsThatAlreadyHoldTheChoiceInAnyUnit() throws {
+    let config = "{\"snoozeMinutes\": [\"30s\", 5, \"15m\"]}"
+    #expect(try editing(config, .snoozePresets([30, 300, 900])) == config)
+  }
+
+  @Test func writesTheWaitingNoticeDurationAsABareNumberOfSeconds() throws {
+    #expect(
+      try editing("{\"waitingNoticeDuration\": 5}", .waitingNoticeDuration(10))
+        == "{\"waitingNoticeDuration\": 10}")
+    #expect(
+      try editing("{\"waitingNoticeDuration\": 5}", .waitingNoticeDuration(45))
+        == "{\"waitingNoticeDuration\": 45}")
+    let config = "{\"waitingNoticeDuration\": \"1m\"}"
+    #expect(try editing(config, .waitingNoticeDuration(60)) == config)
+    #expect(!PreferenceName.agentDelays.contains(.waitingNoticeDuration))
+    #expect(!PreferenceEdit.waitingNoticeDuration(30).isAllowedForAgent)
+  }
+
+  @Test func writesTheWaitingNoticeDelayAsABareNumberOfSeconds() throws {
+    #expect(
+      try editing("{\"waitingNoticeDelay\": 5}", .waitingNoticeDelay(10))
+        == "{\"waitingNoticeDelay\": 10}")
+    #expect(
+      try editing("{\"waitingNoticeDelay\": 5}", .waitingNoticeDelay(90))
+        == "{\"waitingNoticeDelay\": 90}")
+    let config = "{\"waitingNoticeDelay\": \"2m\"}"
+    #expect(try editing(config, .waitingNoticeDelay(120)) == config)
+  }
+
+  @Test func writesSecondsKeysWithUpToThreeDecimals() throws {
+    #expect(
+      try editing("{\"armDelay\": 1}", .armDelay(0.2504)) == "{\"armDelay\": 0.25}")
+    #expect(
+      try editing("{\"graceSeconds\": 1}", .graceSeconds(0.5)) == "{\"graceSeconds\": 0.5}")
   }
 
   @Test func writesTheQuitBehavior() throws {
@@ -239,6 +281,84 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
       try editing("{\"handoffApps\": 3}", .removeHandoffApp("com.y")) == "{\"handoffApps\": 3}")
   }
 
+  private static let threeRules =
+    "{\n  \"idleSeconds\": 5,\n  \"rules\": [\n    {\"decision\": \"allow\", \"tool\": \"Read\"},\n"
+    + "    {\"decision\": \"deny\", \"command\": \"rm *\", \"message\": \"No.\"},\n"
+    + "    {\"decision\": \"allow\", \"agent\": \"codex\", \"command\": \"ls\"}\n  ]\n}\n"
+
+  @Test func removesTheSecondOfThreeRules() throws {
+    #expect(
+      try editing(
+        Self.threeRules, .removeRule(ApprovalRule(decision: .deny, command: "rm *", message: "No."))
+      )
+        == "{\n  \"idleSeconds\": 5,\n  \"rules\": [\n    {\"decision\": \"allow\", \"tool\": \"Read\"},\n"
+        + "    {\"decision\": \"allow\", \"agent\": \"codex\", \"command\": \"ls\"}\n  ]\n}\n")
+  }
+
+  @Test func removesTheRightElementWhenAnEarlierEntryIsInvalid() throws {
+    let config =
+      "{\n  \"rules\": [\n    {\"decision\": \"maybe\"},\n    {\"decision\": \"allow\", \"tool\": \"Read\"},\n"
+      + "    {\"decision\": \"allow\", \"tool\": \"Read\"}\n  ]\n}\n"
+    #expect(
+      try editing(config, .removeRule(ApprovalRule(decision: .allow, tool: "Read")))
+        == "{\n  \"rules\": [\n    {\"decision\": \"maybe\"},\n"
+        + "    {\"decision\": \"allow\", \"tool\": \"Read\"}\n  ]\n}\n")
+  }
+
+  @Test func replacesTheSecondOfThreeRulesInPlace() throws {
+    let old = ApprovalRule(decision: .deny, command: "rm *", message: "No.")
+    let new = ApprovalRule(decision: .allow, agent: .cursor, tool: "Shell", command: "git")
+    #expect(
+      try editing(Self.threeRules, .replaceRule(old: old, new: new))
+        == "{\n  \"idleSeconds\": 5,\n  \"rules\": [\n    {\"decision\": \"allow\", \"tool\": \"Read\"},\n"
+        + "    {\n      \"decision\": \"allow\",\n      \"agent\": \"cursor\",\n"
+        + "      \"tool\": \"Shell\",\n      \"command\": \"git\"\n    },\n"
+        + "    {\"decision\": \"allow\", \"agent\": \"codex\", \"command\": \"ls\"}\n  ]\n}\n")
+  }
+
+  @Test func replacingAnUnmatchedRuleChangesNothing() throws {
+    let missing = ApprovalRule(decision: .allow, tool: "Write")
+    let new = ApprovalRule(decision: .deny, tool: "Write")
+    #expect(
+      try editing(Self.threeRules, .replaceRule(old: missing, new: new)) == Self.threeRules)
+    #expect(try editing("{}", .replaceRule(old: missing, new: new)) == "{}")
+  }
+
+  @Test func replacesTheRightElementWhenAnEarlierEntryIsInvalid() throws {
+    let config =
+      "{\n  \"rules\": [\n    {\"decision\": \"maybe\"},\n    {\"decision\": \"allow\", \"tool\": \"Read\"},\n"
+      + "    {\"decision\": \"allow\", \"tool\": \"Read\"}\n  ]\n}\n"
+    let read = ApprovalRule(decision: .allow, tool: "Read")
+    let result = try editing(
+      config, .replaceRule(old: read, new: ApprovalRule(decision: .deny, tool: "Read")))
+    #expect(result.hasPrefix("{\n  \"rules\": [\n    {\"decision\": \"maybe\"},\n"))
+    #expect(result.hasSuffix("    {\"decision\": \"allow\", \"tool\": \"Read\"}\n  ]\n}\n"))
+    #expect(result.contains("\"deny\""))
+  }
+
+  @Test func removingAnUnmatchedRuleChangesNothing() throws {
+    let missing = ApprovalRule(decision: .allow, tool: "Write")
+    #expect(try editing(Self.threeRules, .removeRule(missing)) == Self.threeRules)
+    #expect(try editing("{}", .removeRule(missing)) == "{}")
+    #expect(try editing("{\"rules\": 3}", .removeRule(missing)) == "{\"rules\": 3}")
+  }
+
+  @Test func keepsAnEmptyRulesArrayAfterTheLastRuleGoes() throws {
+    #expect(
+      try editing(
+        "{\n  \"rules\": [\n    {\"decision\": \"allow\", \"tool\": \"Read\"}\n  ]\n}\n",
+        .removeRule(ApprovalRule(decision: .allow, tool: "Read")))
+        == "{\n  \"rules\": []\n}\n")
+  }
+
+  @Test func ignoresRuleRemovalForOneAgent() throws {
+    #expect(
+      try editing(
+        Self.threeRules,
+        .forAgent(.codex, .removeRule(ApprovalRule(decision: .allow, tool: "Read"))))
+        == Self.threeRules)
+  }
+
   @Test func resetRemovesTheTopLevelKey() throws {
     #expect(try editing("{\n  \"idleSeconds\": 8\n}\n", .reset(.idleSeconds)) == "{}\n")
     #expect(
@@ -301,7 +421,8 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
     #expect(PreferenceEdit.chainedArmDelay(1).key == .chainedArmDelay)
     #expect(PreferenceEdit.idleSeconds(1).key == .idleSeconds)
     #expect(PreferenceEdit.graceSeconds(1).key == .graceSeconds)
-    #expect(PreferenceEdit.snoozeMinutes([1]).key == .snoozeMinutes)
+    #expect(PreferenceEdit.snoozePresets([60]).key == .snoozeMinutes)
+    #expect(PreferenceEdit.waitingNoticeDelay(120).key == .waitingNoticeDelay)
     #expect(PreferenceEdit.checkForUpdates(true).key == .checkForUpdates)
     #expect(PreferenceEdit.quitBehavior(.ask).key == .quitBehavior)
     #expect(PreferenceEdit.modeAfterPlan(.auto).key == .modeAfterPlan)
@@ -316,13 +437,163 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
 
   @Test func eachPreferenceNameIsATopLevelKeyOfTheFile() {
     #expect(
-      PreferenceName.allCases.map(\.rawValue) == [
+      PreferenceName.allCases.prefix(14).map(\.rawValue) == [
         "armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds", "snoozeMinutes",
-        "handoffApps", "checkForUpdates", "questionNotes", "quitBehavior", "modeAfterPlan",
-        "appearance", "accentColor", "editorApp",
+        "quietHours", "handoffApps", "checkForUpdates", "questionNotes", "quitBehavior",
+        "modeAfterPlan", "appearance", "accentColor", "editorApp",
       ])
     #expect(
-      Set(PreferenceName.allCases.map(\.rawValue)).isSubset(of: ConfigFileParser.topLevelKeys))
+      PreferenceName.allCases.prefix(14).allSatisfy { $0.keyPath == [$0.rawValue] })
+    #expect(
+      Set(PreferenceName.allCases.compactMap(\.keyPath.first)).isSubset(
+        of: ConfigFileParser.topLevelKeys))
+  }
+
+  @Test func namesTheKeyPathOfEveryContextRow() {
+    #expect(
+      PreferenceName.allCases.suffix(13).map { $0.keyPath.joined(separator: ".") } == [
+        "contextCheckpoints.enabled", "contextCheckpoints.mode",
+        "contextCheckpoints.thresholds.200k", "contextCheckpoints.thresholds.1m",
+        "contextCheckpoints.modelThresholds", "contextCheckpoints.rearmBelow",
+        "contextCheckpoints.handoffFile", "contextCheckpoints.notes.soft",
+        "contextCheckpoints.notes.status", "contextCheckpoints.notes.insist",
+        "contextCheckpoints.notes.compact", "contextCheckpoints.notes.handoff",
+        "contextCheckpoints.menuBarMeter",
+      ])
+  }
+
+  @Test func enablingCreatesTheBlockInTheFilesStyle() throws {
+    #expect(
+      try editing(nil, .contextCheckpointsEnabled(true))
+        == "{\n  \"$schema\": \"\(schema)\",\n  \"contextCheckpoints\": {\n    \"enabled\": true\n  }\n}\n"
+    )
+    #expect(
+      try editing("{\n\t\"armDelay\": 1\n}\n", .contextCheckpointsEnabled(true))
+        == "{\n\t\"armDelay\": 1,\n\t\"contextCheckpoints\": {\n\t\t\"enabled\": true\n\t}\n}\n")
+  }
+
+  @Test func settingTheMillionLadderCreatesThresholdsInAnExistingBlock() throws {
+    let config = "{\n  \"contextCheckpoints\": {\n    \"enabled\": true\n  }\n}\n"
+    #expect(
+      try editing(config, .contextMillionThresholds([250_000, 350_000, 450_000]))
+        == "{\n  \"contextCheckpoints\": {\n    \"enabled\": true,\n    \"thresholds\": {\n"
+        + "      \"1m\": [\n        250000,\n        350000,\n        450000\n      ]\n    }\n  }\n}\n"
+    )
+  }
+
+  @Test func keepsALadderThatAlreadyHoldsTheChoice() throws {
+    let config =
+      "{\"contextCheckpoints\": {\"thresholds\": {\"200k\": [100000.0, 130000, 160000]}}}"
+    #expect(try editing(config, .contextStandardThresholds([100_000, 130_000, 160_000])) == config)
+  }
+
+  @Test func aNoteEditKeepsItsSiblings() throws {
+    let config =
+      "{\n  \"contextCheckpoints\": {\n    \"notes\": {\n      \"soft\": \"a\",\n      \"status\": \"b\"\n    }\n  }\n}\n"
+    #expect(
+      try editing(config, .contextNote(.contextNoteStatus, "c"))
+        == "{\n  \"contextCheckpoints\": {\n    \"notes\": {\n      \"soft\": \"a\",\n      \"status\": \"c\"\n    }\n  }\n}\n"
+    )
+    #expect(
+      try editing(config, .contextNote(.contextNoteInsist, "d"))
+        == "{\n  \"contextCheckpoints\": {\n    \"notes\": {\n      \"soft\": \"a\",\n      \"status\": \"b\",\n      \"insist\": \"d\"\n    }\n  }\n}\n"
+    )
+  }
+
+  @Test func ignoresANoteEditForAnyOtherName() throws {
+    let config = "{\n  \"armDelay\": 1\n}\n"
+    #expect(try editing(config, .contextNote(.armDelay, "x")) == config)
+  }
+
+  @Test func removingAModelLadderReturnsTheBytesBeforeTheSet() throws {
+    let config =
+      "{\n  \"contextCheckpoints\": {\n    \"modelThresholds\": {\n      \"claude-opus\": [\n        1,\n        2,\n        3\n      ]\n    }\n  }\n}\n"
+    let withPrefix = try editing(
+      config, .setContextModelThresholds(prefix: "claude-sonnet", ladder: [10, 20, 30]))
+    #expect(withPrefix != config)
+    #expect(withPrefix.contains("\"claude-sonnet\""))
+    #expect(
+      try editing(withPrefix, .removeContextModelThresholds(prefix: "claude-sonnet")) == config)
+  }
+
+  @Test func resettingTheModeRemovesOnlyTheMode() throws {
+    let config =
+      "{\n  \"contextCheckpoints\": {\n    \"enabled\": true,\n    \"mode\": \"silent\",\n    \"rearmBelow\": 0.5\n  }\n}\n"
+    #expect(
+      try editing(config, .reset(.contextMode))
+        == "{\n  \"contextCheckpoints\": {\n    \"enabled\": true,\n    \"rearmBelow\": 0.5\n  }\n}\n"
+    )
+  }
+
+  @Test func resettingTheOnlyMemberLeavesAnEmptyObject() throws {
+    let config = "{\n  \"contextCheckpoints\": {\n    \"mode\": \"silent\"\n  }\n}\n"
+    let result = try editing(config, .reset(.contextMode))
+    let parsed = ConfigFileParser.parse(Data(result.utf8)).file
+    #expect(parsed.contextCheckpoints != nil)
+    #expect(parsed.contextCheckpoints?.mode == nil)
+    #expect(try editing("{}", .reset(.contextMode)) == "{}")
+    #expect(
+      try editing("{\"contextCheckpoints\": 3}", .reset(.contextMode))
+        == "{\"contextCheckpoints\": 3}")
+  }
+
+  @Test func neverTouchesTheContextCheckpointHosts() throws {
+    let hosts = "\"hosts\": {\n      \"claude\": {\n        \"mode\": \"silent\"\n      }\n    }"
+    let config = "{\n  \"contextCheckpoints\": {\n    \(hosts)\n  }\n}\n"
+    let result = try editing(
+      config, .contextMode(.silent), .contextRearmBelow(0.5), .reset(.contextMode),
+      .contextNote(.contextNoteSoft, "x"))
+    #expect(result.contains(hosts))
+    let untouched = try editing(config, .reset(.contextMode))
+    #expect(untouched == config)
+  }
+
+  @Test func replacesAContextBlockOfTheWrongType() throws {
+    #expect(
+      try editing("{\n  \"contextCheckpoints\": 3\n}\n", .contextMode(.silent))
+        == "{\n  \"contextCheckpoints\": {\n    \"mode\": \"silent\"\n  }\n}\n")
+  }
+
+  @Test func addsRulesToAFileWithoutRules() throws {
+    let rule = ApprovalRule(
+      decision: .allow, agent: .cursor, project: "~/code/shop", command: "pnpm lint")
+    #expect(
+      try editing("{\n  \"idleSeconds\": 5\n}\n", .addRules([rule]))
+        == "{\n  \"idleSeconds\": 5,\n  \"rules\": [\n    {\n      \"decision\": \"allow\",\n"
+        + "      \"agent\": \"cursor\",\n      \"project\": \"~/code/shop\",\n"
+        + "      \"command\": \"pnpm lint\"\n    }\n  ]\n}\n")
+  }
+
+  @Test func appendsRulesToAnExistingArrayKeepingItsFormatting() throws {
+    let added = ApprovalRule(decision: .allow, agent: .codex, tool: "apply_patch")
+    #expect(
+      try editing(Self.threeRules, .addRules([added]))
+        == "{\n  \"idleSeconds\": 5,\n  \"rules\": [\n    {\"decision\": \"allow\", \"tool\": \"Read\"},\n"
+        + "    {\"decision\": \"deny\", \"command\": \"rm *\", \"message\": \"No.\"},\n"
+        + "    {\"decision\": \"allow\", \"agent\": \"codex\", \"command\": \"ls\"},\n"
+        + "    {\n      \"decision\": \"allow\",\n      \"agent\": \"codex\",\n"
+        + "      \"tool\": \"apply_patch\"\n    }\n  ]\n}\n")
+  }
+
+  @Test func skipsARuleAlreadyInTheFile() throws {
+    let existing = ApprovalRule(decision: .allow, agent: .codex, command: "ls")
+    let fresh = ApprovalRule(decision: .allow, tool: "Write")
+    let once = try editing(Self.threeRules, .addRules([existing]))
+    #expect(once == Self.threeRules)
+    let twice = try editing(Self.threeRules, .addRules([fresh, fresh, existing]))
+    let parsed = ConfigFileParser.parse(Data(twice.utf8)).file.rules
+    #expect(parsed?.filter { $0 == fresh }.count == 1)
+    #expect(parsed?.count == 4)
+  }
+
+  @Test func startsFromTheStarterFileWhenMissingOrBlank() throws {
+    let rule = ApprovalRule(decision: .allow, agent: .cursor, command: "ls")
+    let expected =
+      "{\n  \"$schema\": \"https://raw.githubusercontent.com/Gord1y/countersign/main/schema/config.schema.json\",\n"
+      + "  \"rules\": [\n    {\n      \"decision\": \"allow\",\n      \"agent\": \"cursor\",\n"
+      + "      \"command\": \"ls\"\n    }\n  ]\n}\n"
+    #expect(try editing(nil, .addRules([rule])) == expected)
+    #expect(try editing("  \n", .addRules([rule])) == expected)
   }
 
   @Test func spellsNumbersLikeTheEditor() {

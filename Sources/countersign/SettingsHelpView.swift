@@ -95,8 +95,6 @@ private struct UpdatesRow: View {
 
   var body: some View {
     PreferenceRow(Self.title, caption: caption) {
-      EmptyView()
-    } detail: {
       HStack(spacing: 8) {
         if case .newerAvailable(let availability) = model.updateCheckPhase {
           if let releaseNotesURL = availability.releaseNotesURL {
@@ -112,6 +110,7 @@ private struct UpdatesRow: View {
           .buttonStyle(SecondaryButtonStyle())
           .disabled(model.updateCheckPhase == .checking)
       }
+      .fixedSize()
     }
   }
 
