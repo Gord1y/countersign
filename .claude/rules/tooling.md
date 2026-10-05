@@ -25,7 +25,8 @@ paths:
 - Secrets reach only jobs that cannot be triggered by someone else: an automatic Claude review
   runs only for pull requests the repository owner opens from a branch of this repository, and
   `/review` runs only when the comment's `author_association` is `OWNER`. Pull request text is
-  untrusted input, so the review model gets no shell and no file tools and writes nothing but its
-  progress comment; the verdict it returns is submitted by a later step that runs no model.
+  untrusted input, so the review model reads files but gets no shell and no tool that writes one,
+  and writes nothing but its progress comment; the verdict it returns is submitted by a later
+  step that runs no model.
 - Commits follow Conventional Commits, one task per commit, with no AI co-author trailer and no
   "Generated with" line.
