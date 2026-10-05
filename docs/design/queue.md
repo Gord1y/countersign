@@ -500,3 +500,11 @@ Cleanup never waits on `Process.waitUntilExit()` without a deadline either: a `S
 exit has been seen to go unreported to a still-running test runner, which hangs the whole suite, so
 `ProbeProcess.forceStop()` and `ChildProcess.deadPid()` poll `isRunning` through `waitBriefly`
 instead and give up after 5 seconds rather than block forever.
+
+A test that plays the successor schedules its delayed `signalReady()` on its own serial queue, the
+one its listener runs on, never on `DispatchQueue.global()`. The global queues do not overcommit:
+while CPU-bound tests hold every core, which on CI's three-core runner takes only three of them,
+GCD starts no thread for new global work, so a 0.2-second reply waited out the whole 10-second cap
+and `aSuccessorPreparingBeforeTheRequestGetsTheLongerCap` failed with no reply. A private serial
+queue overcommits and gets a thread at once. The hook itself never relies on a global queue for
+the handoff: it listens on the main queue and replies directly.

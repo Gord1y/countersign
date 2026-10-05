@@ -310,9 +310,10 @@ import os
 
   @Test func aSuccessorPreparingBeforeTheRequestGetsTheLongerCap() throws {
     let channel = QueueHandoffChannel(ticket: uniqueTicket())
+    let successor = DispatchQueue(label: "QueueHandoffTests.preparedEarly")
     let listener = try #require(
-      channel.listen(on: DispatchQueue(label: "QueueHandoffTests.preparedEarly")) { _ in
-        DispatchQueue.global().asyncAfter(deadline: .now() + 0.2) {
+      channel.listen(on: successor) { _ in
+        successor.asyncAfter(deadline: .now() + 0.2) {
           channel.signalReady()
         }
       })
@@ -328,9 +329,10 @@ import os
   @Test func aSuccessorThatStartsPreparingAfterTheRequestStillGetsTheLongerCap() throws {
     let channel = QueueHandoffChannel(ticket: uniqueTicket())
     let isPreparingCalls = OSAllocatedUnfairLock<Int>(initialState: 0)
+    let successor = DispatchQueue(label: "QueueHandoffTests.preparedLate")
     let listener = try #require(
-      channel.listen(on: DispatchQueue(label: "QueueHandoffTests.preparedLate")) { _ in
-        DispatchQueue.global().asyncAfter(deadline: .now() + 0.2) {
+      channel.listen(on: successor) { _ in
+        successor.asyncAfter(deadline: .now() + 0.2) {
           channel.signalReady()
         }
       })
