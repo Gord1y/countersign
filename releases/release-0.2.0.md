@@ -86,6 +86,7 @@ testedWith:
   **Show Now** in the menu bar brings the panel back. A request left there is denied after an hour
   with "No answer in Countersign within an hour, so Cursor did not run this."
 - Pause and Snooze moved into a slimmer Settings header.
+- Settings always opens on Agents, instead of the group you last left it on.
 - Settings scrolls more smoothly.
 - Shell highlighting in panels is readable on both light and dark appearances.
 

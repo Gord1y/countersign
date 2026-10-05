@@ -18,15 +18,6 @@ public enum SettingsPane: String, CaseIterable, Sendable {
       : [.agents, .app, .panels, .rules, .help]
   }
 
-  public init(storedValue: String?) {
-    self.init(storedValue: storedValue, showsContext: true)
-  }
-
-  public init(storedValue: String?, showsContext: Bool) {
-    let stored = storedValue.flatMap(SettingsPane.init(rawValue:))
-    self = stored.flatMap { $0 == .context && !showsContext ? nil : $0 } ?? .standard
-  }
-
   public var title: String {
     switch self {
     case .agents: return "Agents"

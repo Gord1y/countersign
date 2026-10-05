@@ -44,8 +44,8 @@ confirm, whenever it was changed.
 Its settings are in a sidebar with four groups — Agents, App, Panels and Help, the last holding the
 tour, documentation, questions and problem reports, updates, and support links — in that order at
 every window width, plus **Advanced**, opened through a button at the bottom of App. Drag the
-window's edges to resize it: the sidebar's order never changes. It opens again at the size, place
-and group you left it with.
+window's edges to resize it: the sidebar's order never changes. It opens again at the size and
+place you left it with, always on Agents.
 
 ### Agents
 

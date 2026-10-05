@@ -20,7 +20,6 @@ import Testing
     #expect(SettingsPane.rules.title == "Rules")
     #expect(SettingsPane.rules.subtitle == "Allow or deny requests before a panel shows.")
     #expect(SettingsPane.rules.preferenceNames.isEmpty)
-    #expect(SettingsPane(storedValue: "rules", showsContext: false) == .rules)
   }
 
   @Test func saysWhatTheContextGroupChanges() {
@@ -38,13 +37,6 @@ import Testing
     #expect(
       SettingsPane.sidebar(showsContext: false) == [.agents, .app, .panels, .rules, .help])
     #expect(SettingsPane.sidebar == SettingsPane.sidebar(showsContext: false))
-  }
-
-  @Test func fallsBackToAgentsForAStoredContextGroupWhenHidden() {
-    #expect(SettingsPane(storedValue: "context", showsContext: true) == .context)
-    #expect(SettingsPane(storedValue: "context", showsContext: false) == .agents)
-    #expect(SettingsPane(storedValue: "panels", showsContext: false) == .panels)
-    #expect(SettingsPane(storedValue: nil, showsContext: true) == .agents)
   }
 
   @Test func saysWhatEachGroupChangesAndWhereItIsKept() {
@@ -74,15 +66,8 @@ import Testing
     #expect(!SettingsPane.sidebar.contains(.advanced))
   }
 
-  @Test func readsAStoredGroupAndFallsBackToAgents() {
+  @Test func opensOnAgents() {
     #expect(SettingsPane.standard == .agents)
-    #expect(SettingsPane(storedValue: "panels") == .panels)
-    #expect(SettingsPane(storedValue: "help") == .help)
-    #expect(SettingsPane(storedValue: "advanced") == .advanced)
-    #expect(SettingsPane(storedValue: nil) == .agents)
-    #expect(SettingsPane(storedValue: "") == .agents)
-    #expect(SettingsPane(storedValue: "Panels") == .agents)
-    #expect(SettingsPane(storedValue: "preferences") == .agents)
   }
 
   @Test func namesThePreferencesEachGroupWrites() {

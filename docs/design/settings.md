@@ -235,16 +235,15 @@ Clicking it selects
 area, with a **‹ App** link above it that selects `.app` again; the sidebar keeps App highlighted
 the whole time, since `.advanced` is not one of its rows (`SettingsSidebar.isSelected(_:)` treats
 App and Advanced as the same row). `SettingsPane.advanced` remains a real case: it is still what
-gets stored, restored and passed to `--tab`, just not listed in the sidebar.
+`--tab` takes, just not listed in the sidebar.
 
-The selected group is remembered across opens and launches under the key
-`Countersign Settings Pane`, in the standard user defaults of the process showing the window, the
-same domain as the frame below, and for the same reasons never in `config.json`: it is how one
-person last looked at the window, not something a hook reads. `SettingsWindowController` reads it
-when it creates the window and writes it on every switch; a missing or unknown value opens Agents
-(`SettingsPane(storedValue:)`), and a stored `"advanced"` reopens Advanced with App highlighted, the
-same as reaching it through the button. `snapshot --settings` never reads or writes it and takes
-`--tab` instead.
+Every open starts on Agents (`SettingsPane.standard`). Each `SettingsWindowController` makes a new
+`SettingsModel`, and the menu-bar app makes a new controller whenever the window was closed, so
+closing Settings and opening it again lands on Agents; choosing Settings… while the window is still
+open keeps the group on screen. Agents is where an upgrade or a new agent needs attention, so a
+remembered group could hide it. Up to 0.1.0 the group was remembered under the user-defaults key
+`Countersign Settings Pane`; nothing reads that key any more. A caller that needs another group
+passes it to the companion's `openSettings(pane:)`, and `snapshot --settings` takes `--tab`.
 
 Switching group rebuilds the content area, so no view keeps its own state across it. What matters
 lives in `SettingsModel`: the text in the Snooze presets field and the add field for Hand off when
@@ -641,8 +640,7 @@ matters: the config never says "on" while the hook is missing because of a faile
 Code's directory is missing the switch is disabled and the caption reads "Claude Code isn't
 installed."
 
-The Context tab appears in the sidebar only while the feature is on. The stored pane falls back
-to Agents when it is off (`SettingsPane(storedValue:showsContext:)`), and turning the feature off,
+The Context tab appears in the sidebar only while the feature is on, and turning the feature off,
 here or in the file, while Context is showing selects Panels. Its rows, in order: the hook status
 (Wired, Not wired or Needs an update, from `ContextHookRun.status`, with "Update" for the last two,
 which shows the same popup as the switch and never touches the config), Checkpoint

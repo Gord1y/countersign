@@ -183,7 +183,6 @@ final class SettingsModel {
   private(set) var status: CountersignStatus
   private(set) var statusError: String?
   private(set) var selectedPane = SettingsPane.standard
-  var rememberPane: ((SettingsPane) -> Void)?
 
   private(set) var preferences = PreferenceValues()
   private(set) var configFileContents = ConfigFile()
@@ -343,7 +342,6 @@ final class SettingsModel {
     guard pane != selectedPane else { return }
     selectedPane = pane
     visit.begin()
-    rememberPane?(pane)
   }
 
   func beginVisit() {

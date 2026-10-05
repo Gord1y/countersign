@@ -46,7 +46,6 @@ private final class SettingsApplicationDelegate: NSObject, NSApplicationDelegate
 final class SettingsWindowController: NSObject, NSWindowDelegate {
   static let title = "Countersign"
   static let frameAutosaveName = "Countersign Settings"
-  static let paneDefaultsKey = "Countersign Settings Pane"
   static let statusRefreshInterval: TimeInterval = 2
 
   let model: SettingsModel
@@ -64,13 +63,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
       contentRect: NSRect(origin: .zero, size: SettingsWindowPlacement.defaultContentSize),
       styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
     super.init()
-    model.select(
-      SettingsPane(
-        storedValue: UserDefaults.standard.string(forKey: Self.paneDefaultsKey),
-        showsContext: model.contextCheckpointsEnabled))
-    model.rememberPane = { pane in
-      UserDefaults.standard.set(pane.rawValue, forKey: Self.paneDefaultsKey)
-    }
     window.title = Self.title
     window.isReleasedWhenClosed = false
     window.contentMinSize = SettingsWindowPlacement.minimumContentSize
