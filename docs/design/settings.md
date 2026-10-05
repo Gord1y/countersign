@@ -1038,7 +1038,11 @@ New rules go through `PreferenceEdit.addRules`, edits through `PreferenceEdit.re
 which replaces the first element that reads as a rule equal to `old` with the new object, in place,
 so the rule keeps its position in the file. Like removal it matches on the parsed rule and not on an index. Both
 run through `SettingsModel.write`, so a failed write keeps the sheet open and shows
-`rulesError` in it.
+`rulesError` in it. When `old` is no longer in the file, because it was edited or removed there
+while the sheet was open, `replaceRule` throws `RuleEditError.changedOnDisk` instead of writing
+nothing: a write that changes nothing counts as saved, so the sheet would close and the edit would
+be lost without a word. Removing a rule that is already gone still succeeds, since the file already
+says what the person asked for.
 
 Entries the parser dropped are counted from the config's log lines: every line that starts with
 `rules` except the "only used by deny rules" note, which does not drop an entry. When the count is

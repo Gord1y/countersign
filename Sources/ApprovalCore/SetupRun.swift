@@ -133,6 +133,7 @@ public struct SetupRun {
     switch error {
     case let error as JSONSpanError: return error.description
     case let error as HookSetupError: return error.description
+    case let error as RuleEditError: return error.description
     default: return error.localizedDescription
     }
   }

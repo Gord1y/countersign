@@ -316,12 +316,18 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
         + "    {\"decision\": \"allow\", \"agent\": \"codex\", \"command\": \"ls\"}\n  ]\n}\n")
   }
 
-  @Test func replacingAnUnmatchedRuleChangesNothing() throws {
+  @Test func replacingARuleThatIsNoLongerInTheFileFailsInsteadOfDroppingTheEdit() throws {
     let missing = ApprovalRule(decision: .allow, tool: "Write")
     let new = ApprovalRule(decision: .deny, tool: "Write")
+    #expect(throws: RuleEditError.changedOnDisk) {
+      try editing(Self.threeRules, .replaceRule(old: missing, new: new))
+    }
+    #expect(throws: RuleEditError.changedOnDisk) {
+      try editing("{}", .replaceRule(old: missing, new: new))
+    }
     #expect(
-      try editing(Self.threeRules, .replaceRule(old: missing, new: new)) == Self.threeRules)
-    #expect(try editing("{}", .replaceRule(old: missing, new: new)) == "{}")
+      SetupRun.describe(RuleEditError.changedOnDisk)
+        == "the rule changed in the file since Settings showed it, so the edit was not saved")
   }
 
   @Test func replacesTheRightElementWhenAnEarlierEntryIsInvalid() throws {
