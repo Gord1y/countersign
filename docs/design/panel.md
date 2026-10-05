@@ -1860,7 +1860,7 @@ The settings window (see "The window" in [setup.md](setup.md)) has a mode of its
 ```sh
 CLAUDE_CONFIG_DIR=<dir> CODEX_HOME=<dir> XDG_CONFIG_HOME=<dir> \
   .build/debug/countersign snapshot --settings \
-  [--home <dir>] [--show-changes claude|codex|cursor|antigravity] [--show-copies] \
+  [--home <dir>] [--show-copies] \
   [--status active|paused|paused-until-open|quiet] [--size <width>x<height>] \
   [--tab agents|panels|app|advanced] [--restore-prompt panels|app] \
   [--explanation <preferenceName>] [--editor-choice ask|missing] \
@@ -1877,13 +1877,10 @@ dir)` instead of `SettingsEnvironment.current()`, which roots `AppPaths` and eve
 `CLAUDE_CONFIG_DIR`, `CODEX_HOME` and `XDG_CONFIG_HOME`, so a snapshot can show all four hosts as set
 up against a made-up home with nothing read from the real one. `resolvedExecutable` and the
 `stablePath` derived from it still come from the running binary regardless of `--home`, since they
-describe the binary taking the snapshot, not a host's config; a host row whose "Show changes" is
-expanded still renders that real path in its diff, `--home` does not cover that case. It draws
+describe the binary taking the snapshot, not a host's config. It draws
 `SettingsRootView`, the
 window's root view, the same way as the panel below: `.prohibited` activation policy, a borderless
-`defer: true` window never ordered in, `cacheDisplay` into a 2× bitmap. `--show-changes`, which
-may be repeated, opens
-that agent's "Show changes" under Agents as a click would.
+`defer: true` window never ordered in, `cacheDisplay` into a 2× bitmap.
 
 The notice about a second installed copy (see "More than one copy" in [settings.md](settings.md))
 comes from the same files on disk. Without `--home`, the snapshot looks at the real
@@ -1943,7 +1940,7 @@ info popover instead of the window: `SettingsExplanationView`'s content view alo
 fitting size rather than the window's, since a real `.popover` draws chrome and an arrow that only
 exist once AppKit itself positions and orders in a popover window, which this command never does. It
 needs no `--home` and reads no config, since `explanation` and `defaultText` depend only on the name
-and the built-in defaults; `--home`, `--tab`, `--size`, `--status`, `--show-changes` and
+and the built-in defaults; `--home`, `--tab`, `--size`, `--status` and
 `--show-copies` are all ignored when it is given.
 
 The menu-bar companion's quit question (see "Quit" in [app.md](app.md)) has one too:

@@ -12,7 +12,7 @@ enum SnapshotCommand {
     + " [--open-menu approve|snooze|mode] [--checkpoint-level soft|status|insist]"
     + " -o <out.png>\n"
     + "       countersign snapshot --settings"
-    + " [--home <dir>] [--show-changes claude|codex|cursor|antigravity] [--show-copies]"
+    + " [--home <dir>] [--show-copies]"
     + " [--status active|paused|paused-until-open|quiet] [--size <width>x<height>]"
     + " [--tab agents|panels|app|rules|context|help|advanced] [--restore-prompt panels|app]"
     + " [--explanation <preferenceName>] [--editor-choice ask|missing] [--rule-sheet new|edit]"
@@ -171,9 +171,6 @@ enum SnapshotCommand {
         kind: kind, model: model, appearance: options.appearance, outputPath: options.outputPath)
     }
     model.select(options.pane)
-    for host in options.disclosedHosts {
-      model.toggleChanges(host)
-    }
     if options.showsCopies, model.duplicateInstall != nil {
       model.toggleCopies()
     }
@@ -899,7 +896,6 @@ enum SnapshotCommand {
   private struct SettingsOptions {
     let outputPath: String
     let appearance: Appearance?
-    let disclosedHosts: [ApprovalCore.Host]
     let showsCopies: Bool
     let status: SnapshotStatus
     let home: URL?
@@ -914,7 +910,6 @@ enum SnapshotCommand {
   private static func parseSettings(_ arguments: [String]) -> SettingsOptions? {
     var outputPath: String?
     var appearance: Appearance?
-    var disclosedHosts: [ApprovalCore.Host] = []
     var showsCopies = false
     var status = SnapshotStatus.active
     var home: URL?
@@ -934,11 +929,6 @@ enum SnapshotCommand {
         index += 1
         guard index < arguments.count else { return nil }
         home = URL(fileURLWithPath: arguments[index], isDirectory: true)
-      case "--show-changes":
-        index += 1
-        guard index < arguments.count, let host = ApprovalCore.Host(rawValue: arguments[index])
-        else { return nil }
-        disclosedHosts.append(host)
       case "--show-copies":
         showsCopies = true
       case "--status":
@@ -1002,8 +992,8 @@ enum SnapshotCommand {
 
     guard let outputPath else { return nil }
     return SettingsOptions(
-      outputPath: outputPath, appearance: appearance, disclosedHosts: disclosedHosts,
-      showsCopies: showsCopies, status: status, home: home, size: size, pane: pane,
+      outputPath: outputPath, appearance: appearance, showsCopies: showsCopies, status: status,
+      home: home, size: size, pane: pane,
       restorePrompt: restorePrompt, explanation: explanation, editorChoice: editorChoice,
       ruleSheet: ruleSheet)
   }

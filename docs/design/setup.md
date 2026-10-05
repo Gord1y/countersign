@@ -401,12 +401,20 @@ values for the host under `hosts`, the row shows them in one read-only line with
 the file (see "Panels and App" in [settings.md](settings.md)); no button on the row writes that
 file.
 
-"Show changes" discloses the text `setup --cli` would print for the same answer: the file's path
-and unified diff, or its `already up to date` line, and for a wired row the diff of removing the
-entry. `SetupRun.preview` produces it by running
+Wire, Update and Remove write nothing on click. Each asks first in a popup (`HostHookPrompt`, an
+`NSAlert` shown as a sheet on the Settings window) titled for the action, such as "Update
+Countersign's Claude Code hook?", whose line under the title names the file and either says it is
+created or that a backup is kept, and whose buttons are the action's own name and Cancel. Below
+them it shows the text `setup --cli` would print for the same answer: the file's path and unified
+diff, or its `already up to date` line, and for a wired row the diff of removing the entry. Only
+the action's button writes, and it applies the action that was shown, even if the row changed while
+the popup was open; while a popup is up every row's button is disabled. `SetupRun.preview`
+produces the text by running
 `SetupRun` with `writesFiles: false`, which prints every diff, counts every change as applied
-without asking, writes nothing and never touches the Codex hook trust record. The diff is monospaced and
-selectable, added lines green and removed lines red, and scrolls sideways instead of wrapping.
+without asking, writes nothing and never touches the Codex hook trust record. The diff
+(`HookDiffPreview`, the same view as the waiting-notices and context-hook popups) is monospaced
+and selectable, added lines green and removed lines red, twelve lines tall, and scrolls sideways
+instead of wrapping.
 
 When more than one copy of Countersign is installed, a notice sits at the top of the group, above
 the rows; the copies it lists are in "More than one copy installed" below, and the notice itself

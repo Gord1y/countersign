@@ -554,6 +554,21 @@ struct AgentsSection: View {
         }
       }
     }
+    .modifier(HostHookPromptPresenter(model: model))
+  }
+}
+
+private struct HostHookPromptPresenter: ViewModifier {
+  let model: SettingsModel
+
+  func body(content: Content) -> some View {
+    content.onChange(of: model.hostChange != nil) { _, isPending in
+      guard isPending, let change = model.hostChange else { return }
+      HostHookPrompt.present(
+        change: change, home: model.homeDirectory, on: NSApp.keyWindow,
+        onConfirm: { model.confirmHostChange() },
+        onCancel: { model.cancelHostChange() })
+    }
   }
 }
 
@@ -585,7 +600,7 @@ private struct HostRowView: View {
         Spacer(minLength: 12)
         actionButton
       }
-      VStack(alignment: .leading, spacing: 8) {
+      Group {
         if case .unusable(let reason) = row.status {
           InlineMessage(reason, tone: .problem)
         } else if let detail = HostWiring.detail(for: row.status, host: row.location.host) {
@@ -596,14 +611,6 @@ private struct HostRowView: View {
         }
         if let note = model.ownValueNotes[row.id] {
           OwnValuesNote(note: note, host: row.id, model: model)
-        }
-        if row.preview?.hasChanges == true {
-          ChangesDisclosure(isExpanded: row.showsChanges) {
-            model.toggleChanges(row.id)
-          }
-          if row.showsChanges, let preview = row.preview {
-            SetupDiffView(text: preview.text)
-          }
         }
         if let problem = row.problem {
           InlineMessage(problem, tone: .problem)
@@ -622,13 +629,13 @@ private struct HostRowView: View {
     if let action = row.action {
       switch action {
       case .wire, .update:
-        Button(action.title) { model.apply(row.id) }
+        Button(action.title) { model.requestHostChange(row.id) }
           .buttonStyle(PrimaryButtonStyle())
-          .disabled(!row.canApply)
+          .disabled(!row.canApply || model.hostChange != nil)
       case .remove:
-        Button(action.title) { model.apply(row.id) }
+        Button(action.title) { model.requestHostChange(row.id) }
           .buttonStyle(LinkButtonStyle())
-          .disabled(!row.canApply)
+          .disabled(!row.canApply || model.hostChange != nil)
       }
     }
   }
@@ -742,42 +749,5 @@ struct ChangesDisclosure: View {
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
-  }
-}
-
-struct SetupDiffView: View {
-  let text: String
-
-  var body: some View {
-    CodeCard {
-      ScrollView(.horizontal) {
-        Text(Self.styled(text))
-          .font(PanelTypography.code)
-          .textSelection(.enabled)
-          .fixedSize()
-      }
-    }
-  }
-
-  static func styled(_ text: String) -> AttributedString {
-    let lines = text.hasSuffix("\n") ? String(text.dropLast()) : text
-    var result = AttributedString()
-    for (index, line) in lines.split(separator: "\n", omittingEmptySubsequences: false)
-      .enumerated()
-    {
-      if index > 0 {
-        result += AttributedString("\n")
-      }
-      var part = AttributedString(String(line))
-      if line.hasPrefix("+"), !line.hasPrefix("+++") {
-        part.foregroundColor = Color(nsColor: .systemGreen)
-      } else if line.hasPrefix("-"), !line.hasPrefix("---") {
-        part.foregroundColor = Color(nsColor: .systemRed)
-      } else if line.hasPrefix("@@") || line.hasPrefix("---") || line.hasPrefix("+++") {
-        part.foregroundColor = .secondary
-      }
-      result += part
-    }
-    return result
   }
 }

@@ -44,8 +44,8 @@ these statuses:
 | Needs an update | The entry points at another copy of `countersign`, runs it with anything but `hook --host <agent>`, lacks a field setup writes, or lacks the Stop entry of waiting-agent notices while they are on | **Update** |
 | Can't be set up | The file can't be read, isn't valid JSON or has a shape setup can't edit, or the running binary isn't named `countersign` | Fix what the row names; setup won't write until then |
 
-**Show changes** shows the exact diff a button would write. The buttons act at once, like
-everything else in the window. When your [config file](configuration.md) sets values for one agent,
+Each button first shows the exact diff it would write, in a popup with the button's name and
+**Cancel**; nothing is written until you confirm. When your [config file](configuration.md) sets values for one agent,
 under `hosts`, that agent's row lists them too, with a link to open the file. Once a row is Wired,
 it may show one more line below it: a next step for Codex (see below), or a permanent good-to-know
 line for Cursor or Antigravity (see [agents.md](agents.md)).

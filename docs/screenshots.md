@@ -120,11 +120,10 @@ resolution makes every host read as needing an update instead of wired.
 That substitution is what makes every host row read "Wired" and the header show no pause or quiet
 caption: `HostWiring.status` compares each file against what installing again would produce, byte for
 byte, and a hook entry already pointing at the exact path the rendering binary resolves to compares
-equal. **The settings render must never pass `--show-changes`, and every demo host must stay wired.**
-`resolvedExecutable` and the `stablePath` derived from it name the binary taking the snapshot, not
-the `--home` directory, and `--home` does not touch them: a host that needed an update, or one whose
-"Show changes" was expanded, would render that real path — the checkout's own `.build/debug/countersign`
-— into the image.
+equal. **Every demo host must stay wired.** `resolvedExecutable` and the `stablePath` derived from
+it name the binary taking the snapshot, not the `--home` directory, and `--home` does not touch
+them: a host that needed an update would render the path its entry points at, a path under the
+checkout such as its own `.build/debug/countersign`, into its "points at" line.
 
 ## The README settings crop
 

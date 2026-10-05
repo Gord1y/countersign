@@ -203,7 +203,7 @@ since the sidebar already names it:
 
 | Group | Holds | What it changes |
 | --- | --- | --- |
-| Agents | a row per agent (Wire, Update, Remove, Show changes), the notice about a second copy, on each row the values `hosts.<agent>` sets, and, once wired, its follow-up line and Codex's "Mark as done" (`AgentFollowUp`; see "Follow-up lines" and "The Codex hook trust record" in [setup.md](setup.md)) | each agent's own hook file; the Codex hook trust record, never `config.json` |
+| Agents | a row per agent (Wire, Update and Remove, each confirmed in a popup that shows its diff), the notice about a second copy, on each row the values `hosts.<agent>` sets, and, once wired, its follow-up line and Codex's "Mark as done" (`AgentFollowUp`; see "Follow-up lines" and "The Codex hook trust record" in [setup.md](setup.md)) | each agent's own hook file; the Codex hook trust record, never `config.json` |
 | Panels | a delays card (Same delays for all agents, then while it is off an Agent picker with the four agents, then Wait for idle, Grace period, Arm delay, Arm delay after an answer, Show card after), then Hand off when frontmost, Snooze presets, Notes on answers, Mode after a plan, Sound, Waiting-agent notices, Notice after, Show notice for, Approval card (one checkbox per agent), then Show a test panel and Show a test card | `config.json`, for every agent, or under `hosts.<agent>` for the delays and the Approval card checkboxes |
 | App | Launch at login, Check for updates, When Countersign quits, Appearance, Accent colour, the offer to link Countersign.app, then Advanced… | macOS's login items, `config.json`, `~/Applications` |
 | Rules | the intro line, one row per rule in file order with a remove button, the unreadable-entries notice (see "Rules" below) | `config.json`, the top-level `rules` array |
@@ -247,7 +247,7 @@ passes it to the companion's `openSettings(pane:)`, and `snapshot --settings` ta
 
 Switching group rebuilds the content area, so no view keeps its own state across it. What matters
 lives in `SettingsModel`: the text in the Snooze presets field and the add field for Hand off when
-frontmost, the open "Show changes" disclosures and "Show copies". The two text fields commit when
+frontmost, and "Show copies". The two text fields commit when
 they disappear, exactly as when they lose focus (see "Writing a change"), so leaving a field by
 switching group counts as leaving it. The scroll view's identity is the selected group, so each
 group opens scrolled to its top. Only the content column scrolls, never the sidebar.
@@ -611,10 +611,10 @@ the focus, or shows an error, it keeps its text, and the add field is never touc
 Every other control shows the file's new value. A write reads the file again first, so it lands on
 top of an edit made elsewhere instead of undoing it.
 
-The agent rows' Wire, Update and Remove (each shows its diff first under "Show changes"; see
-"Agents" in [setup.md](setup.md)), the Launch at login switch, which registers a login item with
-macOS rather than writing a config value, the header's Pause, Resume, Snooze and End now, the test
-panel buttons and "Open in Editor" act at once too, each on its own file, a process or macOS, never
+The agent rows' Wire, Update and Remove write their agent's hook file once their popup is
+confirmed (see "Agents" in [setup.md](setup.md)). The Launch at login switch, which registers a
+login item with macOS rather than writing a config value, the header's Pause, Resume, Snooze and
+End now, the test panel buttons and "Open in Editor" act at once too, each on its own file, a process or macOS, never
 on a preference beyond committing the text fields as the table says.
 
 ### Context checkpoints
@@ -932,8 +932,8 @@ When more than one copy of Countersign is installed (which copies count, how the
 the steps are in "More than one copy installed" in [setup.md](setup.md)), the Agents group opens
 with a notice above its rows, "Two copies of Countersign are installed", the count spelled out up
 to four. It is an `InlineMessage` with the warning tone, an orange triangle beside text in the
-primary colour, so it reads as a heading rather than an error; below it, "Show copies" discloses
-the rest with the same chevron as an agent row's "Show changes":
+primary colour, so it reads as a heading rather than an error; below it, "Show copies"
+(`ChangesDisclosure`, a chevron that turns down when open) discloses the rest:
 
 - one line on why it matters: each copy updates on its own;
 - the question, "Which one do you want to keep?", in 13 pt semibold;

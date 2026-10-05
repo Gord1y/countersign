@@ -53,7 +53,6 @@ struct HostRow: Identifiable {
   let location: HookConfigLocation
   var status: HostWiringStatus
   var preview: SetupPreview?
-  var showsChanges = false
   var error: String?
   var followUp: AgentFollowUp?
 
@@ -143,6 +142,17 @@ struct ContextHookChange {
   }
 }
 
+struct HostHookChange {
+  let host: ApprovalCore.Host
+  let action: HostWiringAction
+  let preview: SetupPreview
+  let createsFile: Bool
+
+  var canApply: Bool {
+    preview.failures.isEmpty
+  }
+}
+
 struct WaitingHookChange {
   let enable: Bool
   let preview: SetupPreview
@@ -212,6 +222,7 @@ final class SettingsModel {
   private(set) var contextHookFailure: ContextHookFailure?
   private(set) var contextHookStatus = ContextHookStatus.notWired
   private(set) var waitingChange: WaitingHookChange?
+  private(set) var hostChange: HostHookChange?
   private(set) var waitingHookFailure: String?
   private(set) var delaysPerAgent = false
   private(set) var delayAgent = ApprovalCore.Host.codex
@@ -443,9 +454,6 @@ final class SettingsModel {
       var row = shown[location.host] ?? HostRow(location: location, status: .notInstalled)
       row.status = status(for: location)
       row.preview = row.action.map { preview(of: location, action: $0) }
-      if row.preview?.hasChanges != true {
-        row.showsChanges = false
-      }
       row.followUp = AgentFollowUps.current(
         host: location.host, wiringStatus: row.status,
         codexTrust: location.host == .codex ? codexHookTrustState(at: location) : .unknown,
@@ -495,15 +503,27 @@ final class SettingsModel {
     return duplicateInstall.steps(keeping: selectedCopyIndex)
   }
 
-  func toggleChanges(_ host: ApprovalCore.Host) {
-    guard let index = hostRows.firstIndex(where: { $0.id == host }) else { return }
-    hostRows[index].showsChanges.toggle()
+  func requestHostChange(_ host: ApprovalCore.Host) {
+    guard let row = hostRows.first(where: { $0.id == host }), let action = row.action else {
+      return
+    }
+    hostChange = HostHookChange(
+      host: host, action: action, preview: preview(of: row.location, action: action),
+      createsFile: !Self.somethingExists(row.location.file.path))
   }
 
-  func apply(_ host: ApprovalCore.Host) {
-    guard let index = hostRows.firstIndex(where: { $0.id == host }),
-      let action = hostRows[index].action
-    else { return }
+  func cancelHostChange() {
+    hostChange = nil
+  }
+
+  func confirmHostChange() {
+    guard let change = hostChange, change.canApply else { return }
+    hostChange = nil
+    apply(change.action, to: change.host)
+  }
+
+  private func apply(_ action: HostWiringAction, to host: ApprovalCore.Host) {
+    guard let index = hostRows.firstIndex(where: { $0.id == host }) else { return }
     var run = SetupRun(
       executablePath: stablePath ?? "", uninstall: action.uninstalls,
       addsWaitingEntry: waitingNotices, addsContextEntry: contextCheckpointsEnabled,
@@ -512,7 +532,6 @@ final class SettingsModel {
       output: { _ in }, confirm: { _ in true })
     _ = run.apply(hostRows[index].location)
     hostRows[index].error = run.failures.first
-    hostRows[index].showsChanges = false
     refreshHosts()
   }
 

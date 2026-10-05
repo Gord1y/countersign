@@ -49,8 +49,8 @@ place you left it with, always on Agents.
 
 ### Agents
 
-Connects your agents — **Wire**, **Update**, **Remove**, and **Show changes** first, for Claude
-Code, Codex, Cursor and Antigravity; see [setup.md](setup.md) for what each writes. It sets no key
+Connects your agents — **Wire**, **Update** and **Remove**, each showing its change before it
+writes, for Claude Code, Codex, Cursor and Antigravity; see [setup.md](setup.md) for what each writes. It sets no key
 in `config.json` itself; that group edits each agent's own hook file instead. When `hosts.<agent>`
 sets one of the Panels keys below for that agent, its row shows the values in one line, with a
 link to open the file — see "Settings for one agent" under [Advanced](#advanced).
