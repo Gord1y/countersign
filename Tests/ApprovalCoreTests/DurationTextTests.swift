@@ -100,6 +100,12 @@ import Testing
     #expect(DurationText.compact(0) == "0s")
   }
 
+  @Test func aDurationTooLargeForAWholeNumberStillFormats() throws {
+    let seconds = try #require(DurationText.parse("1e19s"))
+    #expect(DurationText.compact(seconds) == "1e+19s")
+    #expect(DurationText.describe(seconds) == "1e+19s")
+  }
+
   @Test func describesOneMinute() {
     #expect(DurationText.describe(60) == "1 minute")
   }

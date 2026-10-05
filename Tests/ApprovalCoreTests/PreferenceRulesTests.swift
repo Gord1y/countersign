@@ -85,6 +85,7 @@ import Testing
         == "Enter 1 to 6 presets, like 30s, 5, 15m, 1h (a bare number is minutes)")
     #expect(SnoozeTextError.notADuration("x").description == "\"x\" isn't a duration")
     #expect(SnoozeTextError.outOfRange(0).description == "0s is outside 10s to 24h")
+    #expect(SnoozeTextError.outOfRange(1e19).description == "1e+19s is outside 10s to 24h")
     #expect(SnoozeTextError.tooMany(7).description == "7 presets, at most 6 fit the menu")
   }
 
