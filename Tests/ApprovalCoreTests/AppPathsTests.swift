@@ -42,6 +42,10 @@ import Testing
         == "/Users/dev/Library/Application Support/Countersign/tour-shown"
     )
     #expect(
+      paths.lastSeenVersionFile.path
+        == "/Users/dev/Library/Application Support/Countersign/last-seen-version"
+    )
+    #expect(
       paths.companionLockFile.path
         == "/Users/dev/Library/Application Support/Countersign/companion.lock"
     )

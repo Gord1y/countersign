@@ -113,8 +113,9 @@ testedWith:
 
 ## Upgrading
 
-- Run setup again, or choose Update in Settings ▸ Agents, to add the hooks for waiting-agent notices
-  and context checkpoints. Each change is shown before it is written.
+- The first time 0.2.0 starts, Settings opens on Agents if an agent needs an update for
+  waiting-agent notices or context checkpoints. Choose Update on each, or run setup again; each
+  change is shown before it is written.
 - Codex asks you to trust the new Stop hook once: run `/hooks` in Codex in a terminal and trust it.
 
 ## Notes

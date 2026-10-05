@@ -137,6 +137,13 @@ says so and takes you to System Settings > General > Login Items. The login item
 where it was when you turned this on, so check that list after moving the app. The Settings window
 has the same switch under **App** when it runs from Countersign.app.
 
+## After an upgrade
+
+The first time a new version starts, if an agent's hooks need an update, Settings opens on Agents,
+once per version. 0.2.0 adds the hook entries for waiting-agent notices and context checkpoints.
+Each Update shows its change before it writes anything. `countersign setup` does the same from a
+terminal.
+
 ## Check for updates
 
 The update check is off by default. Set `checkForUpdates` to `true` in the

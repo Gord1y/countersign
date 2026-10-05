@@ -96,6 +96,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     DistributedNotificationCenter.default().addObserver(
       self, selector: #selector(openSettingsRequested(_:)), name: Self.openSettingsNotification,
       object: nil, suspensionBehavior: .deliverImmediately)
+    if opensSettingsAfterUpgrade() { return }
     let launchEvent = NSAppleEventManager.shared().currentAppleEvent
     let opensSettings = CompanionLaunch.opensSettings(
       launchEventID: launchEvent?.eventID,
@@ -450,9 +451,54 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     }
   }
 
-  private func openSettings(forceTour: Bool = false) {
+  private func opensSettingsAfterUpgrade() -> Bool {
+    let current = CountersignVersion.current
+    let isUpgrade = UpgradeNudge.isUpgrade(
+      lastSeenVersion: UpgradeNudge.readLastSeenVersion(file: paths.lastSeenVersionFile),
+      tourShown: FileManager.default.fileExists(atPath: paths.tourShownFile.path),
+      currentVersion: current)
+    do {
+      try UpgradeNudge.recordVersion(current, file: paths.lastSeenVersionFile)
+    } catch {
+      log.write("companion: could not record the version: \(error)")
+    }
+    guard isUpgrade else { return false }
+    guard UpgradeNudge.needsAgentUpdate(agentWiringStatuses()) else {
+      log.write("companion: first run of \(current); agents are up to date")
+      return false
+    }
+    log.write(
+      "companion: first run of \(current); an agent needs an update, opening Settings ▸ Agents")
+    openSettings(pane: .agents)
+    return true
+  }
+
+  private func agentWiringStatuses() -> [HostWiringStatus] {
+    let home = FileManager.default.homeDirectoryForCurrentUser
+    let environment = ProcessInfo.processInfo.environment
+    guard let resolved = Bundle.main.executableURL?.resolvingSymlinksInPath().path else {
+      return []
+    }
+    let stablePath = StableExecutablePath.stable(
+      forResolved: resolved, home: home, isExecutable: FileManager.default.isExecutableFile(atPath:)
+    )
+    let (configFile, _) = ConfigFileLoader.load(
+      paths: paths, soundNames: SystemSounds.installedNames)
+    let settings = Settings.resolve(file: configFile, host: .claude)
+    return ApprovalCore.Host.allCases.map { host in
+      let location = HookConfigLocation.location(for: host, environment: environment, home: home)
+      return HostWiring.status(
+        host: host, directoryExists: DoctorCommand.isInstalled(location),
+        file: ConfigFileStore.fileState(location.file), stablePath: stablePath,
+        addsWaitingEntry: settings.waitingNotices,
+        addsContextEntry: settings.contextCheckpoints.enabled)
+    }
+  }
+
+  private func openSettings(forceTour: Bool = false, pane: SettingsPane? = nil) {
     if let settingsWindow {
       settingsWindow.show(forceTour: forceTour)
+      if let pane { settingsWindow.model.select(pane) }
       return
     }
     SettingsMenu.install()
@@ -463,6 +509,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
       })
     settingsWindow = controller
     controller.show(forceTour: forceTour)
+    if let pane { controller.model.select(pane) }
     log.write("companion: opened settings")
   }
 

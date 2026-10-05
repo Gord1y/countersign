@@ -172,6 +172,28 @@ what the header and the widely used LaunchAtLogin-Modern package (which pairs
 `SMAppService.mainApp` with the same check) rely on; it has not been checked on a real login here
 yet, so the log says which it was: `companion: started at login` or `companion: started`.
 
+#### After an upgrade
+
+0.2.0 turns on waiting-agent notices and context checkpoints by default, and both need hook entries
+that only setup or Settings ▸ Agents writes. Nothing else tells a 0.1.0 user, so those features
+would silently never fire. The first time a new version's companion starts, if any agent needs an
+update, it opens Settings on the Agents pane, where the rows already show "Needs an update" with an
+Update button that shows its change before writing. No new UI; the update check stays off by
+default.
+
+`applicationDidFinishLaunching` decides this after the settings observer is added and before the
+login or manual branch. `UpgradeNudge.isUpgrade` compares `last-seen-version`
+(`AppPaths.lastSeenVersionFile`) with `CountersignVersion.current`, then the file is rewritten with
+the current version, so the nudge happens once per version. If writing the file fails, the log says
+`companion: could not record the version` and the next launch asks again. 0.1.0 wrote no version file, so without one the answer
+is whether `tour-shown` exists: a 0.1.0 user has it once they opened Settings, and a fresh install
+has neither file and gets the first-run tour instead, so it is not an upgrade. When it is an upgrade
+the companion computes every agent's `HostWiring.status` with the inputs `countersign setup` uses,
+and `UpgradeNudge.needsAgentUpdate` is true for any `needsUpdate`; not installed, not wired, wired
+and unusable never count. The Agents pane then replaces both the login and the manual branch for
+that launch, so a login launch opens it too. The log says `companion: first run of <version>; an
+agent needs an update, opening Settings ▸ Agents` or `...; agents are up to date`.
+
 When the companion is already running, there are two ways the second opening reaches it:
 
 - LaunchServices usually finds the running app and sends it a reopen event instead of starting a

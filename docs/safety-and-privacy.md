@@ -79,6 +79,7 @@ None of this leaves your Mac, and none of it is written to the log.
 | Menu-bar app lock | `~/Library/Application Support/Countersign/companion.lock` |
 | Last update check | `~/Library/Application Support/Countersign/update-check.json` |
 | Codex hook trust record | `~/Library/Application Support/Countersign/codex-hook-trust.json` |
+| Last version that ran | `~/Library/Application Support/Countersign/last-seen-version` |
 | First-run tour shown | `~/Library/Application Support/Countersign/tour-shown` |
 | Log (rotates at 1 MB) | `~/Library/Logs/Countersign/countersign.log` |
 
