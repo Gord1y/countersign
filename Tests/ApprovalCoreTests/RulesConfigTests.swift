@@ -50,10 +50,18 @@ import Testing
     #expect(logLines == ["rules[0]: expected an object, dropped"])
   }
 
-  @Test func anUnknownKeyIsIgnoredAndTheEntryKept() {
-    let (file, logLines) = parse(#"{ "rules": [{ "decision": "allow", "when": "now" }] }"#)
-    #expect(file.rules == [ApprovalRule(decision: .allow)])
-    #expect(logLines == ["unknown key \"rules[0].when\", ignored"])
+  @Test func aMisspelledCommandDropsTheEntryInsteadOfAllowingEverything() {
+    let (file, logLines) = parse(
+      #"{ "rules": [{ "decision": "allow", "tool": "Bash", "comand": "git status" }] }"#)
+    #expect(file.rules == [])
+    #expect(logLines == ["unknown key \"rules[0].comand\", dropped"])
+  }
+
+  @Test func anUnknownKeyDropsOnlyItsEntry() {
+    let (file, logLines) = parse(
+      #"{ "rules": [{ "decision": "allow", "when": "now" }, { "decision": "deny" }] }"#)
+    #expect(file.rules == [ApprovalRule(decision: .deny)])
+    #expect(logLines == ["unknown key \"rules[0].when\", dropped"])
   }
 
   @Test func aMissingOrBadDecisionDropsTheEntry() {

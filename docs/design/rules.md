@@ -66,6 +66,14 @@ target included when it is quoted. A descriptor copy has to end its word, becaus
 file named `1x`. An input redirection `<` only reads and still splits, while `<>` also opens the
 file for writing and is refused.
 
+## An unknown key drops the rule
+
+Every other unknown key in the config file is logged and ignored, but a rule with one is dropped
+whole. A rule's keys narrow it, so ignoring one makes the rule broader than written: with
+`"comand": "git status"` misspelled, an allow rule for `"tool": "Bash"` would let every shell
+command through. A key a later version adds to narrow rules is read the same way by an older one.
+Dropping the rule leaves its requests to the panel, the answer that is wrong only by asking.
+
 ## One pattern language
 
 The `command` field uses `CommandPattern`, the same matcher as Cursor's command allowlist: a prefix
