@@ -41,9 +41,10 @@ row, even though the value still differs from the default. **Panels** and **App*
 **Restore Defaults** button that resets every changed setting in that group at once, after you
 confirm, whenever it was changed.
 
-Its settings are in a sidebar with four groups — Agents, App, Panels and Help, the last holding the
-tour, documentation, questions and problem reports, updates, and support links — in that order at
-every window width, plus **Advanced**, opened through a button at the bottom of App. Drag the
+Its settings are in a sidebar — Agents, App, Panels, Rules, Context while context checkpoints are
+on, and Help, the last holding the tour, documentation, questions and problem reports, updates,
+and support links — in that order at every window width, plus **Advanced**, opened through a button
+at the bottom of App. Drag the
 window's edges to resize it: the sidebar's order never changes. It opens again at the size and
 place you left it with, always on Agents.
 
