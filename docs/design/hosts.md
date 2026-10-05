@@ -468,8 +468,12 @@ the run mode. `CursorRunMode.resolve` maps it in one function:
 6. Otherwise: allowlist.
 
 This mapping was inferred from one machine's database and the documented run modes (Auto-review,
-Allowlist, Run Everything), so the fixture is a trimmed copy of that one value. Keeping it in one
-function makes a correction a one-line change.
+Allowlist, Run Everything), so the fixture is a trimmed copy of that one value. It was then checked
+live on Cursor 3.23.12 by switching the run mode in Cursor and reading the row each time:
+Auto-review, Allowlist and Run Everything each resolve to their own mode. Run Everything sets
+`fullAutoRun` to true and `smartModeAutoRun` to false, and leaves `yoloEnableRunEverything` false,
+so that key is kept only as a second signal. Keeping the mapping in one function makes a
+correction a one-line change.
 
 `composerState.yoloCommandAllowlist` is the in-app command allowlist: an array of strings, or
 unknown when it is absent or holds anything else.

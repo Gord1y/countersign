@@ -73,7 +73,7 @@ private func agentEntry(
 
   @Test func fullAutoRunIsRunEverything() throws {
     let entry = agentEntry(
-      autoRun: .bool(true), fullAutoRun: .bool(true), smartModeAutoRun: .bool(true))
+      autoRun: .bool(true), fullAutoRun: .bool(true), smartModeAutoRun: .bool(false))
     let value = replacingAgent(in: try fixtureValue(), with: entry)
     #expect(CursorRunMode.resolve(applicationUser: value) == .runEverything)
   }
