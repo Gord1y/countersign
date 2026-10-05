@@ -67,25 +67,8 @@ private struct SettingsScrollView: NSViewRepresentable {
     scrollView.drawsBackground = false
     scrollView.borderType = .noBorder
 
-    let hostingView = NSHostingView(rootView: SettingsContent(model: model))
-    hostingView.sizingOptions = [.intrinsicContentSize]
-    hostingView.translatesAutoresizingMaskIntoConstraints = false
-    let documentView = SettingsDocumentView()
-    documentView.translatesAutoresizingMaskIntoConstraints = false
-    documentView.addSubview(hostingView)
+    let documentView = SettingsDocumentView(content: SettingsContent(model: model))
     scrollView.documentView = documentView
-
-    let clipView = scrollView.contentView
-    NSLayoutConstraint.activate([
-      hostingView.topAnchor.constraint(equalTo: documentView.topAnchor),
-      hostingView.bottomAnchor.constraint(equalTo: documentView.bottomAnchor),
-      hostingView.leadingAnchor.constraint(equalTo: documentView.leadingAnchor),
-      hostingView.trailingAnchor.constraint(equalTo: documentView.trailingAnchor),
-      documentView.topAnchor.constraint(equalTo: clipView.topAnchor),
-      documentView.leadingAnchor.constraint(equalTo: clipView.leadingAnchor),
-      documentView.trailingAnchor.constraint(equalTo: clipView.trailingAnchor),
-      documentView.widthAnchor.constraint(equalTo: clipView.widthAnchor),
-    ])
     return scrollView
   }
 
@@ -106,7 +89,38 @@ private struct SettingsScrollView: NSViewRepresentable {
 }
 
 private final class SettingsDocumentView: NSView {
+  private let hostingController: NSHostingController<SettingsContent>
+  private var contentSizeObservation: NSKeyValueObservation?
+
+  init(content: SettingsContent) {
+    hostingController = NSHostingController(rootView: content)
+    hostingController.sizingOptions = [.preferredContentSize]
+    super.init(frame: .zero)
+    autoresizingMask = [.width]
+    addSubview(hostingController.view)
+    contentSizeObservation = hostingController.observe(\.preferredContentSize) { [weak self] _, _ in
+      MainActor.assumeIsolated { self?.needsLayout = true }
+    }
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("SettingsDocumentView does not support NSCoding")
+  }
+
   override var isFlipped: Bool { true }
+
+  override func layout() {
+    let width = bounds.width
+    if width > 0 {
+      let height = hostingController.sizeThatFits(in: CGSize(width: width, height: 100_000)).height
+      if height > 0, abs(frame.height - height) > 0.5 {
+        setFrameSize(NSSize(width: width, height: height))
+      }
+    }
+    hostingController.view.frame = bounds
+    super.layout()
+  }
 }
 
 struct SettingsHeader: View {

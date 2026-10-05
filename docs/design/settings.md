@@ -265,8 +265,8 @@ drawn, so a scroll frame runs neither. The document view is pinned to the clip v
 and trailing edges and takes its height from the hosted content's intrinsic size, so rows that
 expand or collapse resize it and the scroller follows.
 
-The document view is a plain flipped `NSView` (`SettingsDocumentView`) with the `NSHostingView`
-pinned to all four of its edges, not the hosting view itself. `NSHostingView` overrides
+The document view is a plain flipped `NSView` (`SettingsDocumentView`) containing the hosting
+controller's view, not the hosting view itself. `NSHostingView` overrides
 `scrollWheel(with:)`, so its class answers false to `isCompatibleWithResponsiveScrolling`, and
 AppKit then scrolls on the main thread (`NSScrollingBehaviorSingleThreadedVBL`) instead of its
 concurrent responsive path. An Animation Hitches trace of fast trackpad scrolling on Panels in that
@@ -282,6 +282,17 @@ visible vertical scroller, no horizontal scrolling, and each group opens at the 
 representable scrolls the clip view to its origin when the selected group changes).
 `SettingsContent` carries its own trailing `SettingsMetrics.padding`, so the last card's bottom edge
 has room above the window's edge once scrolled all the way down.
+
+Every pane opens at its top because the document view is sized for the width it is shown at. The
+hosted view's own intrinsic height is measured with an unspecified width, so a line that only wraps
+at the real column width (Agents' long "Points at ..." paths) made it too short: the content was
+taller than the document view, SwiftUI centred the overflow, and the pane opened with about 60 pt
+of its top cut off while the clip view's origin was still 0. `SettingsDocumentView` therefore
+owns an `NSHostingController`, asks it `sizeThatFits` at the clip view's width on every layout,
+sets its own frame to that height and fills it with the hosting view; the controller's
+`preferredContentSize` is observed so a row that expands or collapses re-measures. No constraint
+carries the height, because changing one during a layout pass trapped the Rules pane. The clip
+view's origin stays 0 until the person scrolls, and the pane change still scrolls to it.
 
 ### Header
 
