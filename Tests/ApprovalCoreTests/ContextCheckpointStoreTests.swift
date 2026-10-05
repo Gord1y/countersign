@@ -98,6 +98,49 @@ import Testing
       !FileManager.default.fileExists(atPath: directory.appendingPathComponent("old.lock").path))
   }
 
+  @Test func pruneKeepsTheLockOfASessionWhoseStateIsStillFresh() throws {
+    let directory = try makeDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = ContextCheckpointStore(directory: directory)
+    try store.save(.fresh(now: now), sessionID: "live")
+    let lock = directory.appendingPathComponent("live.lock")
+    try Data().write(to: lock)
+    try FileManager.default.setAttributes(
+      [.modificationDate: Date().addingTimeInterval(-31 * 24 * 3600)], ofItemAtPath: lock.path)
+    store.prune(olderThan: 30 * 24 * 3600, now: Date())
+    #expect(FileManager.default.fileExists(atPath: lock.path))
+  }
+
+  @Test func pruneAndRemoveAllNeverDeleteAHeldLock() throws {
+    let directory = try makeDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = ContextCheckpointStore(directory: directory)
+    let lock = directory.appendingPathComponent("busy.lock")
+    let held = try #require(try ExclusiveFileLock.acquire(lock))
+    defer { held.release() }
+    try FileManager.default.setAttributes(
+      [.modificationDate: Date().addingTimeInterval(-31 * 24 * 3600)], ofItemAtPath: lock.path)
+    store.prune(olderThan: 30 * 24 * 3600, now: Date())
+    #expect(FileManager.default.fileExists(atPath: lock.path))
+    store.removeAll()
+    #expect(FileManager.default.fileExists(atPath: lock.path))
+  }
+
+  @Test func pruneRemovesAnOldTemporaryFileLeftByAFailedSave() throws {
+    let directory = try makeDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = ContextCheckpointStore(directory: directory)
+    let old = directory.appendingPathComponent(".a.json.countersign-\(UUID().uuidString).tmp")
+    let recent = directory.appendingPathComponent(".b.json.countersign-\(UUID().uuidString).tmp")
+    try Data("{".utf8).write(to: old)
+    try Data("{".utf8).write(to: recent)
+    try FileManager.default.setAttributes(
+      [.modificationDate: Date().addingTimeInterval(-31 * 24 * 3600)], ofItemAtPath: old.path)
+    store.prune(olderThan: 30 * 24 * 3600, now: Date())
+    #expect(!FileManager.default.fileExists(atPath: old.path))
+    #expect(FileManager.default.fileExists(atPath: recent.path))
+  }
+
   @Test func removeAllLeavesUnrelatedFiles() throws {
     let directory = try makeDirectory()
     defer { try? FileManager.default.removeItem(at: directory) }

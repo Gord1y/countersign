@@ -122,26 +122,44 @@ public struct ContextCheckpointStore: Sendable {
 
   public func prune(olderThan age: TimeInterval, now: Date) {
     let cutoff = now.addingTimeInterval(-age)
-    for file in managedFiles() {
+    func isOld(_ file: URL) -> Bool {
       let modified = try? file.resourceValues(forKeys: [.contentModificationDateKey])
         .contentModificationDate
-      if let modified, modified < cutoff {
-        try? FileManager.default.removeItem(at: file)
-      }
+      return modified.map { $0 < cutoff } ?? false
+    }
+    let files = managedFiles()
+    for file in files where file.pathExtension != "lock" && isOld(file) {
+      try? FileManager.default.removeItem(at: file)
+    }
+    for lock in files where lock.pathExtension == "lock" && isOld(lock) {
+      removeUnheldLock(lock)
     }
   }
 
   public func removeAll() {
-    for file in managedFiles() {
+    let files = managedFiles()
+    for file in files where file.pathExtension != "lock" {
       try? FileManager.default.removeItem(at: file)
     }
+    for lock in files where lock.pathExtension == "lock" {
+      removeUnheldLock(lock)
+    }
+  }
+
+  private func removeUnheldLock(_ lock: URL) {
+    let state = lock.deletingPathExtension().appendingPathExtension("json")
+    guard !FileManager.default.fileExists(atPath: state.path),
+      let held = try? ExclusiveFileLock.acquire(lock)
+    else { return }
+    held.removeFile(lock)
+    held.release()
   }
 
   private func managedFiles() -> [URL] {
     let contents =
       (try? FileManager.default.contentsOfDirectory(
         at: directory, includingPropertiesForKeys: [.contentModificationDateKey])) ?? []
-    return contents.filter { $0.pathExtension == "json" || $0.pathExtension == "lock" }
+    return contents.filter { ["json", "lock", "tmp"].contains($0.pathExtension) }
   }
 
   private func stateFile(_ sessionID: String) -> URL {

@@ -53,7 +53,12 @@ opened with `O_CREAT` and left in place.
 
 The open-and-lock itself lives in `ExclusiveFileLock`: create the parent directory if needed, open
 with `O_RDWR | O_CREAT | O_CLOEXEC`, then `flock(LOCK_EX|LOCK_NB)`, returning nil when another open
-file description holds the lock and throwing only when the file cannot be opened at all.
+file description holds the lock and throwing only when the file cannot be opened at all. After the
+`flock` it checks that the path still names the file it opened (same device and inode) and returns
+nil when it doesn't: a process that opened a lock file just before someone else deleted it would
+otherwise hold a lock on a file nobody else can see, while the next one locks a new file at the same
+path. `display.lock` is never deleted, so the check always passes there; it is what makes deleting
+the context checkpoints' session locks safe (see [checkpoints.md](checkpoints.md)).
 `DisplayLease` wraps one and turns every failure into "no lease". The menu-bar companion holds a
 second one on `companion.lock` to stay a single instance (see "Launch and single instance" in
 [app.md](app.md)); that file is never deleted either, for the same reason.
