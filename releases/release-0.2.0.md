@@ -18,7 +18,7 @@ testedWith:
   claudeCode: "2.1.278"
   codex: "0.159.3"
   cursor: "3.23.12"
-  antigravity: "1.2.14"
+  antigravity: "1.2.17"
 ---
 
 ## Added
