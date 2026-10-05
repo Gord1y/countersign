@@ -186,11 +186,10 @@ are on and only refreshes it while they are off, the toggle adds and removes it 
 `WaitingHookRun` (every wired host's file appears in one diff), and `countersign setup --remove`
 and `HookSetup.uninstall` remove it. Each shape follows the host's existing Countersign entry, and
 each detail that needed a capture lives in one named constant of `WaitingHookSetup`
-(`cursorEventName`, `antigravityHookName`, `antigravityMatcher`, and
-`CodexHookTrust.waitingEventLabel`) so a fix is one line. The Codex and Cursor captures of
-2026-10-01 confirmed `waitingEventLabel` (`stop`) and `cursorEventName` (`stop`); the Antigravity
-pair is unconfirmed until its `Stop` payload is captured. None of the three has `async`, which only Claude Code has: the hook exits at once, with a
-30 second timeout.
+(`cursorEventName`, `antigravityHookName` and `CodexHookTrust.waitingEventLabel`) so a fix is one
+line. The Codex and Cursor captures of 2026-10-01 confirmed `waitingEventLabel` (`stop`) and
+`cursorEventName` (`stop`). None of the three has `async`, which only Claude Code has: the hook
+exits at once, with a 30 second timeout.
 
 - Codex, `hooks.Stop`, the layout of Claude's entry without `async`: one group with no `matcher`
   and no `statusMessage`, holding `{"type": "command", "command": "<exe> hook --host codex --event
@@ -201,10 +200,17 @@ pair is unconfirmed until its `Stop` payload is captured. None of the three has 
   `CursorHookSetup.sites`, which
   scans only that list, never sees the `stop` key, so Cursor's own install and uninstall leave the
   entry alone; `WaitingHookSetup` owns it and recognises it with `CursorHookSetup.isCountersignEntry`.
-- Antigravity, a second named hook, `countersign-waiting`, with `Stop` as its one event and the
-  `*` matcher of the `PreToolUse` group. Antigravity rejects the whole file when any entry is
-  invalid, so the entry must keep the exact shape `AntigravityHookSetup.entry(inSetupShape:event:)`
-  checks, and anything else under that name is replaced on install. A second name is the point: the
+- Antigravity, a second named hook, `countersign-waiting`, with `Stop` as its one event. `Stop` is
+  flat: its array holds the handler `{"type": "command", "command": "<exe> hook --host antigravity
+  --event waiting", "timeout": 30}` directly, with no `matcher` and no `hooks` group. Only the tool
+  events, `PreToolUse` and `PostToolUse`, take the grouped shape; the hooks reference built into
+  the Antigravity CLI says so ("Flat (list of handler objects directly)" for `Stop`), and CLI
+  1.2.17 rejects a grouped `Stop` with `invalid hook "countersign-waiting": command hook must
+  specify 'command'`. An early 0.2.0 build wrote the grouped shape, and because Antigravity rejects
+  the whole file, that also silenced the `countersign` approval hook. Antigravity rejects the whole
+  file when any entry is invalid, so the entry must keep the exact shape
+  `AntigravityHookSetup.flatEntry(inSetupShape:event:)` checks, and anything else under that name,
+  the grouped shape included, is replaced on install. A second name is the point: the
   `countersign` hook keeps its one-event shape, and its install, uninstall and doctor code stay
   untouched, where adding `Stop` to it would have broken the rule that the name holds exactly one
   event.

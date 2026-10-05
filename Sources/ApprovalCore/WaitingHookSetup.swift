@@ -4,7 +4,6 @@ public enum WaitingHookSetup {
   static let eventName = "Stop"
   static let cursorEventName = "stop"
   static let antigravityHookName = "countersign-waiting"
-  static let antigravityMatcher = "*"
   static let timeoutSeconds = 30
 
   public static let supportedHosts: [Host] = [.claude, .codex, .cursor, .antigravity]
@@ -73,7 +72,7 @@ public enum WaitingHookSetup {
       return cursorSites(in: root).map(\.hook)
     case .antigravity:
       guard let ours = root.member(named: antigravityHookName)?.value,
-        let hook = AntigravityHookSetup.entry(inSetupShape: ours, event: eventName)
+        let hook = AntigravityHookSetup.flatEntry(inSetupShape: ours, event: eventName)
       else { return [] }
       return [hook]
     }
@@ -134,7 +133,7 @@ public enum WaitingHookSetup {
         JSONFragmentMember(key: antigravityHookName, value: namedHook), to: document.root)
       return
     }
-    guard AntigravityHookSetup.entry(inSetupShape: ours, event: eventName) != nil else {
+    guard AntigravityHookSetup.flatEntry(inSetupShape: ours, event: eventName) != nil else {
       try document.replaceValue(ours, with: namedHook)
       return
     }
@@ -212,13 +211,11 @@ public enum WaitingHookSetup {
   }
 
   private static func antigravityHookFragment(executablePath: String) -> JSONFragment {
-    let group = JSONFragment.object([
-      JSONFragmentMember(key: "matcher", value: .string(antigravityMatcher)),
+    .object([
       JSONFragmentMember(
-        key: "hooks",
-        value: .array([hookFragment(host: .antigravity, executablePath: executablePath)])),
+        key: eventName,
+        value: .array([hookFragment(host: .antigravity, executablePath: executablePath)]))
     ])
-    return .object([JSONFragmentMember(key: eventName, value: .array([group]))])
   }
 
   private static func refreshEntries(

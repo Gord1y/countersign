@@ -101,7 +101,8 @@ waiting` with a 30 second timeout and no `async`, which only Claude Code has.
 - Cursor: `hooks.stop` in `~/.cursor/hooks.json`, outside `CursorAdapter.events` (confirmed: the
   captured payload came from that entry).
 - Antigravity: the named hook `countersign-waiting` in `~/.gemini/config/hooks.json`, with `Stop`
-  as its one event and the `*` matcher (unconfirmed for `Stop`), beside the `countersign` hook.
+  as its one event in the flat shape Antigravity requires for it (no matcher, no group; see "The
+  waiting entries" in [setup](setup.md)), beside the `countersign` hook.
 
 ## The deny message default
 

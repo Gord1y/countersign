@@ -34,14 +34,9 @@ private func freshWaiting(_ host: ApprovalCore.Host, path: String = brewPath) ->
         "countersign-waiting": {
           "Stop": [
             {
-              "matcher": "*",
-              "hooks": [
-                {
-                  "type": "command",
-                  "command": "\(waitingCommand(host, path: path))",
-                  "timeout": 30
-                }
-              ]
+              "type": "command",
+              "command": "\(waitingCommand(host, path: path))",
+              "timeout": 30
             }
           ]
         }
@@ -129,13 +124,8 @@ private func userEntryBesideOurs(_ host: ApprovalCore.Host) -> (shared: String, 
       "my-notify": {
           "Stop": [
             {
-              "matcher": "*",
-              "hooks": [
-                {
-                  "type": "command",
-                  "command": "~/bin/notify.sh"
-                }
-              ]
+              "type": "command",
+              "command": "~/bin/notify.sh"
             }
           ]
         }
@@ -302,10 +292,10 @@ private func userEntryBesideOurs(_ host: ApprovalCore.Host) -> (shared: String, 
     #expect(AntigravityHookSetup.hookNodes(in: root).count == 1)
     let waiting = try #require(root.member(named: "countersign-waiting")?.value)
     #expect(AntigravityHookSetup.entry(inSetupShape: waiting) == nil)
-    #expect(AntigravityHookSetup.entry(inSetupShape: waiting, event: "Stop") != nil)
+    #expect(AntigravityHookSetup.flatEntry(inSetupShape: waiting, event: "Stop") != nil)
     let ours = try #require(root.member(named: "countersign")?.value)
     #expect(AntigravityHookSetup.entry(inSetupShape: ours) != nil)
-    #expect(AntigravityHookSetup.entry(inSetupShape: ours, event: "Stop") == nil)
+    #expect(AntigravityHookSetup.flatEntry(inSetupShape: ours, event: "Stop") == nil)
   }
 
   @Test func antigravityReplacesAMisshapenWaitingHookOnInstall() throws {
@@ -313,6 +303,30 @@ private func userEntryBesideOurs(_ host: ApprovalCore.Host) -> (shared: String, 
     #expect(try install(misshapen, host: .antigravity).contains(waitingCommand(.antigravity)))
     #expect(
       WaitingHookSetup.entries(in: Array(misshapen.utf8), host: .antigravity).isEmpty)
+  }
+
+  @Test func antigravityReplacesAGroupedStopWithTheFlatOneItAccepts() throws {
+    let grouped = """
+      {
+        "countersign-waiting": {
+          "Stop": [
+            {
+              "matcher": "*",
+              "hooks": [
+                {
+                  "type": "command",
+                  "command": "\(waitingCommand(.antigravity))",
+                  "timeout": 30
+                }
+              ]
+            }
+          ]
+        }
+      }
+
+      """
+    #expect(WaitingHookSetup.entries(in: Array(grouped.utf8), host: .antigravity).isEmpty)
+    #expect(try install(grouped, host: .antigravity) == freshWaiting(.antigravity))
   }
 
   @Test func uninstallingAntigravityRemovesBothNames() throws {
