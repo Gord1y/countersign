@@ -155,6 +155,7 @@ struct HostHookChange {
 
 struct WaitingHookChange {
   let enable: Bool
+  let locations: [HookConfigLocation]
   let preview: SetupPreview
   let asksCodexTrust: Bool
 
@@ -945,7 +946,7 @@ final class SettingsModel {
       locations: locations, executablePath: stablePath ?? "", enable: enable)
     let codexFile = locations.first { $0.host == .codex }?.file
     waitingChange = WaitingHookChange(
-      enable: enable, preview: preview,
+      enable: enable, locations: locations, preview: preview,
       asksCodexTrust: enable && codexFile.map { preview.changedFiles.contains($0) } == true)
   }
 
@@ -957,7 +958,7 @@ final class SettingsModel {
     guard let change = waitingChange, change.canApply else { return }
     waitingChange = nil
     let failures = WaitingHookRun.apply(
-      locations: waitingLocations, executablePath: stablePath ?? "", enable: change.enable,
+      locations: change.locations, executablePath: stablePath ?? "", enable: change.enable,
       now: now(), codexWaitingTrustFile: environment.paths.codexWaitingHookTrustFile)
     guard failures.isEmpty else {
       waitingHookFailure = failures.joined(separator: "\n")

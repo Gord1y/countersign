@@ -696,7 +696,10 @@ The switch never writes `config.json` on its own. Changing it asks `SettingsMode
 waiting-agent notices?", with "Countersign changes <paths> and keeps a backup." and the buttons Turn
 On / Turn Off and Cancel, or OK alone with the failure lines when a file cannot be changed. On
 confirm, `WaitingHookRun.apply` writes the hook file with a backup and only then is `waitingNotices`
-written. With no wired Claude Code the popup shows "Nothing to change." and confirming writes only
+written. It applies to the locations the popup previewed, which `WaitingHookChange` keeps, not to
+the wired agents at confirm time: the window rereads the agents when it becomes key, so an agent
+wired while the popup was open would otherwise be changed without its diff ever being shown. With
+no wired Claude Code the popup shows "Nothing to change." and confirming writes only
 the config. Two fields sit directly under the switch, outside the delays group: Notice after, and
 below it Show notice for (`waitingNoticeDuration`, how long a notice stays up before it closes by
 itself; see "Closing by itself" in [notice.md](notice.md)). Both always show and edit the
