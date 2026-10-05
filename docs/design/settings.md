@@ -204,8 +204,8 @@ since the sidebar already names it:
 | Group | Holds | What it changes |
 | --- | --- | --- |
 | Agents | a row per agent (Wire, Update and Remove, each confirmed in a popup that shows its diff), the notice about a second copy, on each row the values `hosts.<agent>` sets, and, once wired, its follow-up line and Codex's "Mark as done" (`AgentFollowUp`; see "Follow-up lines" and "The Codex hook trust record" in [setup.md](setup.md)) | each agent's own hook file; the Codex hook trust record, never `config.json` |
-| Panels | a delays card (Same delays for all agents, then while it is off an Agent picker with the four agents, then Wait for idle, Grace period, Arm delay, Arm delay after an answer, Show card after), then Hand off when frontmost, Snooze presets, Notes on answers, Mode after a plan, Sound, Waiting-agent notices, Notice after, Show notice for, Approval card (one checkbox per agent), then Show a test panel and Show a test card | `config.json`, for every agent, or under `hosts.<agent>` for the delays and the Approval card checkboxes |
-| App | Launch at login, Check for updates, When Countersign quits, Appearance, Accent colour, the offer to link Countersign.app, then Advanced… | macOS's login items, `config.json`, `~/Applications` |
+| Panels | five blocks: Delays (Same delays for all agents, then while it is off an Agent picker with the four agents, then Wait for idle, Grace period, Arm delay, Arm delay after an answer, Show card after), Interruptions (Hand off when frontmost, Snooze presets, Quiet hours, Sound), Corner cards (Waiting-agent notices, Notice after, Show notice for, Approval card with one checkbox per agent), Claude Code (Notes on answers, Mode after a plan, Context checkpoints) and Try it (Show a test panel, Show a test card), then Restore Defaults | `config.json`, for every agent, or under `hosts.<agent>` for the delays and the Approval card checkboxes |
+| App | General (Launch at login, Check for updates, When Countersign quits), Appearance (Appearance, Accent colour) and, while there is an offer to link Countersign.app, Install, then Advanced… and Restore Defaults | macOS's login items, `config.json`, `~/Applications` |
 | Rules | the intro line, one row per rule in file order with a remove button, the unreadable-entries notice (see "Rules" below) | `config.json`, the top-level `rules` array |
 | Help | the tour, documentation, ask a question, report a problem, contact the developer, updates, then support links | nothing in `config.json`; never `update-check.json` |
 | Advanced | the config file's path, Open in Editor, Copy Path, Open with, the schema, what only the file can set, and the prompt for a coding agent | `config.json` for Open with; otherwise nothing beyond creating a missing `config.json` to open it |
@@ -223,13 +223,24 @@ Restore Defaults and no row can be "changed"; it exists so a person who runs `co
 without ever opening the menu-bar app still reaches what the companion's Help and Support the
 Developer menus offer.
 
+Panels, App and Context split their rows into titled blocks (`SettingsBlock`, stacked by
+`SettingsBlocks`). Each block is a `SettingsGroup` card whose first line is its title in 13 pt
+semibold, the way the Rules tab's Suggestions card is titled, and blocks sit
+`SettingsMetrics.blockSpacing` (14 pt) apart. A block gathers the rows that answer one question
+(how long panels wait, what keeps them away, the corner cards, what only Claude Code uses, trying
+it out), so a pane of twenty rows reads as five short cards instead of one long one. The pane's
+footer buttons (Restore Defaults; Advanced… on App; Turn Off Context Checkpoints on Context) sit
+below the last block, outside any card, flush with the cards' right edge. Titles above the cards,
+in the System Settings manner, and untitled cards were both rendered in light and dark and set
+aside in favour of titles inside, which match the Rules tab.
+
 Action buttons (Show a test panel, Try a checkpoint, Check for Updates and its companions) sit on
 the right of their row like every other control, never below it; a long caption wraps onto more
 lines instead of shrinking the buttons.
 
 Advanced (the config file's path, Open in Editor, Copy Path, Open with, the schema, what only the file
 can set, and the prompt for a coding agent) has no place in the sidebar: it is reached through an
-**Advanced…** button at the bottom of the App group, sharing its row with Restore Defaults.
+**Advanced…** button below App's blocks, sharing its row with Restore Defaults.
 Clicking it selects
 `SettingsPane.advanced` (`SettingsModel.select(_:)`), which shows Advanced's content in the same
 area, with a **‹ App** link above it that selects `.app` again; the sidebar keeps App highlighted
@@ -415,8 +426,9 @@ named, because the hook ignores it as well.
 
 #### Delays per agent
 
-The six delay rows (Wait for idle, Grace period, Arm delay, Arm delay after an answer, Notice
-after, Show card after) sit in their own card, headed by the switch "Same delays for all agents".
+The five delay rows (Wait for idle, Grace period, Arm delay, Arm delay after an answer, Show card
+after; `PreferenceName.agentDelays`) sit in the Delays block, headed by the switch "Same delays for
+all agents".
 On, each row edits the top-level value. Off, an Agent segmented picker appears and each row edits
 `hosts.<agent>` for the selected agent (`SettingsModel.delaysPerAgent`, `delayAgent`): a field shows
 the agent's own value, or is empty with the shared value (top level, else the default) as its
@@ -641,11 +653,13 @@ Code's directory is missing the switch is disabled and the caption reads "Claude
 installed."
 
 The Context tab appears in the sidebar only while the feature is on, and turning the feature off,
-here or in the file, while Context is showing selects Panels. Its rows, in order: the hook status
-(Wired, Not wired or Needs an update, from `ContextHookRun.status`, with "Update" for the last two,
-which shows the same popup as the switch and never touches the config), Checkpoint
-style, the 200K and 1M ladders, the per-model ladders, Start over below, Handoff file, Notes (one
-row with an "Edit Notes…" button), Context in the menu bar, a button that shows a context test panel, and a last row with "Turn Off Context Checkpoints" left of Restore Defaults. That button calls `requestContextCheckpoints(false)` and so shows the same "Turn off context checkpoints?" popup as the Panels switch (the row presents it for the `.toggle` origin, and only one tab is on screen at a time, so one `contextChange` shows one alert); it is disabled while a change is pending or Claude Code isn't installed.
+here or in the file, while Context is showing selects Panels. Its blocks, in order: Hook (the
+hook status: Wired, Not wired or Needs an update, from `ContextHookRun.status`, with "Update" for
+the last two, which shows the same popup as the switch and never touches the config), Checkpoints
+(Checkpoint style, the 200K and 1M ladders, the per-model ladders, Start over below), Notes and
+handoff (Notes, one row with an "Edit Notes…" button, then Handoff file), Menu bar (Context in the
+menu bar) and Try it (a button that shows a context test panel), then a footer with "Turn Off
+Context Checkpoints" left of Restore Defaults. That button calls `requestContextCheckpoints(false)` and so shows the same "Turn off context checkpoints?" popup as the Panels switch (the row presents it for the `.toggle` origin, and only one tab is on screen at a time, so one `contextChange` shows one alert); it is disabled while a change is pending or Claude Code isn't installed.
 
 Write rules follow the table above. The two ladder fields take three ascending whole numbers of
 thousands, 1 to 2000 (`PreferenceRules.contextLadder`), checked on each keystroke, and are written
@@ -720,7 +734,7 @@ backup and shows the same red line on failure; pending text in the Snooze preset
 Hand off when frontmost add field is discarded rather than committed first, since a reset means
 "forget what I was typing here too."
 
-Panels and App each have a **Restore Defaults** button at the bottom of their group
+Panels and App each have a **Restore Defaults** button below their last block
 (`SecondaryButtonStyle`), disabled when `SettingsModel.changedNames(in:)` for that group's
 `SettingsPane.preferenceNames` is empty. Clicking it opens an `NSAlert` sheet on the Settings
 window, built the way the quit prompt's alert is (`RestoreDefaultsPrompt`, mirroring `QuitPrompt`):

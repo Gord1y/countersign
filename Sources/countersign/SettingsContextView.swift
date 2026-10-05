@@ -8,49 +8,59 @@ struct ContextSection: View {
   var body: some View {
     SettingsSection(.context) {
       ConfigProblemMessage(model: model)
-      SettingsGroup {
-        VStack(alignment: .leading, spacing: 0) {
+      SettingsBlocks {
+        SettingsBlock("Hook") {
           ContextHookRow(model: model)
-          SettingsDivider()
-          PreferenceRow(.contextMode, model: model, problem: model.writeErrors[.contextMode]) {
-            Picker(
-              PreferenceName.contextMode.title,
-              selection: Binding(
-                get: { model.contextCheckpoints.mode }, set: { model.setContextMode($0) })
+            .disabled(model.configProblem != nil)
+        }
+        SettingsBlock("Checkpoints") {
+          VStack(alignment: .leading, spacing: 0) {
+            PreferenceRow(.contextMode, model: model, problem: model.writeErrors[.contextMode]) {
+              Picker(
+                PreferenceName.contextMode.title,
+                selection: Binding(
+                  get: { model.contextCheckpoints.mode }, set: { model.setContextMode($0) })
+              ) {
+                ForEach(ContextCheckpointMode.allCases, id: \.self) { mode in
+                  Text(mode.rawValue.capitalized).tag(mode)
+                }
+              }
+              .pickerStyle(.segmented)
+              .controlSize(.small)
+              .labelsHidden()
+              .fixedSize()
+            }
+            SettingsDivider()
+            ContextLadderRow(
+              name: .contextStandardThresholds, placeholder: "100, 130, 160", model: model)
+            SettingsDivider()
+            ContextLadderRow(
+              name: .contextMillionThresholds, placeholder: "200, 300, 400", model: model)
+            SettingsDivider()
+            ContextModelsRow(model: model)
+            SettingsDivider()
+            PreferenceRow(
+              .contextRearmBelow, model: model, problem: model.writeErrors[.contextRearmBelow]
             ) {
-              ForEach(ContextCheckpointMode.allCases, id: \.self) { mode in
-                Text(mode.rawValue.capitalized).tag(mode)
+              ContextRearmSlider(
+                title: PreferenceName.contextRearmBelow.title,
+                value: model.contextCheckpoints.rearmBelow
+              ) {
+                model.setContextRearmBelow($0)
               }
             }
-            .pickerStyle(.segmented)
-            .controlSize(.small)
-            .labelsHidden()
-            .fixedSize()
           }
-          SettingsDivider()
-          ContextLadderRow(
-            name: .contextStandardThresholds, placeholder: "100, 130, 160", model: model)
-          SettingsDivider()
-          ContextLadderRow(
-            name: .contextMillionThresholds, placeholder: "200, 300, 400", model: model)
-          SettingsDivider()
-          ContextModelsRow(model: model)
-          SettingsDivider()
-          PreferenceRow(
-            .contextRearmBelow, model: model, problem: model.writeErrors[.contextRearmBelow]
-          ) {
-            ContextRearmSlider(
-              title: PreferenceName.contextRearmBelow.title,
-              value: model.contextCheckpoints.rearmBelow
-            ) {
-              model.setContextRearmBelow($0)
-            }
+          .disabled(model.configProblem != nil)
+        }
+        SettingsBlock("Notes and handoff") {
+          VStack(alignment: .leading, spacing: 0) {
+            ContextNotesRow(model: model)
+            SettingsDivider()
+            ContextHandoffFileRow(model: model)
           }
-          SettingsDivider()
-          ContextHandoffFileRow(model: model)
-          SettingsDivider()
-          ContextNotesRow(model: model)
-          SettingsDivider()
+          .disabled(model.configProblem != nil)
+        }
+        SettingsBlock("Menu bar") {
           PreferenceRow(
             .contextMenuBarMeter, model: model, problem: model.writeErrors[.contextMenuBarMeter]
           ) {
@@ -60,11 +70,11 @@ struct ContextSection: View {
                 get: { model.contextCheckpoints.menuBarMeter },
                 set: { model.setContextMenuBarMeter($0) }))
           }
+          .disabled(model.configProblem != nil)
         }
-        .disabled(model.configProblem != nil)
-        SettingsDivider()
-        ContextTestPanelRow(model: model)
-        SettingsDivider()
+        SettingsBlock("Try it") {
+          ContextTestPanelRow(model: model)
+        }
         ContextFooterRow(model: model)
       }
     }
@@ -84,8 +94,6 @@ private struct ContextFooterRow: View {
         .disabled(model.contextChange != nil || !model.claudeIsInstalled)
       RestoreDefaultsButton(pane: .context, model: model)
     }
-    .padding(.horizontal, SettingsMetrics.rowPadding)
-    .padding(.vertical, 11)
     .presentsContextHookPrompt(model: model, origin: .toggle)
   }
 }

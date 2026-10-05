@@ -5,6 +5,7 @@ import SwiftUI
 enum SettingsMetrics {
   static let padding: CGFloat = 24
   static let sectionSpacing: CGFloat = 28
+  static let blockSpacing: CGFloat = 14
   static let headerVerticalPadding: CGFloat = 12
   static let contentTopInset: CGFloat = 16
   static let rowPadding: CGFloat = 14
@@ -465,6 +466,43 @@ struct SettingsGroup<Content: View>: View {
           contrast == .increased ? Color(nsColor: .separatorColor) : Color.primary.opacity(0.08),
           lineWidth: 1)
     )
+  }
+}
+
+struct SettingsBlocks<Content: View>: View {
+  let content: Content
+
+  init(@ViewBuilder content: () -> Content) {
+    self.content = content()
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: SettingsMetrics.blockSpacing) {
+      content
+    }
+  }
+}
+
+struct SettingsBlock<Content: View>: View {
+  let title: String
+  let content: Content
+
+  init(_ title: String, @ViewBuilder content: () -> Content) {
+    self.title = title
+    self.content = content()
+  }
+
+  var body: some View {
+    SettingsGroup {
+      Text(title)
+        .font(PanelTypography.body)
+        .fontWeight(.semibold)
+        .accessibilityAddTraits(.isHeader)
+        .padding(.horizontal, SettingsMetrics.rowPadding)
+        .padding(.top, SettingsMetrics.rowPadding)
+        .padding(.bottom, 2)
+      content
+    }
   }
 }
 

@@ -10,172 +10,184 @@ struct PanelsSection: View {
   var body: some View {
     SettingsSection(.panels) {
       ConfigProblemMessage(model: model)
-      SettingsGroup {
-        VStack(alignment: .leading, spacing: 0) {
-          SameDelaysRow(model: model)
-          if model.delaysPerAgent {
+      SettingsBlocks {
+        SettingsBlock("Delays") {
+          VStack(alignment: .leading, spacing: 0) {
+            SameDelaysRow(model: model)
+            if model.delaysPerAgent {
+              SettingsDivider()
+              DelayAgentRow(model: model)
+            }
             SettingsDivider()
-            DelayAgentRow(model: model)
-          }
-          SettingsDivider()
-          PreferenceRow(.idleSeconds, model: model, problem: model.durationProblem(.idleSeconds)) {
-            HStack(spacing: 6) {
-              DurationField(name: .idleSeconds, model: model)
-              Stepper(
-                PreferenceName.idleSeconds.title,
-                value: Binding(
-                  get: { model.shownDelay(.idleSeconds) }, set: { model.setIdleSeconds($0) }),
-                in: PreferenceRules.idleSecondsRange, step: 1
-              )
-              .labelsHidden()
-              .controlSize(.small)
-            }
-          }
-          SettingsDivider()
-          PreferenceRow(
-            .graceSeconds, model: model, problem: model.durationProblem(.graceSeconds)
-          ) {
-            HStack(spacing: 6) {
-              DurationField(name: .graceSeconds, model: model)
-              Stepper(
-                PreferenceName.graceSeconds.title,
-                value: Binding(
-                  get: { model.shownDelay(.graceSeconds) }, set: { model.setGraceSeconds($0) }),
-                in: PreferenceRules.graceSecondsRange, step: 1
-              )
-              .labelsHidden()
-              .controlSize(.small)
-            }
-          }
-          SettingsDivider()
-          PreferenceRow(.armDelay, model: model, problem: model.durationProblem(.armDelay)) {
-            DelaySlider(name: .armDelay, model: model, value: model.shownDelay(.armDelay)) {
-              model.setArmDelay($0)
-            }
-          }
-          SettingsDivider()
-          PreferenceRow(
-            .chainedArmDelay, model: model, problem: model.durationProblem(.chainedArmDelay)
-          ) {
-            DelaySlider(
-              name: .chainedArmDelay, model: model, value: model.shownDelay(.chainedArmDelay)
-            ) {
-              model.setChainedArmDelay($0)
-            }
-          }
-          SettingsDivider()
-          PreferenceRow(
-            .approvalCardDelay, model: model,
-            problem: model.durationProblem(.approvalCardDelay)
-          ) {
-            DurationField(name: .approvalCardDelay, model: model)
-              .disabled(!model.showsApprovalCardDelay)
-          }
-        }
-        .disabled(model.configProblem != nil)
-      }
-      SettingsGroup {
-        VStack(alignment: .leading, spacing: 0) {
-          HandoffAppsRow(model: model)
-          SettingsDivider()
-          PreferenceRow(.snoozeMinutes, model: model, problem: model.snoozeProblem) {
-            TextField(
-              "1, 5, 15, 30",
-              text: Binding(get: { model.snoozeText }, set: { model.setSnoozeText($0) })
-            )
-            .textFieldStyle(.roundedBorder)
-            .font(PanelTypography.body.monospacedDigit())
-            .frame(width: 150)
-            .focused($isSnoozeFieldFocused)
-            .onChange(of: isSnoozeFieldFocused) { _, focused in
-              model.setEditingSnoozeMinutes(focused)
-            }
-            .onSubmit { model.commitSnoozeMinutes() }
-            .onDisappear { model.setEditingSnoozeMinutes(false) }
-          }
-          SettingsDivider()
-          QuietHoursRow(model: model)
-          SettingsDivider()
-          PreferenceRow(.questionNotes, model: model, problem: model.writeErrors[.questionNotes]) {
-            SettingsSwitch(
-              PreferenceName.questionNotes.title,
-              isOn: Binding(get: { model.questionNotes }, set: { model.setQuestionNotes($0) }))
-          }
-          SettingsDivider()
-          PreferenceRow(
-            .modeAfterPlan, model: model, problem: model.writeErrors[.modeAfterPlan]
-          ) {
-            Picker(
-              PreferenceName.modeAfterPlan.title,
-              selection: Binding(
-                get: { model.modeAfterPlan }, set: { model.setModeAfterPlan($0) })
-            ) {
-              ForEach(PlanApprovalMode.allCases, id: \.self) { mode in
-                Text(mode.title).tag(mode)
+            PreferenceRow(.idleSeconds, model: model, problem: model.durationProblem(.idleSeconds))
+            {
+              HStack(spacing: 6) {
+                DurationField(name: .idleSeconds, model: model)
+                Stepper(
+                  PreferenceName.idleSeconds.title,
+                  value: Binding(
+                    get: { model.shownDelay(.idleSeconds) }, set: { model.setIdleSeconds($0) }),
+                  in: PreferenceRules.idleSecondsRange, step: 1
+                )
+                .labelsHidden()
+                .controlSize(.small)
               }
             }
-            .pickerStyle(.menu)
-            .controlSize(.small)
-            .labelsHidden()
-            .fixedSize()
-          }
-          SettingsDivider()
-          PreferenceRow(.panelSound, model: model, problem: model.writeErrors[.panelSound]) {
-            HStack(spacing: 8) {
-              Picker(
-                PreferenceName.panelSound.title,
-                selection: Binding(get: { model.panelSound }, set: { model.setPanelSound($0) })
+            SettingsDivider()
+            PreferenceRow(
+              .graceSeconds, model: model, problem: model.durationProblem(.graceSeconds)
+            ) {
+              HStack(spacing: 6) {
+                DurationField(name: .graceSeconds, model: model)
+                Stepper(
+                  PreferenceName.graceSeconds.title,
+                  value: Binding(
+                    get: { model.shownDelay(.graceSeconds) }, set: { model.setGraceSeconds($0) }),
+                  in: PreferenceRules.graceSecondsRange, step: 1
+                )
+                .labelsHidden()
+                .controlSize(.small)
+              }
+            }
+            SettingsDivider()
+            PreferenceRow(.armDelay, model: model, problem: model.durationProblem(.armDelay)) {
+              DelaySlider(name: .armDelay, model: model, value: model.shownDelay(.armDelay)) {
+                model.setArmDelay($0)
+              }
+            }
+            SettingsDivider()
+            PreferenceRow(
+              .chainedArmDelay, model: model, problem: model.durationProblem(.chainedArmDelay)
+            ) {
+              DelaySlider(
+                name: .chainedArmDelay, model: model, value: model.shownDelay(.chainedArmDelay)
               ) {
-                ForEach(PanelSound.choices(installed: SystemSounds.installedNames), id: \.self) {
-                  name in
-                  Text(PanelSound.title(name)).tag(name)
+                model.setChainedArmDelay($0)
+              }
+            }
+            SettingsDivider()
+            PreferenceRow(
+              .approvalCardDelay, model: model,
+              problem: model.durationProblem(.approvalCardDelay)
+            ) {
+              DurationField(name: .approvalCardDelay, model: model)
+                .disabled(!model.showsApprovalCardDelay)
+            }
+          }
+          .disabled(model.configProblem != nil)
+        }
+        SettingsBlock("Interruptions") {
+          VStack(alignment: .leading, spacing: 0) {
+            HandoffAppsRow(model: model)
+            SettingsDivider()
+            PreferenceRow(.snoozeMinutes, model: model, problem: model.snoozeProblem) {
+              TextField(
+                "1, 5, 15, 30",
+                text: Binding(get: { model.snoozeText }, set: { model.setSnoozeText($0) })
+              )
+              .textFieldStyle(.roundedBorder)
+              .font(PanelTypography.body.monospacedDigit())
+              .frame(width: 150)
+              .focused($isSnoozeFieldFocused)
+              .onChange(of: isSnoozeFieldFocused) { _, focused in
+                model.setEditingSnoozeMinutes(focused)
+              }
+              .onSubmit { model.commitSnoozeMinutes() }
+              .onDisappear { model.setEditingSnoozeMinutes(false) }
+            }
+            SettingsDivider()
+            QuietHoursRow(model: model)
+            SettingsDivider()
+            PreferenceRow(.panelSound, model: model, problem: model.writeErrors[.panelSound]) {
+              HStack(spacing: 8) {
+                Picker(
+                  PreferenceName.panelSound.title,
+                  selection: Binding(get: { model.panelSound }, set: { model.setPanelSound($0) })
+                ) {
+                  ForEach(PanelSound.choices(installed: SystemSounds.installedNames), id: \.self) {
+                    name in
+                    Text(PanelSound.title(name)).tag(name)
+                  }
+                }
+                .pickerStyle(.menu)
+                .controlSize(.small)
+                .labelsHidden()
+                .fixedSize()
+                Button {
+                  SystemSounds.play(model.panelSound)
+                } label: {
+                  Image(systemName: "speaker.wave.2")
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+                .disabled(PanelSound.isSilent(model.panelSound))
+                .help("Play \(PanelSound.title(model.panelSound))")
+                .accessibilityLabel("Play \(PanelSound.title(model.panelSound))")
+              }
+            }
+          }
+          .disabled(model.configProblem != nil)
+        }
+        SettingsBlock("Corner cards") {
+          VStack(alignment: .leading, spacing: 0) {
+            WaitingNoticesRow(model: model)
+            SettingsDivider()
+            PreferenceRow(
+              .waitingNoticeDelay, model: model,
+              problem: model.durationProblem(.waitingNoticeDelay)
+            ) {
+              DurationField(name: .waitingNoticeDelay, model: model)
+                .disabled(!model.waitingNotices)
+            }
+            SettingsDivider()
+            PreferenceRow(
+              .waitingNoticeDuration, model: model,
+              problem: model.durationProblem(.waitingNoticeDuration)
+            ) {
+              DurationField(name: .waitingNoticeDuration, model: model)
+                .disabled(!model.waitingNotices)
+            }
+            SettingsDivider()
+            ApprovalCardRow(model: model)
+          }
+          .disabled(model.configProblem != nil)
+        }
+        SettingsBlock("Claude Code") {
+          VStack(alignment: .leading, spacing: 0) {
+            PreferenceRow(.questionNotes, model: model, problem: model.writeErrors[.questionNotes])
+            {
+              SettingsSwitch(
+                PreferenceName.questionNotes.title,
+                isOn: Binding(get: { model.questionNotes }, set: { model.setQuestionNotes($0) }))
+            }
+            SettingsDivider()
+            PreferenceRow(
+              .modeAfterPlan, model: model, problem: model.writeErrors[.modeAfterPlan]
+            ) {
+              Picker(
+                PreferenceName.modeAfterPlan.title,
+                selection: Binding(
+                  get: { model.modeAfterPlan }, set: { model.setModeAfterPlan($0) })
+              ) {
+                ForEach(PlanApprovalMode.allCases, id: \.self) { mode in
+                  Text(mode.title).tag(mode)
                 }
               }
               .pickerStyle(.menu)
               .controlSize(.small)
               .labelsHidden()
               .fixedSize()
-              Button {
-                SystemSounds.play(model.panelSound)
-              } label: {
-                Image(systemName: "speaker.wave.2")
-              }
-              .buttonStyle(.borderless)
-              .foregroundStyle(.secondary)
-              .disabled(PanelSound.isSilent(model.panelSound))
-              .help("Play \(PanelSound.title(model.panelSound))")
-              .accessibilityLabel("Play \(PanelSound.title(model.panelSound))")
             }
+            SettingsDivider()
+            ContextToggleRow(model: model)
           }
-          SettingsDivider()
-          WaitingNoticesRow(model: model)
-          SettingsDivider()
-          PreferenceRow(
-            .waitingNoticeDelay, model: model,
-            problem: model.durationProblem(.waitingNoticeDelay)
-          ) {
-            DurationField(name: .waitingNoticeDelay, model: model)
-              .disabled(!model.waitingNotices)
-          }
-          SettingsDivider()
-          PreferenceRow(
-            .waitingNoticeDuration, model: model,
-            problem: model.durationProblem(.waitingNoticeDuration)
-          ) {
-            DurationField(name: .waitingNoticeDuration, model: model)
-              .disabled(!model.waitingNotices)
-          }
-          SettingsDivider()
-          ApprovalCardRow(model: model)
-          SettingsDivider()
-          ContextToggleRow(model: model)
+          .disabled(model.configProblem != nil)
         }
-        .disabled(model.configProblem != nil)
-        SettingsDivider()
-        TestPanelRow(model: model)
-        SettingsDivider()
-        TestCardRow(model: model)
-        SettingsDivider()
+        SettingsBlock("Try it") {
+          TestPanelRow(model: model)
+          SettingsDivider()
+          TestCardRow(model: model)
+        }
         RestoreDefaultsRow(pane: .panels, model: model)
       }
     }
@@ -297,57 +309,63 @@ struct AppSection: View {
   var body: some View {
     SettingsSection(.app) {
       ConfigProblemMessage(model: model)
-      SettingsGroup {
-        LaunchAtLoginRow(model: model)
-        SettingsDivider()
-        VStack(alignment: .leading, spacing: 0) {
-          PreferenceRow(
-            .checkForUpdates, model: model, problem: model.writeErrors[.checkForUpdates]
-          ) {
-            SettingsSwitch(
-              PreferenceName.checkForUpdates.title,
-              isOn: Binding(
-                get: { model.checkForUpdates }, set: { model.setCheckForUpdates($0) }))
-          }
+      SettingsBlocks {
+        SettingsBlock("General") {
+          LaunchAtLoginRow(model: model)
           SettingsDivider()
-          PreferenceRow(.quitBehavior, model: model, problem: model.writeErrors[.quitBehavior]) {
-            Picker(
-              PreferenceName.quitBehavior.title,
-              selection: Binding(get: { model.quitBehavior }, set: { model.setQuitBehavior($0) })
+          VStack(alignment: .leading, spacing: 0) {
+            PreferenceRow(
+              .checkForUpdates, model: model, problem: model.writeErrors[.checkForUpdates]
             ) {
-              ForEach(QuitBehavior.allCases, id: \.self) { behavior in
-                Text(behavior.title).tag(behavior)
-              }
+              SettingsSwitch(
+                PreferenceName.checkForUpdates.title,
+                isOn: Binding(
+                  get: { model.checkForUpdates }, set: { model.setCheckForUpdates($0) }))
             }
-            .pickerStyle(.menu)
-            .controlSize(.small)
-            .labelsHidden()
-            .fixedSize()
-          }
-          SettingsDivider()
-          PreferenceRow(.appearance, model: model, problem: model.writeErrors[.appearance]) {
-            Picker(
-              PreferenceName.appearance.title,
-              selection: Binding(get: { model.appearance }, set: { model.setAppearance($0) })
-            ) {
-              ForEach(AppearanceChoice.allCases, id: \.self) { appearance in
-                Text(appearance.title).tag(appearance)
+            SettingsDivider()
+            PreferenceRow(.quitBehavior, model: model, problem: model.writeErrors[.quitBehavior]) {
+              Picker(
+                PreferenceName.quitBehavior.title,
+                selection: Binding(get: { model.quitBehavior }, set: { model.setQuitBehavior($0) })
+              ) {
+                ForEach(QuitBehavior.allCases, id: \.self) { behavior in
+                  Text(behavior.title).tag(behavior)
+                }
               }
+              .pickerStyle(.menu)
+              .controlSize(.small)
+              .labelsHidden()
+              .fixedSize()
             }
-            .pickerStyle(.segmented)
-            .controlSize(.small)
-            .labelsHidden()
-            .fixedSize()
           }
-          SettingsDivider()
-          AccentColorRow(model: model)
+          .disabled(model.configProblem != nil)
         }
-        .disabled(model.configProblem != nil)
+        SettingsBlock("Appearance") {
+          VStack(alignment: .leading, spacing: 0) {
+            PreferenceRow(.appearance, model: model, problem: model.writeErrors[.appearance]) {
+              Picker(
+                PreferenceName.appearance.title,
+                selection: Binding(get: { model.appearance }, set: { model.setAppearance($0) })
+              ) {
+                ForEach(AppearanceChoice.allCases, id: \.self) { appearance in
+                  Text(appearance.title).tag(appearance)
+                }
+              }
+              .pickerStyle(.segmented)
+              .controlSize(.small)
+              .labelsHidden()
+              .fixedSize()
+            }
+            SettingsDivider()
+            AccentColorRow(model: model)
+          }
+          .disabled(model.configProblem != nil)
+        }
         if model.appLinkOffer != nil || model.appLinkMessage != nil {
-          SettingsDivider()
-          AppLinkRow(model: model)
+          SettingsBlock("Install") {
+            AppLinkRow(model: model)
+          }
         }
-        SettingsDivider()
         AppFooterRow(model: model)
       }
     }
@@ -664,8 +682,6 @@ struct RestoreDefaultsRow: View {
       Spacer(minLength: 0)
       RestoreDefaultsButton(pane: pane, model: model)
     }
-    .padding(.horizontal, SettingsMetrics.rowPadding)
-    .padding(.vertical, 11)
   }
 }
 
@@ -679,8 +695,6 @@ private struct AppFooterRow: View {
       Spacer(minLength: 8)
       RestoreDefaultsButton(pane: .app, model: model)
     }
-    .padding(.horizontal, SettingsMetrics.rowPadding)
-    .padding(.vertical, 11)
   }
 }
 
