@@ -55,6 +55,8 @@ private final class WaitingNoticeWatch: NSObject {
   private var lastAgentAppFrontmostAt: Date?
   private var loggedHold: WaitingNoticeHold?
   private var isLeaving = false
+  private var configReload: ConfigReload
+  private var noticesOn: Bool
   private var timer: Timer?
   private var screenObserver: (any NSObjectProtocol)?
 
@@ -75,6 +77,10 @@ private final class WaitingNoticeWatch: NSObject {
       paths: paths, schedule: QuietSchedule(windows: settings.quietHours))
     self.queue = TicketQueue(directory: paths.queueDirectory, lockFile: paths.displayLockFile)
     self.transcript = TranscriptWatch(record: record)
+    self.noticesOn = settings.waitingNotices
+    var configReload = ConfigReload(paths: paths, soundNames: SystemSounds.installedNames)
+    _ = configReload.changedFile()
+    self.configReload = configReload
     super.init()
   }
 
@@ -103,9 +109,15 @@ private final class WaitingNoticeWatch: NSObject {
     if current.recordedAt != record.recordedAt {
       startOver(with: current)
     }
+    followNoticeSwitch()
     let now = Date()
     visibleTime.advance(to: now, counting: card != nil && !isHovered)
     apply(WaitingNoticeClock.decide(sample(now: now)))
+  }
+
+  private func followNoticeSwitch() {
+    guard let file = configReload.changedFile() else { return }
+    noticesOn = Settings.resolve(file: file, host: record.host).waitingNotices
   }
 
   private func sample(now: Date) -> WaitingNoticeSample {
@@ -122,7 +134,8 @@ private final class WaitingNoticeWatch: NSObject {
       lastAgentAppFrontmostAt: lastAgentAppFrontmostAt,
       sessionHasLiveTicket: sessionHasLiveTicket(among: liveTickets),
       panelOnScreen: isPanelOnScreen(among: liveTickets),
-      approvalWaiting: store.liveApprovalClaim() != nil, resumed: transcript.resumed(now: now))
+      approvalWaiting: store.liveApprovalClaim() != nil, resumed: transcript.resumed(now: now),
+      noticesOn: noticesOn)
   }
 
   private func apply(_ step: WaitingNoticeStep) {

@@ -124,6 +124,8 @@ frontmost, when it last was, whether a live ticket belongs to the session, wheth
 panel is on screen, whether an approval card is waiting for a slot, and whether the transcript
 shows a resume. The rules, in order:
 
+0. notices are turned off: close, `notices turned off`, shown or not, see "Following the switch"
+   below;
 1. the agent process is gone: close, `agent exited`;
 2. the record is older than 12 hours: close, `expired`;
 3. the agent resumed: close, `resumed`;
@@ -156,6 +158,19 @@ next to a test panel. Notices hide while it is up and come back on their next ti
 because they are due by then. A panel that steps aside unanswered brings back its approval card
 first if the person is still working (see "The approval card" in [panel.md](panel.md)), or the
 panel itself once they pause.
+
+### Following the switch
+
+A notice process lives for as long as the agent waits, so the `waitingNotices` it resolved at start
+can be stale: the person may turn notices off while it waits out its delay (seen live: the notice
+still showed after the switch). Each tick the watch asks `ConfigReload` whether `config.json`
+changed and, when it did, resolves `waitingNotices` again for the record's agent. `ConfigReload`
+compares the file's bytes with the last read, not its modification time, so two saves within one
+timestamp tick are both seen, and a missing file is its own state, so deleting the file counts as
+a change. Once notices are off the clock returns `close(.turnedOff)` before every other rule and
+the close goes through `close(_:)` like the rest. Only this setting is live: the delay, the
+duration, the quiet hours and the appearance stay as they were when the notice started, because
+changing them under a card already waiting would move a target the person is watching.
 
 ### Closing by itself
 
@@ -337,7 +352,8 @@ Names only, never message text:
 - `notice: held (paused|quiet|panel on screen|in the agent's app|panel open|approval waiting)`,
   only when the reason changes;
 - `notice: hidden (paused|quiet|panel on screen|approval waiting)`;
-- `notice: closed (resumed|go there|dismissed|agent exited|expired|in the agent's app|working again)`;
+- `notice: closed (resumed|go there|dismissed|agent exited|expired|in the agent's app|`
+  `notices turned off|working again)`;
 - `waiting: <host> <project> working again` when a Countersign hook deleted the session's record.
 
 ## Snapshots

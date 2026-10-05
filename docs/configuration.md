@@ -166,8 +166,9 @@ keys below.
   waiting for you", once an agent has finished a turn and waited for you. `true` unless you change
   it. While it is on, `countersign setup` and Update in Settings ▸ Agents add Countersign's `Stop`
   hook next to the permission hook in each agent's hook file (Claude Code, Codex, Cursor and
-  Antigravity), in the same diff. Turn it off from Settings, not by editing the file: that removes
-  those hooks, after showing you the change, and writes `false`, and setup then leaves them out.
+  Antigravity), in the same diff. Turning it off also closes a notice that is already waiting.
+  Turn it off from Settings, not by editing the file: that removes those hooks, after showing you
+  the change, and writes `false`, and setup then leaves them out.
   Codex asks you to trust its new hook once; see
   [agents.md](agents.md#the-waiting-agent-notice). At most two corner cards show at once; a
   third notice waits for room. Notices hide while any Countersign panel is on screen, a test panel
@@ -277,7 +278,9 @@ profile. If you set `XDG_CONFIG_HOME` only there, its Settings window edits
   request also waits in the chat, where you can answer it while you work. Set it at the top level
   for every agent, or per agent under `hosts.<agent>`, which wins: for example
   `"hosts": { "claude": { "approvalCard": true } }` turns it on for Claude Code alone. A value
-  that isn't `true` or `false` logs one line and the agent's default applies.
+  that isn't `true` or `false` logs one line and the agent's default applies. Turning it off, and
+  changing `approvalCardDelay`, also applies to a request that is already waiting: a card that is up
+  closes.
 - **`approvalCardDelay`** (default `5`): how long a request waits for a pause before its
   card appears, from `1` second to `10` minutes: a number of seconds or a string with a unit, such
   as `"1.5s"` or `"2m"`. Counted from when the request's turn comes and it

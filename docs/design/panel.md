@@ -551,9 +551,16 @@ counts from the end of quiet time. A card closed this way may show again after i
 (`ApprovalCardStage.afterQuietTime` turns `shown` back into `notShown`), because the person never
 got to act on it and the request is still waiting; a dismissed card stays dismissed. Log lines:
 `approval card: shown`, `approval card: show`, `approval card: dismissed`,
-`approval card: closed for quiet time`, `approval card: waiting for a slot`, and
+`approval card: closed for quiet time`, `approval card: closed (cards turned off)`,
+`approval card: waiting for a slot`, and
 `approval card: failed to claim a slot: <error>` when the claim file cannot be written (the card
 then waits for a free slot without priority).
+
+The card follows its switch while the request waits. Each tick the hook asks `ConfigReload` (bytes
+compared, see "Following the switch" in [notice.md](notice.md)) whether `config.json` changed and,
+when it did, resolves `approvalCard` and `approvalCardDelay` again for its agent. A card that is up
+when the switch turns off closes and the stage goes back to `notShown`, so turning cards on again
+can show it; nothing else the hook resolved at start is re-read.
 
 The card is per agent (`approvalCard` and `approvalCardDelay`, top level and under
 `hosts.<agent>`, see [configuration.md](../configuration.md)) because the hosts differ in what a

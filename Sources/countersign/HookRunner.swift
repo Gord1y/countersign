@@ -432,6 +432,9 @@ private final class DisplayWatch: NSObject {
   private let activityGate: ActivityGate
   private let quietState: QuietState
   private let settings: Settings
+  private var configReload: ConfigReload
+  private var approvalCardEnabled: Bool
+  private var approvalCardDelaySeconds: Double
   private let systemActivity = SystemActivity()
   private let abandonReason: () -> String?
   private let handBackIsDue: () -> Bool
@@ -490,6 +493,11 @@ private final class DisplayWatch: NSObject {
     self.activityGate = activityGate
     self.quietState = quietState
     self.settings = settings
+    self.approvalCardEnabled = settings.approvalCard
+    self.approvalCardDelaySeconds = settings.approvalCardDelay
+    var configReload = ConfigReload(paths: paths, soundNames: SystemSounds.installedNames)
+    _ = configReload.changedFile()
+    self.configReload = configReload
     self.subagentChain = subagentChain
     self.lastWaitingEntries = waitingEntries
     self.sessionsDirectory = sessionsDirectory
@@ -527,6 +535,7 @@ private final class DisplayWatch: NSObject {
       yieldToAnotherRequest()
     }
     takeMenuAnswer()
+    followApprovalCardSwitch()
 
     switch state {
     case .queued:
@@ -604,10 +613,21 @@ private final class DisplayWatch: NSObject {
     log.write("waiting for idle")
   }
 
+  private func followApprovalCardSwitch() {
+    guard let file = configReload.changedFile() else { return }
+    let latest = Settings.resolve(file: file, host: host)
+    approvalCardEnabled = latest.approvalCard
+    approvalCardDelaySeconds = latest.approvalCardDelay
+    guard !approvalCardEnabled, approvalCard != nil else { return }
+    closeApprovalCard()
+    approvalCardStage = .notShown
+    log.write("approval card: closed (cards turned off)")
+  }
+
   private func showApprovalCardIfDue(quiet: Bool) {
     guard
       ApprovalCardTiming.shouldShow(
-        enabled: settings.approvalCard, mode: mode,
+        enabled: approvalCardEnabled, mode: mode,
         secondsWaiting: ProcessInfo.processInfo.systemUptime - waitingForIdleSince,
         delay: approvalCardDelay(), quiet: quiet, paused: isPaused(), stage: approvalCardStage)
     else { return }
@@ -634,7 +654,7 @@ private final class DisplayWatch: NSObject {
       return 0
     }
     return ApprovalCardTiming.delay(
-      afterStepAside: waitFollowsStepAside, configured: settings.approvalCardDelay)
+      afterStepAside: waitFollowsStepAside, configured: approvalCardDelaySeconds)
   }
 
   private func claimApprovalSlot() {

@@ -17,6 +17,7 @@ public enum WaitingNoticeClose: String, Sendable, Equatable {
   case expired
   case inAgentApp = "in the agent's app"
   case shownLongEnough = "shown long enough"
+  case turnedOff = "notices turned off"
 }
 
 public enum WaitingNoticeStep: Sendable, Equatable {
@@ -43,13 +44,14 @@ public struct WaitingNoticeSample: Sendable, Equatable {
   public var panelOnScreen: Bool
   public var approvalWaiting: Bool
   public var resumed: Bool
+  public var noticesOn: Bool
 
   public init(
     now: Date, recordedAt: Date, delay: TimeInterval, visibleFor: TimeInterval,
     duration: TimeInterval, isShown: Bool, slot: Int?,
     agentAlive: Bool, paused: Bool, quiet: Bool, agentAppFrontmost: Bool,
     lastAgentAppFrontmostAt: Date?, sessionHasLiveTicket: Bool, panelOnScreen: Bool,
-    approvalWaiting: Bool, resumed: Bool
+    approvalWaiting: Bool, resumed: Bool, noticesOn: Bool = true
   ) {
     self.now = now
     self.recordedAt = recordedAt
@@ -67,6 +69,7 @@ public struct WaitingNoticeSample: Sendable, Equatable {
     self.panelOnScreen = panelOnScreen
     self.approvalWaiting = approvalWaiting
     self.resumed = resumed
+    self.noticesOn = noticesOn
   }
 }
 
@@ -74,6 +77,7 @@ public enum WaitingNoticeClock {
   public static let maximumAge: TimeInterval = 12 * 60 * 60
 
   public static func decide(_ sample: WaitingNoticeSample) -> WaitingNoticeStep {
+    guard sample.noticesOn else { return .close(.turnedOff) }
     guard sample.agentAlive else { return .close(.agentExited) }
     guard sample.now.timeIntervalSince(sample.recordedAt) <= maximumAge else {
       return .close(.expired)

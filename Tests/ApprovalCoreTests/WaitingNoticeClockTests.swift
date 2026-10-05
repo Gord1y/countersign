@@ -15,7 +15,7 @@ import Testing
     agentAlive: Bool = true, paused: Bool = false, quiet: Bool = false,
     agentAppFrontmost: Bool = false, lastAgentAppFrontmostAfter: TimeInterval? = nil,
     sessionHasLiveTicket: Bool = false, panelOnScreen: Bool = false,
-    approvalWaiting: Bool = false, resumed: Bool = false
+    approvalWaiting: Bool = false, resumed: Bool = false, noticesOn: Bool = true
   ) -> WaitingNoticeSample {
     WaitingNoticeSample(
       now: recordedAt.addingTimeInterval(seconds), recordedAt: recordedAt, delay: delay,
@@ -24,7 +24,17 @@ import Testing
       agentAppFrontmost: agentAppFrontmost,
       lastAgentAppFrontmostAt: lastAgentAppFrontmostAfter.map { recordedAt.addingTimeInterval($0) },
       sessionHasLiveTicket: sessionHasLiveTicket, panelOnScreen: panelOnScreen,
-      approvalWaiting: approvalWaiting, resumed: resumed)
+      approvalWaiting: approvalWaiting, resumed: resumed,
+      noticesOn: noticesOn)
+  }
+
+  @Test func turningNoticesOffClosesADueAndAShownNotice() {
+    #expect(
+      WaitingNoticeClock.decide(sample(after: 120, noticesOn: false)) == .close(.turnedOff))
+    #expect(
+      WaitingNoticeClock.decide(sample(after: 300, visibleFor: 2, isShown: true, noticesOn: false))
+        == .close(.turnedOff))
+    #expect(WaitingNoticeClock.decide(sample(after: 120, noticesOn: true)) == .show)
   }
 
   @Test func showsOnceTheDelayHasPassed() {
