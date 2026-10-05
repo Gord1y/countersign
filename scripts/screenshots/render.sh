@@ -6,7 +6,9 @@ root=$(cd "$here/../.." && pwd -P)
 demo="$here/demo"
 out=${1:-"$root/.build/screenshots"}
 countersign="$root/.build/debug/countersign"
-settings_readme_crop_height=1432
+settings_readme_crop_height=1210
+settings_rules_readme_crop_height=1490
+card_tile_width=1200
 
 swift build --package-path "$root" --quiet
 mkdir -p "$out"
@@ -64,6 +66,30 @@ for appearance in light dark; do
   echo "$readme_png"
 done
 
+for appearance in light dark; do
+  for level in soft status insist; do
+    png="$out/context-$level-$appearance.png"
+    "$countersign" snapshot --test-panel context --checkpoint-level "$level" \
+      --appearance "$appearance" -o "$png"
+    echo "$png"
+  done
+  png="$out/settings-rules-$appearance.png"
+  "$countersign" snapshot --settings --home "$demo_home" --status active --tab rules \
+    --appearance "$appearance" -o "$png"
+  echo "$png"
+  readme_png="$out/settings-rules-$appearance-readme.png"
+  swift "$here/crop-top.swift" "$png" "$settings_rules_readme_crop_height" "$readme_png"
+  echo "$readme_png"
+  png="$out/notice-$appearance.png"
+  "$countersign" snapshot --waiting-notice codex --project shop-api \
+    --appearance "$appearance" -o "$png"
+  echo "$png"
+  png="$out/approval-card-$appearance.png"
+  "$countersign" snapshot --approval-card cursor --project shop-api \
+    --appearance "$appearance" -o "$png"
+  echo "$png"
+done
+
 for pair in \
   "edit:claude-edit-dark" \
   "command:claude-command-dark" \
@@ -71,13 +97,25 @@ for pair in \
   "plan:claude-plan-dark" \
   "codex:codex-patch-dark" \
   "cursor:cursor-command-dark" \
-  "antigravity:antigravity-command-dark"; do
+  "antigravity:antigravity-command-dark" \
+  "checkpoint:context-insist-dark" \
+  "rules:settings-rules-dark-readme"; do
   name=${pair%%:*}
   source=${pair#*:}
   tile="$out/tile-$name.jpg"
   swift "$here/compose-tile.swift" "$out/$source.png" "$tile"
   echo "$tile"
 done
+
+for card in notice approval-card; do
+  sips --resampleWidth "$card_tile_width" "$out/$card-dark.png" --out "$work/$card-large.png" \
+    >/dev/null
+done
+swift "$here/compose-stack.swift" "$work/notice-large.png" "$work/approval-card-large.png" \
+  "$work/cards-stack.png"
+cards_tile="$out/tile-cards.jpg"
+swift "$here/compose-tile.swift" "$work/cards-stack.png" "$cards_tile"
+echo "$cards_tile"
 
 settings_tile="$out/tile-settings.jpg"
 swift "$here/compose-tile.swift" "$out/settings-dark-readme.png" "$settings_tile"

@@ -106,6 +106,22 @@ writes and sends: [Safety and privacy](docs/safety-and-privacy.md).
       <b>Settings, no terminal needed.</b> Wire, update or remove hooks, tune panels, see the status.
     </td>
   </tr>
+  <tr>
+    <td>
+      <img width="100%" src="docs/images/tile-rules.jpg" alt="Settings ▸ Rules with allow and deny rules and one-click suggestions"><br>
+      <b>Allow and deny rules.</b> Routine requests answered before any panel, with one-click suggestions.
+    </td>
+    <td>
+      <img width="100%" src="docs/images/tile-checkpoint.jpg" alt="A context checkpoint panel with Continue, Compact after this step, Hand off &amp; start fresh and Not this session"><br>
+      <b>Context checkpoints.</b> Compact or hand off before a Claude Code session runs long.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img width="100%" src="docs/images/tile-cards.jpg" alt="Two corner cards: Codex is waiting for you, with Go there, and Cursor needs your approval, with Show"><br>
+      <b>Corner cards.</b> A notice when an agent is waiting, and a card when an approval is stuck behind your typing.
+    </td>
+  </tr>
 </table>
 
 ## Features

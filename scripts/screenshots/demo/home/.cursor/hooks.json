@@ -12,6 +12,12 @@
         "command": "{{EXECUTABLE}} hook --host cursor",
         "timeout": 3600
       }
+    ],
+    "stop": [
+      {
+        "command": "{{EXECUTABLE}} hook --host cursor --event waiting",
+        "timeout": 30
+      }
     ]
   }
 }
