@@ -84,8 +84,10 @@ or config file's content, only paths and our own hook entry's command.
    name **`claude context`** cover the `hooks.UserPromptSubmit` entry that Context checkpoints
    need (see "The Context checkpoints entry" in [setup.md](setup.md)). They depend on
    `Doctor.Input.contextCheckpointsEnabled`, which the caller fills from `config.json`:
-   - enabled and no entry of ours: `warn`, since the feature is on and nothing calls the hook;
-     turning Context checkpoints off and on again in `countersign settings` adds the entry.
+   - enabled (the default) and no entry of ours: `warn`, since the feature is on and nothing calls
+     the hook; `countersign setup`, or Update in Settings ▸ Agents, adds the entry. The line reads
+     "context checkpoints are on, but <file> has no UserPromptSubmit entry of Countersign's; run
+     countersign setup, or choose Update in Settings ▸ Agents".
    - disabled and an entry of ours present: `warn`; turning Context checkpoints off in
      `countersign settings` removes it.
    - an entry whose `async` is not `true`: `warn`, because without `async` every prompt waits for

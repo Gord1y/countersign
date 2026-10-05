@@ -224,7 +224,7 @@ public struct PreferenceValues: Sendable, Equatable {
     case .accentColor: values.accentColor = Settings.defaultAccentColor
     case .editorApp: values.editorApp = nil
     case .contextCheckpointsEnabled:
-      values.contextCheckpoints.enabled = ContextCheckpointSettings.default.enabled
+      values.contextCheckpoints.enabled = ContextCheckpointSettings.defaultEnabled
     case .contextMode: values.contextCheckpoints.mode = ContextCheckpointSettings.defaultMode
     case .contextStandardThresholds:
       values.contextCheckpoints.standardThresholds =

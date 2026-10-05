@@ -27,7 +27,7 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "Whether Countersign adds context checkpoint notes to a Claude Code session as its context grows."
         },
         "mode": {
@@ -566,7 +566,7 @@
     },
     "contextCheckpoints": {
       "$ref": "#/$defs/contextCheckpoints",
-      "description": "Optional notes that ask Claude Code to wrap up, compact or hand off as its context grows; off by default, Claude Code only."
+      "description": "Optional notes that ask Claude Code to wrap up, compact or hand off as its context grows; on by default, Claude Code only."
     },
     "hosts": {
       "type": "object",

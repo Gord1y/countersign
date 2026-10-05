@@ -40,9 +40,9 @@ How each answer plays out, agent by agent, is in [agents.md](agents.md); the des
 - Claude Code's session registry and the session's transcript, to notice that you answered a
   request in the chat, and the subagent files Claude Code keeps next to that transcript, to show
   which subagent asked.
-- With context checkpoints on, the tail of the session transcript Claude Code names in the hook
-  input, for the token counts, the model name and compaction markers only. Message text is not
-  used.
+- With context checkpoints on (the default for Claude Code), the tail of the session transcript
+  Claude Code names in the hook input, for the token counts, the model name and compaction
+  markers only. Message text is not used.
 - With waiting-agent notices on, the growth of the session's transcript, to tell when the agent
   works again (see [below](#what-it-writes)). Message text is not used.
 - The chain of parent processes, to tell which app a request came from.

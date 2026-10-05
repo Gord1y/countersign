@@ -39,12 +39,12 @@ private func antigravityHook(_ command: String, matcher: String = "*", timeout: 
 
 private func status(
   _ text: String?, host: ApprovalCore.Host = .claude, directoryExists: Bool = true,
-  stable: String = stablePath, addsWaitingEntry: Bool = false
+  stable: String = stablePath, addsWaitingEntry: Bool = false, addsContextEntry: Bool = false
 ) -> HostWiringStatus {
   let file: Doctor.FileState = text.map { .bytes(Array($0.utf8)) } ?? .missing
   return HostWiring.status(
     host: host, directoryExists: directoryExists, file: file, stablePath: stable,
-    addsWaitingEntry: addsWaitingEntry)
+    addsWaitingEntry: addsWaitingEntry, addsContextEntry: addsContextEntry)
 }
 
 @Suite struct HostWiringTests {
@@ -93,6 +93,38 @@ private func status(
     #expect(
       HostWiring.detail(for: waiting, host: .claude)
         == "Adds the Stop entry for waiting-agent notices")
+  }
+
+  @Test func needsAnUpdateWhenCheckpointsAreOnAndTheContextEntryIsMissing() {
+    let command = "\(stablePath) hook --host claude"
+    let permission = entry(command)
+    let withWaiting = String(
+      decoding: (try? HookSetup.install(
+        into: Array(permission.utf8), host: .claude, executablePath: stablePath,
+        addsWaitingEntry: true)) ?? [], as: UTF8.self)
+    let context = HostWiringStatus.needsUpdate(
+      HostWiringUpdate(otherExecutablePaths: [], addsContextEntry: true))
+    #expect(status(permission, addsContextEntry: true) == context)
+    #expect(status(permission, addsContextEntry: false) == .wired)
+    let both = HostWiringStatus.needsUpdate(
+      HostWiringUpdate(otherExecutablePaths: [], addsWaitingEntry: true, addsContextEntry: true))
+    #expect(status(permission, addsWaitingEntry: true, addsContextEntry: true) == both)
+    #expect(
+      HostWiring.detail(for: both, host: .claude)
+        == "Adds the Stop entry for waiting-agent notices; adds the UserPromptSubmit entry for context checkpoints"
+    )
+    #expect(
+      HostWiring.detail(for: context, host: .claude)
+        == "Adds the UserPromptSubmit entry for context checkpoints")
+    #expect(withWaiting.contains("Stop"))
+    #expect(
+      status(withWaiting, addsWaitingEntry: true, addsContextEntry: true)
+        == .needsUpdate(HostWiringUpdate(otherExecutablePaths: [], addsContextEntry: true)))
+    #expect(status(withWaiting, addsWaitingEntry: true, addsContextEntry: false) == .wired)
+    #expect(
+      status(
+        entry("\(stablePath) hook --host codex", codex: true), host: .codex,
+        addsContextEntry: true) == .wired)
   }
 
   @Test func staysWiredWhenNoticesAreOffAndTheStopEntryIsMissing() {

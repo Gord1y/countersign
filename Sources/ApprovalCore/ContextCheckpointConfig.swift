@@ -114,9 +114,10 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
   public static let defaultRearmBelow: Double = 0.6
   public static let defaultHandoffFile = "notes/handoff.md"
   public static let defaultMode = ContextCheckpointMode.panel
+  public static let defaultEnabled = true
 
   public static let `default` = ContextCheckpointSettings(
-    enabled: false,
+    enabled: defaultEnabled,
     mode: defaultMode,
     standardThresholds: defaultStandardThresholds,
     millionThresholds: defaultMillionThresholds,
@@ -148,11 +149,17 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
     self.menuBarMeter = menuBarMeter
   }
 
+  public static var off: ContextCheckpointSettings {
+    var settings = ContextCheckpointSettings.default
+    settings.enabled = false
+    return settings
+  }
+
   public static func resolve(
     top: ContextCheckpointFileValues?, host hostValues: ContextCheckpointFileValues?,
     for host: Host
   ) -> ContextCheckpointSettings {
-    guard host == .claude else { return .default }
+    guard host == .claude else { return .off }
 
     func note(_ name: String) -> String {
       hostValues?.notes[name] ?? top?.notes[name]
@@ -160,7 +167,7 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
     }
 
     return ContextCheckpointSettings(
-      enabled: hostValues?.enabled ?? top?.enabled ?? false,
+      enabled: hostValues?.enabled ?? top?.enabled ?? defaultEnabled,
       mode: hostValues?.mode ?? top?.mode ?? defaultMode,
       standardThresholds: hostValues?.standardThresholds ?? top?.standardThresholds
         ?? defaultStandardThresholds,

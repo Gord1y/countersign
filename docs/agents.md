@@ -64,9 +64,9 @@ release changes them, the panel still works but stays up until you close it. Det
 
 ### Context checkpoints
 
-Off by default; turn it on in Settings ▸ Panels ▸ Context checkpoints (Claude Code). Countersign
-reads the session's transcript on each prompt, estimates the context size, and at three
-checkpoints shows a panel, or in silent mode adds a note without one. Thresholds, silent mode and
+On by default for Claude Code; turn it off in Settings ▸ Panels ▸ Context checkpoints.
+Countersign reads the session's transcript on each prompt, estimates the context size, and at
+three checkpoints shows a panel, or in silent mode adds a note without one. Thresholds, silent mode and
 the rest are in [configuration.md](configuration.md#context-checkpoints-claude-code); how the size
 is measured is in [design/checkpoints.md](design/checkpoints.md).
 

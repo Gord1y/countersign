@@ -51,10 +51,10 @@ import Testing
         .contextModelThresholds, in: file(ContextCheckpointFileValues(modelThresholds: [:]))))
     #expect(
       PreferenceReset.isChanged(
-        .contextCheckpointsEnabled, in: file(ContextCheckpointFileValues(enabled: true))))
+        .contextCheckpointsEnabled, in: file(ContextCheckpointFileValues(enabled: false))))
     #expect(
       !PreferenceReset.isChanged(
-        .contextCheckpointsEnabled, in: file(ContextCheckpointFileValues(enabled: false))))
+        .contextCheckpointsEnabled, in: file(ContextCheckpointFileValues(enabled: true))))
     #expect(
       PreferenceReset.isChanged(
         .contextMode, in: file(ContextCheckpointFileValues(mode: .silent))))
@@ -86,7 +86,7 @@ import Testing
 
   @Test func writesContextValueTextSamples() {
     var values = PreferenceValues()
-    #expect(PreferenceReset.valueText(.contextCheckpointsEnabled, in: values) == "Off")
+    #expect(PreferenceReset.valueText(.contextCheckpointsEnabled, in: values) == "On")
     #expect(PreferenceReset.valueText(.contextMode, in: values) == "Panel")
     #expect(PreferenceReset.valueText(.contextStandardThresholds, in: values) == "100K, 130K, 160K")
     #expect(PreferenceReset.valueText(.contextMillionThresholds, in: values) == "200K, 300K, 400K")

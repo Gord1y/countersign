@@ -326,7 +326,7 @@ extension PreferenceName {
     case .appearance: return Settings.defaultAppearance.title
     case .accentColor: return AccentPreset.name(of: Settings.defaultAccentColor)
     case .editorApp: return "Ask every time"
-    case .contextCheckpointsEnabled: return Self.boolText(ContextCheckpointSettings.default.enabled)
+    case .contextCheckpointsEnabled: return Self.boolText(ContextCheckpointSettings.defaultEnabled)
     case .contextMode: return ContextCheckpointSettings.defaultMode.rawValue.capitalized
     case .contextStandardThresholds:
       return PreferenceReset.ladderText(ContextCheckpointSettings.defaultStandardThresholds)

@@ -5,11 +5,13 @@ public struct HostWiringUpdate: Sendable, Equatable {
   public let otherArguments: [String]
   public let missingEvents: [String]
   public let addsWaitingEntry: Bool
+  public let addsContextEntry: Bool
 
   public init(
     otherExecutablePaths: [String], otherArguments: [String] = [], missingEvents: [String] = [],
-    addsWaitingEntry: Bool = false
+    addsWaitingEntry: Bool = false, addsContextEntry: Bool = false
   ) {
+    self.addsContextEntry = addsContextEntry
     self.otherExecutablePaths = otherExecutablePaths
     self.otherArguments = otherArguments
     self.missingEvents = missingEvents
@@ -46,7 +48,7 @@ public enum HostWiringAction: Sendable, Equatable {
 public enum HostWiring {
   public static func status(
     host: Host, directoryExists: Bool, file: Doctor.FileState, stablePath: String,
-    addsWaitingEntry: Bool
+    addsWaitingEntry: Bool, addsContextEntry: Bool = false
   ) -> HostWiringStatus {
     guard directoryExists else { return .notInstalled }
     let bytes: [UInt8]
@@ -64,7 +66,8 @@ public enum HostWiring {
     do {
       root = try JSONSpanReader.parse(bytes)
       installed = try HookSetup.install(
-        into: bytes, host: host, executablePath: stablePath, addsWaitingEntry: addsWaitingEntry)
+        into: bytes, host: host, executablePath: stablePath, addsWaitingEntry: addsWaitingEntry,
+        addsContextEntry: addsContextEntry)
     } catch {
       return .unusable(SetupRun.describe(error))
     }
@@ -86,10 +89,13 @@ public enum HostWiring {
     let missing = host == .cursor ? CursorHookSetup.missingEvents(in: root) : []
     let missingWaitingEntry =
       addsWaitingEntry && WaitingHookSetup.hookNodes(in: root, host: host).isEmpty
+    let missingContextEntry =
+      host == .claude && addsContextEntry
+      && HookSetup.sites(in: root, event: ContextHookSetup.eventName).isEmpty
     return .needsUpdate(
       HostWiringUpdate(
         otherExecutablePaths: otherPaths, otherArguments: otherArguments, missingEvents: missing,
-        addsWaitingEntry: missingWaitingEntry))
+        addsWaitingEntry: missingWaitingEntry, addsContextEntry: missingContextEntry))
   }
 
   public static func action(for status: HostWiringStatus) -> HostWiringAction? {
@@ -128,6 +134,9 @@ public enum HostWiring {
       }
       if update.addsWaitingEntry {
         parts.append("adds the Stop entry for waiting-agent notices")
+      }
+      if update.addsContextEntry {
+        parts.append("adds the UserPromptSubmit entry for context checkpoints")
       }
       if parts.isEmpty {
         switch host {

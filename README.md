@@ -156,9 +156,10 @@ writes and sends: [Safety and privacy](docs/safety-and-privacy.md).
   [the menu-bar app](docs/menu-bar-app.md#pause-snooze-and-pending-requests).
 - **Accessible.** Panels announce themselves to VoiceOver, read shortcuts and diff lines aloud, and
   honour Reduce Motion and Increase Contrast; see [design/panel.md](docs/design/panel.md#accessibility).
-- **Context checkpoints (optional, Claude Code).** Turn it on and Countersign asks, at three
+- **Context checkpoints (Claude Code).** Countersign asks, at three
   context sizes, whether to compact or hand off before your session gets too long, without ever
-  making a prompt wait. Off by default; see [Context checkpoints](docs/configuration.md#context-checkpoints-claude-code).
+  making a prompt wait. On by default; turn it off in Settings ▸ Panels; see
+  [Context checkpoints](docs/configuration.md#context-checkpoints-claude-code).
 - **Fails safe.** Any error, timeout or crash means "no decision": the agent falls back to its own
   prompt, and Cursor and Antigravity carry on as they would without Countersign.
 - **Cursor too.** Shell commands Cursor runs outside its sandbox, and every MCP tool call, get the

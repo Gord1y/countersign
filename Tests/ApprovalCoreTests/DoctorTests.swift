@@ -774,7 +774,7 @@ private func promptHook(
         DoctorLine(
           status: .warn, check: "claude context",
           detail:
-            "context checkpoints are on in config.json, but \(claudeFilePath) has no UserPromptSubmit entry of Countersign's; turn Context checkpoints off and on again in countersign settings"
+            "context checkpoints are on, but \(claudeFilePath) has no UserPromptSubmit entry of Countersign's; run countersign setup, or choose Update in Settings ▸ Agents"
         )
       ])
   }

@@ -3,6 +3,15 @@
 How Countersign measures a Claude Code session's context and nudges it toward a deliberate
 compaction; read it before changing anything named `Context…`.
 
+## On by default, Claude Code only
+
+`ContextCheckpointSettings.defaultEnabled` is `true`, and `.default` carries it. Every host but
+Claude Code resolves to `.off`, `.default` with `enabled` false, so Codex, Cursor and Antigravity
+never get checkpoints. The hook is the `UserPromptSubmit` entry in Claude Code's settings file:
+setup and Update add it while checkpoints are on (`addsContextEntry`, see "The context entry
+follows the setting" in [setup.md](setup.md)), and the Settings toggle adds and removes it
+(`ContextHookRun`).
+
 ## Measuring context
 
 `ContextUsageReader` reads the session transcript, an undocumented file, so every failure means

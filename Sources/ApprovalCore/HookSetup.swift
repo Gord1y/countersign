@@ -33,7 +33,8 @@ public enum HookSetup {
   static let emptyDocument = Array("{}\n".utf8)
 
   public static func install(
-    into original: [UInt8]?, host: Host, executablePath: String, addsWaitingEntry: Bool
+    into original: [UInt8]?, host: Host, executablePath: String, addsWaitingEntry: Bool,
+    addsContextEntry: Bool = false
   ) throws -> [UInt8] {
     guard HookCommand.isCountersignExecutable(executablePath) else {
       throw HookSetupError.unrecognizableExecutable(executablePath)
@@ -43,7 +44,11 @@ public enum HookSetup {
     case .claude:
       let permission = try installPermissionEntry(
         into: original, host: host, executablePath: executablePath)
-      installed = try ContextHookSetup.refresh(into: permission, executablePath: executablePath)
+      if addsContextEntry {
+        installed = try ContextHookSetup.install(into: permission, executablePath: executablePath)
+      } else {
+        installed = try ContextHookSetup.refresh(into: permission, executablePath: executablePath)
+      }
     case .codex:
       installed = try installPermissionEntry(
         into: original, host: host, executablePath: executablePath)

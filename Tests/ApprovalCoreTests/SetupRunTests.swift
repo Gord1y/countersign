@@ -62,14 +62,14 @@ private struct Sandbox {
 
   func run(
     _ locations: [HookConfigLocation], uninstall: Bool = false, addsWaitingEntry: Bool = false,
-    codexHookTrustFile: URL? = nil,
+    addsContextEntry: Bool = false, codexHookTrustFile: URL? = nil,
     answer: @escaping (String) -> Bool = { _ in true }
   ) -> Outcome {
     var output = ""
     var asked: [String] = []
     var setup = SetupRun(
       executablePath: brewPath, uninstall: uninstall, addsWaitingEntry: addsWaitingEntry,
-      codexHookTrustFile: codexHookTrustFile,
+      addsContextEntry: addsContextEntry, codexHookTrustFile: codexHookTrustFile,
       now: { moment },
       output: { output += $0 },
       confirm: { path in
@@ -364,6 +364,19 @@ private let codexInstalled = codexEntry("\(brewPath) hook --host codex")
     #expect(written.contains("\"PermissionRequest\""))
     #expect(written.contains("\(brewPath) hook --host claude --event waiting"))
     #expect(outcome.output.contains("\"Stop\""))
+  }
+
+  @Test func addsTheContextEntryNextToThePermissionEntryWhileCheckpointsAreOn() throws {
+    let sandbox = try Sandbox()
+    defer { sandbox.remove() }
+    try sandbox.put(claudeInstalled, at: sandbox.claude.file)
+    let outcome = sandbox.run([sandbox.claude], addsContextEntry: true)
+    #expect(outcome.succeeded)
+    let written = try #require(sandbox.text(of: sandbox.claude.file))
+    #expect(written.contains("\"PermissionRequest\""))
+    #expect(written.contains("\"UserPromptSubmit\""))
+    #expect(written.contains("\"async\": true"))
+    #expect(outcome.output.contains("\"UserPromptSubmit\""))
   }
 
   @Test func leavesAnExistingStopEntryAloneWhileNoticesAreOff() throws {

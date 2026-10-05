@@ -42,9 +42,10 @@ enum SetupCommand {
     }
     let interactive = isatty(STDIN_FILENO) == 1
     let waitingNotices = waitingNoticesEnabled(home: home)
+    let contextCheckpoints = contextCheckpointsEnabled(home: home)
     var setup = SetupRun(
       executablePath: executablePath, uninstall: options.uninstall,
-      addsWaitingEntry: waitingNotices,
+      addsWaitingEntry: waitingNotices, addsContextEntry: contextCheckpoints,
       codexHookTrustFile: AppPaths(home: home).codexHookTrustFile,
       codexWaitingHookTrustFile: AppPaths(home: home).codexWaitingHookTrustFile,
       output: { print($0, terminator: "") },
@@ -56,7 +57,8 @@ enum SetupCommand {
     }
     printFollowUps(
       uninstall: options.uninstall, addsWaitingEntry: waitingNotices,
-      changedFiles: setup.changedFiles, environment: environment, home: home)
+      addsContextEntry: contextCheckpoints, changedFiles: setup.changedFiles,
+      environment: environment, home: home)
     printDuplicateInstall(environment: environment, home: home)
     exit(failed ? 1 : 0)
   }
@@ -67,9 +69,15 @@ enum SetupCommand {
     return Settings.resolve(file: configFile, host: .claude).waitingNotices
   }
 
+  private static func contextCheckpointsEnabled(home: URL) -> Bool {
+    let (configFile, _) = ConfigFileLoader.load(
+      paths: AppPaths(home: home), soundNames: SystemSounds.installedNames)
+    return Settings.resolve(file: configFile, host: .claude).contextCheckpoints.enabled
+  }
+
   private static func printFollowUps(
-    uninstall: Bool, addsWaitingEntry: Bool, changedFiles: [URL], environment: [String: String],
-    home: URL
+    uninstall: Bool, addsWaitingEntry: Bool, addsContextEntry: Bool, changedFiles: [URL],
+    environment: [String: String], home: URL
   ) {
     guard let resolved = Bundle.main.executableURL?.resolvingSymlinksInPath().path else { return }
     let stablePath = StableExecutablePath.stable(
@@ -85,7 +93,8 @@ enum SetupCommand {
       let fileState = ConfigFileStore.fileState(location.file)
       let status = HostWiring.status(
         host: location.host, directoryExists: DoctorCommand.isInstalled(location),
-        file: fileState, stablePath: stablePath, addsWaitingEntry: addsWaitingEntry)
+        file: fileState, stablePath: stablePath, addsWaitingEntry: addsWaitingEntry,
+        addsContextEntry: addsContextEntry)
       wiring[location.host] = status
       if location.host == .codex {
         codexHasWaitingEntry = AgentFollowUps.codexHasWaitingEntry(in: fileState)

@@ -43,10 +43,10 @@ testedWith:
   the panel up at once. On by default for Codex, Cursor and Antigravity, off for Claude Code, which
   also waits in its chat. Choose the agents and each agent's delays in Settings ▸ Panels, and try
   the cards from Settings. At most two corner cards show at once, and an approval card goes first.
-- Context checkpoints for Claude Code, off by default. Countersign estimates how large a session's
+- Context checkpoints for Claude Code, on by default. Countersign estimates how large a session's
   context has grown and, at three checkpoints, shows a panel or quietly adds a note. Choose
   **Continue**, **Not this session**, **Compact after this step** or **Hand off & start fresh**;
-  Claude's reply tells you what to run. Turn it on in Settings ▸ Panels, tune it on the new
+  Claude's reply tells you what to run. Turn it off in Settings ▸ Panels, tune it on the new
   **Context** tab with its notes edited in popups, and optionally show each live session's size in
   the menu-bar app.
 - Answer pending requests from the menu bar. Each waiting request offers **Show Now**, **Deny**
@@ -111,7 +111,7 @@ testedWith:
 ## Upgrading
 
 - Run setup again, or choose Update in Settings ▸ Agents, to add the hooks for waiting-agent notices
-  and, if you turn them on, context checkpoints. Each change is shown before it is written.
+  and context checkpoints. Each change is shown before it is written.
 - Codex asks you to trust the new Stop hook once: run `/hooks` in Codex in a terminal and trust it.
 
 ## Notes

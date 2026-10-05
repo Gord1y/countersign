@@ -49,7 +49,7 @@ public enum PreferenceReset {
       return file.editorApp != nil
     case .contextCheckpointsEnabled:
       return changed(
-        file.contextCheckpoints?.enabled, from: ContextCheckpointSettings.default.enabled)
+        file.contextCheckpoints?.enabled, from: ContextCheckpointSettings.defaultEnabled)
     case .contextMode:
       return changed(file.contextCheckpoints?.mode, from: ContextCheckpointSettings.defaultMode)
     case .contextStandardThresholds:

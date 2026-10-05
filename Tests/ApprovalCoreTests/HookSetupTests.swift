@@ -6,11 +6,12 @@ import Testing
 private let brewPath = "/opt/homebrew/bin/countersign"
 
 private func install(
-  _ text: String?, host: ApprovalCore.Host = .claude, path: String = brewPath
+  _ text: String?, host: ApprovalCore.Host = .claude, path: String = brewPath,
+  addsContextEntry: Bool = false
 ) throws -> String {
   let bytes = try HookSetup.install(
     into: text.map { Array($0.utf8) }, host: host, executablePath: path,
-    addsWaitingEntry: false)
+    addsWaitingEntry: false, addsContextEntry: addsContextEntry)
   return String(decoding: bytes, as: UTF8.self)
 }
 
@@ -603,6 +604,18 @@ private let otherPermissionHook = """
     #expect(!(try install(nil, host: .codex)).contains("UserPromptSubmit"))
     let codexPrompt = stale.replacingOccurrences(of: "--host claude", with: "--host codex")
     #expect(!(try install(codexPrompt, host: .codex)).contains("async"))
+  }
+
+  @Test func claudeInstallAddsTheAsyncUserPromptSubmitEntryOnlyWhenAskedTo() throws {
+    let permissionOnly = try install(nil)
+    #expect(!permissionOnly.contains("UserPromptSubmit"))
+    let added = try install(permissionOnly, addsContextEntry: true)
+    #expect(added.components(separatedBy: "UserPromptSubmit").count == 2)
+    #expect(added.contains("\"async\": true"))
+    #expect(added.components(separatedBy: "countersign hook --host claude").count == 3)
+    #expect(try install(added, addsContextEntry: true) == added)
+    #expect(try install(permissionOnly, addsContextEntry: false) == permissionOnly)
+    #expect(!(try install(nil, host: .codex, addsContextEntry: true)).contains("UserPromptSubmit"))
   }
 
   @Test func claudeUninstallRemovesTheEntriesOfBothEvents() throws {

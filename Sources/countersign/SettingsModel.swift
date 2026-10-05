@@ -508,7 +508,7 @@ final class SettingsModel {
     else { return }
     var run = SetupRun(
       executablePath: stablePath ?? "", uninstall: action.uninstalls,
-      addsWaitingEntry: waitingNotices,
+      addsWaitingEntry: waitingNotices, addsContextEntry: contextCheckpointsEnabled,
       codexHookTrustFile: environment.paths.codexHookTrustFile,
       codexWaitingHookTrustFile: environment.paths.codexWaitingHookTrustFile, now: now,
       output: { _ in }, confirm: { _ in true })
@@ -1497,7 +1497,7 @@ final class SettingsModel {
     return HostWiring.status(
       host: location.host, directoryExists: DoctorCommand.isInstalled(location),
       file: ConfigFileStore.fileState(location.file), stablePath: stablePath,
-      addsWaitingEntry: waitingNotices)
+      addsWaitingEntry: waitingNotices, addsContextEntry: contextCheckpointsEnabled)
   }
 
   private func preview(of location: HookConfigLocation, action: HostWiringAction)
@@ -1505,7 +1505,7 @@ final class SettingsModel {
   {
     SetupRun.preview(
       location, executablePath: stablePath ?? "", uninstall: action.uninstalls,
-      addsWaitingEntry: waitingNotices)
+      addsWaitingEntry: waitingNotices, addsContextEntry: contextCheckpointsEnabled)
   }
 
   private func codexHookTrustState(at location: HookConfigLocation) -> CodexHookTrustState {

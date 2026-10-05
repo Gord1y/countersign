@@ -123,9 +123,9 @@ nobody dismisses and never shows gives up after 12 hours. The log,
 
 Go through these in order:
 
-1. **Is the feature on?** It is off by default: Settings ▸ Panels ▸ Context checkpoints (Claude
-   Code). `countersign test-panel context` shows a checkpoint panel with your settings, whatever
-   the session.
+1. **Is the feature on?** It is on by default for Claude Code; if you turned it off, turn it back on
+   in Settings ▸ Panels ▸ Context checkpoints. `countersign test-panel context` shows a checkpoint
+   panel with your settings, whatever the session.
 2. **Is the hook wired?** `countersign doctor` reports it on its `claude context` line; if it is
    not `ok`, open Settings ▸ Context: the Claude Code hook row says Not wired or Needs an update,
    and Update shows the change before it writes the entry again (see [setup.md](setup.md)).

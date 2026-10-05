@@ -460,11 +460,11 @@ Entries that couldn't be read aren't listed; the pane counts them and offers Ope
 
 ## Context checkpoints (Claude Code)
 
-Off by default, and for Claude Code only. When on, Countersign watches how large a Claude Code
+On by default, and for Claude Code only. While on, Countersign watches how large a Claude Code
 session's context has grown and adds a note asking it to wrap up, compact or hand off. The
 `contextCheckpoints` object takes these keys, all optional and all edited in the file only:
 
-- `enabled`: `true` or `false`. Default `false`.
+- `enabled`: `true` or `false`. Default `true`.
 - `mode`: `"panel"` asks you in a panel, `"silent"` only adds the note. Default `"panel"`.
 - `thresholds`: the three checkpoints, in tokens, by context window. `200k` defaults to
   `[100000, 130000, 160000]` and `1m` to `[200000, 300000, 400000]`. Each is exactly three whole
@@ -483,6 +483,9 @@ session's context has grown and adds a note asking it to wrap up, compact or han
 
 A key with a mistake uses its default and the rest of the block is read as usual, like every other
 key on this page.
+
+`countersign setup`, and Update in Settings > Agents, add Countersign's `UserPromptSubmit` entry to
+Claude Code's settings while checkpoints are on; turning them off in Settings removes it.
 
 To turn the feature off, use the "Context checkpoints (Claude Code)" switch in Settings > Panels or
 the "Turn Off Context Checkpoints" button at the bottom of the Context tab. Both show what changes

@@ -8,14 +8,28 @@ import Testing
     ConfigFileParser.parse(Data(json.utf8))
   }
 
-  @Test func absentKeyResolvesToTheDisabledDefault() {
+  @Test func absentKeyResolvesToTheEnabledDefaultForClaudeOnly() {
     let (file, logLines) = parse("{}")
     #expect(logLines.isEmpty)
     #expect(file.contextCheckpoints == nil)
     #expect(file.contextCheckpointsClaude == nil)
     let settings = Settings.resolve(file: file, host: .claude)
     #expect(settings.contextCheckpoints == .default)
-    #expect(settings.contextCheckpoints.enabled == false)
+    #expect(settings.contextCheckpoints.enabled == true)
+    for host in [Host.codex, .cursor, .antigravity] {
+      #expect(Settings.resolve(file: file, host: host).contextCheckpoints.enabled == false)
+    }
+  }
+
+  @Test func explicitFalseKeepsClaudeOff() {
+    let (file, _) = parse(#"{"contextCheckpoints": {"enabled": false}}"#)
+    #expect(Settings.resolve(file: file, host: .claude).contextCheckpoints.enabled == false)
+  }
+
+  @Test func nonBooleanEnabledLogsTheEnabledDefault() {
+    let (file, logLines) = parse(#"{"contextCheckpoints": {"enabled": "yes"}}"#)
+    #expect(logLines == ["contextCheckpoints.enabled: not a boolean, using default true"])
+    #expect(Settings.resolve(file: file, host: .claude).contextCheckpoints.enabled == true)
   }
 
   @Test func fullBlockParsesEveryValueAndHostBlockOverrides() {
@@ -158,7 +172,7 @@ import Testing
     for host in [Host.codex, .cursor, .antigravity] {
       let settings = Settings.resolve(file: file, host: host).contextCheckpoints
       #expect(settings.enabled == false)
-      #expect(settings == .default)
+      #expect(settings == .off)
     }
     #expect(Settings.resolve(file: file, host: .claude).contextCheckpoints.enabled)
   }

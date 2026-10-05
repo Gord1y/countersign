@@ -315,7 +315,9 @@ public enum ConfigFileParser {
     }
     var values = ContextCheckpointFileValues()
     values.enabled = readBool(
-      object["enabled"], path: "\(path).enabled", defaultValue: false, logLines: &logLines)
+      object["enabled"], path: "\(path).enabled",
+      defaultValue: ContextCheckpointSettings.defaultEnabled,
+      logLines: &logLines)
     values.mode = readContextCheckpointMode(
       object["mode"], path: "\(path).mode", logLines: &logLines)
     if let thresholdsValue = object["thresholds"] {

@@ -240,7 +240,8 @@ public enum Doctor {
     let check = hostInput.host.rawValue
     let wiring = HostWiring.status(
       host: hostInput.host, directoryExists: hostInput.directoryExists, file: hostInput.fileState,
-      stablePath: input.stableExecutablePath, addsWaitingEntry: input.waitingNoticesEnabled)
+      stablePath: input.stableExecutablePath, addsWaitingEntry: input.waitingNoticesEnabled,
+      addsContextEntry: input.contextCheckpointsEnabled)
     guard wiring == .wired else { return [] }
     switch hostInput.host {
     case .claude:
@@ -325,7 +326,7 @@ public enum Doctor {
         DoctorLine(
           status: .warn, check: check,
           detail:
-            "context checkpoints are on in config.json, but \(hostInput.filePath) has no \(event) entry of Countersign's; turn Context checkpoints off and on again in countersign settings"
+            "context checkpoints are on, but \(hostInput.filePath) has no \(event) entry of Countersign's; run countersign setup, or choose Update in Settings ▸ Agents"
         )
       ]
     }

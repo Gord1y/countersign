@@ -35,8 +35,8 @@ Codex's `hooks.json` gets the same shape with `--host codex` and one more field,
 
 ### The Context checkpoints entry
 
-Turning on Context checkpoints adds a second entry to Claude Code's file, under
-`hooks.UserPromptSubmit`, in one group without a `matcher` (the event has none):
+While Context checkpoints are on, which is the default, Claude Code's file gets a second entry,
+under `hooks.UserPromptSubmit`, in one group without a `matcher` (the event has none):
 
 ```json
 "hooks": {
@@ -70,11 +70,26 @@ apart by `hook_event_name` in its input. Three facts decide the shape:
 
 `ContextHookSetup.install` adds the entry, or refreshes it when one of ours already exists under
 the event: the `command`, `async` and `timeout` are set with the same rules as "Install" (a value
-that is already right, however it is spelled, is left as written). Only turning the feature on
-calls it. `HookSetup.install` for Claude Code, which runs on Wire and Update and on every
-`countersign setup`, only refreshes an existing `UserPromptSubmit` entry of ours and never adds
-one, so a person who has not turned the feature on never gets an entry, and one who has turned it on
-never keeps a stale one. A stale entry therefore shows as "Needs an update" in the Agents rows.
+that is already right, however it is spelled, is left as written). The Settings toggle
+(`ContextHookRun`) calls it when the feature is turned on, and `HookSetup.install` calls it for
+Claude Code when `addsContextEntry` is true, which is what Wire, Update and `countersign setup` pass
+while checkpoints are on (see "The context entry follows the setting" below). With
+`addsContextEntry` false, `HookSetup.install` only refreshes an existing `UserPromptSubmit` entry
+of ours and never adds one, so a person who has turned the feature off never gets an entry, and one
+who has it on never keeps a stale one. A stale entry shows as "Needs an update" in the Agents rows.
+
+### The context entry follows the setting
+
+Setup and Update add Claude Code's async `UserPromptSubmit` context entry while checkpoints are on,
+which is the default, and only refresh it while they are off. `HookSetup.install` takes
+`addsContextEntry` beside `addsWaitingEntry`, and `HostWiring.status` reports a missing entry as an
+update (`HostWiringUpdate.addsContextEntry`) only for Claude Code. `countersign setup` and Settings
+pass the resolved `contextCheckpoints.enabled`; `Doctor` does the same so its wiring check agrees.
+The Settings toggle still adds and removes the entry itself (`ContextHookRun`).
+
+Why: checkpoints became on by default in 0.2.0, and before this only the toggle wrote the entry,
+so a default-on setting would have had no hook behind it, and everyone who never touched the
+toggle would have been "on" with doctor warning.
 
 ### The waiting-agent entry
 
