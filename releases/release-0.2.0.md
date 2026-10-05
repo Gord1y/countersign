@@ -1,8 +1,8 @@
 ---
 version: 0.2.0
-date: 2026-10-03
+date: 2026-10-05
 title: "Countersign 0.2.0: allow and deny rules, waiting-agent notices and context checkpoints"
-summary: "Rules answer routine requests before a panel shows, in Settings or config.json, for all four agents. A corner card tells you when an agent is waiting or an approval is stuck behind your typing. Claude Code gets optional context checkpoints. Cursor's Esc now follows its Run Mode, and you can answer from the menu bar."
+summary: "Rules answer routine requests before a panel shows, in Settings or config.json, for all four agents. A corner card tells you when an agent is waiting or an approval is stuck behind your typing. Claude Code gets context checkpoints, on by default. Cursor's Esc now follows its Run Mode, and you can answer from the menu bar."
 type: minor
 breaking: false
 highlights:
@@ -74,6 +74,9 @@ testedWith:
 
 - The ⓘ explanations in Settings open when you hover them, not only when you click.
 - Panels ignore keys and clicks for their first 500 ms instead of 800 ms.
+- `idleSeconds` and `graceSeconds` in `config.json` now take only the ranges Settings always
+  offered, 1 to 30 and 0 to 30 seconds. A value outside them falls back to the default, and
+  `countersign doctor` names it.
 - <kbd>⌘</kbd><kbd>Return</kbd> only opens a ▾ menu or fires **Deny & stop**. Where a panel has
   neither, it does nothing; it no longer approves or answers in place of <kbd>Return</kbd>.
 - Esc on a Cursor request follows Cursor's Run Mode, so Cursor no longer runs a command you
