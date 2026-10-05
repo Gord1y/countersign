@@ -175,10 +175,7 @@
       "Bash(git restore .)",
       "Bash(*gh repo delete*)",
       "Bash(*gh release delete*)",
-      "Read(.env)",
-      "Read(.env.*)",
       "Read(**/.env)",
-      "Read(**/.env.*)",
       "Read(~/.ssh/**)",
       "Read(~/.gnupg/**)",
       "Read(~/.aws/**)",
@@ -190,9 +187,11 @@
       "Bash(cat ~/.ssh/*)",
       "Bash(cat ~/.netrc*)",
       "Bash(cat ~/.git-credentials*)",
-      "Bash(cat .env*)",
       "Bash(security find-*)",
-      "Bash(sudo rm *)"
+      "Bash(sudo rm *)",
+      "Edit(**/.env)",
+      "Bash(cat .env)",
+      "Bash(cat */.env)"
     ]
   }
 }
