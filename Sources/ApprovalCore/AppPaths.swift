@@ -83,6 +83,10 @@ public struct AppPaths: Sendable, Equatable {
     supportDirectory.appendingPathComponent("tour-shown")
   }
 
+  public var setupShownFile: URL {
+    supportDirectory.appendingPathComponent("setup-shown")
+  }
+
   public var lastSeenVersionFile: URL {
     supportDirectory.appendingPathComponent("last-seen-version")
   }
