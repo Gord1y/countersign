@@ -6,6 +6,13 @@ public enum DurationText {
     return seconds
   }
 
+  public static func snoozeSeconds(_ text: String) -> TimeInterval? {
+    guard let seconds = parse(text), Settings.snoozePresetRange.contains(seconds) else {
+      return nil
+    }
+    return seconds
+  }
+
   public static func parse(_ text: String, bareUnit: TimeInterval) -> TimeInterval? {
     let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !trimmed.isEmpty else { return nil }

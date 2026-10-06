@@ -103,4 +103,18 @@ import Testing
     #expect(active != nil)
     #expect(abs((active ?? .distantPast).timeIntervalSince(laterUntil)) < 1)
   }
+
+  @Test func quietThrowsAndWritesNothingWhenTheDateIsOutOfRange() {
+    for seconds in [TimeInterval.infinity, 1e30] {
+      let file = temporaryFile()
+      defer { removeContainer(of: file) }
+      let quietTime = QuietTime(file: file)
+
+      #expect(throws: POSIXError.self) {
+        try quietTime.quiet(until: Date(timeIntervalSince1970: seconds))
+      }
+      #expect(!FileManager.default.fileExists(atPath: file.path))
+      #expect(!FileManager.default.fileExists(atPath: file.deletingLastPathComponent().path))
+    }
+  }
 }

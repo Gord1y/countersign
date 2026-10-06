@@ -223,7 +223,7 @@ it steps aside, swallowing that one key, until your next pause. ⌘ shortcuts su
 | `countersign doctor` | Checks your setup and prints a plain, pasteable report |
 | `countersign status` | Active or paused, queued requests, quiet time, log location |
 | `countersign pause` / `resume` | Turn the panel off and on. While paused, every prompt goes to its chat |
-| `countersign snooze 15m` | Quiet time for all prompts. Accepts `90s`, `15m`, `1h` or plain minutes |
+| `countersign snooze 15m` | Quiet time for all prompts. Accepts `90s`, `15m`, `1h` or plain minutes, up to 24 hours |
 | `countersign snooze off` | End quiet time early |
 | `countersign test-panel` | Shows a test panel with your settings; add `question`, `plan` or `context` for those. Nothing reaches an agent |
 | `countersign --version` | Prints the installed version |

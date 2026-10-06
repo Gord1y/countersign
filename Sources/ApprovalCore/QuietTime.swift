@@ -9,9 +9,11 @@ public struct QuietTime: Sendable {
   }
 
   public func quiet(until: Date) throws {
+    guard let seconds = Int64(exactly: until.timeIntervalSince1970.rounded()) else {
+      throw POSIXError(.ERANGE)
+    }
     let directory = file.deletingLastPathComponent()
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-    let seconds = Int64(until.timeIntervalSince1970.rounded())
     let data = Data(String(seconds).utf8)
     let temporary = directory.appendingPathComponent(".\(file.lastPathComponent).tmp")
     try data.write(to: temporary)

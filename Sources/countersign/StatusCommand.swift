@@ -5,7 +5,9 @@ enum StatusCommand {
   static let pauseUsage = "usage: countersign pause"
   static let resumeUsage = "usage: countersign resume"
   static let statusUsage = "usage: countersign status"
-  static let snoozeUsage = "usage: countersign snooze <duration>|off"
+  static let snoozeUsage = "usage: countersign snooze <time>|off"
+  static let snoozeRangeUsage =
+    "usage: countersign snooze <time>|off, where <time> is 10s to 24h, such as 90s, 15m or 1h"
 
   static func pause(_ arguments: [String]) {
     guard arguments.isEmpty else { CommandLineOutput.fail(pauseUsage) }
@@ -67,8 +69,8 @@ enum StatusCommand {
       }
       return
     }
-    guard let seconds = DurationText.parse(argument) else {
-      CommandLineOutput.fail(snoozeUsage)
+    guard let seconds = DurationText.snoozeSeconds(argument) else {
+      CommandLineOutput.fail(snoozeRangeUsage)
     }
     let stateSwitches = StateSwitches(
       pauseSwitch: PauseSwitch(file: paths.pauseFile), quietTime: quietTime)

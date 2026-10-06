@@ -134,4 +134,17 @@ import Testing
     #expect(DurationText.describe(1) == "1 second")
     #expect(DurationText.describe(30) == "30 seconds")
   }
+
+  @Test func snoozeSecondsAcceptsTheSnoozeRange() {
+    #expect(DurationText.snoozeSeconds("90s") == 90)
+    #expect(DurationText.snoozeSeconds("15") == 900)
+    #expect(DurationText.snoozeSeconds("24h") == 86400)
+    #expect(DurationText.snoozeSeconds("10s") == 10)
+  }
+
+  @Test func snoozeSecondsRejectsOutOfRangeAndUnparsableText() {
+    for text in ["9s", "25h", "1e30", "1e308h", "0", "off", ""] {
+      #expect(DurationText.snoozeSeconds(text) == nil)
+    }
+  }
 }
