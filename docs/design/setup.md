@@ -413,8 +413,17 @@ produces the text by running
 `SetupRun` with `writesFiles: false`, which prints every diff, counts every change as applied
 without asking, writes nothing and never touches the Codex hook trust record. The diff
 (`HookDiffPreview`, the same view as the waiting-notices and context-hook popups) is monospaced
-and selectable, added lines green and removed lines red, twelve lines tall, and scrolls sideways
-instead of wrapping.
+and selectable, added lines green and removed lines red. It sits behind a disclosure
+(`HookDiffDisclosure`), collapsed by default as one row, "Show the change (3 lines added, 1
+removed)", whose count is `DiffSummary` of the diff; clicking the triangle or the label expands it
+in place, relabels the row "Hide the change" and re-lays the alert out. Long lines wrap by
+character, and a wrapped continuation is indented one character so it sits after the `+`/`-`/space
+marker column; the view is as tall as its content, at most twelve lines, and scrolls vertically
+past that. A diff shown by default buried the popup's one-line question under thirty lines of JSON,
+and a line running off the side with a hidden scroller read as if part of the change were being
+withheld. A failure text, or `Nothing to change.`, is the answer itself, so it shows directly with
+the same wrapping and no disclosure. `countersign snapshot --hook-prompt` draws the popup, collapsed
+or with `--expanded` (see "Snapshots" in [panel.md](panel.md)).
 
 When more than one copy of Countersign is installed, a notice sits at the top of the group, above
 the rows; the copies it lists are in "More than one copy installed" below, and the notice itself

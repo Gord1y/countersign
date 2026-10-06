@@ -710,7 +710,9 @@ The switch never writes `config.json` on its own. Changing it asks `SettingsMode
 `WaitingHookSetup.supportedHosts` names, shown by `WaitingHookPrompt` (a sibling of
 `ContextHookPrompt`, sharing `HookDiffPreview`) as "Turn on waiting-agent notices?" or "Turn off
 waiting-agent notices?", with "Countersign changes <paths> and keeps a backup." and the buttons Turn
-On / Turn Off and Cancel, or OK alone with the failure lines when a file cannot be changed. On
+On / Turn Off and Cancel, or OK alone with the failure lines when a file cannot be changed. The diff
+sits behind the same collapsed-by-default disclosure as the Agents popups and wraps long lines (see
+"Wire, Update and Remove" in [setup.md](setup.md)); failure lines show directly. On
 confirm, `WaitingHookRun.apply` writes the hook file with a backup and only then is `waitingNotices`
 written. It applies to the locations the popup previewed, which `WaitingHookChange` keeps, not to
 the wired agents at confirm time: the window rereads the agents when it becomes key, so an agent

@@ -19,8 +19,9 @@ enum ContextHookPrompt {
     let alert = NSAlert()
     alert.messageText = message(for: change)
     alert.informativeText = informativeText(for: change, path: path)
-    alert.accessoryView = HookDiffPreview.view(
-      text: change.canApply ? change.preview.text : failureText(change))
+    alert.accessoryView = HookDiffDisclosure.accessoryView(
+      for: alert, text: change.canApply ? change.preview.text : failureText(change),
+      isDiff: change.canApply && change.preview.hasChanges)
     if change.canApply {
       alert.addButton(withTitle: change.confirmTitle)
       alert.addButton(withTitle: cancelTitle)

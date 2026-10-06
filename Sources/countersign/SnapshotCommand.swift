@@ -18,6 +18,8 @@ enum SnapshotCommand {
     + " [--explanation <preferenceName>] [--editor-choice ask|missing] [--rule-sheet new|edit]"
     + " [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --quit-prompt [--appearance light|dark] -o <out.png>\n"
+    + "       countersign snapshot --hook-prompt claude|codex|cursor|antigravity [--expanded]"
+    + " [--home <dir>] [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --update-answer up-to-date|available|failed"
     + " [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --tour 1|2|3|4 [--appearance light|dark] -o <out.png>\n"
@@ -30,6 +32,7 @@ enum SnapshotCommand {
   private static let quietSnapshotMinutes: TimeInterval = 15
   private static let settingsFlag = "--settings"
   private static let quitPromptFlag = "--quit-prompt"
+  private static let hookPromptFlag = "--hook-prompt"
   private static let updateAnswerFlag = "--update-answer"
   private static let tourFlag = "--tour"
   private static let menuBarIconFlag = "--menu-bar-icon"
@@ -48,6 +51,9 @@ enum SnapshotCommand {
     }
     if arguments.contains(quitPromptFlag) {
       runQuitPrompt(arguments)
+    }
+    if arguments.contains(hookPromptFlag) {
+      runHookPrompt(arguments)
     }
     if arguments.contains(updateAnswerFlag) {
       runUpdateAnswer(arguments)
@@ -331,6 +337,84 @@ enum SnapshotCommand {
       CommandLineOutput.fail("error: could not render the quit prompt")
     }
     write(png, to: options.outputPath)
+  }
+
+  @MainActor
+  private static func runHookPrompt(_ arguments: [String]) -> Never {
+    guard let options = parseHookPrompt(arguments) else { CommandLineOutput.fail(usage) }
+
+    NSApplication.shared.setActivationPolicy(.prohibited)
+
+    let home = options.home ?? FileManager.default.homeDirectoryForCurrentUser
+    let environment = SettingsEnvironment.current(home: home)
+    let model = SettingsModel(
+      environment: environment, status: .active, savesLearnedCodexTrust: false)
+    model.requestHostChange(options.host)
+    guard let change = model.hostChange else {
+      CommandLineOutput.fail("error: \(options.host.displayName) has no hook change to show")
+    }
+    let alert = HostHookPrompt.makeAlert(change: change, home: home, expanded: options.expanded)
+    alert.window.appearance = options.appearance?.appearance
+    alert.layout()
+    for _ in 0..<settleTurnLimit {
+      RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
+    }
+    guard let contentView = alert.window.contentView,
+      let png = render(contentView, background: .windowBackgroundColor)
+    else {
+      CommandLineOutput.fail("error: could not render the hook prompt")
+    }
+    write(png, to: options.outputPath)
+  }
+
+  private struct HookPromptOptions {
+    let host: ApprovalCore.Host
+    let expanded: Bool
+    let home: URL?
+    let outputPath: String
+    let appearance: Appearance?
+  }
+
+  private static func parseHookPrompt(_ arguments: [String]) -> HookPromptOptions? {
+    var host: ApprovalCore.Host?
+    var expanded = false
+    var home: URL?
+    var outputPath: String?
+    var appearance: Appearance?
+    var index = arguments.startIndex
+
+    while index < arguments.count {
+      switch arguments[index] {
+      case hookPromptFlag:
+        index += 1
+        guard index < arguments.count, let parsed = ApprovalCore.Host(rawValue: arguments[index])
+        else { return nil }
+        host = parsed
+      case "--expanded":
+        expanded = true
+      case "--home":
+        index += 1
+        guard index < arguments.count else { return nil }
+        home = URL(fileURLWithPath: arguments[index], isDirectory: true)
+      case "--appearance":
+        index += 1
+        guard index < arguments.count, let parsed = Appearance(rawValue: arguments[index]) else {
+          return nil
+        }
+        appearance = parsed
+      case "-o":
+        index += 1
+        guard index < arguments.count else { return nil }
+        outputPath = arguments[index]
+      default:
+        return nil
+      }
+      index += 1
+    }
+
+    guard let host, let outputPath else { return nil }
+    return HookPromptOptions(
+      host: host, expanded: expanded, home: home, outputPath: outputPath, appearance: appearance)
   }
 
   @MainActor

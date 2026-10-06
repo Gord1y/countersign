@@ -1959,6 +1959,18 @@ folder holding the binary, and only the binary inside `Countersign.app`
 (`Countersign.app/Contents/MacOS/countersign snapshot --quit-prompt …`, which any argument keeps in
 CLI mode) draws the Countersign icon the companion shows. The image is the alert's own size.
 
+The Agents popup that asks before wiring, updating or removing a hook (see "Wire, Update and
+Remove" in [setup.md](setup.md)) has one too:
+
+```sh
+.build/debug/countersign snapshot --hook-prompt claude|codex|cursor|antigravity [--expanded] \
+  [--home <dir>] [--appearance light|dark] -o <out.png>
+```
+
+It builds a `SettingsModel` for `--home`, asks it for the host's change as a click on the row's
+button would, and draws `HostHookPrompt.makeAlert` the way `--quit-prompt` does. The diff is
+collapsed unless `--expanded` is given. It fails when the host's row has no action.
+
 The menu-bar companion's manual update check (see "Update check" in [app.md](app.md)) has one for
 each outcome it can answer:
 

@@ -25,11 +25,13 @@ enum HostHookPrompt {
     return "Countersign changes \(paths) and keeps a backup."
   }
 
-  static func makeAlert(change: HostHookChange, home: URL) -> NSAlert {
+  static func makeAlert(change: HostHookChange, home: URL, expanded: Bool = false) -> NSAlert {
     let alert = NSAlert()
     alert.messageText = message(for: change)
     alert.informativeText = informativeText(for: change, home: home)
-    alert.accessoryView = HookDiffPreview.view(text: previewText(for: change))
+    alert.accessoryView = HookDiffDisclosure.accessoryView(
+      for: alert, text: previewText(for: change),
+      isDiff: change.canApply && change.preview.hasChanges, expanded: expanded)
     if change.canApply {
       alert.addButton(withTitle: change.action.title)
       alert.addButton(withTitle: cancelTitle)
