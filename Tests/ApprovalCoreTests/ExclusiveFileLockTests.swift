@@ -24,6 +24,22 @@ import Testing
     second.release()
   }
 
+  @Test func retriesWhenTheLockFileIsReplacedBetweenOpeningAndLockingIt() throws {
+    let root = temporaryRoot()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let file = root.appendingPathComponent("companion.lock")
+    var openCount = 0
+
+    let lock = try #require(
+      try ExclusiveFileLock.acquire(file) {
+        openCount += 1
+        if openCount == 1 { unlink(file.path) }
+      })
+    #expect(openCount == 2)
+    #expect(FileManager.default.fileExists(atPath: file.path))
+    lock.release()
+  }
+
   @Test func aDescriptorIsStillLinkedOnlyWhileItsPathNamesTheSameFile() throws {
     let root = temporaryRoot()
     defer { try? FileManager.default.removeItem(at: root) }

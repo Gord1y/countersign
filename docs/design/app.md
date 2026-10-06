@@ -126,7 +126,9 @@ to open its settings window (see "Opening Countersign" below), logs `companion: 
 asked it to open Settings` and exits 0 at once, before creating `NSApplication`, so opening the app a
 second time, or opening it by hand after a login launch, never adds a second icon. A lock file that
 cannot be opened at all is logged (`companion: could not open companion.lock: <error>, exiting`)
-and also exits 0, asking nothing, since no companion is known to be running. Otherwise it keeps the
+and also exits 0, asking nothing, since no companion is known to be running. A lock file replaced
+between opening and locking it is retried, up to three attempts in all, so a companion starting
+while the previous one quits does not exit thinking another instance runs. Otherwise it keeps the
 descriptor for the rest of the process's life, runs `NSApplication` with the `.accessory`
 activation policy, and once launching has finished, before anything reads the pause switch, ends a
 pause that the last quit set until the app opens (see "Quit" below), logging `companion: resumed
