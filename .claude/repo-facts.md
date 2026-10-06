@@ -4,8 +4,9 @@ Countersign's values for the shared agent setup's skills (`Gord1y/countersign-sk
 is named exactly as the skill's "Repo facts" table names it. Where a row and the contract doc
 disagree, the contract doc wins.
 
-SwiftPM can't start inside the agent sandbox, so `.claude/settings.json` runs `swift` and every
-script that calls it outside the sandbox (`sandbox.excludedCommands`). Run each such command alone,
+SwiftPM can't start inside the agent sandbox, and `gh` can't read its token from the keychain there,
+so `.claude/settings.json` runs `swift`, `gh` and every script that calls either outside the sandbox
+(`sandbox.excludedCommands`). Run each such command alone,
 or chained only with another listed one: a pipe, a redirect to a file, a `cd` or `$(...)` keeps the
 whole line sandboxed. The shared recipe `set -o pipefail; <cmd> 2>&1 | tail -n 60` doesn't apply to
 them.
