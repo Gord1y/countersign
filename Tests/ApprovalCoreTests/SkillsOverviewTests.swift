@@ -40,10 +40,12 @@ import Testing
         to: state.appendingPathComponent(SkillsInstallState.sourcesFileName))
     }
 
-    func writeManifest(agent: String, skill: String, version: String) throws {
-      let line = [agent, skill, version, "SKILL.md", String(repeating: "a", count: 64)]
-        .joined(separator: "\t")
-      try Data((line + "\n").utf8).write(
+    func writeManifest(_ entries: [(agent: String, skill: String, version: String)]) throws {
+      let lines = entries.map { entry in
+        [entry.agent, entry.skill, entry.version, "SKILL.md", String(repeating: "a", count: 64)]
+          .joined(separator: "\t")
+      }
+      try Data((lines.joined(separator: "\n") + "\n").utf8).write(
         to: state.appendingPathComponent(SkillsInstallState.manifestFileName))
     }
 
@@ -129,16 +131,31 @@ import Testing
     try home.writeCatalog(to: home.source)
     try home.writeSources([home.source])
     try home.copy(skill: "orchestrate", agent: "claude")
-    try home.writeManifest(agent: "claude", skill: "orchestrate", version: "0.9.0")
+    try home.copy(skill: "context-transfer", agent: "claude")
+    try home.copy(skill: "context-transfer", agent: "codex")
+    try home.writeManifest([
+      (agent: "claude", skill: "orchestrate", version: "0.9.0"),
+      (agent: "claude", skill: "context-transfer", version: "0.9.0"),
+      (agent: "codex", skill: "context-transfer", version: "1.0.0"),
+    ])
 
     let behind = SkillsOverview.read(paths: home.paths, agentExists: { _ in true })
 
     #expect(
       status(behind, skill: "orchestrate", agent: "claude")
         == .updateAvailable(installed: "0.9.0", available: "1.0.0"))
+    #expect(
+      status(behind, skill: "context-transfer", agent: "claude")
+        == .updateAvailable(installed: "0.9.0", available: "1.0.0"))
+    #expect(
+      status(behind, skill: "context-transfer", agent: "codex") == .copied(version: "1.0.0"))
     #expect(behind.updateCommand?.hasSuffix("/update.sh") == true)
 
-    try home.writeManifest(agent: "claude", skill: "orchestrate", version: "1.0.0")
+    try home.writeManifest([
+      (agent: "claude", skill: "orchestrate", version: "1.0.0"),
+      (agent: "claude", skill: "context-transfer", version: "1.0.0"),
+      (agent: "codex", skill: "context-transfer", version: "1.0.0"),
+    ])
 
     let current = SkillsOverview.read(paths: home.paths, agentExists: { _ in true })
 
@@ -181,5 +198,14 @@ import Testing
     #expect(SkillsOverview.installerAgentExists("codex", paths: home.paths))
     #expect(SkillsOverview.installerAgentExists("antigravity", paths: home.paths))
     #expect(!SkillsOverview.installerAgentExists("cursor", paths: home.paths))
+
+    let customConfig = home.root.appendingPathComponent("custom-claude")
+    let relocated = AppPaths(home: home.root, claudeConfigDir: customConfig.path)
+
+    #expect(!SkillsOverview.installerAgentExists("claude", paths: relocated))
+
+    _ = try Home.makeFolder(customConfig)
+
+    #expect(SkillsOverview.installerAgentExists("claude", paths: relocated))
   }
 }
