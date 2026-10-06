@@ -2025,6 +2025,21 @@ and `#2B2B2B` for `--appearance dark`, tinted black or white to match: no `NSSta
 compared side by side without switching System Settings. Like the other snapshots, it renders at
 2×.
 
+The setup window (see "The setup window" in [setup.md](setup.md)) has `--setup`:
+
+```sh
+.build/debug/countersign snapshot --setup no-agents|needs-wiring|write-failed|done|all-set \
+  [--home <dir>] [--expanded] [--appearance light|dark] -o <out.png>
+```
+
+It builds a `SetupModel` over a `SettingsModel` for the home, as `--settings --home` does, so the
+rows, paths and reasons are the ones that home's files give. `no-agents`, `needs-wiring` and
+`all-set` show the step the model opens on. `write-failed` and `done` need a state a read cannot
+reach, so a snapshot-only setter puts the model on step 1 with the failure
+`Couldn't write ~/.codex/hooks.json: Permission denied.` on Codex, or on step 2, without writing a
+file or showing a test panel. The disclosures render collapsed; `--expanded`, valid only with
+`needs-wiring`, opens every row's, to check the diff box against the window's width.
+
 The corner cards, the waiting notice and the approval card (see "The approval card"), have
 `--waiting-notice` and `--approval-card`, described in "Snapshots" in [notice.md](notice.md).
 

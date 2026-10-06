@@ -31,10 +31,23 @@ To build from source instead (Xcode 26 or later), clone the repository and run
 
 The curl installer asks at the end of a fresh install and opens this window for you unless you say
 no (see [release.md](release.md#the-curl-installer)); otherwise open Countersign.app from the Finder,
-Spotlight or Launchpad, or run `countersign setup` (`countersign settings` opens the same window).
-If you installed the CLI only, without the [menu-bar app](menu-bar-app.md), `countersign setup`
-still opens this same window from the terminal. Under **Agents**, each agent gets a row with one of
-these statuses:
+Spotlight or Launchpad, or run `countersign setup`. Setup opens a small window with three steps:
+
+1. **Wire your agents.** Each agent Countersign found gets a row. **Wire** writes the hook into
+   every agent that is Not wired or Needs an update, and each row's change is behind its
+   **Show the change** line. Pressing **Wire** is the confirmation, so there is no popup. An agent
+   that can't be set up is shown with its reason and left alone.
+2. **Try it.** A test panel shows on its own once every file was written. Nothing you do in it
+   reaches an agent, and the step lists its keys.
+3. **All set.** A summary, and **Open Settings** or **Done**.
+
+If a file can't be written, the window stays on step 1 and offers **Try Again**; Countersign leaves
+that file unchanged. Running setup when every agent is wired opens on **All set**.
+
+`countersign settings` opens the full window, and so does **Open Settings** in the setup window.
+If you installed the CLI only, without the [menu-bar app](menu-bar-app.md), both still open from
+the terminal. In the full window, under **Agents**, each agent gets a row with one of these
+statuses:
 
 | Status | What it means | What to do |
 | --- | --- | --- |
@@ -59,6 +72,8 @@ Homebrew's version after `brew upgrade`.
 ```sh
 countersign setup --cli [--yes] [--uninstall] [--host claude|codex|cursor|antigravity]
 ```
+
+`setup --cli` stays the terminal flow; plain `setup` opens the window above.
 
 For each agent it finds, setup prints the file's path and a diff of the change, then asks
 `Apply? [y/N]`. `--yes` applies without asking. Without a terminal to ask in, and without `--yes`,

@@ -12,7 +12,7 @@ enum SetupCommand {
     case nil:
       CommandLineOutput.fail(usage)
     case .window:
-      SettingsCommand.openWindow()
+      SetupWindowCommand.openWindow()
     case .terminal(let options):
       runInTerminal(options)
     }

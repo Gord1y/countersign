@@ -7,7 +7,7 @@ enum HookDiffPreview {
   private static let inset: CGFloat = 6
   private static let borderThickness: CGFloat = 2
 
-  static func view(text: String) -> NSView {
+  static func view(text: String, width: CGFloat = HookDiffPreview.width) -> NSView {
     let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
     let lineHeight = ceil(NSLayoutManager().defaultLineHeight(for: font))
     let maxHeight = lineHeight * lineCount + inset * 2 + borderThickness

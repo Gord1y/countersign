@@ -25,6 +25,20 @@ import Testing
     #expect(hookIndex.map { lines[$0 + 1] } == "Add --help to a command for its usage.")
   }
 
+  @Test func theSetupAndSettingsLinesNameTheirWindows() {
+    let lines = CommandLineHelp.text(version: "1.2.3").components(separatedBy: "\n")
+    let setupIndex = lines.firstIndex { $0.hasPrefix("  setup") }
+    #expect(
+      setupIndex.map {
+        lines[$0].hasSuffix("Open the setup window: wire your agents and try a test panel;")
+      }
+        == true)
+    #expect(
+      setupIndex.map { lines[$0 + 1].hasSuffix("setup --cli does it in the terminal") } == true)
+    #expect(
+      lines.contains { $0.hasPrefix("  settings") && $0.hasSuffix("Open the Settings window") })
+  }
+
   @Test func theTestPanelLineNamesEveryKind() throws {
     let lines = CommandLineHelp.text(version: "1.2.3").components(separatedBy: "\n")
     let line = try #require(lines.first { $0.hasPrefix("  test-panel") })

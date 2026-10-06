@@ -24,6 +24,8 @@ enum SnapshotCommand {
     + "       countersign snapshot --update-answer up-to-date|available|failed"
     + " [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --tour 1|2|3|4 [--appearance light|dark] -o <out.png>\n"
+    + "       countersign snapshot --setup no-agents|needs-wiring|write-failed|done|all-set"
+    + " [--home <dir>] [--expanded] [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --menu-bar-icon active|paused|quiet"
     + " [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --waiting-notice claude|codex|cursor|antigravity"
@@ -36,6 +38,7 @@ enum SnapshotCommand {
   private static let hookPromptFlag = "--hook-prompt"
   private static let updateAnswerFlag = "--update-answer"
   private static let tourFlag = "--tour"
+  private static let setupFlag = "--setup"
   private static let menuBarIconFlag = "--menu-bar-icon"
   private static let waitingNoticeFlag = "--waiting-notice"
   private static let approvalCardFlag = "--approval-card"
@@ -61,6 +64,9 @@ enum SnapshotCommand {
     }
     if arguments.contains(tourFlag) {
       runTour(arguments)
+    }
+    if arguments.contains(setupFlag) {
+      runSetup(arguments)
     }
     if arguments.contains(menuBarIconFlag) {
       runMenuBarIcon(arguments)
@@ -980,6 +986,109 @@ enum SnapshotCommand {
 
     guard let outputPath, let step else { return nil }
     return TourOptions(step: step, outputPath: outputPath, appearance: appearance)
+  }
+
+  private enum SetupSnapshotState: String {
+    case noAgents = "no-agents"
+    case needsWiring = "needs-wiring"
+    case writeFailed = "write-failed"
+    case done
+    case allSet = "all-set"
+
+    static let codexWriteFailure = "Couldn't write ~/.codex/hooks.json: Permission denied."
+
+    @MainActor
+    func apply(to model: SetupModel) {
+      switch self {
+      case .writeFailed:
+        model.showForSnapshot(step: 1, failures: [.codex: Self.codexWriteFailure])
+      case .done:
+        model.showForSnapshot(step: 2, failures: [:])
+      case .noAgents, .needsWiring, .allSet:
+        break
+      }
+    }
+  }
+
+  private struct SetupOptions {
+    let state: SetupSnapshotState
+    let home: URL?
+    let expanded: Bool
+    let outputPath: String
+    let appearance: Appearance?
+  }
+
+  private static func parseSetup(_ arguments: [String]) -> SetupOptions? {
+    var state: SetupSnapshotState?
+    var expanded = false
+    var home: URL?
+    var outputPath: String?
+    var appearance: Appearance?
+    var index = arguments.startIndex
+
+    while index < arguments.count {
+      switch arguments[index] {
+      case setupFlag:
+        index += 1
+        guard index < arguments.count, let parsed = SetupSnapshotState(rawValue: arguments[index])
+        else { return nil }
+        state = parsed
+      case "--expanded":
+        expanded = true
+      case "--home":
+        index += 1
+        guard index < arguments.count else { return nil }
+        home = URL(fileURLWithPath: arguments[index], isDirectory: true)
+      case "--appearance":
+        index += 1
+        guard index < arguments.count, let parsed = Appearance(rawValue: arguments[index]) else {
+          return nil
+        }
+        appearance = parsed
+      case "-o":
+        index += 1
+        guard index < arguments.count else { return nil }
+        outputPath = arguments[index]
+      default:
+        return nil
+      }
+      index += 1
+    }
+
+    guard let outputPath, let state, !expanded || state == .needsWiring else { return nil }
+    return SetupOptions(
+      state: state, home: home, expanded: expanded, outputPath: outputPath,
+      appearance: appearance)
+  }
+
+  @MainActor
+  private static func runSetup(_ arguments: [String]) -> Never {
+    guard let options = parseSetup(arguments) else { CommandLineOutput.fail(usage) }
+
+    NSApplication.shared.setActivationPolicy(.prohibited)
+
+    let environment = options.home.map(SettingsEnvironment.current(home:)) ?? .current()
+    let model = SetupModel(
+      settings: SettingsModel(environment: environment, savesLearnedCodexTrust: false))
+    options.state.apply(to: model)
+    if options.expanded {
+      model.expandDisclosuresForSnapshot()
+    }
+    let hostingView = NSHostingView(rootView: SetupView(model: model))
+    hostingView.appearance = options.appearance?.appearance
+    var size = hostingView.fittingSize
+    for _ in 0..<settleTurnLimit {
+      hostingView.layoutSubtreeIfNeeded()
+      RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
+      let measured = hostingView.fittingSize
+      if measured == size { break }
+      size = measured
+    }
+    hostingView.setFrameSize(size)
+    guard let png = render(hostingView, background: .windowBackgroundColor) else {
+      CommandLineOutput.fail("error: could not render the setup window")
+    }
+    write(png, to: options.outputPath)
   }
 
   private enum AppCopySnapshot: String {
