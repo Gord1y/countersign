@@ -261,8 +261,8 @@ final class SettingsModel {
         forResolved: $0, home: environment.home, isExecutable: { _ in environment.cliIsExecutable }
       )
     }
-    refreshHosts()
     loadPreferences()
+    refreshHosts()
   }
 
   var configFile: URL {

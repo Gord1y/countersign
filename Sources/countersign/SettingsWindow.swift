@@ -94,6 +94,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
   func show(forceTour: Bool = false) {
     model.beginVisit()
+    model.refreshFromDisk()
     NSApplication.shared.setActivationPolicy(.regular)
     keepOnUsableScreen()
     observeScreenChanges()

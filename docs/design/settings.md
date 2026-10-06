@@ -151,6 +151,13 @@ this section covers its size, its groups and their layout, the header's status c
 controls, when each change is written, Advanced, and the notice about a second copy at the top of
 Agents.
 
+### Opening
+
+The model reads `config.json` before it derives any agent row. The window reads the hosts' files,
+the config file and the installed copies again before it is ordered in front, on a new window and
+on one reused from an earlier open, so the first frame shows the current state and never a verdict
+from defaults or from the last visit. It reads them once more whenever it becomes key.
+
 ### Window size
 
 The window is resizable, with no maximum. Its content opens at 820 × 800 pt, shrunk to fit the
