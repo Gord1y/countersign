@@ -5,13 +5,24 @@ import Testing
 
 @Suite struct UpgradeNudgeTests {
   @Test func isUpgradeComparesLastSeenVersionOrFallsBackToTheTour() {
-    #expect(UpgradeNudge.isUpgrade(lastSeenVersion: nil, tourShown: true, currentVersion: "0.2.0"))
     #expect(
-      !UpgradeNudge.isUpgrade(lastSeenVersion: nil, tourShown: false, currentVersion: "0.2.0"))
+      UpgradeNudge.isUpgrade(
+        lastSeenVersion: nil, tourShown: true, setupShown: false, currentVersion: "0.2.0"))
     #expect(
-      !UpgradeNudge.isUpgrade(lastSeenVersion: "0.2.0", tourShown: true, currentVersion: "0.2.0"))
+      !UpgradeNudge.isUpgrade(
+        lastSeenVersion: nil, tourShown: false, setupShown: false, currentVersion: "0.2.0"))
     #expect(
-      UpgradeNudge.isUpgrade(lastSeenVersion: "0.1.0", tourShown: false, currentVersion: "0.2.0"))
+      !UpgradeNudge.isUpgrade(
+        lastSeenVersion: "0.2.0", tourShown: true, setupShown: false, currentVersion: "0.2.0"))
+    #expect(
+      UpgradeNudge.isUpgrade(
+        lastSeenVersion: "0.1.0", tourShown: false, setupShown: false, currentVersion: "0.2.0"))
+  }
+
+  @Test func theSetupWindowCountsAsAFirstRunWithoutAVersionFile() {
+    #expect(
+      UpgradeNudge.isUpgrade(
+        lastSeenVersion: nil, tourShown: false, setupShown: true, currentVersion: "0.3.0"))
   }
 
   @Test func onlyNeedsUpdateCountsAsNeedingAnAgentUpdate() {

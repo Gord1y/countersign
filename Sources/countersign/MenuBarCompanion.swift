@@ -603,6 +603,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     let isUpgrade = UpgradeNudge.isUpgrade(
       lastSeenVersion: UpgradeNudge.readLastSeenVersion(file: paths.lastSeenVersionFile),
       tourShown: FileManager.default.fileExists(atPath: paths.tourShownFile.path),
+      setupShown: FileManager.default.fileExists(atPath: paths.setupShownFile.path),
       currentVersion: current)
     do {
       try UpgradeNudge.recordVersion(current, file: paths.lastSeenVersionFile)

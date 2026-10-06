@@ -1,10 +1,10 @@
 import Foundation
 
 public enum UpgradeNudge {
-  public static func isUpgrade(lastSeenVersion: String?, tourShown: Bool, currentVersion: String)
-    -> Bool
-  {
-    guard let lastSeenVersion else { return tourShown }
+  public static func isUpgrade(
+    lastSeenVersion: String?, tourShown: Bool, setupShown: Bool, currentVersion: String
+  ) -> Bool {
+    guard let lastSeenVersion else { return tourShown || setupShown }
     return lastSeenVersion != currentVersion
   }
 
