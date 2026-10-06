@@ -255,7 +255,7 @@ It checks at three moments:
 - On a reopen, before opening Settings; the new instance opens Settings instead.
 
 Anything on screen defers it to the next moment: a settings window that is not closed (its sheets
-and the first-run tour included), a running test panel (`TestPanelLauncher.shared.isRunning`), a
+included), a running test panel (`TestPanelLauncher.shared.isRunning`), a
 modal alert (`NSApplication.shared.modalWindow`, which covers the quit question and the update
 check's answer, both run with `runModal` while the hourly timer still fires in the common run loop
 modes) or the open menu (`menuWillOpen` to `menuDidClose`). Approval panels never defer it: they

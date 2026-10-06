@@ -86,7 +86,7 @@ None of this leaves your Mac, and none of it is written to the log.
 | Codex hook trust record | `~/Library/Application Support/Countersign/codex-hook-trust.json` |
 | Last version that ran | `~/Library/Application Support/Countersign/last-seen-version` |
 | Whether to open Settings after the menu-bar app restarts to update its copy, removed when it starts | `~/Library/Application Support/Countersign/relaunch-after-copy` |
-| First-run tour shown | `~/Library/Application Support/Countersign/tour-shown` |
+| Tour shown by 0.2.0 and earlier, now only read so an upgrade is not treated as new | `~/Library/Application Support/Countersign/tour-shown` |
 | Log (rotates at 1 MB) | `~/Library/Logs/Countersign/countersign.log` |
 
 A request waiting in the queue is a small file naming its agent, project and tool, and the
@@ -99,8 +99,8 @@ three backups next to each one, are written only when you run setup or click a h
 they wire Codex, notice that Codex trusted the hook, or you click **Mark as done**. The config file
 is written only when you change a preference in
 Settings or click its **Open in Editor**, and by **Don't ask again** in the menu-bar app's
-[quit question](menu-bar-app.md#quit). The first-run tour's empty marker file is written when you
-skip or finish it, so it won't show again on its own; it holds no content, only its own existence.
+[quit question](menu-bar-app.md#quit). The empty `tour-shown` marker file that 0.2.0 and earlier wrote when you
+skipped or finished the tour is no longer written; it holds no content, only its own existence.
 
 The decision history is a JSON Lines file that feeds the menu-bar app's **Recent Decisions**
 submenu. Each line holds the time, the agent, the project, the tool, your answer (approved, denied,

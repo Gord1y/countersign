@@ -23,7 +23,6 @@ enum SnapshotCommand {
     + " [--home <dir>] [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --update-answer up-to-date|available|failed"
     + " [--appearance light|dark] -o <out.png>\n"
-    + "       countersign snapshot --tour 1|2|3|4 [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --setup no-agents|needs-wiring|write-failed|done|all-set"
     + " [--home <dir>] [--expanded] [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --menu-bar-icon active|paused|quiet"
@@ -37,7 +36,6 @@ enum SnapshotCommand {
   private static let quitPromptFlag = "--quit-prompt"
   private static let hookPromptFlag = "--hook-prompt"
   private static let updateAnswerFlag = "--update-answer"
-  private static let tourFlag = "--tour"
   private static let setupFlag = "--setup"
   private static let menuBarIconFlag = "--menu-bar-icon"
   private static let waitingNoticeFlag = "--waiting-notice"
@@ -61,9 +59,6 @@ enum SnapshotCommand {
     }
     if arguments.contains(updateAnswerFlag) {
       runUpdateAnswer(arguments)
-    }
-    if arguments.contains(tourFlag) {
-      runTour(arguments)
     }
     if arguments.contains(setupFlag) {
       runSetup(arguments)
@@ -454,29 +449,6 @@ enum SnapshotCommand {
       let png = render(contentView, background: .windowBackgroundColor)
     else {
       CommandLineOutput.fail("error: could not render the update answer")
-    }
-    write(png, to: options.outputPath)
-  }
-
-  @MainActor
-  private static func runTour(_ arguments: [String]) -> Never {
-    guard let options = parseTour(arguments) else { CommandLineOutput.fail(usage) }
-
-    NSApplication.shared.setActivationPolicy(.prohibited)
-
-    let hostingView = NSHostingView(rootView: FirstRunTourView(step: options.step))
-    hostingView.appearance = options.appearance?.appearance
-    var size = hostingView.fittingSize
-    for _ in 0..<settleTurnLimit {
-      hostingView.layoutSubtreeIfNeeded()
-      RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
-      let measured = hostingView.fittingSize
-      if measured == size { break }
-      size = measured
-    }
-    hostingView.setFrameSize(size)
-    guard let png = render(hostingView, background: .windowBackgroundColor) else {
-      CommandLineOutput.fail("error: could not render the tour")
     }
     write(png, to: options.outputPath)
   }
@@ -946,46 +918,6 @@ enum SnapshotCommand {
     return CornerCardOptions(
       host: host, project: project, offersGoThere: offersGoThere, outputPath: outputPath,
       appearance: appearance)
-  }
-
-  private struct TourOptions {
-    let step: FirstRunTourStep
-    let outputPath: String
-    let appearance: Appearance?
-  }
-
-  private static func parseTour(_ arguments: [String]) -> TourOptions? {
-    var step: FirstRunTourStep?
-    var outputPath: String?
-    var appearance: Appearance?
-    var index = arguments.startIndex
-
-    while index < arguments.count {
-      switch arguments[index] {
-      case tourFlag:
-        index += 1
-        guard index < arguments.count, let raw = Int(arguments[index]),
-          let parsed = FirstRunTourStep(rawValue: raw)
-        else { return nil }
-        step = parsed
-      case "--appearance":
-        index += 1
-        guard index < arguments.count, let parsed = Appearance(rawValue: arguments[index]) else {
-          return nil
-        }
-        appearance = parsed
-      case "-o":
-        index += 1
-        guard index < arguments.count else { return nil }
-        outputPath = arguments[index]
-      default:
-        return nil
-      }
-      index += 1
-    }
-
-    guard let outputPath, let step else { return nil }
-    return TourOptions(step: step, outputPath: outputPath, appearance: appearance)
   }
 
   private enum SetupSnapshotState: String {

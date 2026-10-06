@@ -692,7 +692,7 @@ file is written on blur, Return or disappearance; empty shows "Enter a file path
 showing a test panel never drops one.
 
 The notes are edited in a sheet (`ContextNotesSheet`, a SwiftUI view in an `NSHostingController`
-presented with `beginSheet`, the way the tour is), about 560 by 620, titled "Context notes", whose
+presented with `beginSheet`), about 560 by 620, titled "Context notes", whose
 caption names the `{tokens}` and `{handoffFile}` placeholders. It shows the five notes in order,
 each with its caption, an editor about five lines tall and a "Restore Default" button enabled only
 while the text differs from the default. The pending texts live in the sheet's own state, not in
@@ -932,41 +932,17 @@ https://raw.githubusercontent.com/Gord1y/countersign/main/schema/config.schema.j
 other key as it is.
 ```
 
-### The first-run tour
+### The tour (removed in 0.3.0)
 
-The window shows a four-step tour the first time Settings opens: whenever
-`SettingsWindowController.show(forceTour:)` runs with `forceTour` false, which is every path that
-opens the window, it presents the tour as a sheet
-(`window.beginSheet`, an `NSHostingController<FirstRunTourView>`) unless
-`AppPaths.tourShownFile` already exists. Skip or Done, on any step, creates that empty file and
-ends the sheet; Back and Next swap the hosting controller's `rootView` for the neighbouring step
-without tearing the sheet down. Closing the settings window while the tour is up ends the sheet
-without creating the file, so the tour is still owed next time.
+The setup window replaced the four-step first-run tour, and its sheet, copy and
+`countersign snapshot --tour` are gone. `AppPaths.tourShownFile` (`tour-shown` in the state folder)
+is still read, never written: `SetupLaunch.opensSetup` and `UpgradeNudge.isUpgrade` treat a Mac
+that saw the tour as not new, so a 0.2.0 user is not sent through setup as if freshly installed.
 
-The tour, the context notes sheet and the rule sheet all use `SettingsSheetWindow`: a borderless
-window whose `canBecomeKey` is overridden to true. AppKit lets a window become key only when it has
-a title bar or a resize bar, so a plain borderless sheet never became key: its text fields took no
-typing, and Return and Esc never reached its default and cancel buttons.
-
-The steps, their titles and bodies, and the count, live in `ApprovalCore` as `FirstRunTourStep`
-and `FirstRunTour`, so they're covered by `ApprovalCoreTests` like every other piece of copy; a
-body is a `[FirstRunTourSegment]` of `.text` and `.key` pieces rather than one string, so
-`FirstRunTourView` can render the three keys in "How a panel waits" as the same `KeyHint` keycaps
-the panel itself uses, in place of the raw ⏎, ⎋ and ⌫ glyphs, and a custom `Layout` flows text and
-keycaps together with normal word wrap.
-
-`AppPaths.tourShownFile` sits in the state folder, `~/Library/Application
-Support/Countersign/tour-shown`, next to `paused` and `quiet-until`, not in the config file and not
-in `UserDefaults`: it isn't a preference a person sets, it's "has this Mac seen the tour", and the
-state folder is the one place both Countersign.app and a `countersign settings` run from the
-terminal already read and write without disagreeing (see "What it writes" in
-[safety-and-privacy.md](../safety-and-privacy.md)). `UserDefaults` would tie it to
-`Countersign.app`'s bundle identifier alone and miss the CLI entirely.
-
-Help ▸ Set Up… no longer reaches the tour: it opens the setup window.
-`countersign snapshot --tour 1|2|3|4` renders one step's `FirstRunTourView` alone, the same way
-`--quit-prompt` renders the quit question's content view (see "Snapshots" in
-[panel.md](panel.md)).
+The context notes sheet and the rule sheet use `SettingsSheetWindow`: a borderless window whose
+`canBecomeKey` is overridden to true. AppKit lets a window become key only when it has a title bar
+or a resize bar, so a plain borderless sheet never became key: its text fields took no typing, and
+Return and Esc never reached its default and cancel buttons.
 
 ### More than one copy
 

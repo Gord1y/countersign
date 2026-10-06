@@ -363,7 +363,7 @@ Names only, never message text:
   [--project <name>] [--no-app] [--appearance light|dark] -o <out.png>
 ```
 
-It draws `CornerCardView` with the solid surface, offscreen, the same way the tour snapshot does
+It draws `CornerCardView` with the solid surface, offscreen, the same way the quit-prompt snapshot does
 (see "Snapshots" in [panel.md](panel.md)). The project defaults to `shop-api`; `--no-app` renders
 the card without `Go there`, as for a record with no app.
 

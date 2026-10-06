@@ -1996,20 +1996,6 @@ version of the binary taking the snapshot, never the demo version. It calls `lay
 the alert window's content view the same way `--quit-prompt` does, never ordering the alert in and
 never running it, so nothing is written to disk and no window ever shows.
 
-The first-run tour (see "The first-run tour" in [settings.md](settings.md)) has one too:
-
-```sh
-.build/debug/countersign snapshot --tour 1|2|3|4 [--appearance light|dark] -o <out.png>
-```
-
-It draws `FirstRunTourView(step:)` alone, the same sheet content the Settings window presents,
-settled the same way `--quit-prompt` and `--settings --explanation` settle: run the main run loop
-in 20 ms turns until `fittingSize` stops changing, size the hosting view to that, then
-`cacheDisplay` it onto a bitmap filled with `windowBackgroundColor` first, since the real sheet
-draws no material of its own worth reproducing offscreen. It reads no config and needs no
-`--home`, since a step's title and body come from `FirstRunTourStep` alone; the buttons render but
-do nothing, since nothing here is wired to a `SettingsWindowController` to advance or dismiss.
-
 The menu-bar status item's icon (see "The icon and the 2 s refresh" in [app.md](app.md)) has one
 too:
 
