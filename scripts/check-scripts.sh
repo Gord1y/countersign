@@ -6,3 +6,4 @@ scripts/test-worktree-cleanup.sh
 scripts/test-release-index.sh
 scripts/test-install.sh
 scripts/test-run-quietly.sh
+scripts/test-rulesets.sh

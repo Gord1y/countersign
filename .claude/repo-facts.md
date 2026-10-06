@@ -42,7 +42,7 @@ disagree, the contract doc wins.
 | Title convention for promotion PRs | `chore: prepare release <x.y.z>` into `staging`, `chore: release countersign <x.y.z>` into `main` |
 | Does the repo tag releases? | yes: `v<x.y.z>` on `main`'s new merge commit, pushed by the maintainer; a pushed `v*` tag can never be moved or deleted |
 | CI checks that run only on promotion PRs | none: every pull request runs `gates`, `commits`, `release-index`, `lint` and `title`; `release.yml` runs only on the pushed tag |
-| Branch protection on the target branch | `main`: pull request only, no approving review required, merge commit only, the five checks above, no up-to-date requirement; `staging`: the same but squash only and up to date ([docs/tooling.md](../docs/tooling.md#branches-and-rulesets)) |
+| Branch protection on the target branch | `main`: pull request only, no approving review required, merge commit only, the five checks above, no up-to-date requirement; `staging`: the same but squash only and up to date; committed in `.github/rulesets/`, applied and checked with `scripts/rulesets.sh` ([docs/tooling.md](../docs/tooling.md#branches-and-rulesets)) |
 | Where uncommitted drafts go | `writeups/releases/<x.y.z>/` (`promotion-staging.md`, `promotion-main.md`) |
 
 ## thorough-diff-review

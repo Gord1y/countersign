@@ -12,7 +12,8 @@ and `plutil`, so a fresh clone, a builder's worktree and a CI runner can all run
 installing anything. `scripts/build-app.sh`, `scripts/package-release.sh` and
 `scripts/screenshots/render.sh` also need the Swift toolchain, because each builds or runs Swift
 code as part of its job. `scripts/test-release-index.sh` needs the Swift toolchain as well, since it
-runs `scripts/release-index.swift` directly to test it.
+runs `scripts/release-index.swift` directly to test it. `scripts/rulesets.sh` needs `gh`, since it
+talks to GitHub's API, and `jq`, which macOS ships in `/usr/bin`; its test needs only `jq`.
 
 The scripts that change this repository's own gates or a person's machine have a test script that
 `scripts/check.sh` runs: `scripts/test-commit-msg.sh` covers `scripts/git-hooks/commit-msg`, the
@@ -20,14 +21,16 @@ commit message rules; `scripts/test-worktree-cleanup.sh` covers `scripts/worktre
 which removes a builder's landed worktrees and branches; `scripts/test-release-index.sh` covers
 `scripts/release-index.swift`, which regenerates `releases/index.json`;
 `scripts/test-install.sh` covers `install.sh`, the installer people run on their own machine; and
-`scripts/test-run-quietly.sh` covers `scripts/run-quietly.sh`, which shapes what the gates print.
+`scripts/test-run-quietly.sh` covers `scripts/run-quietly.sh`, which shapes what the gates print;
+and `scripts/test-rulesets.sh` covers `scripts/rulesets.sh` against a fake `gh` that serves the
+committed rulesets, so it runs offline.
 `scripts/build-app.sh`, `scripts/package-release.sh` and `scripts/screenshots/render.sh` have no
 test script; they are checked by running them.
 
 `scripts/check.sh` runs four parts in order, and each also runs on its own:
 `scripts/check-build.sh` runs `swift build`, which compiles every target except the tests;
 `scripts/check-test.sh` runs `swift test`; `scripts/check-lint.sh` runs
-`swift format lint --strict` and rejects code comments; `scripts/check-scripts.sh` runs the five
+`swift format lint --strict` and rejects code comments; `scripts/check-scripts.sh` runs the six
 test scripts above. CI runs the parts as parallel jobs; see [`ci.yml`](#ciyml--ci). Last,
 `check.sh` runs `swift scripts/release-index.swift --check` against the repository's own
 `releases/index.json`, which CI checks in its separate `release-index` job; the test script only
@@ -166,7 +169,8 @@ not with the Command Line Tools. The same Command Line Tools with the macOS 26.5
 ## Repository settings
 
 These GitHub settings live outside the tree, so this section is their record: change a setting
-and this section together.
+and this section together. The rulesets are the exception: their files under `.github/rulesets/`
+are the record, and this section only explains them.
 
 ### Branches and rulesets
 
@@ -175,7 +179,9 @@ and this section together.
 [release.md](release.md#cutting-a-release)). Rebase merging is off. A squash commit's subject is
 the pull request's title followed by ` (#<number>)`, which GitHub appends, and its body is empty.
 
-Three rulesets enforce this. None has a bypass actor, so they bind the owner too:
+Three rulesets enforce this. Each is committed as `.github/rulesets/<name>.json` in GitHub's own
+ruleset format, and the files are the source of truth. None has a bypass actor, so they bind the
+owner too:
 
 - `main`: no deletion, no force push, changes only through a pull request (no approving review
   required; merge commit only), and the required checks `gates`, `commits`, `release-index`,
@@ -198,6 +204,17 @@ run on its merge with `main`'s current tip.
 
 Automatic deletion of head branches is off, because it would delete `staging` after every
 release pull request.
+
+GitHub never reads those files itself. `scripts/rulesets.sh --apply` writes each one to GitHub,
+updating the ruleset of the same name or creating it, and then checks; run it with `gh` signed in
+as the owner. `scripts/rulesets.sh --check` compares every file with GitHub's ruleset and fails on
+any difference, on a file with no ruleset, and on a ruleset with no file. The `lint` job runs the
+check on every pull request and every push to `main`, so a ruleset changed in GitHub's settings
+fails CI until its file follows. To change a ruleset, edit its file in a pull request and run
+`--apply` from that branch: the pull request's `lint` fails until you do. GitHub hides bypass
+actors from a token without admin rights; when they come back hidden, the check compares
+everything but them, so only `--check` run as the owner covers them. A ruleset is never deleted by the script: remove it in GitHub's settings and delete its
+file in the same pull request.
 
 Auto-merge is on. With no approval required, "Enable auto-merge" on a pull request merges it by
 itself once the required checks pass, and for `staging` once the branch is up to date.
@@ -285,7 +302,9 @@ Triggers: `push` to `main`, `pull_request`, `workflow_dispatch`.
 Triggers: `push` to `main`, `pull_request`, `workflow_dispatch`, on `ubuntu-latest`. It runs
 actionlint over `.github/workflows`, fetched with actionlint's own `download-actionlint.bash`
 pinned to a commit SHA, and shellcheck, already installed on the image, over `scripts/*.sh`,
-`scripts/*/*.sh`, `scripts/git-hooks/*` and the root `install.sh`.
+`scripts/*/*.sh`, `scripts/git-hooks/*` and the root `install.sh`. Last, it runs
+`scripts/rulesets.sh --check` with the job's read-only token, which can read a public repository's
+rulesets (see [Branches and rulesets](#branches-and-rulesets)).
 
 ### `pr-title.yml` — PR title
 
