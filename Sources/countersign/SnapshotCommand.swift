@@ -3,7 +3,7 @@ import ApprovalCore
 import SwiftUI
 
 enum SnapshotCommand {
-  private static let usage =
+  static let usage =
     "usage: countersign snapshot <request.json> --host claude|codex|cursor|antigravity"
     + " [--waiting N] [--appearance light|dark] [--accent #RRGGBB] [--unarmed] [--question-notes]"
     + " [--open-menu approve|snooze|mode] [--later] -o <out.png>\n"

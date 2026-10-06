@@ -24,6 +24,7 @@ public enum CommandLineHelp {
       entry("--version", "Print the installed version"),
       "",
       "hook runs from your agents' hooks; preview and snapshot are for development.",
+      "Add --help to a command for its usage.",
     ]
 
     var helpLines: [String] = []

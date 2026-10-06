@@ -229,6 +229,8 @@ it steps aside, swallowing that one key, until your next pause. ⌘ shortcuts su
 | `countersign --version` | Prints the installed version |
 | `countersign help` | Lists every command, with the help and support links |
 
+Add `--help` to any command to print its usage.
+
 What each answer does in each agent: [docs/agents.md](docs/agents.md). `preview` and `snapshot`,
 for rendering a request without an agent, are covered in [CONTRIBUTING.md](CONTRIBUTING.md).
 

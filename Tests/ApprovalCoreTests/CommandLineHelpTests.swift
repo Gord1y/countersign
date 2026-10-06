@@ -19,6 +19,12 @@ import Testing
     }
   }
 
+  @Test func pointsAtHelpForACommandsUsageAfterTheHookLine() {
+    let lines = CommandLineHelp.text(version: "1.2.3").components(separatedBy: "\n")
+    let hookIndex = lines.firstIndex { $0.hasPrefix("hook runs from") }
+    #expect(hookIndex.map { lines[$0 + 1] } == "Add --help to a command for its usage.")
+  }
+
   @Test func theTestPanelLineNamesEveryKind() throws {
     let lines = CommandLineHelp.text(version: "1.2.3").components(separatedBy: "\n")
     let line = try #require(lines.first { $0.hasPrefix("  test-panel") })

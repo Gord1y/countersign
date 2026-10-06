@@ -9,6 +9,30 @@ if AppLaunchMode.detect(bundleIdentifier: Bundle.main.bundleIdentifier, argument
   MenuBarCompanion.run()
 }
 
+@MainActor
+func usage(ofCommand command: String?) -> String? {
+  switch command {
+  case "setup": SetupCommand.usage
+  case "settings": SettingsCommand.usage
+  case "doctor": DoctorCommand.usage
+  case "preview": PreviewCommand.usage
+  case "test-panel": TestPanelCommand.usage
+  case "snapshot": SnapshotCommand.usage
+  case "pause": StatusCommand.pauseUsage
+  case "resume": StatusCommand.resumeUsage
+  case "status": StatusCommand.statusUsage
+  case "snooze": StatusCommand.snoozeUsage
+  default: nil
+  }
+}
+
+if let usage = usage(ofCommand: arguments.first),
+  CommandHelp.isRequest(Array(arguments.dropFirst()))
+{
+  print(usage)
+  exit(0)
+}
+
 switch arguments.first {
 case "hook":
   HookRunner.run(Array(arguments.dropFirst()))
@@ -27,11 +51,11 @@ case "snapshot":
 case WaitingRecorder.noticeCommand:
   WaitingNoticeCommand.run(Array(arguments.dropFirst()))
 case "pause":
-  StatusCommand.pause()
+  StatusCommand.pause(Array(arguments.dropFirst()))
 case "resume":
-  StatusCommand.resume()
+  StatusCommand.resume(Array(arguments.dropFirst()))
 case "status":
-  StatusCommand.status()
+  StatusCommand.status(Array(arguments.dropFirst()))
 case "snooze":
   StatusCommand.snooze(Array(arguments.dropFirst()))
 case "help", "--help", "-h":
