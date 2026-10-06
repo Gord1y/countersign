@@ -34,10 +34,15 @@ public struct RuleDraft: Sendable, Equatable {
     }
     let trimmedCommand = Self.trimmed(command)
     if !trimmedCommand.isEmpty {
-      let parts = ShellCommandSegments.split(trimmedCommand)
-      if parts == nil || (parts?.count ?? 0) > 1 {
+      if let parts = ShellCommandSegments.split(trimmedCommand) {
+        if parts.count > 1 {
+          found.append(
+            "Use one command per rule; a rule matches each part of a compound command on its own.")
+        }
+      } else {
         found.append(
-          "Use one command per rule; a rule matches each part of a compound command on its own.")
+          "A rule can't match a command with $, backticks, parentheses, braces, a # comment"
+            + " or output into a file; such a command always gets its panel.")
       }
     }
     return found

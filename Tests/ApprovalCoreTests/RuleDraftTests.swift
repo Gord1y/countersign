@@ -45,8 +45,14 @@ import Testing
 
   @Test func unreadableCommandIsAProblem() {
     var draft = RuleDraft()
-    draft.command = "echo $(whoami)"
-    #expect(draft.problems.count == 1)
+    for command in ["echo $(whoami)", "npm run $SCRIPT", "ls > out"] {
+      draft.command = command
+      #expect(
+        draft.problems == [
+          "A rule can't match a command with $, backticks, parentheses, braces, a # comment"
+            + " or output into a file; such a command always gets its panel."
+        ])
+    }
     #expect(draft.rule() == nil)
   }
 

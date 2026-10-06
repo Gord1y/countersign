@@ -1031,9 +1031,10 @@ context notes sheet (`RuleSheet`), 440 pt wide: Decision (Allow | Deny), Agent, 
 field plus Choose…, an `NSOpenPanel` limited to one directory, shown abbreviated with `~`), Tool,
 Command (code font) and, only while Deny is selected, Message. Empty fields mean "any". The pure
 state lives in `RuleDraft` (`ApprovalCore`): its `problems` mirror what the file reader rejects
-(a project that is not a full path or does not start with `~`; a command that
-`ShellCommandSegments.split` cannot read or that splits into several parts, because a rule matches
-each part of a compound command on its own), and Save stays disabled while there are any. A
+(a project that is not a full path or does not start with `~`; a command that splits into several
+parts, because a rule matches each part of a compound command on its own; a command that
+`ShellCommandSegments.split` cannot read, with its own line saying such a command always gets its
+panel, since a rule could never match it), and Save stays disabled while there are any. A
 message on an allow rule is dropped when the rule is built, as the reader would ignore it. An
 allow rule with no agent, project, tool and command shows the warning "This allows every request
 from every agent." in the warning style; it does not block saving, because a blanket allow is a
