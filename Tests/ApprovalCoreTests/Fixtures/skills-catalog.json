@@ -63,41 +63,41 @@
     },
     {
       "name": "release-notes",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "agents": [
         "claude",
         "codex",
         "antigravity"
       ],
       "description": "Write or update a release note: entry format, required sections, the Fixed rule, and regenerating the release index.",
-      "whenToUse": null,
-      "invocation": "manual",
+      "whenToUse": "Use when asked to write or update a release note or changelog entry, and before reporting work on a release branch as done, so its open note covers every commit.",
+      "invocation": "model",
       "path": "skills/release-notes"
     },
     {
       "name": "feature-pr-description",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "agents": [
         "claude",
         "codex",
         "antigravity"
       ],
       "description": "Write the body of a feature or fix PR from the branch's real diff, following the repo's PR contract.",
-      "whenToUse": "Use when asked to write, draft or update a PR description.",
+      "whenToUse": "Use when asked to write, draft or update a PR description for a feature or fix branch. A release, promotion or hotfix PR goes to promotion-pr-description.",
       "invocation": "model",
       "path": "skills/feature-pr-description"
     },
     {
       "name": "promotion-pr-description",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "agents": [
         "claude",
         "codex",
         "antigravity"
       ],
-      "description": "Write the body of a promotion PR (a release branch into staging, or staging into main) following the repo's promotion contract.",
-      "whenToUse": null,
-      "invocation": "manual",
+      "description": "Write a release or hotfix PR body (into staging or main) from its release note, plus what developers need before and after the merge.",
+      "whenToUse": "Use when asked to write, draft or update the description of a release, promotion or hotfix PR: a release branch into staging, staging into main, or a hotfix branch into either.",
+      "invocation": "model",
       "path": "skills/promotion-pr-description"
     },
     {
@@ -165,13 +165,13 @@
     },
     {
       "name": "pr-review-triage",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "agents": [
         "claude",
         "codex"
       ],
-      "description": "Triage a PR's review: fetch the Claude review, human comments and open threads, verify each finding at the PR head, find what it missed, write a fix plan.",
-      "whenToUse": "Use when the message is a bare PR link, or when asked to triage or answer a PR's review.",
+      "description": "Triage a PR: collect AI review findings, failed CI checks and open human threads, verify each at the PR head, and write a fix plan that proves every fix safe.",
+      "whenToUse": "Use when the message is a bare PR link, or when asked to triage a PR's review findings or failing checks.",
       "invocation": "model",
       "path": "skills/pr-review-triage"
     },
@@ -190,7 +190,7 @@
     },
     {
       "name": "writeups-cleanup",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "agents": [
         "claude",
         "codex",
@@ -225,7 +225,7 @@
     },
     {
       "name": "issues-found",
-      "title": "Issues you find along the way",
+      "title": "Issues found along the way",
       "agents": [
         "claude",
         "codex",
@@ -252,16 +252,6 @@
       "path": "rules/orchestration.md"
     },
     {
-      "name": "context-transfer",
-      "title": "Context transfer",
-      "agents": [
-        "claude",
-        "codex",
-        "antigravity"
-      ],
-      "path": "rules/context-transfer.md"
-    },
-    {
       "name": "memory",
       "title": "Memory",
       "agents": [
@@ -271,7 +261,7 @@
     },
     {
       "name": "research",
-      "title": "Research and external information",
+      "title": "Research",
       "agents": [
         "claude",
         "codex",
@@ -301,7 +291,7 @@
     },
     {
       "name": "trust",
-      "title": "Instruction sources and trust",
+      "title": "Trust",
       "agents": [
         "claude",
         "codex",

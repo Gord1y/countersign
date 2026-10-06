@@ -118,7 +118,7 @@ import Testing
 
     #expect(overview.availability == .ready(setupFolder: home.source))
     #expect(overview.skills.count == 16)
-    #expect(overview.rules.count == 11)
+    #expect(overview.rules.count == 10)
     #expect(status(overview, skill: "orchestrate", agent: "claude") == .linked)
     #expect(status(overview, skill: "memory-review", agent: "claude") == .notInstalled)
     #expect(status(overview, skill: "context-transfer", agent: "codex") == .agentMissing)
@@ -178,7 +178,7 @@ import Testing
     #expect(overview.skills.count == 32)
     #expect(overview.skills.prefix(16).allSatisfy { $0.source == home.source })
     #expect(overview.skills.suffix(16).allSatisfy { $0.source == withCatalog })
-    #expect(overview.rules.count == 22)
+    #expect(overview.rules.count == 20)
     #expect(overview.additions == [withCatalog, withoutCatalog])
   }
 

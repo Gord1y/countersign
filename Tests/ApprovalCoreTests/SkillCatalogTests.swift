@@ -44,7 +44,7 @@ import Testing
         "promotion-pr-description", "thorough-diff-review", "i18n-translate", "qa-tester",
         "impact-check", "how-it-works", "pr-review-triage", "walkthrough", "writeups-cleanup",
       ])
-    #expect(catalog.rules.count == 11)
+    #expect(catalog.rules.count == 10)
     #expect(catalog.agents.count == 4)
     #expect(
       catalog.skills[0]
@@ -79,7 +79,7 @@ import Testing
 
     #expect(
       manual.map(\.name) == [
-        "memory-review", "release-notes", "promotion-pr-description", "writeups-cleanup",
+        "memory-review", "writeups-cleanup",
       ])
     #expect(manual.allSatisfy { $0.whenToUse == nil })
     #expect(
