@@ -441,20 +441,6 @@ failure and disables the button, since the click could not change anything. The 
 once, like every control in the window, and writes only the host's own file and, for Codex, the
 trust record, never `config.json` (see "Writing a change" in [settings.md](settings.md)).
 
-### Linking Countersign.app
-
-When a `Countersign.app` sits next to the resolved CLI, at
-`<directory of the binary>/../Countersign.app` (the layout of the release tarball and of a Homebrew
-install), and nothing is at `~/Applications/Countersign.app` (a dangling symbolic link counts as
-something), the App group offers "Link Countersign.app into ~/Applications", since the link is
-about the app rather than an agent's hooks. The click creates
-`~/Applications` when needed and a symbolic link in it. For a Homebrew install the link names
-Homebrew's `opt` path, `/opt/homebrew/opt/countersign/Countersign.app`, rather than the versioned
-Cellar path the bundle was found at, for the reason in "The stable path": the Cellar directory is
-removed on the next upgrade, and `opt` follows the installed version. `ApprovalCore.AppBundleLink`
-holds the rule. Run from inside `Countersign.app`, the candidate would be inside the bundle itself,
-which never exists, so there is no offer.
-
 ### Copying Countersign.app
 
 A link into Homebrew's prefix is invisible to Spotlight and Launchpad, for two measured reasons:
@@ -462,9 +448,11 @@ Spotlight indexes nothing under `/opt/homebrew` (`mdfind -onlyin /opt/homebrew -
 "kMDItemFSName == '*'"` prints 0), and it never indexes a symbolic link, so 0.2.0's link at
 `~/Applications/Countersign.app` could not be found. A real bundle in `~/Applications` is indexed.
 So Countersign copies the app there instead, and keeps the copy current after `brew upgrade`.
-`ApprovalCore.AppBundleCopy` holds the rules. The source is found as in "Linking Countersign.app":
-`<directory of the binary>/../Countersign.app`, named by Homebrew's `opt` path for a Cellar install.
-It must be a directory whose `CFBundleShortVersionString` reads. Versions come from each bundle's
+`ApprovalCore.AppBundleCopy` holds the rules. The source is
+`<directory of the binary>/../Countersign.app`, the layout of the release tarball and of a Homebrew
+install, named by Homebrew's `opt` path for a Cellar install, since the Cellar folder is removed on
+the next upgrade and `opt` follows the installed version. Run from inside `Countersign.app`, the
+candidate would be inside the bundle itself, which never exists, so there is no offer. It must be a directory whose `CFBundleShortVersionString` reads. Versions come from each bundle's
 `Info.plist`, never from Cellar folder names, which can carry a revision suffix (`0.2.0_1`).
 
 What is at `~/Applications/Countersign.app` decides the offer:
@@ -479,6 +467,21 @@ What is at `~/Applications/Countersign.app` decides the offer:
 | a regular file | none |
 
 Versions compare as `UpdateCheck.semverParts` arrays, lexicographically.
+
+The App group's Install row shows while there is an offer or a message. Its title is
+`Countersign.app`, and the caption and button follow the offer:
+
+| Offer | Caption | Button |
+| --- | --- | --- |
+| add | Found next to this countersign binary. A copy in ~/Applications shows in Spotlight and Launchpad. | Copy into ~/Applications |
+| replace the link | ~/Applications/Countersign.app is a link, which Spotlight and Launchpad don't show. | Replace the Link with a Copy |
+| update | The copy in ~/Applications is `<from>`; this one is `<version>`. | Update the Copy |
+
+The click runs `perform` on the main actor, which is fine: the bundle is about 18 MB, and
+`~/Applications` and `/opt/homebrew` share an APFS volume, where the copy clones. Success reads
+"Copied Countersign.app `<version>` into ~/Applications. Spotlight and Launchpad find it there."
+and a failure shows the error's description as a problem message; both replace the offer once the
+hosts refresh.
 
 The refresh rule is for the app running from the copy. It applies only when the running bundle,
 standardized, is `~/Applications/Countersign.app` and that is a directory (not a link) with a
@@ -588,7 +591,7 @@ A copy is one install, grouped by where it came from:
 
 | Copy | Found when | Its paths | Version | Removed with |
 | --- | --- | --- | --- | --- |
-| Homebrew | `<prefix>/bin/countersign` exists, for `/opt/homebrew` and `/usr/local` | that link; the keg, what `<prefix>/opt/countersign` resolves to; a `~/Applications/Countersign.app` link into the keg (see "Linking Countersign.app"), or a real `~/Applications/Countersign.app` directory when `~/.local/bin/countersign` is not a regular file, the keg has a `Countersign.app` with a readable version, and the copy's version is equal to or lower than it | the keg's folder name, `…/Cellar/countersign/<version>` | `brew uninstall countersign`, plus `rm ~/Applications/Countersign.app` for a link, or `rm -rf ~/Applications/Countersign.app` for a real copy |
+| Homebrew | `<prefix>/bin/countersign` exists, for `/opt/homebrew` and `/usr/local` | that link; the keg, what `<prefix>/opt/countersign` resolves to; a `~/Applications/Countersign.app` link into the keg (see "Copying Countersign.app"), or a real `~/Applications/Countersign.app` directory when `~/.local/bin/countersign` is not a regular file, the keg has a `Countersign.app` with a readable version, and the copy's version is equal to or lower than it | the keg's folder name, `…/Cellar/countersign/<version>` | `brew uninstall countersign`, plus `rm ~/Applications/Countersign.app` for a link, or `rm -rf ~/Applications/Countersign.app` for a real copy |
 | Installer | `~/.local/bin/countersign` is a regular file, not a link | that file, and `~/Applications/Countersign.app` when it is a real directory | that app's `CFBundleShortVersionString`, else what `~/.local/bin/countersign --version` prints within 2 seconds; both are kept for the version check below | `rm ~/.local/bin/countersign`, plus `rm -rf ~/Applications/Countersign.app` for its app |
 | Countersign.app | `/Applications/Countersign.app` is a real directory, or `~/Applications/Countersign.app` is one and no installer copy owns it | the bundle | its `CFBundleShortVersionString` | `rm -rf <the bundle>` |
 

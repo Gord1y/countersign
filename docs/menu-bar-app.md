@@ -13,7 +13,7 @@ running, was never opened, or was quit, unless you [pause them when you quit](#q
 
 Open Countersign.app from the Finder, Spotlight or Launchpad. The curl installer puts it in
 `~/Applications`; Homebrew keeps it at `$(brew --prefix)/opt/countersign/Countersign.app`, and the
-Settings window offers to link it into `~/Applications`. The curl installer also opens it for you
+Settings window offers to copy it into `~/Applications`. The curl installer also opens it for you
 at the end of a fresh install, unless you set `COUNTERSIGN_SETUP=0`; see
 [release.md](release.md#opening-countersign-at-the-end).
 

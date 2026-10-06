@@ -218,7 +218,7 @@ since the sidebar already names it:
 | --- | --- | --- |
 | Agents | a row per agent (Wire, Update and Remove, each confirmed in a popup that shows its diff), the notice about a second copy, on each row the values `hosts.<agent>` sets, and, once wired, its follow-up line and Codex's "Mark as done" (`AgentFollowUp`; see "Follow-up lines" and "The Codex hook trust record" in [setup.md](setup.md)) | each agent's own hook file; the Codex hook trust record, never `config.json` |
 | Panels | five blocks: Delays (Same delays for all agents, then while it is off an Agent picker with the four agents, then Wait for idle, Grace period, Arm delay, Arm delay after an answer, Show card after), Interruptions (Hand off when frontmost, Snooze presets, Quiet hours, Sound), Corner cards (Waiting-agent notices, Notice after, Show notice for, Approval card with one checkbox per agent), Claude Code (Notes on answers, Mode after a plan, Context checkpoints) and Try it (Show a test panel, Show a test card), then Restore Defaults | `config.json`, for every agent, or under `hosts.<agent>` for the delays and the Approval card checkboxes |
-| App | General (Launch at login, Check for updates, When Countersign quits), Appearance (Appearance, Accent colour) and, while there is an offer to link Countersign.app, Install, then Advanced… and Restore Defaults | macOS's login items, `config.json`, `~/Applications` |
+| App | General (Launch at login, Check for updates, When Countersign quits), Appearance (Appearance, Accent colour) and, while there is an offer to copy Countersign.app, Install, then Advanced… and Restore Defaults | macOS's login items, `config.json`, `~/Applications` |
 | Rules | the intro line, one row per rule in file order with a remove button, the unreadable-entries notice (see "Rules" below) | `config.json`, the top-level `rules` array |
 | Help | the tour, documentation, ask a question, report a problem, contact the developer, updates, then support links | nothing in `config.json`; `update-check.json` after Check for Updates |
 | Advanced | the config file's path, Open in Editor, Copy Path, Open with, the schema, what only the file can set, and the prompt for a coding agent | `config.json` for Open with; otherwise nothing beyond creating a missing `config.json` to open it |
@@ -824,7 +824,7 @@ the built-in defaults, never of a config file.
   selected under App, as it does visually. The row icons are hidden; the pane title names the row.
 - **Decorative glyphs and status rows.** Icons that repeat the text beside them are hidden from
   VoiceOver: the agent status glyph, the inline message, note and follow-up symbols, the
-  disclosure chevron, the app-link glyph and the installed-copy radio glyph (the row carries
+  disclosure chevron, the app-copy glyph and the installed-copy radio glyph (the row carries
   `.isSelected` instead). Each installed-copy row reads as one button whose label is the copy's
   name, its chips and its paths, with `.isSelected` on the chosen one, so VoiceOver reads each copy
   as one choice. An agent row reads its name and its status line as one element, and an

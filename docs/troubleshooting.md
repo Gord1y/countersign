@@ -192,8 +192,9 @@ deleting or changing anything before you say so. Paste it into Claude Code, Code
 agent.
 
 `countersign doctor`'s `copies` line lists every copy and the command that removes each one; it
-doesn't pick one to keep. When Settings linked Countersign.app into `~/Applications` for the
-Homebrew copy, that copy's command also removes the link, which `brew uninstall` leaves behind. Old
+doesn't pick one to keep. When Settings copied Countersign.app into `~/Applications` for the
+Homebrew copy, that copy's command also removes the copy, and a link 0.2.0 made, which `brew
+uninstall` leaves behind. Old
 version folders Homebrew keeps are not copies; `brew cleanup` removes them.
 
 ### The menu-bar app and the command-line tool are on different versions

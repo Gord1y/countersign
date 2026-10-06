@@ -1863,6 +1863,7 @@ CLAUDE_CONFIG_DIR=<dir> CODEX_HOME=<dir> XDG_CONFIG_HOME=<dir> \
   [--home <dir>] [--show-copies] \
   [--status active|paused|paused-until-open|quiet] [--size <width>x<height>] \
   [--tab agents|panels|app|advanced] [--restore-prompt panels|app] \
+  [--app-copy add|replace-link|update|copied|failed] \
   [--explanation <preferenceName>] [--editor-choice ask|missing] \
   [--appearance light|dark] -o <out.png>
 ```
@@ -1921,6 +1922,12 @@ the image is exactly the size asked for. Nothing is written: the model writes on
 is used, an agent's or a test panel's button is clicked, "Open in Editor" is chosen, a text field
 disappears or the window closes, and offscreen nothing is clicked, typed, switched or closed. A snapshot's window is never
 key, so switches that are on and the slider's filled track draw in the inactive grey rather than the accent.
+
+`--app-copy add|replace-link|update|copied|failed`, only accepted with `--settings`, sets the
+App group's Install row after the model is built from `--home`: an offer to copy
+`/opt/homebrew/opt/countersign/Countersign.app` 0.3.0 into `--home`'s `~/Applications` (`add`,
+`replace-link`, or `update` from 0.2.0), the success message (`copied`), or the failure message
+`Couldn't copy Countersign.app: Permission denied.` (`failed`). Use it with `--tab app`.
 
 `--restore-prompt panels|app`, only accepted with `--settings`, renders the group's Restore
 Defaults confirmation instead of the window itself: it builds the model from `--home`'s config

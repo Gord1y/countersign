@@ -50,8 +50,9 @@ under `hosts`, that agent's row lists them too, with a link to open the file. On
 it may show one more line below it: a next step for Codex (see below), or a permanent good-to-know
 line for Cursor or Antigravity (see [agents.md](agents.md)).
 
-With a Homebrew install, the window's **App** group also offers to link Countersign.app into
-`~/Applications`, so Spotlight and Launchpad find it. The link follows Homebrew upgrades.
+With a Homebrew install, the window's **App** group also offers to copy Countersign.app into
+`~/Applications`, so Spotlight and Launchpad find it. The menu-bar app keeps it current at
+Homebrew's version after `brew upgrade`.
 
 ## From the terminal
 

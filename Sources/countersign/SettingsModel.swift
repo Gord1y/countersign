@@ -183,9 +183,9 @@ final class SettingsModel {
   let stablePath: String?
 
   private(set) var hostRows: [HostRow] = []
-  private(set) var appLinkOffer: AppBundleLinkOffer?
-  private(set) var appLinkMessage: String?
-  private(set) var appLinkFailed = false
+  private(set) var appCopyOffer: AppBundleCopyOffer?
+  private(set) var appCopyMessage: String?
+  private(set) var appCopyFailed = false
   private(set) var duplicateInstall: DuplicateInstall?
   private(set) var selectedCopyIndex: Int?
   private(set) var installVersionMismatch: InstallVersionMismatch?
@@ -463,9 +463,9 @@ final class SettingsModel {
           in: ConfigFileStore.fileState(location.file)))
       return row
     }
-    appLinkOffer = environment.resolvedExecutable.flatMap {
-      AppBundleLink.offer(
-        resolvedExecutable: $0, home: environment.home, exists: Self.somethingExists)
+    appCopyOffer = environment.resolvedExecutable.flatMap {
+      AppBundleCopy.offer(
+        resolvedExecutable: $0, home: environment.home, fileSystem: .local)
     }
     let detected = InstallCopiesCheck.duplicates(
       hookExecutables: InstallCopiesCheck.hookExecutables(in: environment.locations),
@@ -549,21 +549,24 @@ final class SettingsModel {
     refreshHosts()
   }
 
-  func linkApp() {
-    guard let offer = appLinkOffer else { return }
+  func copyApp() {
+    guard let offer = appCopyOffer else { return }
     do {
-      try FileManager.default.createDirectory(
-        at: offer.link.deletingLastPathComponent(), withIntermediateDirectories: true)
-      try FileManager.default.createSymbolicLink(
-        atPath: offer.link.path, withDestinationPath: offer.target)
-      appLinkMessage =
-        "Linked \(HomePath.abbreviating(offer.link.path, relativeTo: environment.home)) to \(offer.target)"
-      appLinkFailed = false
+      try AppBundleCopy.perform(source: offer.source, destination: offer.destination)
+      appCopyMessage =
+        "Copied \(AppBundleCopy.bundleName) \(offer.version) into ~/Applications. Spotlight and Launchpad find it there."
+      appCopyFailed = false
     } catch {
-      appLinkMessage = SetupRun.describe(error)
-      appLinkFailed = true
+      appCopyMessage = SetupRun.describe(error)
+      appCopyFailed = true
     }
     refreshHosts()
+  }
+
+  func showAppCopyForSnapshot(offer: AppBundleCopyOffer?, message: String?, failed: Bool) {
+    appCopyOffer = offer
+    appCopyMessage = message
+    appCopyFailed = failed
   }
 
   func loadPreferences() {

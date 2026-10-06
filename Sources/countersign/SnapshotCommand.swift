@@ -15,6 +15,7 @@ enum SnapshotCommand {
     + " [--home <dir>] [--show-copies]"
     + " [--status active|paused|paused-until-open|quiet] [--size <width>x<height>]"
     + " [--tab agents|panels|app|rules|context|help|advanced] [--restore-prompt panels|app]"
+    + " [--app-copy add|replace-link|update|copied|failed]"
     + " [--explanation <preferenceName>] [--editor-choice ask|missing] [--rule-sheet new|edit]"
     + " [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --quit-prompt [--appearance light|dark] -o <out.png>\n"
@@ -179,6 +180,10 @@ enum SnapshotCommand {
     model.select(options.pane)
     if options.showsCopies, model.duplicateInstall != nil {
       model.toggleCopies()
+    }
+
+    if let appCopy = options.appCopy {
+      appCopy.apply(to: model, home: environment.home)
     }
 
     if let restorePane = options.restorePrompt {
@@ -977,6 +982,41 @@ enum SnapshotCommand {
     return TourOptions(step: step, outputPath: outputPath, appearance: appearance)
   }
 
+  private enum AppCopySnapshot: String {
+    case add
+    case replaceLink = "replace-link"
+    case update
+    case copied
+    case failed
+
+    @MainActor
+    func apply(to model: SettingsModel, home: URL) {
+      let source = "/opt/homebrew/opt/countersign/Countersign.app"
+      let destination = AppBundleCopy.destination(home: home)
+      func offer(_ kind: AppBundleCopyOffer.Kind) -> AppBundleCopyOffer {
+        AppBundleCopyOffer(kind: kind, source: source, destination: destination, version: "0.3.0")
+      }
+      switch self {
+      case .add:
+        model.showAppCopyForSnapshot(offer: offer(.add), message: nil, failed: false)
+      case .replaceLink:
+        model.showAppCopyForSnapshot(offer: offer(.replaceLink), message: nil, failed: false)
+      case .update:
+        model.showAppCopyForSnapshot(
+          offer: offer(.update(from: "0.2.0")), message: nil, failed: false)
+      case .copied:
+        model.showAppCopyForSnapshot(
+          offer: nil,
+          message:
+            "Copied Countersign.app 0.3.0 into ~/Applications. Spotlight and Launchpad find it there.",
+          failed: false)
+      case .failed:
+        model.showAppCopyForSnapshot(
+          offer: nil, message: "Couldn't copy Countersign.app: Permission denied.", failed: true)
+      }
+    }
+  }
+
   private struct SettingsOptions {
     let outputPath: String
     let appearance: Appearance?
@@ -986,6 +1026,7 @@ enum SnapshotCommand {
     let size: CGSize?
     let pane: SettingsPane
     let restorePrompt: SettingsPane?
+    let appCopy: AppCopySnapshot?
     let explanation: PreferenceName?
     let editorChoice: EditorChoice?
     let ruleSheet: RuleSheetKind?
@@ -1000,6 +1041,7 @@ enum SnapshotCommand {
     var size: CGSize?
     var pane = SettingsPane.standard
     var restorePrompt: SettingsPane?
+    var appCopy: AppCopySnapshot?
     var explanation: PreferenceName?
     var editorChoice: EditorChoice?
     var ruleSheet: RuleSheetKind?
@@ -1043,6 +1085,11 @@ enum SnapshotCommand {
           parsed == .panels || parsed == .app
         else { return nil }
         restorePrompt = parsed
+      case "--app-copy":
+        index += 1
+        guard index < arguments.count, let parsed = AppCopySnapshot(rawValue: arguments[index])
+        else { return nil }
+        appCopy = parsed
       case "--explanation":
         index += 1
         guard index < arguments.count, let parsed = PreferenceName(rawValue: arguments[index])
@@ -1078,7 +1125,8 @@ enum SnapshotCommand {
     return SettingsOptions(
       outputPath: outputPath, appearance: appearance, showsCopies: showsCopies, status: status,
       home: home, size: size, pane: pane,
-      restorePrompt: restorePrompt, explanation: explanation, editorChoice: editorChoice,
+      restorePrompt: restorePrompt, appCopy: appCopy, explanation: explanation,
+      editorChoice: editorChoice,
       ruleSheet: ruleSheet)
   }
 
