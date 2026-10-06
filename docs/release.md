@@ -156,11 +156,13 @@ directly into a `run:` script, so a crafted tag name can't inject shell syntax),
    [above](#the-curl-installer) with `COUNTERSIGN_VERSION` filled in to that release's own
    version, and a line noting that Homebrew installs the latest version only. A release note never
    repeats this command itself; the workflow is what adds it, for every release, so it can't go
-   stale. The four artifacts above are attached.
+   stale. The four artifacts above are attached, and the release opens its announcement in the
+   **Announcements** discussion category, with the release's title and body.
 
 `GH_TOKEN` is scoped to `${{ github.token }}` and only set in the release-creation step's own
-`env`, and the job's `permissions: contents: write` is likewise scoped to that one job, on top of
-the workflow's `permissions: {}` default.
+`env`, and the job's `permissions` (`contents: write` for the release, `discussions: write` for
+its announcement) are likewise scoped to that one job, on top of the workflow's
+`permissions: {}` default.
 
 ## Cutting a release
 

@@ -18,6 +18,7 @@ jobs:
     timeout-minutes: 40
     permissions:
       contents: write
+      discussions: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -54,6 +55,7 @@ jobs:
           } >"$RUNNER_TEMP/release-body-full.md"
           gh release create "v$VERSION" \
             --title "$title" \
+            --discussion-category Announcements \
             --notes-file "$RUNNER_TEMP/release-body-full.md" \
             ".build/release-artifacts/countersign-$VERSION-macos.tar.gz" \
             ".build/release-artifacts/countersign-$VERSION-macos.tar.gz.sha256" \

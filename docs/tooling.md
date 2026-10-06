@@ -342,8 +342,9 @@ assigned by `dependabot.yml` instead.
 ### `release.yml` — Release
 
 Triggers: `push` of a `v*` tag, on `macos-26`. It has the one macOS job whose `permissions` grant
-`contents: write`, scoped to that job alone, to create the GitHub release; every other job and the
-workflow's own top-level `permissions` stay at read or `{}`. See [release.md](release.md) for what
+`contents: write` and `discussions: write`, scoped to that job alone, to create the GitHub release
+and its Announcements discussion; every other job and the workflow's own top-level `permissions`
+stay at read or `{}`. See [release.md](release.md) for what
 it builds, publishes and why.
 
 ### `dependabot.yml`
