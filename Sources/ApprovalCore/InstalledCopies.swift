@@ -271,7 +271,7 @@ public struct InstallVersionMismatch: Sendable, Equatable {
 }
 
 public enum InstalledCopies {
-  static let homebrewPrefixes = ["/opt/homebrew", "/usr/local"]
+  public static let homebrewPrefixes = ["/opt/homebrew", "/usr/local"]
   static let appBundle = "Countersign.app"
   static let bundleExecutable = "/Contents/MacOS/" + HookCommand.executableName
   static let bundleInfo = "/Contents/Info.plist"
@@ -405,6 +405,15 @@ public enum InstalledCopies {
     return url.lastPathComponent
   }
 
+  static func bundleVersion(_ app: String, fileSystem: InstallFileSystem) -> String? {
+    guard let data = fileSystem.contents(app + bundleInfo),
+      let info = try? PropertyListDecoder().decode(BundleInfo.self, from: data),
+      let version = info.shortVersion?.trimmingCharacters(in: .whitespacesAndNewlines),
+      !version.isEmpty
+    else { return nil }
+    return version
+  }
+
   static func trimmed(_ path: String) -> String {
     path.hasSuffix("/") ? String(path.dropLast()) : path
   }
@@ -511,12 +520,7 @@ private struct InstallScan {
   }
 
   private func bundleVersion(_ app: String) -> String? {
-    guard let data = fileSystem.contents(app + InstalledCopies.bundleInfo),
-      let info = try? PropertyListDecoder().decode(BundleInfo.self, from: data),
-      let version = info.shortVersion?.trimmingCharacters(in: .whitespacesAndNewlines),
-      !version.isEmpty
-    else { return nil }
-    return version
+    InstalledCopies.bundleVersion(app, fileSystem: fileSystem)
   }
 
   private mutating func claim(_ path: String) -> Bool {

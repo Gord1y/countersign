@@ -444,6 +444,47 @@ removed on the next upgrade, and `opt` follows the installed version. `ApprovalC
 holds the rule. Run from inside `Countersign.app`, the candidate would be inside the bundle itself,
 which never exists, so there is no offer.
 
+### Copying Countersign.app
+
+A link into Homebrew's prefix is invisible to Spotlight and Launchpad, for two measured reasons:
+Spotlight indexes nothing under `/opt/homebrew` (`mdfind -onlyin /opt/homebrew -count
+"kMDItemFSName == '*'"` prints 0), and it never indexes a symbolic link, so 0.2.0's link at
+`~/Applications/Countersign.app` could not be found. A real bundle in `~/Applications` is indexed.
+So Countersign copies the app there instead, and keeps the copy current after `brew upgrade`.
+`ApprovalCore.AppBundleCopy` holds the rules. The source is found as in "Linking Countersign.app":
+`<directory of the binary>/../Countersign.app`, named by Homebrew's `opt` path for a Cellar install.
+It must be a directory whose `CFBundleShortVersionString` reads. Versions come from each bundle's
+`Info.plist`, never from Cellar folder names, which can carry a revision suffix (`0.2.0_1`).
+
+What is at `~/Applications/Countersign.app` decides the offer:
+
+| At the destination | Offer |
+| --- | --- |
+| nothing | add the copy |
+| a symbolic link, dangling or not, wherever it points | replace the link with the copy |
+| a directory with a lower `x.y.z` version than the source | update from that version |
+| a directory with an equal or higher version | none |
+| a directory whose version is unreadable or not `x.y.z` | none |
+| a regular file | none |
+
+Versions compare as `UpdateCheck.semverParts` arrays, lexicographically.
+
+The refresh rule is for the app running from the copy. It applies only when the running bundle,
+standardized, is `~/Applications/Countersign.app` and that is a directory (not a link) with a
+readable version. Then, for each Homebrew prefix in order (`/opt/homebrew`, `/usr/local`), the first
+`<prefix>/opt/countersign/Countersign.app` that resolves to a directory with a higher version than
+the copy's is the source of the refresh.
+
+`perform` never leaves half a bundle at the destination. It resolves the source through symbolic
+links, creates `~/Applications` when missing, and copies the bundle to a hidden sibling,
+`.Countersign.app.copying-<UUID>`. Only a complete sibling is moved into place: over a symbolic link
+the link itself is removed (never its target) and the sibling moved in; over a directory
+`FileManager.replaceItemAt(_:withItemAt:)` swaps them in one step; over nothing the sibling is
+moved. On any error the sibling is removed and the error rethrown.
+
+A plain file copy keeps Countersign.app's ad-hoc signature and its bundle identifier, so Launch at
+Login and the menu-bar app keep working from the copy.
+
 ## Backups and writing
 
 Before a file that already exists is written, it is copied to
