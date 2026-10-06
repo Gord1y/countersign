@@ -4,6 +4,12 @@ Countersign's values for the shared agent setup's skills (`Gord1y/countersign-sk
 is named exactly as the skill's "Repo facts" table names it. Where a row and the contract doc
 disagree, the contract doc wins.
 
+SwiftPM can't start inside the agent sandbox, so `.claude/settings.json` runs `swift` and every
+script that calls it outside the sandbox (`sandbox.excludedCommands`). Run each such command alone,
+or chained only with another listed one: a pipe, a redirect to a file, a `cd` or `$(...)` keeps the
+whole line sandboxed. The shared recipe `set -o pipefail; <cmd> 2>&1 | tail -n 60` doesn't apply to
+them.
+
 ## release-notes
 
 | Fact | Countersign |
@@ -54,7 +60,7 @@ disagree, the contract doc wins.
 | Architecture rules and the tool that enforces them | `ApprovalCore` never imports AppKit or SwiftUI and every type in it has `ApprovalCoreTests` coverage; the `hook` path never writes stderr or exits non-zero; zero comments; no `!`, `try!`, `as!`, implicitly unwrapped optionals or public `Any`. `scripts/check-lint.sh` enforces the comment and unwrap rules (`swift format lint --strict`); the import boundary and the hook contract are enforced by review, which grades either as a Blocker ([docs/review-checklist.md](../docs/review-checklist.md)) |
 | Shared utilities to reuse before writing new ones | in `ApprovalCore`: `AppPaths` (every file location), `HomePath`, `ConfigEdit` and `ConfigFileStore` (config writes), `CommandPattern` and `ShellCommandSegments` (command matching), `DurationText` and `PreferenceRules` (times and limits), `JSONValue`, `TicketQueue`; in `Sources/countersign`: the button styles and `KeyHint` in `PanelStyle.swift`, and `SettingsSection` |
 | The full check command | `swift format format --in-place --recursive Package.swift Sources Tests && scripts/check.sh` |
-| Unit test command | `swift test` (`scripts/check-test.sh`); add `--disable-sandbox` when running inside an agent's sandbox |
+| Unit test command | `swift test` (`scripts/check-test.sh`), run alone so it leaves the agent sandbox (see the top of this file) |
 | e2e command and when it's required | none automated; on-screen behaviour (keyboard, focus, the idle gate, real agents) is checked by hand on an installed build, and layouts offscreen with `countersign snapshot` |
 | Translation check and generate commands, if the repo has translations | none: Countersign is English only |
 

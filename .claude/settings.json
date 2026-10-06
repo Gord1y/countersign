@@ -4,6 +4,11 @@
     "allow": [
       "Bash(scripts/check.sh)",
       "Bash(./scripts/check.sh)",
+      "Bash(scripts/check-build.sh)",
+      "Bash(scripts/check-test.sh)",
+      "Bash(scripts/check-lint.sh)",
+      "Bash(scripts/check-scripts.sh)",
+      "Bash(scripts/test-release-index.sh)",
       "Bash(swift build*)",
       "Bash(swift test*)",
       "Bash(swift format*)",
@@ -123,6 +128,22 @@
       "Edit(**/.env)",
       "Bash(cat .env)",
       "Bash(cat */.env)"
+    ]
+  },
+  "sandbox": {
+    "excludedCommands": [
+      "swift *",
+      "scripts/check.sh",
+      "./scripts/check.sh",
+      "scripts/check-build.sh",
+      "scripts/check-test.sh",
+      "scripts/check-lint.sh",
+      "scripts/check-scripts.sh",
+      "scripts/test-release-index.sh",
+      "scripts/build-app.sh *",
+      "scripts/package-release.sh *",
+      "scripts/install.sh",
+      "scripts/screenshots/render.sh"
     ]
   }
 }
