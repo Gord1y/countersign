@@ -43,7 +43,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
 
   private let paths: AppPaths
   private let log: EventLog
-  private let instanceLock: ExclusiveFileLock
+  private var instanceLock: ExclusiveFileLock
   private let pauseSwitch: PauseSwitch
   private let quietTime: QuietTime
   private let stateSwitches: StateSwitches
@@ -60,6 +60,8 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   private var updateCheckRequests = UpdateCheckRequests()
   private var settingsWindow: SettingsWindowController?
   private var pendingQuit: QuitOutcome?
+  private var isMenuOpen = false
+  private var reportedCopyRefreshFailures: Set<String> = []
 
   init(paths: AppPaths, log: EventLog, instanceLock: ExclusiveFileLock) {
     self.paths = paths
@@ -74,6 +76,15 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   }
 
   func applicationDidFinishLaunching(_ notification: Notification) {
+    let launchEvent = NSAppleEventManager.shared().currentAppleEvent
+    let opensSettings = CompanionLaunch.opensSettings(
+      launchEventID: launchEvent?.eventID,
+      launchedAs: launchEvent?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue)
+    if refreshApplicationsCopy(opensSettingsAfter: opensSettings) { return }
+    finishLaunching(opensSettings: opensSettings)
+  }
+
+  private func finishLaunching(opensSettings launchOpensSettings: Bool) {
     resumePauseSetAtQuit()
     let menu = NSMenu()
     menu.autoenablesItems = false
@@ -96,12 +107,14 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     DistributedNotificationCenter.default().addObserver(
       self, selector: #selector(openSettingsRequested(_:)), name: Self.openSettingsNotification,
       object: nil, suspensionBehavior: .deliverImmediately)
-    if opensSettingsAfterUpgrade() { return }
-    let launchEvent = NSAppleEventManager.shared().currentAppleEvent
-    let opensSettings = CompanionLaunch.opensSettings(
-      launchEventID: launchEvent?.eventID,
-      launchedAs: launchEvent?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue)
-    guard opensSettings else {
+    let opensSettingsForUpgrade = opensSettingsAfterUpgrade()
+    let relaunch = takeFreshCopyRefreshRelaunch()
+    if opensSettingsForUpgrade { return }
+    if let relaunch {
+      if relaunch.opensSettings { openSettings() }
+      return
+    }
+    guard launchOpensSettings else {
       log.write("companion: started at login")
       return
     }
@@ -112,6 +125,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool)
     -> Bool
   {
+    if refreshApplicationsCopy(opensSettingsAfter: true) { return false }
     log.write("companion: reopened, opening settings")
     openSettings()
     return false
@@ -142,7 +156,12 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     refreshIcon()
   }
 
+  func menuWillOpen(_ menu: NSMenu) {
+    isMenuOpen = true
+  }
+
   func menuDidClose(_ menu: NSMenu) {
+    isMenuOpen = false
     manualCheckResult = nil
   }
 
@@ -151,7 +170,86 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   }
 
   @objc private func updateCheckTimerFired() {
+    if refreshApplicationsCopy(opensSettingsAfter: false) { return }
     performScheduledUpdateCheckIfNeeded()
+  }
+
+  private var isAnythingOnScreen: Bool {
+    if let settingsWindow, !settingsWindow.isClosed { return true }
+    return TestPanelLauncher.shared.isRunning || NSApplication.shared.modalWindow != nil
+      || isMenuOpen
+  }
+
+  private func refreshApplicationsCopy(opensSettingsAfter: Bool) -> Bool {
+    guard !isAnythingOnScreen,
+      let refresh = AppBundleCopy.refresh(
+        runningBundle: Bundle.main.bundlePath,
+        home: FileManager.default.homeDirectoryForCurrentUser, fileSystem: .local)
+    else { return false }
+    let change = "~/Applications/Countersign.app from \(refresh.from) to \(refresh.to)"
+    do {
+      try AppBundleCopy.perform(source: refresh.source, destination: refresh.destination)
+    } catch {
+      if reportedCopyRefreshFailures.insert(refresh.to).inserted {
+        log.write("companion: could not refresh \(change): \(error)")
+      }
+      return false
+    }
+    do {
+      try CopyRefreshRelaunch.write(
+        CopyRefreshRelaunch(opensSettings: opensSettingsAfter, writtenAt: Date()),
+        to: paths.copyRefreshRelaunchFile)
+    } catch {
+      log.write("companion: refreshed \(change), not relaunching: \(error)")
+      return false
+    }
+    log.write("companion: refreshed \(change), relaunching")
+    instanceLock.release()
+    let configuration = NSWorkspace.OpenConfiguration()
+    configuration.createsNewApplicationInstance = true
+    configuration.addsToRecentItems = false
+    configuration.activates = opensSettingsAfter
+    NSWorkspace.shared.openApplication(at: refresh.destination, configuration: configuration) {
+      @Sendable [weak self] _, error in
+      let failure = error.map { String(describing: $0) }
+      Task { @MainActor in
+        self?.finishRelaunch(failure: failure, opensSettingsAfter: opensSettingsAfter)
+      }
+    }
+    return true
+  }
+
+  private func finishRelaunch(failure: String?, opensSettingsAfter: Bool) {
+    guard let failure else {
+      NSApplication.shared.terminate(nil)
+      return
+    }
+    log.write("companion: could not relaunch ~/Applications/Countersign.app: \(failure)")
+    try? FileManager.default.removeItem(at: paths.copyRefreshRelaunchFile)
+    do {
+      guard let reacquired = try ExclusiveFileLock.acquire(paths.companionLockFile) else {
+        log.write("companion: another instance holds companion.lock, quitting")
+        NSApplication.shared.terminate(nil)
+        return
+      }
+      instanceLock = reacquired
+    } catch {
+      log.write("companion: could not open companion.lock again: \(error)")
+    }
+    if statusItem == nil {
+      finishLaunching(opensSettings: opensSettingsAfter)
+    } else if opensSettingsAfter {
+      openSettings()
+    }
+  }
+
+  private func takeFreshCopyRefreshRelaunch() -> CopyRefreshRelaunch? {
+    let file = paths.copyRefreshRelaunchFile
+    let marker = CopyRefreshRelaunch.read(file)
+    try? FileManager.default.removeItem(at: file)
+    guard let marker, marker.isFresh(now: Date()) else { return nil }
+    log.write("companion: relaunched after refreshing the copy")
+    return marker
   }
 
   @objc private func menuItemChosen(_ sender: NSMenuItem) {

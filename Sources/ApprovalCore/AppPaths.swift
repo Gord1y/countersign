@@ -91,6 +91,10 @@ public struct AppPaths: Sendable, Equatable {
     supportDirectory.appendingPathComponent("last-seen-version")
   }
 
+  public var copyRefreshRelaunchFile: URL {
+    supportDirectory.appendingPathComponent("relaunch-after-copy")
+  }
+
   public var companionLockFile: URL {
     supportDirectory.appendingPathComponent("companion.lock")
   }

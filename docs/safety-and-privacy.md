@@ -68,7 +68,7 @@ None of this leaves your Mac, and none of it is written to the log.
 | Binary (Homebrew) | `$(brew --prefix)/bin/countersign` |
 | Binary (curl installer or from source) | `~/.local/bin/countersign` |
 | App bundle (Homebrew) | `$(brew --prefix)/opt/countersign/Countersign.app` |
-| App bundle (curl installer) | `~/Applications/Countersign.app` |
+| App bundle (curl installer, or copied by Settings) | `~/Applications/Countersign.app` |
 | Config file | `~/.config/countersign/config.json` (or `$XDG_CONFIG_HOME/countersign/config.json`) |
 | Queue and display lock | `~/Library/Application Support/Countersign/queue/` |
 | Context checkpoint state, one small file per Claude Code session | ~/Library/Application Support/Countersign/context/ |
@@ -80,6 +80,7 @@ None of this leaves your Mac, and none of it is written to the log.
 | Last update check | `~/Library/Application Support/Countersign/update-check.json` |
 | Codex hook trust record | `~/Library/Application Support/Countersign/codex-hook-trust.json` |
 | Last version that ran | `~/Library/Application Support/Countersign/last-seen-version` |
+| Whether to open Settings after the menu-bar app restarts to update its copy, removed when it starts | `~/Library/Application Support/Countersign/relaunch-after-copy` |
 | First-run tour shown | `~/Library/Application Support/Countersign/tour-shown` |
 | Log (rotates at 1 MB) | `~/Library/Logs/Countersign/countersign.log` |
 

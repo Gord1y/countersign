@@ -129,7 +129,8 @@ cannot be opened at all is logged (`companion: could not open companion.lock: <e
 and also exits 0, asking nothing, since no companion is known to be running. A lock file replaced
 between opening and locking it is retried, up to three attempts in all, so a companion starting
 while the previous one quits does not exit thinking another instance runs. Otherwise it keeps the
-descriptor for the rest of the process's life, runs `NSApplication` with the `.accessory`
+descriptor for the rest of the process's life, unless it hands over to a refreshed copy of itself
+(see "Keeping the ~/Applications copy current" below), runs `NSApplication` with the `.accessory`
 activation policy, and once launching has finished, before anything reads the pause switch, ends a
 pause that the last quit set until the app opens (see "Quit" below), logging `companion: resumed
 the pause set at quit`. It then creates one square `NSStatusItem` and logs `companion: started`, or
@@ -201,7 +202,8 @@ When the companion is already running, there are two ways the second opening rea
 - LaunchServices usually finds the running app and sends it a reopen event instead of starting a
   second copy. `applicationShouldHandleReopen(_:hasVisibleWindows:)` opens the settings window,
   logs `companion: reopened, opening settings` and returns `false`, since there is no default
-  window to restore.
+  window to restore. When the copy in `~/Applications` is behind Homebrew's, it relaunches into the
+  refreshed copy instead, which opens the window (see below).
 - When a second process does start, for example with `open -n`, from another copy of the bundle, or
   by running the binary directly, it finds `companion.lock` taken and posts the distributed
   notification `dev.gord1y.countersign.openSettings`
@@ -212,6 +214,81 @@ When the companion is already running, there are two ways the second opening rea
 
 Either way the window opens exactly as "Settings…" opens it: one window at a time, brought to the
 front and activated when it is already open. No hook ever posts or observes the notification.
+
+#### Keeping the ~/Applications copy current
+
+Homebrew keeps the app at `<prefix>/opt/countersign/Countersign.app`, and Settings copies it into
+`~/Applications` so Spotlight and Launchpad find it (see "Copying Countersign.app" in
+[setup.md](setup.md)). `brew upgrade` replaces only the keg, so without help that copy stays on the
+old version. The companion running from the copy keeps it current itself, by the refresh rule in
+that section: `AppBundleCopy.refresh` reports a refresh only when the running bundle is
+`~/Applications/Countersign.app`, a real directory, and a Homebrew keg app is newer. A companion
+started from the keg or through a symbolic link never refreshes anything.
+
+It checks at three moments:
+
+- At launch, first thing in `applicationDidFinishLaunching`, before the status item exists: the
+  login-or-manual decision is computed first, since the launch Apple event is only current there,
+  and is carried over to the new instance. A launch that relaunches returns without building the
+  menu, resuming a pause set at quit or running the upgrade nudge; the new instance does all of
+  that.
+- On the hourly update-check tick, whether or not `checkForUpdates` is on; a tick that relaunches
+  skips the update check, since its answer would land in a process about to exit.
+- On a reopen, before opening Settings; the new instance opens Settings instead.
+
+Anything on screen defers it to the next moment: a settings window that is not closed (its sheets
+and the first-run tour included), a running test panel (`TestPanelLauncher.shared.isRunning`), a
+modal alert (`NSApplication.shared.modalWindow`, which covers the quit question and the update
+check's answer, both run with `runModal` while the hourly timer still fires in the common run loop
+modes) or the open menu (`menuWillOpen` to `menuDidClose`). Approval panels never defer it: they
+run in hook processes, and a copied app's hooks point at `<prefix>/bin/countersign`, never into
+the copy, so relaunching the companion never takes a panel down.
+
+The order, and why:
+
+1. `AppBundleCopy.perform` copies the keg app to a hidden sibling and swaps it in with
+   `replaceItemAt`. Replacing the bundle under the running process is safe: its image stays mapped
+   until it exits. If it fails, the log says `companion: could not refresh
+   ~/Applications/Countersign.app from <from> to <to>: <error>`, once per target version per
+   process, and the companion keeps running; the next tick or reopen tries again.
+2. `relaunch-after-copy` (`AppPaths.copyRefreshRelaunchFile`) is written atomically with
+   `{"opensSettings":<bool>,"writtenAt":<seconds>}`. If that write fails, the log says
+   `companion: refreshed ~/Applications/Countersign.app from <from> to <to>, not relaunching:
+   <error>` and nothing relaunches: without the marker the new instance would fall back to its
+   own launch decision, which opens Settings, putting a window on screen unasked after an hourly
+   tick. The refreshed copy stays in place and the next launch runs it. Otherwise the log says
+   `companion: refreshed ~/Applications/Countersign.app from <from> to <to>, relaunching`.
+3. `instanceLock.release()` gives up `companion.lock`.
+4. `NSWorkspace.openApplication` opens the copy with `createsNewApplicationInstance`, without
+   adding it to recent items, activating only when Settings will open.
+5. Its completion, back on the main actor, calls `NSApplication.shared.terminate(nil)`, which
+   never asks the quit question and so never pauses panels.
+
+Releasing the lock before opening the new instance is the whole point of the order. The new
+process takes `companion.lock` before it builds anything; if the old one still held it, the new one
+would post the open-Settings notification and exit, and the old one would then terminate on the
+successful open, leaving no companion at all. Terminating before opening would leave nothing to
+open the copy. So for a moment both processes run, and the menu-bar icon can show twice for under a
+second. A menu or Settings window opened on the old instance between releasing the lock and
+terminating closes with it; that is accepted, since the gap is under a second and the new instance
+opens Settings itself when the relaunch came from a manual launch or a reopen.
+
+The new instance reads the marker right after the upgrade nudge, which runs first and unchanged.
+A marker written at most two minutes ago (`CopyRefreshRelaunch.freshness`, and never in the future)
+is deleted and replaces the launch Apple event's answer, which would otherwise always say "open
+Settings", since `openApplication` sends an ordinary open event; the log says `companion:
+relaunched after refreshing the copy`. A stale or unreadable marker is deleted and ignored, so a
+relaunch that died midway cannot steer a later launch. `writtenAt` is stored rounded down to the
+second, so a marker read within the same second never looks like it comes from the future.
+
+If opening the new instance fails, the log says `companion: could not relaunch
+~/Applications/Countersign.app: <error>`, the marker is deleted and the companion takes
+`companion.lock` again with `ExclusiveFileLock.acquire`. If another instance got it in between,
+the log says `companion: another instance holds companion.lock, quitting` and this one terminates.
+If the lock file cannot be opened, the log says `companion: could not open companion.lock again:
+<error>` and it keeps running without the lock. Either way a launch that had deferred building the
+menu now finishes it, and a reopen opens Settings. The copy on disk is already current then, so
+later ticks find nothing to refresh, and the new version runs from the next launch.
 
 ### The icon and the 2 s refresh
 

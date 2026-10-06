@@ -17,6 +17,12 @@ Settings window offers to copy it into `~/Applications`. The curl installer also
 at the end of a fresh install, unless you set `COUNTERSIGN_SETUP=0`; see
 [release.md](release.md#opening-countersign-at-the-end).
 
+Once Settings has copied the app into `~/Applications`, you don't need to copy it again after
+`brew upgrade`: the menu-bar app running from that copy updates it from Homebrew's and restarts
+itself, at its next hourly check or the next time it starts or you open it, never while the Settings window, a
+test panel, an alert or its menu is open. Approval panels are not affected, since they never run
+from the menu-bar app.
+
 The curl installer asks whether to install the app, and skipping it is fine: `countersign setup`
 covers everything the app's Settings window does, and `pause`, `resume`, `snooze` and `status`
 cover the menu's toggles. To add the app later, rerun the installer with `COUNTERSIGN_APP=1` set:
