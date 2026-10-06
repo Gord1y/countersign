@@ -170,9 +170,12 @@ the workflow's `permissions: {}` default.
    `<x.y.z>`, and the version `CountersignVersionTests` expects, in the same commit; the gate fails
    until both match.
 3. Open a pull request with both into `staging`, titled `chore: prepare release <x.y.z>`, and
-   squash-merge it once its checks pass and the Claude review approves.
-4. Open a pull request from `staging` into `main`, titled `chore: release countersign <x.y.z>`,
-   and merge it with a merge commit once its checks pass and the Claude review approves.
+   squash-merge it once its checks pass.
+4. Review the whole release locally against [review-checklist.md](review-checklist.md): every
+   file of `git diff origin/main...origin/staging`, after `git fetch origin`. Fix what it finds
+   through pull requests into `staging` first. Then open a pull request from `staging` into `main`,
+   titled `chore: release countersign <x.y.z>`, and merge it with a merge commit once its checks
+   pass.
 5. Tag `main`'s new merge commit and push the tag: `git fetch origin`, then
    `git tag v<x.y.z> origin/main` and `git push origin v<x.y.z>`. A pushed `v*` tag can never be
    moved or deleted, so check `git log -1 origin/main` first.

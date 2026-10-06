@@ -22,11 +22,9 @@ paths:
   `timeout-minutes`, `concurrency` with `cancel-in-progress`, and `persist-credentials: false` on
   checkout. Never use `pull_request_target`, except in `pr-assign.yml`, which checks out nothing
   and reads only the pull request's number and author login, through `env:`.
-- Secrets reach only jobs that cannot be triggered by someone else: an automatic Claude review
-  runs only for pull requests the repository owner opens from a branch of this repository, and
-  `/review` runs only when the comment's `author_association` is `OWNER`. Pull request text is
-  untrusted input, so the review model reads files but gets no shell and no tool that writes one,
-  and writes nothing but its progress comment; the verdict it returns is submitted by a later
-  step that runs no model.
+- No workflow reads a secret. One that needs a secret runs only where nobody else can trigger it:
+  never on a fork's pull request, never on `pull_request_target`, and never on a comment someone
+  else can post. There is no automated review; reviews follow
+  [docs/review-checklist.md](../../docs/review-checklist.md).
 - Commits follow Conventional Commits, one task per commit, with no AI co-author trailer and no
   "Generated with" line.

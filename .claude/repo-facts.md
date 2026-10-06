@@ -42,16 +42,16 @@ disagree, the contract doc wins.
 | Title convention for promotion PRs | `chore: prepare release <x.y.z>` into `staging`, `chore: release countersign <x.y.z>` into `main` |
 | Does the repo tag releases? | yes: `v<x.y.z>` on `main`'s new merge commit, pushed by the maintainer; a pushed `v*` tag can never be moved or deleted |
 | CI checks that run only on promotion PRs | none: every pull request runs `gates`, `commits`, `release-index`, `lint` and `title`; `release.yml` runs only on the pushed tag |
-| Branch protection on the target branch | `main`: pull request only, one approving review (the Claude review on the owner's own pull requests), merge commit only, the five checks above, no up-to-date requirement; `staging`: the same but squash only and up to date ([docs/tooling.md](../docs/tooling.md#branches-and-rulesets)) |
+| Branch protection on the target branch | `main`: pull request only, no approving review required, merge commit only, the five checks above, no up-to-date requirement; `staging`: the same but squash only and up to date ([docs/tooling.md](../docs/tooling.md#branches-and-rulesets)) |
 | Where uncommitted drafts go | `writeups/releases/<x.y.z>/` (`promotion-staging.md`, `promotion-main.md`) |
 
 ## thorough-diff-review
 
 | Fact | Countersign |
 | --- | --- |
-| Review checklist file | none; the grading the Claude review applies is in [docs/tooling.md](../docs/tooling.md#the-verdict) and `.github/workflows/claude-review.yml` |
+| Review checklist file | [docs/review-checklist.md](../docs/review-checklist.md) |
 | Convention docs or skills to read for each touched area | `.claude/rules/core.md` (`Sources/ApprovalCore`, `Tests`), `.claude/rules/panel.md` (`Sources/countersign`), `.claude/rules/tooling.md` (`scripts`, `.github`, `.claude`, `Package.swift`, `.swift-format`), and the matching `docs/design/<topic>.md` ([index](../docs/design/README.md)) |
-| Architecture rules and the tool that enforces them | `ApprovalCore` never imports AppKit or SwiftUI and every type in it has `ApprovalCoreTests` coverage; the `hook` path never writes stderr or exits non-zero; zero comments; no `!`, `try!`, `as!`, implicitly unwrapped optionals or public `Any`. `scripts/check-lint.sh` enforces the comment and unwrap rules (`swift format lint --strict`); the import boundary and the hook contract are enforced by review, where the Claude review grades either as a Blocker |
+| Architecture rules and the tool that enforces them | `ApprovalCore` never imports AppKit or SwiftUI and every type in it has `ApprovalCoreTests` coverage; the `hook` path never writes stderr or exits non-zero; zero comments; no `!`, `try!`, `as!`, implicitly unwrapped optionals or public `Any`. `scripts/check-lint.sh` enforces the comment and unwrap rules (`swift format lint --strict`); the import boundary and the hook contract are enforced by review, which grades either as a Blocker ([docs/review-checklist.md](../docs/review-checklist.md)) |
 | Shared utilities to reuse before writing new ones | in `ApprovalCore`: `AppPaths` (every file location), `HomePath`, `ConfigEdit` and `ConfigFileStore` (config writes), `CommandPattern` and `ShellCommandSegments` (command matching), `DurationText` and `PreferenceRules` (times and limits), `JSONValue`, `TicketQueue`; in `Sources/countersign`: the button styles and `KeyHint` in `PanelStyle.swift`, and `SettingsSection` |
 | The full check command | `swift format format --in-place --recursive Package.swift Sources Tests && scripts/check.sh` |
 | Unit test command | `swift test` (`scripts/check-test.sh`); add `--disable-sandbox` when running inside an agent's sandbox |
@@ -99,8 +99,8 @@ disagree, the contract doc wins.
 
 | Fact | Countersign |
 | --- | --- |
-| The review workflow, and who posts the formal review and the tracking comment | `.github/workflows/claude-review.yml`: on the owner's own non-draft pull requests (or `/review` from the owner) Claude posts a progress comment, then `github-actions` posts the formal review, the approval the `staging` and `main` rulesets need |
-| The severity scale, and what is never reported | 🔴 Blocker (safety contract or hard rule; requests changes), 🟠 Major, 🟡 Minor, 🔵 Nit; unverified findings go under Verification questions, never invented ([docs/tooling.md](../docs/tooling.md#the-verdict)) |
+| The review workflow, and who posts the formal review and the tracking comment | none: there is no automated review and the rulesets require no approval; the maintainer reviews locally ([docs/review-checklist.md](../docs/review-checklist.md)) and reviews outside contributors' pull requests on GitHub |
+| The severity scale, and what is never reported | 🔴 Blocker (safety contract or hard rule; requests changes), 🟠 Major, 🟡 Minor, 🔵 Nit; unverified findings are questions, never invented ([docs/review-checklist.md](../docs/review-checklist.md#severity)) |
 | How to serve the PR head for a browser pass | no browser surface; build the PR head in a worktree and install it (`scripts/install.sh && scripts/build-app.sh`) after the maintainer quits the app |
 | Git commands the repo denies, so the person lands fixes themselves | `.claude/settings.json` denies force pushes, `git push --mirror` and `--delete`, `git reset --hard`, `git clean`, `git rebase`, `git filter-branch`, `git update-ref -d`, `git checkout -- …` and `git restore .`, and asks before any other push |
 | Where uncommitted drafts go | `writeups/reviews/pr-<n>/` |
