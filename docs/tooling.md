@@ -199,6 +199,9 @@ run on its merge with `main`'s current tip.
 Automatic deletion of head branches is off, because it would delete `staging` after every
 release pull request.
 
+Auto-merge is on. With no approval required, "Enable auto-merge" on a pull request merges it by
+itself once the required checks pass, and for `staging` once the branch is up to date.
+
 ### Actions
 
 - Allowed actions are GitHub's own; the workflows use only `actions/checkout`.
