@@ -146,13 +146,15 @@ or config file's content, only paths and our own hook entry's command.
    - missing: `info … using defaults`.
    - present but every key parsed cleanly: `ok`.
    - present with bad keys: one `warn` line per line `ConfigFileLoader` logged, verbatim.
-5. **`queue`**: the queue directory and how many tickets `TicketQueue.liveTickets()` currently
+5. **`rules`**: the approval rules from the config file: `info … none` when there are none, else
+   `ok` with the count and how many allow and how many deny, such as `2 (1 allow, 1 deny)`.
+6. **`queue`**: the queue directory and how many tickets `TicketQueue.liveTickets()` currently
    considers live. `info`. Listing prunes dead tickets the same way every other listing does (see
    "Liveness and pid reuse" in [queue.md](queue.md)), so this count can drop between two runs.
-6. **`state`**: active, paused, or "paused until Countersign opens" for the pause the menu-bar
+7. **`state`**: active, paused, or "paused until Countersign opens" for the pause the menu-bar
    app's quit question sets (`PauseState.description`, the same words `countersign status`
    prints; see "Quit" in [app.md](app.md)), and quiet time's end or `off`. `info`.
-7. **`log`**: the log file's path and size, or that it hasn't been created yet. `info`.
+8. **`log`**: the log file's path and size, or that it hasn't been created yet. `info`.
 
 ## Why it never locks `display.lock`
 

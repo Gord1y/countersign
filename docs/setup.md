@@ -63,7 +63,9 @@ For each agent it finds, setup prints the file's path and a diff of the change, 
 `Apply? [y/N]`. `--yes` applies without asking. Without a terminal to ask in, and without `--yes`,
 it only prints the diffs and applies nothing. `--host` limits the run to one agent. A file with
 nothing to change prints `already up to date`, so running setup twice is safe. When it finds no
-agent at all, it says so. It exits 1 when a file failed and 0 otherwise. `--yes`, `--uninstall` and `--host` work only together with `--cli`.
+agent at all, it says so. It exits 1 when a file failed or a change was not applied (you answered N, or there was no
+terminal and no `--yes`), and 0 otherwise. `--yes`, `--uninstall` and `--host` work only together
+with `--cli`.
 
 ## What it changes
 

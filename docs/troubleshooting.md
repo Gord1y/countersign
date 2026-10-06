@@ -26,7 +26,7 @@ report. It exits with status 1 when any line is `fail`.
 It checks, in this order: which `countersign` is running and the path setup would write, and
 whether more than one copy of Countersign is installed, and whether the curl install's menu-bar
 app and command-line tool are on different versions; for each agent, its hook file and every
-Countersign entry in it; the config file; the queue; pause and quiet time; and the log file. The
+Countersign entry in it; the config file; the approval rules; the queue; pause and quiet time; and the log file. The
 lines worth acting on:
 
 | Doctor says | What to do |
