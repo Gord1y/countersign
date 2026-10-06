@@ -39,11 +39,12 @@ private func antigravityHook(_ command: String, matcher: String = "*", timeout: 
 
 private func status(
   _ text: String?, host: ApprovalCore.Host = .claude, directoryExists: Bool = true,
-  stable: String = stablePath
+  stable: String = stablePath, addsWaitingEntry: Bool = false, addsContextEntry: Bool = false
 ) -> HostWiringStatus {
   let file: Doctor.FileState = text.map { .bytes(Array($0.utf8)) } ?? .missing
   return HostWiring.status(
-    host: host, directoryExists: directoryExists, file: file, stablePath: stable)
+    host: host, directoryExists: directoryExists, file: file, stablePath: stable,
+    addsWaitingEntry: addsWaitingEntry, addsContextEntry: addsContextEntry)
 }
 
 @Suite struct HostWiringTests {
@@ -60,9 +61,79 @@ private func status(
     #expect(status(entry("/usr/local/bin/other-tool check")) == .notWired)
   }
 
+  @Test func needsAnUpdateWhenOnlyTheUserPromptSubmitEntryIsStale() {
+    let settings = """
+      {"hooks": {
+        "PermissionRequest": [{"matcher": "", "hooks": [{"type": "command", "command": "\(stablePath) hook --host claude", "timeout": 3600}]}],
+        "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "\(oldPath) hook --host claude"}]}]
+      }}
+      """
+    #expect(
+      status(settings) == .needsUpdate(HostWiringUpdate(otherExecutablePaths: [])))
+    let current = settings.replacingOccurrences(
+      of: "\(oldPath) hook --host claude\"",
+      with: "\(stablePath) hook --host claude\", \"async\": true, \"timeout\": 3600")
+    #expect(status(current) == .wired)
+  }
+
   @Test func isWiredWhenSetupWouldChangeNothing() {
     #expect(status(entry("\(stablePath) hook --host claude")) == .wired)
     #expect(status(entry("\(stablePath) hook --host codex", codex: true), host: .codex) == .wired)
+  }
+
+  @Test func needsAnUpdateWhenNoticesAreOnAndTheStopEntryIsMissing() {
+    let waiting = HostWiringStatus.needsUpdate(
+      HostWiringUpdate(otherExecutablePaths: [], addsWaitingEntry: true))
+    #expect(
+      status(entry("\(stablePath) hook --host claude"), addsWaitingEntry: true) == waiting)
+    #expect(
+      status(
+        entry("\(stablePath) hook --host codex", codex: true), host: .codex,
+        addsWaitingEntry: true) == waiting)
+    #expect(
+      HostWiring.detail(for: waiting, host: .claude)
+        == "Adds the Stop entry for waiting-agent notices")
+  }
+
+  @Test func needsAnUpdateWhenCheckpointsAreOnAndTheContextEntryIsMissing() {
+    let command = "\(stablePath) hook --host claude"
+    let permission = entry(command)
+    let withWaiting = String(
+      decoding: (try? HookSetup.install(
+        into: Array(permission.utf8), host: .claude, executablePath: stablePath,
+        addsWaitingEntry: true)) ?? [], as: UTF8.self)
+    let context = HostWiringStatus.needsUpdate(
+      HostWiringUpdate(otherExecutablePaths: [], addsContextEntry: true))
+    #expect(status(permission, addsContextEntry: true) == context)
+    #expect(status(permission, addsContextEntry: false) == .wired)
+    let both = HostWiringStatus.needsUpdate(
+      HostWiringUpdate(otherExecutablePaths: [], addsWaitingEntry: true, addsContextEntry: true))
+    #expect(status(permission, addsWaitingEntry: true, addsContextEntry: true) == both)
+    #expect(
+      HostWiring.detail(for: both, host: .claude)
+        == "Adds the Stop entry for waiting-agent notices; adds the UserPromptSubmit entry for context checkpoints"
+    )
+    #expect(
+      HostWiring.detail(for: context, host: .claude)
+        == "Adds the UserPromptSubmit entry for context checkpoints")
+    #expect(withWaiting.contains("Stop"))
+    #expect(
+      status(withWaiting, addsWaitingEntry: true, addsContextEntry: true)
+        == .needsUpdate(HostWiringUpdate(otherExecutablePaths: [], addsContextEntry: true)))
+    #expect(status(withWaiting, addsWaitingEntry: true, addsContextEntry: false) == .wired)
+    #expect(
+      status(
+        entry("\(stablePath) hook --host codex", codex: true), host: .codex,
+        addsContextEntry: true) == .wired)
+  }
+
+  @Test func staysWiredWhenNoticesAreOffAndTheStopEntryIsMissing() {
+    #expect(
+      status(entry("\(stablePath) hook --host claude"), addsWaitingEntry: false) == .wired)
+    #expect(
+      status(
+        entry("\(stablePath) hook --host codex", codex: true), host: .codex,
+        addsWaitingEntry: false) == .wired)
   }
 
   @Test func needsAnUpdateWhenTheEntryPointsElsewhere() {
@@ -129,7 +200,7 @@ private func status(
     #expect(
       HostWiring.status(
         host: .claude, directoryExists: true, file: .unreadable("permission denied"),
-        stablePath: stablePath) == .unusable("permission denied"))
+        stablePath: stablePath, addsWaitingEntry: false) == .unusable("permission denied"))
   }
 
   @Test func offersOneActionPerStatus() {
@@ -172,7 +243,9 @@ private func status(
       HostWiring.detail(for: arguments, host: .codex)
         == "Runs hook --host claude rather than hook --host codex")
     let fields = HostWiringStatus.needsUpdate(HostWiringUpdate(otherExecutablePaths: []))
-    #expect(HostWiring.detail(for: fields, host: .claude) == "Refreshes the entry's timeout")
+    #expect(
+      HostWiring.detail(for: fields, host: .claude)
+        == "Refreshes the timeout and async settings of Countersign's entries")
     #expect(
       HostWiring.detail(for: fields, host: .codex)
         == "Refreshes the entry's timeout and status message")

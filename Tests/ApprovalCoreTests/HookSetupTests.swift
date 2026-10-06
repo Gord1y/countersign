@@ -6,10 +6,12 @@ import Testing
 private let brewPath = "/opt/homebrew/bin/countersign"
 
 private func install(
-  _ text: String?, host: ApprovalCore.Host = .claude, path: String = brewPath
+  _ text: String?, host: ApprovalCore.Host = .claude, path: String = brewPath,
+  addsContextEntry: Bool = false
 ) throws -> String {
   let bytes = try HookSetup.install(
-    into: text.map { Array($0.utf8) }, host: host, executablePath: path)
+    into: text.map { Array($0.utf8) }, host: host, executablePath: path,
+    addsWaitingEntry: false, addsContextEntry: addsContextEntry)
   return String(decoding: bytes, as: UTF8.self)
 }
 
@@ -585,6 +587,81 @@ private let otherPermissionHook = """
     #expect(sites.first?.hookIndex == 1)
     #expect(sites.first?.eventMemberIndex == 0)
     #expect(HookSetup.sites(in: try JSONSpanReader.parse(Array("{}".utf8))).isEmpty)
+  }
+
+  @Test func claudeInstallRefreshesAStaleUserPromptSubmitEntryButNeverAddsOne() throws {
+    let stale = """
+      {"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": "/old/countersign hook --host claude"}]}]}}
+      """
+    let refreshed = try install(stale)
+    #expect(
+      refreshed.contains(
+        "{\"type\": \"command\", \"command\": \"/opt/homebrew/bin/countersign hook --host claude\", \"async\": true, \"timeout\": 3600}"
+      ))
+    #expect(refreshed.contains("\"PermissionRequest\""))
+    #expect(try install(refreshed) == refreshed)
+    #expect(!(try install(claudeSettings)).contains("UserPromptSubmit"))
+    #expect(!(try install(nil, host: .codex)).contains("UserPromptSubmit"))
+    let codexPrompt = stale.replacingOccurrences(of: "--host claude", with: "--host codex")
+    #expect(!(try install(codexPrompt, host: .codex)).contains("async"))
+  }
+
+  @Test func claudeInstallAddsTheAsyncUserPromptSubmitEntryOnlyWhenAskedTo() throws {
+    let permissionOnly = try install(nil)
+    #expect(!permissionOnly.contains("UserPromptSubmit"))
+    let added = try install(permissionOnly, addsContextEntry: true)
+    #expect(added.components(separatedBy: "UserPromptSubmit").count == 2)
+    #expect(added.contains("\"async\": true"))
+    #expect(added.components(separatedBy: "countersign hook --host claude").count == 3)
+    #expect(try install(added, addsContextEntry: true) == added)
+    #expect(try install(permissionOnly, addsContextEntry: false) == permissionOnly)
+    #expect(!(try install(nil, host: .codex, addsContextEntry: true)).contains("UserPromptSubmit"))
+  }
+
+  @Test func claudeUninstallRemovesTheEntriesOfBothEvents() throws {
+    let settings = """
+      {"hooks": {
+        "PermissionRequest": [{"matcher": "", "hooks": [{"type": "command", "command": "countersign hook --host claude"}]}],
+        "UserPromptSubmit": [
+          {"hooks": [{"type": "command", "command": "~/bin/prompt-log.sh"}]},
+          {"hooks": [{"type": "command", "command": "countersign hook --host claude", "async": true}]}
+        ]
+      }}
+      """
+    let removed = try #require(try uninstall(settings))
+    #expect(removed.contains("~/bin/prompt-log.sh"))
+    #expect(!removed.contains("countersign"))
+    #expect(!removed.contains("PermissionRequest"))
+    let onlyPrompt =
+      "{\"hooks\": {\"UserPromptSubmit\": [{\"hooks\": [{\"type\": \"command\", \"command\": \"countersign hook\"}]}]}}"
+    #expect(try uninstall(onlyPrompt) == "{\"hooks\": {}}")
+    let codex = try #require(try uninstall(settings, host: .codex))
+    #expect(codex.contains("UserPromptSubmit"))
+    #expect(codex.contains("countersign hook --host claude\", \"async\""))
+  }
+
+  @Test func addsTheStopEntryForEachHostWhenAskedTo() throws {
+    for host in ApprovalCore.Host.allCases {
+      let withNotices = try HookSetup.install(
+        into: nil, host: host, executablePath: brewPath, addsWaitingEntry: true)
+      #expect(WaitingHookSetup.entries(in: withNotices, host: host).count == 1)
+      let withoutNotices = try HookSetup.install(
+        into: nil, host: host, executablePath: brewPath, addsWaitingEntry: false)
+      #expect(WaitingHookSetup.entries(in: withoutNotices, host: host).isEmpty)
+    }
+  }
+
+  @Test func refreshesAStaleStopEntryEvenWhenNotAddingOne() throws {
+    let otherPath = "/usr/local/bin/countersign"
+    for host in ApprovalCore.Host.allCases {
+      let installed = try HookSetup.install(
+        into: nil, host: host, executablePath: brewPath, addsWaitingEntry: true)
+      let refreshed = try HookSetup.install(
+        into: installed, host: host, executablePath: otherPath, addsWaitingEntry: false)
+      let entries = WaitingHookSetup.entries(in: refreshed, host: host)
+      #expect(entries.count == 1)
+      #expect(entries.allSatisfy { $0.command.hasPrefix(otherPath) })
+    }
   }
 
   @Test func acceptsOnlyYesAsConfirmation() {

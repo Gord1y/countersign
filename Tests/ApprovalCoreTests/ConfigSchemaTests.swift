@@ -37,6 +37,28 @@ import Testing
     #expect(Set(properties.keys) == ConfigFileParser.hostKeys)
   }
 
+  @Test func contextCheckpointPropertiesMatchTheKeysTheParserKnows() throws {
+    let schema = try Self.loadSchema()
+    guard case .object(let definition)? = schema["$defs"]?["contextCheckpoints"],
+      case .object(let properties)? = definition["properties"]
+    else {
+      Issue.record("schema has no \"$defs.contextCheckpoints.properties\" object")
+      return
+    }
+    #expect(Set(properties.keys) == ConfigFileParser.contextCheckpointKeys)
+    #expect(
+      properties["hosts"]?["properties"]?["claude"]?["$ref"]?.stringValue
+        == "#/$defs/contextCheckpointValues")
+    guard
+      case .object(let hostProperties)? = schema["$defs"]?["contextCheckpointValues"]?["properties"]
+    else {
+      Issue.record("schema has no \"$defs.contextCheckpointValues.properties\" object")
+      return
+    }
+    #expect(
+      Set(hostProperties.keys) == ConfigFileParser.contextCheckpointKeys.subtracting(["hosts"]))
+  }
+
   @Test func everyHostReferencesTheHostOverridesDefinition() throws {
     let schema = try Self.loadSchema()
     guard case .object(let hosts)? = schema["properties"]?["hosts"],
@@ -75,6 +97,17 @@ import Testing
         == Settings.defaultModeAfterPlan.rawValue)
   }
 
+  @Test func panelSoundListsNoneAndTheSystemSounds() throws {
+    let schema = try Self.loadSchema()
+    guard case .array(let choices)? = schema["properties"]?["panelSound"]?["enum"] else {
+      Issue.record("schema has no \"properties.panelSound.enum\" array")
+      return
+    }
+    #expect(choices.map(\.stringValue) == PanelSound.choices(installed: PanelSound.systemNames))
+    #expect(
+      schema["properties"]?["panelSound"]?["default"]?.stringValue == Settings.defaultPanelSound)
+  }
+
   @Test func appearanceAndAccentColorMatchWhatTheParserKnows() throws {
     let schema = try Self.loadSchema()
     guard case .array(let choices)? = schema["properties"]?["appearance"]?["enum"] else {
@@ -88,6 +121,45 @@ import Testing
     #expect(
       schema["properties"]?["accentColor"]?["default"]?.stringValue
         == Settings.defaultAccentColor.hex)
+  }
+
+  @Test func waitingNoticeKeysMatchWhatTheParserKnows() throws {
+    let schema = try Self.loadSchema()
+    #expect(schema["properties"]?["waitingNotices"]?["type"]?.stringValue == "boolean")
+    #expect(schema["properties"]?["waitingNotices"]?["default"]?.boolValue == true)
+    #expect(
+      schema["properties"]?["waitingNoticeDelay"]?["default"]
+        == .int(Int64(Settings.defaultWaitingNoticeDelay)))
+    #expect(
+      Self.alternatives(schema["properties"]?["waitingNoticeDelay"]).last?["$ref"]?.stringValue
+        == "#/$defs/durationText")
+    #expect(
+      schema["properties"]?["waitingNoticeDuration"]?["default"]
+        == .int(Int64(Settings.defaultWaitingNoticeDuration)))
+    #expect(
+      Self.alternatives(schema["properties"]?["waitingNoticeDuration"]).last?["$ref"]?.stringValue
+        == "#/$defs/durationText")
+  }
+
+  private static func alternatives(_ value: JSONValue?) -> [JSONValue] {
+    value?["anyOf"]?.arrayValue ?? []
+  }
+
+  @Test func timeKeysAcceptANumberOrADurationString() throws {
+    let schema = try Self.loadSchema()
+    #expect(
+      schema["$defs"]?["durationText"]?["pattern"]?.stringValue
+        == "^[0-9]+(\\.[0-9]+)?(ms|s|m|h)$")
+    for key in ["armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds"] {
+      let topLevel = Self.alternatives(schema["properties"]?[key])
+      #expect(topLevel.first?["type"]?.stringValue == "number")
+      #expect(topLevel.last?["$ref"]?.stringValue == "#/$defs/durationText")
+      let host = Self.alternatives(schema["$defs"]?["hostOverrides"]?["properties"]?[key])
+      #expect(host.last?["$ref"]?.stringValue == "#/$defs/durationText")
+    }
+    #expect(
+      Self.alternatives(schema["properties"]?["snoozeMinutes"]?["items"]).last?["$ref"]?
+        .stringValue == "#/$defs/durationText")
   }
 
   @Test func topLevelAndHostBlocksForbidAdditionalProperties() throws {

@@ -3,3 +3,4 @@
 .DS_Store
 *.xcodeproj
 .claude/worktrees/
+writeups/

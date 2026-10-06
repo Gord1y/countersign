@@ -2,27 +2,27 @@ import ApprovalCore
 import Foundation
 
 enum TestPanelCommand {
-  static let usage = "usage: countersign test-panel [command|question|plan]"
+  static let usage = "usage: countersign test-panel [command|question|plan|context]"
 
   @MainActor
   static func run(_ arguments: [String]) -> Never {
     guard let kind = TestPanelKind.parse(arguments) else { CommandLineOutput.fail(usage) }
-    let request: ApprovalRequest
-    do {
-      request = try TestPanelSample.request(for: kind)
-    } catch {
-      CommandLineOutput.fail("error: could not build the \(kind.rawValue) test panel")
-    }
-
     let startedAt = ContinuousClock.now
     let paths = AppPaths.standard
     let log = EventLog(file: paths.logFile)
     log.rotateIfNeeded()
-    let (configFile, configLogLines) = ConfigFileLoader.load(paths: paths)
+    let (configFile, configLogLines) = ConfigFileLoader.load(
+      paths: paths, soundNames: SystemSounds.installedNames)
     for line in configLogLines {
       log.write("config: \(line)")
     }
-    let settings = Settings.resolve(file: configFile, host: request.host)
+    let settings = Settings.resolve(file: configFile, host: .claude)
+    let request: ApprovalRequest
+    do {
+      request = try TestPanelSample.request(for: kind, settings: settings.contextCheckpoints)
+    } catch {
+      CommandLineOutput.fail("error: could not build the \(kind.rawValue) test panel")
+    }
     log.write(TestPanelLog.start(kind))
 
     HookRunner.showPanel(

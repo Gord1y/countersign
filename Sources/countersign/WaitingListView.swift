@@ -6,28 +6,39 @@ struct WaitingChipView: View {
 
   @State private var isHovering = false
   @State private var isManuallyClosed = false
+  @State private var isOpenedByAction = false
 
-  private var isExpanded: Bool { isHovering && !isManuallyClosed }
+  private var isExpanded: Bool { (isHovering && !isManuallyClosed) || isOpenedByAction }
 
   var body: some View {
-    Chip("+\(entries.count)", symbol: "clock", tint: CountersignPalette.accentText)
-      .contentShape(Rectangle())
-      .onHover { hovering in
-        isHovering = hovering
-        if hovering {
-          isManuallyClosed = false
-        }
+    Button {
+      if isExpanded {
+        isOpenedByAction = false
+        isManuallyClosed = true
+      } else {
+        isOpenedByAction = true
       }
-      .onTapGesture {
-        isManuallyClosed.toggle()
+    } label: {
+      Chip(
+        "+\(entries.count)", symbol: "clock", tint: CountersignPalette.accentText,
+        spokenLabel: "\(entries.count) waiting")
+    }
+    .buttonStyle(.plain)
+    .accessibilityHint(isExpanded ? "Hides the list" : "Shows the list")
+    .contentShape(Rectangle())
+    .onHover { hovering in
+      isHovering = hovering
+      if hovering {
+        isManuallyClosed = false
       }
-      .overlay(alignment: .topTrailing) {
-        if isExpanded {
-          WaitingListView(entries: entries)
-            .offset(y: 30)
-            .zIndex(1)
-        }
+    }
+    .overlay(alignment: .topTrailing) {
+      if isExpanded {
+        WaitingListView(entries: entries)
+          .offset(y: 30)
+          .zIndex(1)
       }
+    }
   }
 }
 
@@ -47,8 +58,7 @@ private struct WaitingListView: View {
         .fill(.regularMaterial)
     )
     .overlay(
-      RoundedRectangle(cornerRadius: 10, style: .continuous)
-        .stroke(Color.primary.opacity(0.1), lineWidth: 1)
+      PanelBorder(shape: RoundedRectangle(cornerRadius: 10, style: .continuous), opacity: 0.1)
     )
     .shadow(color: .black.opacity(0.2), radius: 12, y: 4)
     .allowsHitTesting(false)
@@ -82,9 +92,10 @@ private struct WaitingRow: View {
     }
     .font(PanelTypography.caption)
     .foregroundStyle(.secondary)
+    .accessibilityElement(children: .combine)
   }
 
   private var dot: some View {
-    Text("·").foregroundStyle(.tertiary)
+    Text("·").foregroundStyle(.tertiary).accessibilityHidden(true)
   }
 }

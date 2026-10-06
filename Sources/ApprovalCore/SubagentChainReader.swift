@@ -15,6 +15,10 @@ public struct SubagentChainLink: Sendable, Equatable {
 public enum SubagentChainReader {
   static let maxDepth = 10
 
+  public static func transcriptPath(mainTranscriptPath: String, agentID: String) -> String {
+    (mainTranscriptPath as NSString).deletingPathExtension + "/subagents/agent-\(agentID).jsonl"
+  }
+
   public static func chain(transcriptPath: String, agentID: String) -> [SubagentChainLink]? {
     let sessionDirectory = URL(
       fileURLWithPath: (transcriptPath as NSString).deletingPathExtension)
@@ -35,7 +39,11 @@ public enum SubagentChainReader {
         SubagentChainLink(
           agentID: agentID, agentType: meta.agentType, description: meta.description))
 
-      if containsToolUseID(meta.toolUseID, in: mainTranscriptURL) {
+      if let parentAgentID = meta.parentAgentID {
+        currentAgentID = parentAgentID
+      } else if meta.spawnDepth == 1 {
+        currentAgentID = nil
+      } else if containsToolUseID(meta.toolUseID, in: mainTranscriptURL) {
         currentAgentID = nil
       } else if let parentAgentID = findParentAgentID(
         toolUseID: meta.toolUseID, subagentsDirectory: subagentsDirectory, excluding: agentID)
@@ -53,6 +61,8 @@ public enum SubagentChainReader {
     let agentType: String
     let description: String
     let toolUseID: String
+    let parentAgentID: String?
+    let spawnDepth: Int?
   }
 
   private static func readMeta(agentID: String, subagentsDirectory: URL) -> SubagentMeta? {
@@ -63,7 +73,18 @@ public enum SubagentChainReader {
       let description = value["description"]?.stringValue,
       let toolUseID = value["toolUseId"]?.stringValue
     else { return nil }
-    return SubagentMeta(agentType: agentType, description: description, toolUseID: toolUseID)
+    return SubagentMeta(
+      agentType: agentType, description: description, toolUseID: toolUseID,
+      parentAgentID: value["parentAgentId"]?.stringValue.flatMap { $0.isEmpty ? nil : $0 },
+      spawnDepth: spawnDepth(from: value["spawnDepth"]))
+  }
+
+  private static func spawnDepth(from value: JSONValue?) -> Int? {
+    switch value {
+    case .int(let depth): return Int(exactly: depth)
+    case .double(let depth): return Int(exactly: depth)
+    default: return nil
+    }
   }
 
   private static func containsToolUseID(_ toolUseID: String, in url: URL) -> Bool {

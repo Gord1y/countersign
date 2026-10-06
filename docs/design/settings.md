@@ -2,7 +2,7 @@
 
 How the config file is found, parsed and applied, and how the settings window reads and writes it:
 where each key is consumed, the precedence function, why one bad key never spoils the rest, the
-window's size, status row, its five groups and how they are laid out, when each change is written,
+window's size, header controls, its five groups and how they are laid out, when each change is written,
 and why `snapshot` ignores the file. Read it before changing `Settings`, `ConfigFileParser`,
 `PreferenceRules`, `PreferenceValues`, `PreferenceOverrides`, `SettingsPane`, the settings window,
 or the schema. Every key, from a user's side, is in [../configuration.md](../configuration.md).
@@ -20,6 +20,30 @@ The file is edited by hand, or through the settings window, which changes top-le
 "The settings window" below). `SetupRun`, behind `setup --cli` and the window's host buttons,
 never reads or writes it. The menu-bar companion resolves the path with its own environment, which
 can differ from a hook's `XDG_CONFIG_HOME` (see "Settings…" in [app.md](app.md)).
+
+## Time values and units
+
+Every time key accepts a number in its own unit or a string `^[0-9]+(\.[0-9]+)?(ms|s|m|h)$`; the
+keys and their units are unchanged (seconds for `armDelay`, `chainedArmDelay`, `idleSeconds` and
+`graceSeconds`, `waitingNoticeDelay` and `approvalCardDelay`, minutes for `snoozeMinutes`), so an
+existing file reads exactly as before. `waitingNoticeDelay` replaced `waitingNoticeMinutes` before
+that key ever shipped, so there is no migration and the old key is an unknown key. `ConfigFileParser.durationValue` converts either form to seconds, and every range
+check runs on those seconds: arm delays `0...3` (clamped), idle `1...30`, grace `0...30`, a snooze
+preset `10 s...24 h`, the notice delay `10 s...1 h`. The model is in seconds throughout:
+`Settings.snoozePresets` and `Settings.waitingNoticeDelay` are `TimeInterval`s, and the file keys
+keep their names because they are the contract users already have.
+
+Writing keeps the file as the person would write it. The seconds keys are written as numbers with up
+to three decimals, because a typed value keeps millisecond precision (`PreferenceRules.armDelay`
+rounds to 0.001 s; the slider rounds to 0.1 s through `sliderArmDelay`). The minutes keys are
+written as an integer when the value is whole minutes and otherwise as the `DurationText.compact`
+string, the largest unit that is exact with no space (`500ms`, `1.5s`, `90s`, `2m`, `90m`), so a
+preset list reads `["30s", 5, 15]`. A value that already holds the choice, in either form, is left
+untouched.
+
+The duration fields in Settings accept the same words. The snooze text field accepts them too, with a bare number as minutes, and shows whole minutes
+as bare numbers and anything else through `compact`. `SnoozeTitle` titles a preset that is not whole
+minutes in seconds (`90 seconds`), because `DurationText.describe` rounds to the nearest minute.
 
 ## Where each key is used
 
@@ -70,6 +94,12 @@ can differ from a hook's `XDG_CONFIG_HOME` (see "Settings…" in [app.md](app.md
   "A question submitted" in [answers.md](answers.md)). No per-host override, since a question's
   shape doesn't depend on which agent asked it, only on whether the person wants the extra field at
   all.
+- **`contextCheckpoints`** is parsed into `ContextCheckpointFileValues` (top level, and the
+  `hosts.claude` block inside it) and resolved into `ContextCheckpointSettings` on
+  `Settings.contextCheckpoints`, used by the hook's checkpoint path. The per-host override exists
+  only for `claude`: the feature reads Claude Code's transcript, so any other host resolves to the
+  disabled default, and `hosts.codex|cursor|antigravity` inside the block are logged and ignored.
+  Notes resolve one by one (host, then top level, then the built-in text).
 
 ## Precedence
 
@@ -117,7 +147,7 @@ other diagnostics, with no prefix, since stderr there is nothing but diagnostics
 
 `countersign settings`, plain `countersign setup` and the menu-bar companion's "Settings…" open the
 same window. Its Agents group and how the window runs are in "The window" in [setup.md](setup.md);
-this section covers its size, its groups and their layout, the status row, the Panels and App
+this section covers its size, its groups and their layout, the header's status controls, the Panels and App
 controls, when each change is written, Advanced, and the notice about a second copy at the top of
 Agents.
 
@@ -153,10 +183,19 @@ and the window opens at the default size, centered, so it never opens too small 
 `SettingsWindowController` restores and checks the frame first and sets the autosave name last, so
 setting the name cannot bring back a frame that was just rejected.
 
+The check at open is not enough on its own: a display unplugged or rearranged while the window is
+open can leave it on a screen that is gone or partly off every screen. So each time the window is
+shown, and on every `NSApplication.didChangeScreenParametersNotification` while it is open, the
+controller runs its frame through `ScreenPlacement` (see "Centered on the mouse's display, over a
+blurred backdrop" in [panel.md](panel.md)): the window moves onto the screen holding its centre,
+else the one it overlaps most, else the first, and is clamped into that screen's visible frame. It
+keeps its size unless it is larger than that visible frame, and the frame autosave records where it
+ends up.
+
 ### Groups and layout
 
-The status row (see "Status" below) sits at the top, outside every group: it is the state
-Countersign is in right now, not a setting. Below it, a sidebar lists Agents, App, Panels and Help,
+The header's pause and snooze controls (see "Status" below) sit at the top, outside every group:
+they are the state Countersign is in right now, not a setting. Below the header, a sidebar lists Agents, App, Panels, Rules (and Context while that feature is on) and Help,
 in that order, at every window width (`SettingsPane.sidebar`; `ApprovalCore.SettingsPane` also holds
 each group's title and subtitle). The selected item is highlighted; the content area to its right
 shows that one group, scrolled to its top, with only its subtitle above it, not its title again,
@@ -164,9 +203,10 @@ since the sidebar already names it:
 
 | Group | Holds | What it changes |
 | --- | --- | --- |
-| Agents | a row per agent (Wire, Update, Remove, Show changes), the notice about a second copy, on each row the values `hosts.<agent>` sets, and, once wired, its follow-up line and Codex's "Mark as done" (`AgentFollowUp`; see "Follow-up lines" and "The Codex hook trust record" in [setup.md](setup.md)) | each agent's own hook file; the Codex hook trust record, never `config.json` |
-| Panels | Wait for idle, Grace period, Arm delay, Arm delay after an answer, Hand off when frontmost, Snooze presets, Notes on answers, Mode after a plan, then Show a test panel | `config.json`, for every agent |
-| App | Launch at login, Check for updates, When Countersign quits, Appearance, Accent colour, the offer to link Countersign.app, then Advanced… | macOS's login items, `config.json`, `~/Applications` |
+| Agents | a row per agent (Wire, Update and Remove, each confirmed in a popup that shows its diff), the notice about a second copy, on each row the values `hosts.<agent>` sets, and, once wired, its follow-up line and Codex's "Mark as done" (`AgentFollowUp`; see "Follow-up lines" and "The Codex hook trust record" in [setup.md](setup.md)) | each agent's own hook file; the Codex hook trust record, never `config.json` |
+| Panels | five blocks: Delays (Same delays for all agents, then while it is off an Agent picker with the four agents, then Wait for idle, Grace period, Arm delay, Arm delay after an answer, Show card after), Interruptions (Hand off when frontmost, Snooze presets, Quiet hours, Sound), Corner cards (Waiting-agent notices, Notice after, Show notice for, Approval card with one checkbox per agent), Claude Code (Notes on answers, Mode after a plan, Context checkpoints) and Try it (Show a test panel, Show a test card), then Restore Defaults | `config.json`, for every agent, or under `hosts.<agent>` for the delays and the Approval card checkboxes |
+| App | General (Launch at login, Check for updates, When Countersign quits), Appearance (Appearance, Accent colour) and, while there is an offer to link Countersign.app, Install, then Advanced… and Restore Defaults | macOS's login items, `config.json`, `~/Applications` |
+| Rules | the intro line, one row per rule in file order with a remove button, the unreadable-entries notice (see "Rules" below) | `config.json`, the top-level `rules` array |
 | Help | the tour, documentation, ask a question, report a problem, contact the developer, updates, then support links | nothing in `config.json`; never `update-check.json` |
 | Advanced | the config file's path, Open in Editor, Copy Path, Open with, the schema, what only the file can set, and the prompt for a coding agent | `config.json` for Open with; otherwise nothing beyond creating a missing `config.json` to open it |
 
@@ -183,72 +223,145 @@ Restore Defaults and no row can be "changed"; it exists so a person who runs `co
 without ever opening the menu-bar app still reaches what the companion's Help and Support the
 Developer menus offer.
 
+Panels, App and Context split their rows into titled blocks (`SettingsBlock`, stacked by
+`SettingsBlocks`). Each block is a `SettingsGroup` card whose first line is its title in 13 pt
+semibold, the way the Rules tab's Suggestions card is titled, and blocks sit
+`SettingsMetrics.blockSpacing` (14 pt) apart. A block gathers the rows that answer one question
+(how long panels wait, what keeps them away, the corner cards, what only Claude Code uses, trying
+it out), so a pane of twenty rows reads as five short cards instead of one long one. The pane's
+footer buttons (Restore Defaults; Advanced… on App; Turn Off Context Checkpoints on Context) sit
+below the last block, outside any card, flush with the cards' right edge. Titles above the cards,
+in the System Settings manner, and untitled cards were both rendered in light and dark and set
+aside in favour of titles inside, which match the Rules tab.
+
+Action buttons (Show a test panel, Try a checkpoint, Check for Updates and its companions) sit on
+the right of their row like every other control, never below it; a long caption wraps onto more
+lines instead of shrinking the buttons.
+
 Advanced (the config file's path, Open in Editor, Copy Path, Open with, the schema, what only the file
 can set, and the prompt for a coding agent) has no place in the sidebar: it is reached through an
-**Advanced…** button at the bottom of the App group, sharing its row with Restore Defaults.
+**Advanced…** button below App's blocks, sharing its row with Restore Defaults.
 Clicking it selects
 `SettingsPane.advanced` (`SettingsModel.select(_:)`), which shows Advanced's content in the same
 area, with a **‹ App** link above it that selects `.app` again; the sidebar keeps App highlighted
 the whole time, since `.advanced` is not one of its rows (`SettingsSidebar.isSelected(_:)` treats
 App and Advanced as the same row). `SettingsPane.advanced` remains a real case: it is still what
-gets stored, restored and passed to `--tab`, just not listed in the sidebar.
+`--tab` takes, just not listed in the sidebar.
 
-The selected group is remembered across opens and launches under the key
-`Countersign Settings Pane`, in the standard user defaults of the process showing the window, the
-same domain as the frame below, and for the same reasons never in `config.json`: it is how one
-person last looked at the window, not something a hook reads. `SettingsWindowController` reads it
-when it creates the window and writes it on every switch; a missing or unknown value opens Agents
-(`SettingsPane(storedValue:)`), and a stored `"advanced"` reopens Advanced with App highlighted, the
-same as reaching it through the button. `snapshot --settings` never reads or writes it and takes
-`--tab` instead.
+Every open starts on Agents (`SettingsPane.standard`). Each `SettingsWindowController` makes a new
+`SettingsModel`, and the menu-bar app makes a new controller whenever the window was closed, so
+closing Settings and opening it again lands on Agents; choosing Settings… while the window is still
+open keeps the group on screen. Agents is where an upgrade or a new agent needs attention, so a
+remembered group could hide it. Up to 0.1.0 the group was remembered under the user-defaults key
+`Countersign Settings Pane`; nothing reads that key any more. A caller that needs another group
+passes it to the companion's `openSettings(pane:)`, and `snapshot --settings` takes `--tab`.
 
 Switching group rebuilds the content area, so no view keeps its own state across it. What matters
 lives in `SettingsModel`: the text in the Snooze presets field and the add field for Hand off when
-frontmost, the open "Show changes" disclosures and "Show copies". The two text fields commit when
+frontmost, and "Show copies". The two text fields commit when
 they disappear, exactly as when they lose focus (see "Writing a change"), so leaving a field by
 switching group counts as leaving it. The scroll view's identity is the selected group, so each
-group opens scrolled to its top. The scroll view asks for `.scrollIndicators(.visible)` and leaves
-the scroller's style to the system setting; only the content column scrolls, never the sidebar.
+group opens scrolled to its top. Only the content column scrolls, never the sidebar.
 
-Content scrolls only when it overflows the window, and never rubber-bands past either end:
-`.scrollBounceBehavior(.basedOnSize)` turns bouncing off altogether when the content already fits,
-and `ScrollElasticityDisablerView`, a tiny `NSViewRepresentable` sitting in the scrollable content,
-sets its `enclosingScrollView`'s `verticalScrollElasticity` to `.none` as a backstop for when it
-does scroll, so dragging past either end never shows empty space under the content. `SettingsContent`
-carries its own trailing `SettingsMetrics.padding` inside the scroll view, so the last card's bottom
-edge always has room to breathe above the window's edge once scrolled all the way down, rather than
-sitting flush against it.
+#### Scrolling
+
+The content column is an AppKit `NSScrollView` (`SettingsScrollView`) whose document view hosts
+`SettingsContent` in an `NSHostingView`, not a SwiftUI `ScrollView`. On macOS, SwiftUI's `ScrollView`
+re-lays out the whole hosted pane and re-runs hover hit-testing through every row on each scroll
+frame: a `sample` of fast scrolling on Panels showed the main thread about 19% busy even with
+elasticity fixed, about 525 of 6434 samples in `NSHostingView.layout` and about 318 in hover
+hit-testing. An `NSScrollView` scrolls by moving the clip view's bounds over content that is already
+drawn, so a scroll frame runs neither. The document view is pinned to the clip view's top, leading
+and trailing edges and takes its height from the hosted content's intrinsic size, so rows that
+expand or collapse resize it and the scroller follows.
+
+The document view is a plain flipped `NSView` (`SettingsDocumentView`) with the `NSHostingView`
+pinned to all four of its edges, not the hosting view itself. `NSHostingView` overrides
+`scrollWheel(with:)`, so its class answers false to `isCompatibleWithResponsiveScrolling`, and
+AppKit then scrolls on the main thread (`NSScrollingBehaviorSingleThreadedVBL`) instead of its
+concurrent responsive path. An Animation Hitches trace of fast trackpad scrolling on Panels in that
+setup showed the main thread only 3.7% busy, yet about 10% of frames presented one refresh late,
+and a long main-thread iteration preceded only about one in five of those: the frames waited on the
+main-thread scroll cadence, not on work. A plain `NSView` is compatible, and scroll events still
+reach the hosting view first, which passes the ones SwiftUI doesn't use up the responder chain to
+the scroll view. The container must be flipped: the clip view takes its flippedness from the
+document view, and an unflipped one would open each group scrolled to the bottom.
+
+It keeps the old behaviour: no rubber-banding (`verticalScrollElasticity = .none`), an always
+visible vertical scroller, no horizontal scrolling, and each group opens at the top (the
+representable scrolls the clip view to its origin when the selected group changes).
+`SettingsContent` carries its own trailing `SettingsMetrics.padding`, so the last card's bottom edge
+has room above the window's edge once scrolled all the way down.
+
+Every pane opens at its top because the hosted root is measured at the width it is shown at.
+`NSHostingView` computes its intrinsic size from an unspecified proposal, so a line that only wraps
+at the real column width (Agents' long "Points at ..." paths) made the height too short: the
+content was taller than the document view, SwiftUI centred the overflow, and the pane opened with
+its top cut off while the clip view's origin was still 0. `SettingsDocumentView.layout()` therefore
+hands the hosted root (`SettingsDocumentContent`) the document view's width whenever it changes,
+and the root wraps `SettingsContent` in `.frame(width:)`, so the intrinsic height is the height at
+that width. Constraints still carry it to the document view.
+
+The root also fixes its vertical size (`.fixedSize(horizontal: false, vertical: true)`), so the
+content keeps its ideal height for the width instead of compressing or stretching, and sits in
+`.frame(maxHeight: .infinity, alignment: .top)`, so in the pass between a width change and the new
+measurement it overflows at the bottom, never at the top. Views with a flexible height must never
+see a tall height proposal: the Rules suggestion cards (`maxHeight: .infinity`, so the cards of a
+grid row match heights) stretch into tall empty boxes under one. A grid row still stretches its
+cells to the row's tallest cell.
+
+A frame-based document view that measured the content with `NSHostingController.sizeThatFits` and
+set its own frame rendered correctly off-screen, yet in the on-screen window it opened panes with a
+large blank area above the content and stopped scrolling. Keep the height on constraints.
+`snapshot --settings` renders at the content's full height unless given `--size`, so it never
+exercises the scroll view: check a change to it with `--size` at two widths, then on screen.
 
 ### Header
 
-The header sits above the status row, full width, and never scrolls away: a 20 pt `CountersignMark`
-(the same size as the panel's own header mark), "Countersign" in semibold, the version in a smaller,
-secondary, selectable caption (`CountersignVersion.current`, `.textSelection(.enabled)` so it can be
-copied into a bug report), and the **Close** button at the trailing edge. Close asks
-`NSWindow.performClose(nil)`, so it takes the same path as ⌘W and the window's own close button, and
-the window closes at once; it is not the default button, since Return belongs to the text fields.
-There is no footer any more: Close sits in the header instead, next to the mark and version.
+The header sits above the sidebar and the scroll view, full width, and never scrolls away: a 20 pt
+`CountersignMark` (the same size as the panel's own header mark), "Countersign" in semibold, the
+version in a smaller, secondary, selectable caption (`CountersignVersion.current`,
+`.textSelection(.enabled)` so it can be copied into a bug report), then at the trailing edge a
+caption naming an active state, a **Pause** icon, a **Snooze** icon and the **Close** button. Close
+asks `NSWindow.performClose(nil)`, so it takes the same path as ⌘W and the window's own close
+button, and the window closes at once; it is not the default button, since Return belongs to the
+text fields. There is no footer: Close sits in the header.
+
+The header is slim (12 pt above and below) and has the window background with a 1 px separator
+along its bottom edge. The sidebar and the scroll view start right at that line, and the scroll
+content keeps its own `SettingsMetrics.contentTopInset` so the first row is not glued to it:
+content scrolls up to the line and disappears there, so the settings read as scrolling under the
+header.
 
 ### Status
 
-The first row says whether Countersign is answering right now, with the companion menu's own
-wording and icon (`ApprovalCore.CountersignStatus`, which `CompanionMenu` uses for its status line
-too), read from the same pause switch and quiet-time files as `countersign status`:
+There is no longer a status card above the groups: a card that mostly said "Countersign is on"
+spent a full row of height on the state that needs no attention, and the header now carries the
+same controls in icon form. The state is the companion menu's own (`ApprovalCore.CountersignStatus`,
+which `CompanionMenu` uses for its status line too), read from the same pause switch and quiet-time
+files as `countersign status`. What each control shows and does comes from
+`ApprovalCore.SettingsHeaderControls`, which the tests cover:
 
-| Row | Button | The button |
-| --- | --- | --- |
-| "Countersign is on" | **Pause** | `PauseSwitch.pause()`, exactly `countersign pause` |
-| "Paused" | **Resume** | `PauseSwitch.resume()`, exactly `countersign resume` |
-| "Paused until Countersign opens" | **Resume** | the same `PauseSwitch.resume()` |
-| "Quiet until 14:05" | **End now** | `QuietTime.clear()`, exactly `countersign snooze off` |
+| State | Caption | Pause icon | Snooze icon |
+| --- | --- | --- | --- |
+| Active | none | secondary; click pauses (`StateSwitches.pause()`, exactly `countersign pause`) | secondary; click opens the popover of presets |
+| "Paused" | "Paused" in yellow | yellow; click resumes (`PauseSwitch.resume()`, exactly `countersign resume`) | disabled |
+| "Paused until Countersign opens" | the same words in yellow | as Paused | disabled |
+| Quiet until 14:05 | "Until 14:05" in blue | secondary; click pauses, which ends quiet time first | blue; the popover reads "Quiet until 14:05" and **End now** (`QuietTime.clear()`, exactly `countersign snooze off`) |
+
+The Snooze popover, opened beside the icon like the info buttons' popovers, lists the menu bar's
+presets (`CompanionMenu.snoozePresets`, titled by `SnoozeTitle`) and each starts quiet time through
+`StateSwitches.snooze(until:)`, exactly as the menu does. The Pause icon is its own control rather
+than the old status action because the old action turned into End now during quiet time, and a
+user who wants to pause during quiet time would have ended it instead.
 
 "Paused until Countersign opens" is the pause the menu-bar companion's quit question can leave
-behind, which ends when the companion starts again (see "Quit" in [app.md](app.md)); the row reads
-it through `PauseSwitch.state`. The companion's own window never shows it, since the companion
+behind, which ends when the companion starts again (see "Quit" in [app.md](app.md)); the header
+reads it through `PauseSwitch.state`. The companion's own window never shows it, since the companion
 ends that pause as it starts, but `countersign settings` run while the companion is closed does.
 Paused wins over quiet time, as in the menu; after Resume, a quiet time still running shows next.
-The button acts at once, like every control in the window. A failed write shows one red line under
-the row. The files change from other processes
+The controls act at once, like every control in the window. A failed write shows one red line under
+the header row. The files change from other processes
 (`countersign pause`, a panel's Snooze menu, the companion), so a repeating 2 s `Timer` in `.common`
 mode reads them again while the window is open, the same interval as the companion's icon, and the
 window reads them when it becomes key too.
@@ -259,14 +372,19 @@ The window edits top-level keys only:
 
 | Group | Control | Key | In the window |
 | --- | --- | --- | --- |
-| Panels | Wait for idle, a stepper | `idleSeconds` | `1` to `30` s, in 1 s steps |
-| Panels | Grace period, a stepper | `graceSeconds` | `0` to `30` s, in 1 s steps |
-| Panels | Arm delay, a slider | `armDelay` | `0` to `3` s, in 0.1 s steps |
-| Panels | Arm delay after an answer, a slider | `chainedArmDelay` | `0` to `3` s, in 0.1 s steps |
+| Panels | Wait for idle, a duration field and a stepper | `idleSeconds` | `1s` to `30s`, a bare number is seconds; the stepper moves in 1 s steps |
+| Panels | Grace period, a duration field and a stepper | `graceSeconds` | `0s` to `30s`, a bare number is seconds; the stepper moves in 1 s steps |
+| Panels | Arm delay, a slider and a duration field | `armDelay` | `0` to `3` s, a bare number is seconds; the slider moves in 0.1 s steps, typed values keep milliseconds |
+| Panels | Arm delay after an answer, a slider and a duration field | `chainedArmDelay` | `0` to `3` s, a bare number is seconds; the slider moves in 0.1 s steps, typed values keep milliseconds |
 | Panels | Hand off when frontmost, a list | `handoffApps` | bundle IDs, added and removed one at a time |
-| Panels | Snooze presets, a text field | `snoozeMinutes` | `1, 5, 15, 30`: 1 to 6 whole numbers, each `1` to `1440` |
+| Panels | Snooze presets, a text field | `snoozeMinutes` | `1, 5, 15, 30`: 1 to 6 durations, each `10s` to `24h`; a bare number is minutes, `30s`, `15m` and `1h` carry a unit; error `"<word>" isn't a duration` |
+| Panels | Quiet hours, a list above one editor line: day toggles, two time fields and Add, all on one `HStack`; the fields take `H`, `HH`, `H:MM`, `HH:MM`, `HMM` or `HHMM`, and the file always gets `HH:mm` | `quietHours` | up to 7 windows, each with at least one day and different start and end times; the whole array is rewritten on every add or remove; errors `Pick at least one day` and `Enter a time like 9, 0930 or 21:30.` |
 | Panels | Notes on answers, a switch | `questionNotes` | on or off |
 | Panels | Mode after a plan, a menu | `modeAfterPlan` | "Ask before edits", "Accept edits" or "Auto" |
+| Panels | Sound, a menu and a play button | `panelSound` | None, then the names in `/System/Library/Sounds`; the button (`speaker.wave.2`, label `Play <name>`) is disabled for None |
+| Panels | Waiting-agent notices, a switch | `waitingNotices` | on or off; never written directly, see below |
+| Panels | Notice after, a duration field, directly under the Waiting-agent notices switch | `waitingNoticeDelay` | `10s` to `1h`, a bare number is seconds; disabled while notices are off |
+| Panels | Show notice for, a duration field, directly under Notice after | `waitingNoticeDuration` | `3s` to `1h`, a bare number is seconds; top level only; disabled while notices are off |
 | App | Launch at login, a switch | none, `SMAppService.mainApp` | see below |
 | App | Check for updates, a switch | `checkForUpdates` | on or off |
 | App | When Countersign quits, a menu | `quitBehavior` | "Ask", "Keep showing panels" or "Pause panels" |
@@ -279,12 +397,19 @@ field, the test panel's buttons) and the row's write error. For a config key the
 come from `ApprovalCore.PreferenceName.title` and `caption`, so a row's words are defined in one
 place, and the note on an agent's row (below) names its values with the same titles.
 
-`ApprovalCore.PreferenceRules` holds the bounds and the parsing. The steppers are narrower than the
-file, which takes any number `>= 0`: a stepper needs bounds, and these cover every useful value. A
-value from the file outside them is shown as it is and clamped on the first step. Snooze presets are
-separated by commas or spaces. Text that breaks the schema's rules shows one red line under the
-field as it is typed and is never written (see "Writing a change" below). A new bundle ID is
-trimmed and must be non-empty, without spaces and not already listed.
+`ApprovalCore.PreferenceRules` holds the bounds and the parsing. Since U25, an idle or grace value
+in the file outside the stepper bounds is logged and read as the default, so a stepper never shows
+a value it cannot reach. The five time rows (`PreferenceName.durationField`: idle, grace, both arm
+delays and the notice delay) are duration fields. A field shows its value through
+`DurationText.compact` (`500ms`, `1.5s`, `2m`), takes a bare number in the key's own unit (seconds,
+minutes for the notice delay) or a number with `ms`, `s`, `m` or `h`, and commits on Return or when
+it loses focus (`PreferenceRules.duration(from:spec:)`, rounded to a millisecond). While the text is
+not a valid duration inside the key's range the field shows one red line under it, and nothing is
+written until it is valid: typed input is rejected, never clamped. On the arm delay rows, dragging
+the slider shows the dragged value in the field, and typing never moves the slider until the text
+is committed. Snooze presets are separated by commas or spaces. Text that breaks the schema's rules
+shows one red line under the field as it is typed and is never written (see "Writing a change"
+below). A new bundle ID is trimmed and must be non-empty, without spaces and not already listed.
 
 When `hosts.claude`, `hosts.codex`, `hosts.cursor` or `hosts.antigravity` sets a value, that
 agent's row under Agents shows it in one quiet line, named the way the Panels rows name it, with
@@ -299,6 +424,33 @@ Advanced. A failure to open it shows one red line under that note rather than in
 may not be the group currently shown (`ConfigEditorOrigin`). A value the parser rejects is not
 named, because the hook ignores it as well.
 
+#### Delays per agent
+
+The five delay rows (Wait for idle, Grace period, Arm delay, Arm delay after an answer, Show card
+after; `PreferenceName.agentDelays`) sit in the Delays block, headed by the switch "Same delays for
+all agents".
+On, each row edits the top-level value. Off, an Agent segmented picker appears and each row edits
+`hosts.<agent>` for the selected agent (`SettingsModel.delaysPerAgent`, `delayAgent`): a field shows
+the agent's own value, or is empty with the shared value (top level, else the default) as its
+placeholder; committing an empty field removes the agent's value, and a valid value writes it
+(`PreferenceEdit.forAgent`). The stepper and slider show the agent's effective value and write to
+the agent. Validation and the red line are the same as in shared mode. A row's reset arrow follows
+the mode: in per-agent mode it shows whenever the selected agent has its own value for that row,
+whether or not it changed in this visit, and it removes that value (`forAgent(agent,
+.reset(name))`), so the row falls back to the shared value its help names ("Use the shared value:
+5s"). It never resets the shared value from an agent's view.
+
+The mode is not stored. On every reload it turns on when any agent has an own delay
+(`PreferenceOverrides.agentsWithOwnDelays(in:)`), with the first such agent selected, else Codex,
+and stays on until the person turns the switch back on, so clearing the last own value does not
+make the card jump back. Turning the switch off writes nothing. Turning it on while agents have own
+delays asks first ("Use the same delays for every agent?", `PreferenceOverrides.sameDelaysPromptText`)
+because it removes those values from the file (`PreferenceEdit.removingAgentDelays(in:)`); Cancel
+leaves the switch off. Show card after is disabled while the shown agent (or, in shared mode, every
+agent) has the approval card off. Restore Defaults resets the shared values only and never touches
+`hosts`; the Approval card checkboxes write `hosts.<agent>.approvalCard` per agent, and its reset
+removes the key everywhere.
+
 At the end of Panels, "Show a test panel" has three buttons, Command, Question and Plan
 (`TestPanelKind.title`), in the window's secondary button style, below the row's caption: a menu
 would need a style of its own, and three buttons show every kind at a glance. Each calls
@@ -309,11 +461,31 @@ field focused, so the model first commits a Snooze presets entry or bundle ID st
 (`commitEditing()`): the panel then shows what the window shows. The caption, "See your settings
 in a real panel, right away. Nothing reaches an agent.", says the panel skips the grace period and
 the idle wait. While the launcher's observable `isRunning` is true, whichever surface started the
-test panel, the three buttons are disabled and "Showing a test panel…" follows them. A launch that
+test panel, the buttons stay enabled and their help reads "Bring back the test panel": a click
+calls `TestPanelLauncher.showRunning()` instead of launching another. It finds the running test
+panel's ticket (a live ticket whose pid is the process's) and sends it `MenuAnswer.show`, the
+menu's Show Now, so a panel hidden by an app switch or focus loss comes back without waiting for
+idle, and nothing happens when it is already on screen. Disabling the buttons left no way back to
+a hidden test panel. A launch that
 fails shows one red line on the row, "The test panel could not start: <error>", and so does a test
 panel that refuses to show, "The test panel didn't show: <reason>", with the reason it printed
 (see "One at a time, never ahead of a real request" in [panel.md](panel.md)). The row sits outside the config-backed rows, which a config file with a problem
 disables: a test panel reads such a file as defaults, as a hook does.
+
+Right after it, "Show a test card" has two buttons, Notice and Approval, in the same secondary
+style, with the caption "See the small corner cards, right away. Nothing reaches an agent." Notice
+shows a waiting notice for "Codex" in "Countersign test" and its Go there closes the card;
+Approval shows an approval card for "Cursor" in "Countersign test" and its Show closes the card and
+opens the Command test panel, so the whole flow can be seen. Both are built by
+`TestCornerCards` through `CornerCard.inFreeSlot` with the Settings appearance, post the same
+accessibility announcement as a real card, and are titled `Countersign test notice` and
+`Countersign test approval card`. There is one test card of each kind at a time: a click while it
+is up does nothing. A test card takes a real slot (see "The shared corner card" in
+[notice.md](notice.md)), so a test notice closes by itself after Show notice for (visible, un-hovered time, like a real
+one), a test approval card after 20 seconds, and both when the Settings window
+closes, rather than hold the slot for a long time: Settings can stay open in the menu-bar app
+while real agents need the spots. With no free slot the row shows one red line, "Both card spots
+are taken; close a card first."
 
 "When Countersign quits" is a menu-style `Picker` over `QuitBehavior.allCases`, titled by
 `QuitBehavior.title`, right after "Check for updates" and inside the same config-backed rows, so a
@@ -356,6 +528,7 @@ asks about settings. A preference is written at the moment its control is done c
 | When Countersign quits, Open with (menus) | when an item is chosen |
 | Wait for idle, Grace period (steppers) | on each step |
 | Arm delay, Arm delay after an answer (sliders) | when the drag ends |
+| Wait for idle, Grace period, Arm delays, Notice after (duration fields) | on Return, or when the field loses focus, and only while the text is valid |
 | Snooze presets (text field) | on Return, or when the field loses focus or disappears |
 | Hand off when frontmost (add field) | on Return, on Add, or when the field loses focus or disappears |
 | Hand off when frontmost (a bundle ID's remove button) | when clicked |
@@ -401,12 +574,28 @@ bytes changed, then reads it back, so the controls always show what the file hol
 - A value the file already holds, however it is spelled (`0.80` for `0.8`), stays as written. A
   value equal to the built-in default is still written when the person chose it over another value
   in the file: they chose it, and a later change to the default should not change their setting.
+- `PreferenceEdit.forAgent(host, edit)` applies one of a short list of edits under
+  `hosts.<agent>`, creating `hosts` and the agent's object as needed: `armDelay`,
+  `chainedArmDelay`, `idleSeconds`, `graceSeconds`, `waitingNoticeDelay`, `approvalCard`,
+  `approvalCardDelay`, and `reset` of those names (the file can still set
+  `hosts.<agent>.waitingNoticeDelay` and it wins, but the Settings delays list leaves it out: the
+  notice is about the agent's turn, not about the panel, so it is not one of
+  `PreferenceName.agentDelays`, and neither a reset nor "Same delays for all agents" touches it). Any other inner edit is ignored: no write, no
+  error, because those keys are top-level only. Resetting a key removes it and can leave the
+  agent's object as `{}`; that is kept, since the object is the person's and an empty one reads the
+  same as a missing one. `PreferenceEdit.removingAgentDelays(in:)` lists the resets for every
+  per-agent delay key a file sets (`PreferenceName.agentDelays`), never `approvalCard`.
+- `reset(.approvalCard)` removes the top-level `approvalCard` and every `hosts.<agent>.approvalCard`,
+  since the setting is the set of agents that show the card.
+- Restore defaults resets the shared values only: it removes no per-agent delay. Removing those is
+  a separate action built from `removingAgentDelays(in:)`.
 - A `handoffApps` that is not a list of strings is replaced by a list with the new ID, since the
   window showed the default in its place.
 - The file is backed up the way setup backs up a hook file (see "Backups and writing" in
   [setup.md](setup.md)), once per window session, before its first write, not once per change.
   The first backup already holds the file as it was before the session, which is the copy worth
-  keeping; a backup per change would leave dozens of copies after a few stepper clicks; and a
+  keeping; a backup per change would push it out after three stepper clicks, since only the newest
+  three backups of a file are kept; and a
   backup's name has one-second resolution, so two changes within the same second would need the
   same name and the second write would fail. A window session is one `SettingsModel`: each time the
   window opens, the first write backs up again.
@@ -430,16 +619,96 @@ the two groups, so it shows whichever group is open; Launch at login, the test p
 
 The window reads the hosts' files again whenever it becomes key, and the config file too when its
 bytes changed on disk, so a change made in an editor shows up when the person comes back to the
-window. That reread never replaces text the person is typing: while the Snooze presets field has
+window. A config file that can no longer be read shows the same problem line as when the window
+opens on one, rather than leaving the old values up as if they were still the file's. That reread
+never replaces text the person is typing: while the Snooze presets field has
 the focus, or shows an error, it keeps its text, and the add field is never touched by a reread.
 Every other control shows the file's new value. A write reads the file again first, so it lands on
 top of an edit made elsewhere instead of undoing it.
 
-The agent rows' Wire, Update and Remove (each shows its diff first under "Show changes"; see
-"Agents" in [setup.md](setup.md)), the Launch at login switch, which registers a login item with
-macOS rather than writing a config value, the status row's Pause, Resume and End now, the test
-panel buttons and "Open in Editor" act at once too, each on its own file, a process or macOS, never
+The agent rows' Wire, Update and Remove write their agent's hook file once their popup is
+confirmed (see "Agents" in [setup.md](setup.md)). The Launch at login switch, which registers a
+login item with macOS rather than writing a config value, the header's Pause, Resume, Snooze and
+End now, the test panel buttons and "Open in Editor" act at once too, each on its own file, a process or macOS, never
 on a preference beyond committing the text fields as the table says.
+
+### Context checkpoints
+
+The Panels tab ends with the switch "Context checkpoints (Claude Code)", showing the file's
+`contextCheckpoints.enabled`. It is the one Panels row that changes a host file, so flipping it
+writes nothing: it opens a confirmation popup (`ContextHookPrompt`, an `NSAlert` sheet on the
+Settings window like `RestoreDefaultsPrompt`; the model's `contextChange` is what the row presents,
+and confirm and cancel stay model calls). The popup asks "Turn on context checkpoints?" or "Turn
+off context checkpoints?" ("Update Countersign's Claude Code hook?" from the hook row), says
+"Countersign changes <path> and keeps a backup.", and shows the diff `ContextHookRun.preview` gives
+for Claude Code's `settings.json` in a selectable monospaced scroll view about 12 lines tall, with
+two buttons, "Turn On" or "Turn Off" (primary) and "Cancel". A preview with failures shows the
+failure lines and only "OK"; dismissing it changes nothing and leaves the failure as the row's red
+line. The primary button applies the hook change through
+`ContextHookRun.apply` (a backup of the file, like every hook-file write), and only then the
+config and state change: on, it writes `contextCheckpoints.enabled: true`; off, it removes the
+`UserPromptSubmit` entry, deletes the files in `AppPaths.contextCheckpointsDirectory`
+(`ContextCheckpointStore.removeAll()`) and writes `enabled: false`. Everything else in
+`contextCheckpoints` is kept, so turning it on again finds the thresholds and notes as they were.
+A failure in the hook step shows one red line on the row and changes nothing else. The order
+matters: the config never says "on" while the hook is missing because of a failed write. If Claude
+Code's directory is missing the switch is disabled and the caption reads "Claude Code isn't
+installed."
+
+The Context tab appears in the sidebar only while the feature is on, and turning the feature off,
+here or in the file, while Context is showing selects Panels. Its blocks, in order: Hook (the
+hook status: Wired, Not wired or Needs an update, from `ContextHookRun.status`, with "Update" for
+the last two, which shows the same popup as the switch and never touches the config), Checkpoints
+(Checkpoint style, the 200K and 1M ladders, the per-model ladders, Start over below), Notes and
+handoff (Notes, one row with an "Edit Notes…" button, then Handoff file), Menu bar (Context in the
+menu bar) and Try it (a button that shows a context test panel), then a footer with "Turn Off
+Context Checkpoints" left of Restore Defaults. That button calls `requestContextCheckpoints(false)` and so shows the same "Turn off context checkpoints?" popup as the Panels switch (the row presents it for the `.toggle` origin, and only one tab is on screen at a time, so one `contextChange` shows one alert); it is disabled while a change is pending or Claude Code isn't installed.
+
+Write rules follow the table above. The two ladder fields take three ascending whole numbers of
+thousands, 1 to 2000 (`PreferenceRules.contextLadder`), checked on each keystroke, and are written
+on Return, blur or disappearance; an invalid value shows "Enter three ascending numbers of
+thousands of tokens" and is never written. The per-model list adds a pair (prefix, ladder) on Add
+or Return in either field, like Hand off when frontmost, and removes one with its button. Start
+over below is a slider from 10 % to 95 % in steps of 5, written when the drag ends. The handoff
+file is written on blur, Return or disappearance; empty shows "Enter a file path".
+`commitEditing()` commits every pending ladder and handoff file field, so leaving the window or
+showing a test panel never drops one.
+
+The notes are edited in a sheet (`ContextNotesSheet`, a SwiftUI view in an `NSHostingController`
+presented with `beginSheet`, the way the tour is), about 560 by 620, titled "Context notes", whose
+caption names the `{tokens}` and `{handoffFile}` placeholders. It shows the five notes in order,
+each with its caption, an editor about five lines tall and a "Restore Default" button enabled only
+while the text differs from the default. The pending texts live in the sheet's own state, not in
+`contextTexts`, and nothing is written on blur, so `commitEditing()` no longer touches the notes.
+"Cancel" (Esc) discards every edit. "Save" (Return, the default button) checks all five with
+`PreferenceRules.contextNote` first (empty shows "Enter the note", and a note is at most 4000
+characters, the limit the config parser enforces), and writes the changed ones only when every
+note is valid; otherwise the sheet stays open with the red line under the offending note, and a
+failed write keeps it open too. The Context pane's Restore Defaults still resets the notes.
+
+`contextCheckpointsEnabled` is in no pane's Restore Defaults and has no reset arrow: restoring
+defaults must not unwire a hook file or delete state. The Context tab's Restore Defaults covers
+its own rows only.
+
+### Waiting-agent notices
+
+The switch never writes `config.json` on its own. Changing it asks `SettingsModel` for a
+`WaitingHookChange`: `WaitingHookRun.preview` over the wired hosts that
+`WaitingHookSetup.supportedHosts` names, shown by `WaitingHookPrompt` (a sibling of
+`ContextHookPrompt`, sharing `HookDiffPreview`) as "Turn on waiting-agent notices?" or "Turn off
+waiting-agent notices?", with "Countersign changes <paths> and keeps a backup." and the buttons Turn
+On / Turn Off and Cancel, or OK alone with the failure lines when a file cannot be changed. On
+confirm, `WaitingHookRun.apply` writes the hook file with a backup and only then is `waitingNotices`
+written. It applies to the locations the popup previewed, which `WaitingHookChange` keeps, not to
+the wired agents at confirm time: the window rereads the agents when it becomes key, so an agent
+wired while the popup was open would otherwise be changed without its diff ever being shown. With
+no wired Claude Code the popup shows "Nothing to change." and confirming writes only
+the config. Two fields sit directly under the switch, outside the delays group: Notice after, and
+below it Show notice for (`waitingNoticeDuration`, how long a notice stays up before it closes by
+itself; see "Closing by itself" in [notice.md](notice.md)). Both always show and edit the
+top-level value, even while "Same delays for all agents" is off, and Show notice for has no
+per-agent form at all. They are ordinary rows. Restore Defaults for Panels resets both fields
+and never the switch, since flipping it needs the popup; the switch has no reset button.
 
 ### Resetting to defaults
 
@@ -452,8 +721,17 @@ value that isn't the default" — the same rule the parser already uses to decid
 reaches the row at all. `editorApp` has no `Settings.default*` to compare against, since its
 default is absence rather than a value; "changed" for it means only "present in the parsed file",
 whatever the string. A row's reset
-button (the SF Symbol `arrow.uturn.backward`, left of the control) shows only when that is true.
-Clicking it writes `PreferenceEdit.reset(name)`, which `ConfigEdit` turns into removing that
+button (the SF Symbol `arrow.uturn.backward`, left of the control) shows only when that is true
+and the row was changed in this visit. The arrow is an undo for what the person just did, not a
+standing marker of every non-default value: a row that differs from its default but was set in an
+earlier visit shows no arrow, and Restore Defaults is the way back for it. `SettingsVisit` in
+`ApprovalCore` is the bookkeeping: `SettingsModel` records the names of every successful write's
+edits (`PreferenceEdit.key`), forgets the names a row reset or Restore Defaults resets, and begins
+a fresh visit, emptying the set, when the selected pane changes (`select(_:)`) and whenever the
+Settings window is shown, first show and every re-show. `SettingsModel.isResettable(_:)` is
+`isChanged(_:) && visit.contains(_:)`, and the button follows it on every pane. Restore Defaults
+ignores the visit: it is enabled whenever the pane has a value that differs from its default.
+Clicking the arrow writes `PreferenceEdit.reset(name)`, which `ConfigEdit` turns into removing that
 top-level member with `JSONSourceDocument.removeMember`, the same minimal-diff editor every other
 edit uses; it is a no-op when the key is already absent, and it never reaches into `hosts` or
 touches `$schema`, since the key it removes is always one of `PreferenceName`'s own. A reset goes
@@ -462,7 +740,7 @@ backup and shows the same red line on failure; pending text in the Snooze preset
 Hand off when frontmost add field is discarded rather than committed first, since a reset means
 "forget what I was typing here too."
 
-Panels and App each have a **Restore Defaults** button at the bottom of their group
+Panels and App each have a **Restore Defaults** button below their last block
 (`SecondaryButtonStyle`), disabled when `SettingsModel.changedNames(in:)` for that group's
 `SettingsPane.preferenceNames` is empty. Clicking it opens an `NSAlert` sheet on the Settings
 window, built the way the quit prompt's alert is (`RestoreDefaultsPrompt`, mirroring `QuitPrompt`):
@@ -491,7 +769,7 @@ text beyond its title and caption, both defined once and reused everywhere they'
 `PreferenceName.explanation` (2 to 4 plain sentences: what the setting does, when you'd change it,
 and how it relates to a neighbouring setting, such as arm delay against arm delay after an answer,
 or wait for idle against grace period) and `PreferenceName.defaultText` (the built-in default,
-spelled out — "0.8 seconds", "1, 5, 15 and 30 minutes", "No apps" — read from `Settings.default*`
+spelled out — "0.5 seconds", "1, 5, 15 and 30 minutes", "No apps" — read from `Settings.default*`
 through the same formatters the rest of the module uses, so a changed default changes the text
 without anyone hand-editing a string). Launch at Login isn't a `PreferenceName`, so its explanation
 and default text ("Off") are constants next to its caption in `LaunchAtLoginRow` instead.
@@ -499,7 +777,12 @@ and default text ("Off") are constants next to its caption in `LaunchAtLoginRow`
 The title-and-caption block of a `PreferenceRow`, and of `LaunchAtLoginRow`, carries `.help(
 explanation)` as a hover tooltip, and the title gains an info button (SF Symbol `info.circle`,
 borderless, secondary) that opens a `.popover` holding `SettingsExplanationView`: the explanation,
-then a secondary "Default: `<defaultText>`" line. The Test panel row and Advanced's other rows
+then a secondary "Default: `<defaultText>`" line. The popover opens when the pointer has rested on
+the button for 0.3 seconds (`SettingsInfoButton.openDelay`), or at once on a click, so reading an
+explanation takes no click at all. It closes 0.2 seconds (`closeDelay`) after the pointer has left
+both the button and the popover; the short grace lets the pointer cross the gap onto the popover
+without closing it, and any return within it cancels the close. A click outside still closes it
+at once, as for any transient popover. The Test panel row and Advanced's other rows
 have no `PreferenceName` and get neither; Open with does, and gets both like any Panels or App
 row. The reset button introduced above also reads its `.help` text
 from `defaultText` now, rather than formatting the default itself, so the two places a person can
@@ -509,6 +792,29 @@ learn "what does resetting this give me back" agree on the wording.
 alone, at its natural width, since a `.popover`'s chrome and arrow can't be drawn offscreen; it
 needs no `--home`, since both `explanation` and `defaultText` are pure functions of the name and
 the built-in defaults, never of a config file.
+
+### Accessibility
+
+- **Header caption.** The `Paused` and `Paused until Countersign opens` captions use
+  `HeaderControlTint.amber`, not `.yellow`. System yellow is about 1.3:1 on the light window
+  background; amber is `sRGB(0.55, 0.36, 0)` on light, about 4.8:1, and system yellow on dark,
+  where it already clears 4.5:1. The Pause icon keeps `.yellow`, since an icon needs only 3:1. The
+  Pause button also reads its state through `SettingsHeaderControls.pauseAccessibilityValue`
+  (`Paused` or `Not paused`), so VoiceOver does not depend on the colour.
+- **Sliders.** `DelaySlider` and `ContextRearmSlider` take the row title as their accessibility
+  label and the shown text (`0.5 s`, `60%`) as their value; the separate value text is hidden so
+  it is not read twice. A VoiceOver adjustment arrives while no drag is in progress, so it takes
+  the non-dragging branch and commits at once, the same as a drag end.
+- **Sidebar.** The selected pane's row carries the `.isSelected` trait, Advanced counting as
+  selected under App, as it does visually. The row icons are hidden; the pane title names the row.
+- **Decorative glyphs and status rows.** Icons that repeat the text beside them are hidden from
+  VoiceOver: the agent status glyph, the inline message, note and follow-up symbols, the
+  disclosure chevron, the app-link glyph and the installed-copy radio glyph (the row carries
+  `.isSelected` instead). An agent row reads its name and its status line as one element, and an
+  inline message reads as one element.
+- **Increase Contrast.** The header rule, `SettingsDivider` and the `SettingsGroup` border use
+  `SettingsHairline` and the group stroke, which switch from `Color.primary` at 8 to 12 percent
+  opacity to the solid `separatorColor` when `colorSchemeContrast` is `.increased`.
 
 ### Help
 
@@ -566,24 +872,35 @@ with a "Copy" button (`SettingsPrompt`).
 "Open with" (`PreferenceName.editorApp`) is a `PreferenceRow` like a Panels or App row, with the
 same info button and reset button; it just lives in Advanced because it changes what "Open in
 Editor" does rather than a panel or the menu-bar app. Its control is a `Menu` titled with the
-chosen app's name, or the default app's name when none is chosen: "Default app (<name>)" first,
-then one item per app from `NSWorkspace.shared.urlsForApplications(toOpen:)` for `config.json`
-(name and icon, the same apps Finder's own Open With offers), a divider, then "Other…", which
-opens an `NSOpenPanel` scoped to `/Applications` and `.application`. Choosing an app writes its
-bundle identifier with `PreferenceEdit.editorApp`; choosing "Default app" resets it like any other
-row. `SettingsModel.openConfigInEditor` resolves the stored bundle ID to a URL with
-`NSWorkspace.shared.urlForApplication(withBundleIdentifier:)` and opens the file with
-`NSWorkspace.shared.open(_:withApplicationAt:configuration:)`; when that lookup fails because the
-app was uninstalled since it was chosen, it falls back to the default app and shows "<bundle id>
-is not installed; opened with the default app." under the config path block, the same place a
-plain open failure shows, since both origins are `ConfigEditorOrigin.advanced`. An agent's own
-"Open in Editor" link on its row (`ConfigEditorOrigin.host`) goes through the same method, so it
-opens with the same chosen app and falls back the same way.
+chosen app's name, or "Ask every time" when none is chosen: "Ask every time" first, then one item
+per app from `NSWorkspace.shared.urlsForApplications(toOpen:)` for `config.json` (name and icon,
+the same apps Finder's own Open With offers), a divider, then "Other…", which opens an
+`NSOpenPanel` scoped to `/Applications` and `.application`. Choosing an app writes its bundle
+identifier with `PreferenceEdit.editorApp`; choosing "Ask every time" resets it like any other
+row.
 
-The line reads "Only the file can set values for one agent, under hosts, and
-includeHeadlessSessions." (`PreferenceOverrides.fileOnlyNote`). Its keys are computed, not listed
+`SettingsModel.openConfigInEditor` never falls back to the system's default app for `.json`, because
+that opened an editor the person had never been asked about. With no `editorApp` it sets
+`SettingsModel.editorChoice` (`EditorChoice`, carrying the `ConfigEditorOrigin`), and
+`SettingsPage` presents it as one sheet (`EditorChoiceSheet`), so Advanced's button and an agent's
+own "Open in Editor" link (`ConfigEditorOrigin.host`) share it. The sheet is titled "Open
+config.json with" and lists the installed apps that open `config.json` (icon and name, the
+system's default first and marked "(default)"; the name is Finder's display name without a trailing
+`.app`, which Finder adds when "Show all filename extensions" is on), an "Other…" button (the same `NSOpenPanel`; the
+picked app joins the list and is selected), an "Always use this app" checkbox that starts ticked,
+and Cancel and Open, with Open the default action and disabled until a row is selected;
+double-clicking a row opens with it. `SettingsModel.chooseEditor(bundleID:always:)` opens the file
+with `NSWorkspace.shared.open(_:withApplicationAt:configuration:)` and, when the box is ticked,
+writes `PreferenceEdit.editorApp`, so later clicks open directly; `cancelEditorChoice()` dismisses
+the sheet and opens nothing. A stored app that was uninstalled since it was chosen asks again the
+same way, with one line above the list, "<bundle id> is not installed. Pick another app."; the
+stale value stays in `config.json` until a pick with the box ticked replaces it, or "Ask every
+time" resets it.
+
+The line reads "Only the file can set values for one agent, under hosts, and approvalCard,
+approvalCardDelay, includeHeadlessSessions." (`PreferenceOverrides.fileOnlyNote`). Its keys are computed, not listed
 by hand: the parser's top-level keys minus every key a row writes anywhere in the window
-(`PreferenceName`) and minus `hosts` and `$schema`, so a key added to the file without a row is
+(`PreferenceName`) and minus `hosts`, `$schema` and `rules` (the Rules pane shows them), so a key added to the file without a row is
 named here without anyone remembering to, and a test pins today's list. The prompt:
 
 ```text
@@ -602,6 +919,11 @@ opens the window except the menu bar's Help ▸ Show the Tour, it presents the t
 ends the sheet; Back and Next swap the hosting controller's `rootView` for the neighbouring step
 without tearing the sheet down. Closing the settings window while the tour is up ends the sheet
 without creating the file, so the tour is still owed next time.
+
+The tour, the context notes sheet and the rule sheet all use `SettingsSheetWindow`: a borderless
+window whose `canBecomeKey` is overridden to true. AppKit lets a window become key only when it has
+a title bar or a resize bar, so a plain borderless sheet never became key: its text fields took no
+typing, and Return and Esc never reached its default and cancel buttons.
 
 The steps, their titles and bodies, and the count, live in `ApprovalCore` as `FirstRunTourStep`
 and `FirstRunTour`, so they're covered by `ApprovalCoreTests` like every other piece of copy; a
@@ -630,8 +952,8 @@ When more than one copy of Countersign is installed (which copies count, how the
 the steps are in "More than one copy installed" in [setup.md](setup.md)), the Agents group opens
 with a notice above its rows, "Two copies of Countersign are installed", the count spelled out up
 to four. It is an `InlineMessage` with the warning tone, an orange triangle beside text in the
-primary colour, so it reads as a heading rather than an error; below it, "Show copies" discloses
-the rest with the same chevron as an agent row's "Show changes":
+primary colour, so it reads as a heading rather than an error; below it, "Show copies"
+(`ChangesDisclosure`, a chevron that turns down when open) discloses the rest:
 
 - one line on why it matters: each copy updates on its own;
 - the question, "Which one do you want to keep?", in 13 pt semibold;
@@ -659,13 +981,113 @@ command-line tool are on different versions (see setup.md): the same warning `In
 its advice with a Copy button and the command that updates the older half in a code card. It is
 checked in the same refresh as the copies.
 
+The context rows edit the top-level `contextCheckpoints` block by key path: every `PreferenceName`
+has a `keyPath` (`[rawValue]` for the flat keys, such as `["contextCheckpoints", "thresholds",
+"200k"]` for the 200K ladder), and `ConfigEdit` finds or creates each object on the way down and
+sets or removes only the leaf, in the file's own style, so every other byte stays. A reset removes
+the leaf member only; an object left empty stays as `{}`. The window never edits
+`contextCheckpoints.hosts`, the same rule it follows for the top-level `hosts`, so
+`contextCheckpoints` no longer counts among the keys only the file can set. The switch that turns
+`contextCheckpointsEnabled` on wires a hook, so it belongs to no pane's `preferenceNames` and
+Restore Defaults never flips it.
+
+## Rules
+
+The Rules pane (`SettingsPane.rules`, SF Symbol `checklist`) sits between Panels and Context in the
+sidebar. Top to bottom it shows an intro line ("Rules answer before any panel shows. Deny wins; a
+compound command is allowed only when every part is."), then one row per rule in file order, then
+the notice about unreadable entries. A row has the decision ("Allow" in the accent colour the
+Approve button uses, "Deny" in red), a scope line (the agent's display name or "Any agent", then the
+project abbreviated with `~` or "Any project"), the pattern in the code font (the `command`, else
+`tool <pattern>`, else "Any request"), for a deny rule with a message the message, and a trailing
+remove button laid out like the one in the handoff apps list. The trailing stack is an `HStack` so
+an edit button can sit beside the remove button. With no rules the pane says how to get some: the
+Add Rule… button, or the Always allow choice in the Approve ▾ menu of Codex panels.
+
+The pane has no Restore Defaults and no `preferenceNames`. The default is "no rules", so restoring
+it would delete every rule the person wrote, and one wrong click would lose work that the other
+panes' resets only ever lose as a tuned number.
+
+The remove button asks first (`RemoveRulePrompt`, an `NSAlert` sheet on the Settings window like
+the Restore Defaults prompt): "Remove this rule?", the rule in two lines (decision and pattern,
+then the scope line), and Remove / Cancel. A rule has no undo, and a deny rule written by hand can
+take a while to get right, so one stray click on a small button should not lose it.
+
+Removal is `PreferenceEdit.removeRule(ApprovalRule)`. `ConfigEdit` reads each element of the
+top-level `rules` array through the same per-entry reader `ConfigFileParser` uses and removes the
+first element that reads as a rule equal to the one given. Matching on the parsed rule and not on
+a list index means entries the parser dropped (which do not appear in the list) never shift which
+element goes. No match changes nothing, and removing the last rule leaves `"rules": []`. The edit
+is not allowed per agent, because rules are top-level only (see
+[rules.md](rules.md#why-rules-are-top-level-only)). `PreferenceEdit.key` is optional for this
+reason: a rule edit writes no preference, so a failed write is reported in the pane
+(`SettingsModel.rulesError`) and not under a preference name.
+
+An "Add Rule…" button opens the rule sheet. It sits right of the intro line, which wraps beside it,
+whenever that leaves the line at least 240 pt (`RulesSection.introMinWidth`): a `ViewThatFits`
+whose first child gives the line that ideal width, so the stacked fallback (the button under the
+line) only appears in a pane narrower than the window's minimum width allows today. Each row has a pencil button (and a
+double-click) that opens the same sheet filled with that rule. The sheet is an AppKit sheet like the
+context notes sheet (`RuleSheet`), 440 pt wide: Decision (Allow | Deny), Agent, Project (a text
+field plus Choose…, an `NSOpenPanel` limited to one directory, shown abbreviated with `~`), Tool,
+Command (code font) and, only while Deny is selected, Message. Empty fields mean "any". The pure
+state lives in `RuleDraft` (`ApprovalCore`): its `problems` mirror what the file reader rejects
+(a project that is not a full path or does not start with `~`; a command that splits into several
+parts, because a rule matches each part of a compound command on its own; a command that
+`ShellCommandSegments.split` cannot read, with its own line saying such a command always gets its
+panel, since a rule could never match it), and Save stays disabled while there are any. A
+message on an allow rule is dropped when the rule is built, as the reader would ignore it. An
+allow rule with no agent, project, tool and command shows the warning "This allows every request
+from every agent." in the warning style; it does not block saving, because a blanket allow is a
+legitimate choice that should only be a deliberate one.
+
+New rules go through `PreferenceEdit.addRules`, edits through `PreferenceEdit.replaceRule(old:new:)`,
+which replaces the first element that reads as a rule equal to `old` with the new object, in place,
+so the rule keeps its position in the file. Like removal it matches on the parsed rule and not on an index. Both
+run through `SettingsModel.write`, so a failed write keeps the sheet open and shows
+`rulesError` in it. When `old` is no longer in the file, because it was edited or removed there
+while the sheet was open, `replaceRule` throws `RuleEditError.changedOnDisk` instead of writing
+nothing: a write that changes nothing counts as saved, so the sheet would close and the edit would
+be lost without a word. Removing a rule that is already gone still succeeds, since the file already
+says what the person asked for.
+
+Entries the parser dropped are counted from the config's log lines: every line that starts with
+`rules` except the "only used by deny rules" note, which does not drop an entry. When the count is
+above zero the pane warns "<n> rule(s) in config.json couldn't be read. countersign doctor lists
+them." and offers Open in Editor, which opens the file from the `.rules` origin so a failure to
+open it is shown in this pane. Unreadable entries are never listed or editable here: Settings
+shows only what the evaluator uses.
+
+A second group, Suggestions, sits under the rules group while any card is offered. The cards
+are laid out by an eager `Grid` inside a `ViewThatFits` (two columns when two 220-pt cards fit,
+else one; an odd last row is padded with a clear cell, and cards in a row share its height), not a
+`LazyVGrid`: Settings sizes its AppKit scroll view from the hosting view's fitting height, which a
+lazy grid misreports. The catalog is
+`RuleSuggestion.all` in `ApprovalCore` and not a table in the view, so its copy and its patterns
+are covered by tests that run them through `RuleEvaluator`. A card shows while any of its rules is
+missing from the list, compared on decision, agent, project, tool and command and ignoring the
+message, so a hand-written `deny rm -rf` with its own message already covers the card's. Editing a
+suggested rule (say, narrowing it to a project) brings the card back offering only the rule that
+changed, the card lists only the missing patterns, and Add (`SettingsModel.addSuggestion`) writes
+only the missing rules through `PreferenceEdit.addRules`, so a second click never duplicates. A
+failed write shows in the rules group's `rulesError` line. Every suggested rule has no agent,
+project or tool, and the person narrows it afterwards with the pencil.
+
+The git patterns use `base:glob` and not a prefix. An agent writes `git push origin main --force`,
+which the prefix `git push --force` misses, while `git:push*--force*` matches the flag anywhere
+after `push`. The same reasoning gives `git:push* -f*` and `git:reset*--hard*`. `git clean` is a
+plain prefix: short of a dry run (`-n`), it deletes untracked files that no commit can bring back,
+so the card stops every form of it. The deny cards catch the common
+spellings and nothing more: `rm -r -f`, `sudo` behind `env` and `git -C dir push -f` are not matched,
+and a miss is not an allow, so that command gets its panel as before.
+
 ## Why snapshot never reads the file
 
 `countersign snapshot` renders `PanelModel`/`PanelRootView` directly, with no `PanelController`
 and no config read, so its PNGs stay identical on every machine regardless of what settings a
 person or a CI runner happens to have on disk. `PanelController`'s and `PanelModel`'s `armDuration`,
-`snoozeMinutes` and `questionNotes` parameters default to the built-in values (`0.8`,
-`[1, 5, 15, 30]` and `false`), and `SnapshotCommand` passes none of them unless asked, so it stays
+`snoozePresets` and `questionNotes` parameters default to the built-in values (`0.5`,
+`[60, 300, 900, 1800]` seconds and `false`), and `SnapshotCommand` passes none of them unless asked, so it stays
 config-independent. `--question-notes` is the one way to see the question view with notes on in a
 snapshot, since there is no config file to flip a switch in, and `--accent #RRGGBB` the one way to
 see another accent than amber; see "Snapshots" in [panel.md](panel.md).

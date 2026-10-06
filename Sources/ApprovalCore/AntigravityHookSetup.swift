@@ -53,13 +53,27 @@ enum AntigravityHookSetup {
       let groups = events[0].value.elements, groups.count == 1,
       let groupMembers = groups[0].members, groupMembers.count == 2,
       groups[0].member(named: "matcher")?.value.stringValue == matcher,
-      let hooks = groups[0].member(named: "hooks")?.value.elements, hooks.count == 1,
-      let hookMembers = hooks[0].members,
-      Set(hookMembers.map(\.key)).count == hookMembers.count,
-      Set(hookMembers.map(\.key)).isSubset(of: entryKeys),
-      HookSetup.isCountersignHook(hooks[0])
+      let hooks = groups[0].member(named: "hooks")?.value.elements
     else { return nil }
-    return hooks[0]
+    return onlyCountersignHandler(in: hooks)
+  }
+
+  static func flatEntry(inSetupShape namedHook: JSONSpanNode, event: String) -> JSONSpanNode? {
+    guard let events = namedHook.members, events.count == 1,
+      events[0].key == event,
+      let handlers = events[0].value.elements
+    else { return nil }
+    return onlyCountersignHandler(in: handlers)
+  }
+
+  private static func onlyCountersignHandler(in handlers: [JSONSpanNode]) -> JSONSpanNode? {
+    guard handlers.count == 1,
+      let handlerMembers = handlers[0].members,
+      Set(handlerMembers.map(\.key)).count == handlerMembers.count,
+      Set(handlerMembers.map(\.key)).isSubset(of: entryKeys),
+      HookSetup.isCountersignHook(handlers[0])
+    else { return nil }
+    return handlers[0]
   }
 
   static func namedHookFragment(executablePath: String) -> JSONFragment {

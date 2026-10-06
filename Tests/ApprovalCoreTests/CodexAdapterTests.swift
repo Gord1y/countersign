@@ -181,6 +181,10 @@ import Testing
     #expect(CodexAdapter.encode(.noDecision) == nil)
   }
 
+  @Test func encodesAddContextAsNil() {
+    #expect(CodexAdapter.encode(.addContext("note")) == nil)
+  }
+
   @Test func handsOffWithNoReplyOfItsOwn() {
     #expect(Host.codex.handoffOutcome == nil)
   }

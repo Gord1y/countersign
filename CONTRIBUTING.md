@@ -53,10 +53,11 @@ Open every pull request against `staging`; `main` only moves when a release is c
 - One task per pull request. It is squash-merged into `staging` as a single commit whose subject
   is the pull request's title followed by ` (#<number>)`, and whose body is empty, so write the
   title as a Conventional Commit (`<type>[(scope)][!]: <subject>`). The `title` check enforces it.
-- A pull request merges once `gates`, `commits`, `release-index`, `lint` and `title` pass, an
-  approving review is in, and the branch is up to date with `staging` ("Update branch" on the pull
-  request brings it up to date). The maintainer's own pull requests are approved by the Claude
-  review; everyone else's by the maintainer, whose review is requested automatically.
+- A pull request merges once `gates`, `commits`, `release-index`, `lint` and `title` pass and the
+  branch is up to date with `staging` ("Update branch" on the pull request brings it up to date).
+  The maintainer reviews every pull request someone else opens before merging it (their review is
+  requested automatically), and reviews their own work locally before each release, against
+  [docs/review-checklist.md](docs/review-checklist.md).
 - For a pull request from a fork, the workflows wait until the maintainer approves them to run.
 - Nobody pushes to `staging` or `main` directly, the maintainer included. At release time a pull
   request from `staging` into `main` is merged with a merge commit; see
@@ -65,14 +66,19 @@ Open every pull request against `staging`; `main` only moves when a release is c
 ## Working with an AI agent
 
 Claude Code reads [CLAUDE.md](CLAUDE.md) and `.claude/`, including the path-scoped rules under
-`.claude/rules/` and the skills under `.claude/skills/`. Codex reads the same instructions through
-`AGENTS.md` (a symlink to `CLAUDE.md`), plus `.codex/config.toml` and `.codex/rules/default.rules`
-for the parts Claude Code applies automatically but Codex does not, and `.agents/skills` (a symlink
-to `.claude/skills`) for the skills. The rules are the same for both agents.
+`.claude/rules/`. Codex reads the same instructions through `AGENTS.md` (a symlink to
+`CLAUDE.md`), plus `.codex/config.toml` and `.codex/rules/default.rules` for the parts Claude Code
+applies automatically but Codex does not. The rules are the same for both agents.
+
+The repository ships no agent skills. The maintainer uses the shared agent setup
+(`Gord1y/countersign-skills`), and [.claude/repo-facts.md](.claude/repo-facts.md) holds
+Countersign's values for its skills. Everything a contributor needs is in the docs: release notes
+follow [releases/README.md](releases/README.md).
 
 ## House rules
 
-The full rules live in [CLAUDE.md](CLAUDE.md); in short:
+The full rules live in [CLAUDE.md](CLAUDE.md) and the area rules it lists under
+[.claude/rules/](.claude/rules); in short:
 
 - Zero comments in Swift source. Names carry the meaning; rationale that would have been a comment
   goes into `docs/design/<topic>.md` for an internal design note, or `docs/<topic>.md` for a

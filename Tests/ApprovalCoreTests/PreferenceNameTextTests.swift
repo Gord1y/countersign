@@ -5,21 +5,23 @@ import Testing
 @Suite struct PreferenceNameTextTests {
   @Test func titlesEveryRow() {
     #expect(
-      PreferenceName.allCases.map(\.title) == [
+      PreferenceName.allCases.prefix(14).map(\.title) == [
         "Arm delay", "Arm delay after an answer", "Wait for idle", "Grace period",
-        "Snooze presets", "Hand off when frontmost", "Check for updates", "Notes on answers",
+        "Snooze presets", "Quiet hours", "Hand off when frontmost", "Check for updates",
+        "Notes on answers",
         "When Countersign quits", "Mode after a plan", "Appearance", "Accent colour", "Open with",
       ])
   }
 
   @Test func captionsEveryRow() {
     #expect(
-      PreferenceName.allCases.map(\.caption) == [
+      PreferenceName.allCases.prefix(14).map(\.caption) == [
         "How long a new panel ignores keys and clicks.",
         "How long the next panel ignores keys and clicks.",
         "Quiet keyboard and mouse needed before a panel shows.",
         "Time a request may resolve elsewhere before it queues.",
-        "Minutes offered by the Snooze menu, in order.",
+        "Durations offered by the Snooze menu, in order.",
+        "Recurring times when panels wait, like a snooze that repeats.",
         "No panel while the asking app is one of these and in front.",
         "Look for a newer Countersign release.",
         "Offer a note under Claude's questions, sent with the option you pick.",
@@ -29,6 +31,52 @@ import Testing
         "The colour of Approve and highlights on panels and in Settings.",
         "The app Open in Editor uses for config.json.",
       ])
+  }
+
+  @Test func titlesEveryContextRow() {
+    #expect(
+      PreferenceName.allCases.suffix(13).map(\.title) == [
+        "Context checkpoints (Claude Code)", "Checkpoint style", "Checkpoints, 200K window",
+        "Checkpoints, 1M window", "Checkpoints for one model", "Start over below", "Handoff file",
+        "Soft note", "Status note", "Insist note", "Compact note", "Handoff note",
+        "Context in the menu bar",
+      ])
+  }
+
+  @Test func captionsEveryContextRow() {
+    #expect(
+      PreferenceName.allCases.suffix(13).map(\.caption) == [
+        "Nudge long Claude Code sessions toward a deliberate compaction.",
+        "Show a panel, or add the note silently.",
+        "Soft, status and insist, in tokens.",
+        "Soft, status and insist, in tokens.",
+        "A ladder for model IDs starting with a prefix.",
+        "A drop this far below the peak counts as a fresh start.",
+        "Where Claude writes a handoff, relative to the project.",
+        "Sent in silent mode at the first checkpoint.",
+        "Sent in silent mode at the second checkpoint.",
+        "Sent in silent mode at the third checkpoint.",
+        "Sent when you choose Compact after this step.",
+        "Sent when you choose Hand off & start fresh.",
+        "List each live session's context in the menu.",
+      ])
+  }
+
+  @Test func givesEveryRowANonEmptyExplanationAndDefaultText() {
+    for name in PreferenceName.allCases {
+      #expect(!name.explanation.isEmpty)
+      #expect(!name.defaultText.isEmpty)
+    }
+  }
+
+  @Test func contextDefaultTextMatchesTheBuiltInDefaults() {
+    #expect(PreferenceName.contextCheckpointsEnabled.defaultText == "On")
+    #expect(PreferenceName.contextMode.defaultText == "Panel")
+    #expect(PreferenceName.contextStandardThresholds.defaultText == "100K, 130K, 160K")
+    #expect(PreferenceName.contextMillionThresholds.defaultText == "200K, 300K, 400K")
+    #expect(PreferenceName.contextRearmBelow.defaultText == "60%")
+    #expect(PreferenceName.contextHandoffFile.defaultText == "notes/handoff.md")
+    #expect(PreferenceName.contextMenuBarMeter.defaultText == "Off")
   }
 
   @Test func givesEveryRowItsOwnTitle() {
@@ -50,7 +98,7 @@ import Testing
   }
 
   @Test func defaultTextMatchesTheBuiltInDefaults() {
-    #expect(PreferenceName.armDelay.defaultText == "0.8 seconds")
+    #expect(PreferenceName.armDelay.defaultText == "0.5 seconds")
     #expect(PreferenceName.chainedArmDelay.defaultText == "0.1 seconds")
     #expect(PreferenceName.idleSeconds.defaultText == "5 seconds")
     #expect(PreferenceName.graceSeconds.defaultText == "0 seconds")
@@ -62,7 +110,7 @@ import Testing
     #expect(PreferenceName.modeAfterPlan.defaultText == "Ask before edits")
     #expect(PreferenceName.appearance.defaultText == "System")
     #expect(PreferenceName.accentColor.defaultText == "Amber")
-    #expect(PreferenceName.editorApp.defaultText == "Default app")
+    #expect(PreferenceName.editorApp.defaultText == "Ask every time")
   }
 
   @Test func namesEveryAppearanceChoice() {

@@ -11,6 +11,30 @@
           }
         ]
       }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{EXECUTABLE}} hook --host claude --event waiting",
+            "async": true,
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{EXECUTABLE}} hook --host claude",
+            "async": true,
+            "timeout": 3600
+          }
+        ]
+      }
     ]
   }
 }

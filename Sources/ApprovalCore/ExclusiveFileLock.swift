@@ -20,7 +20,26 @@ public final class ExclusiveFileLock: Sendable {
       close(fileDescriptor)
       return nil
     }
+    guard isStillLinked(fileDescriptor, at: file) else {
+      flock(fileDescriptor, LOCK_UN)
+      close(fileDescriptor)
+      return nil
+    }
     return ExclusiveFileLock(descriptor: fileDescriptor)
+  }
+
+  static func isStillLinked(_ descriptor: Int32, at file: URL) -> Bool {
+    var opened = stat()
+    var current = stat()
+    guard fstat(descriptor, &opened) == 0, stat(file.path, &current) == 0 else { return false }
+    return opened.st_dev == current.st_dev && opened.st_ino == current.st_ino
+  }
+
+  public func removeFile(_ file: URL) {
+    descriptor.withLock { current in
+      guard current != nil else { return }
+      unlink(file.path)
+    }
   }
 
   public func release() {

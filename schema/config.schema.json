@@ -6,35 +6,216 @@
   "type": "object",
   "additionalProperties": false,
   "$defs": {
+    "durationText": {
+      "type": "string",
+      "pattern": "^[0-9]+(\\.[0-9]+)?(ms|s|m|h)$",
+      "description": "A duration with a unit: ms, s, m or h, such as \"500ms\", \"0.5s\", \"90s\", \"2m\" or \"1h\"."
+    },
+    "tokenLadder": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "description": "Three strictly ascending token counts: the soft, status and insist checkpoints."
+    },
+    "contextCheckpointValues": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether Countersign adds context checkpoint notes to a Claude Code session as its context grows."
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["panel", "silent"],
+          "default": "panel",
+          "description": "Whether a checkpoint asks you in a panel or only adds its note silently."
+        },
+        "thresholds": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Token counts of the three checkpoints, by context window size.",
+          "properties": {
+            "200k": {
+              "$ref": "#/$defs/tokenLadder",
+              "default": [100000, 130000, 160000],
+              "description": "Checkpoints for a 200K-token context window."
+            },
+            "1m": {
+              "$ref": "#/$defs/tokenLadder",
+              "default": [200000, 300000, 400000],
+              "description": "Checkpoints for a 1M-token context window."
+            }
+          }
+        },
+        "modelThresholds": {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/tokenLadder"
+          },
+          "description": "Checkpoints for one model, keyed by its model identifier exactly as Claude Code reports it; they win over thresholds."
+        },
+        "rearmBelow": {
+          "type": "number",
+          "minimum": 0.1,
+          "maximum": 0.95,
+          "default": 0.6,
+          "description": "Fraction of a checkpoint's token count the context must fall below, for example after /compact, before that checkpoint can fire again."
+        },
+        "handoffFile": {
+          "type": "string",
+          "minLength": 1,
+          "default": "notes/handoff.md",
+          "description": "Path the handoff notes ask Claude to write, substituted for {handoffFile}."
+        },
+        "notes": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Text of each note; {tokens} becomes the context size, such as 212K, and {handoffFile} the handoff path.",
+          "properties": {
+            "soft": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "description": "The note sent at the first checkpoint."
+            },
+            "status": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "description": "The note sent at the second checkpoint."
+            },
+            "insist": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "description": "The note sent at the third checkpoint."
+            },
+            "compact": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "description": "The note sent when you choose to compact."
+            },
+            "handoff": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "description": "The note sent when you choose to hand off."
+            }
+          }
+        },
+        "menuBarMeter": {
+          "type": "boolean",
+          "default": false,
+          "description": "Whether the menu-bar companion shows the context size of the active Claude Code session."
+        }
+      }
+    },
+    "contextCheckpoints": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/enabled"
+        },
+        "mode": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/mode"
+        },
+        "thresholds": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/thresholds"
+        },
+        "modelThresholds": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/modelThresholds"
+        },
+        "rearmBelow": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/rearmBelow"
+        },
+        "handoffFile": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/handoffFile"
+        },
+        "notes": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/notes"
+        },
+        "menuBarMeter": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/menuBarMeter"
+        },
+        "hosts": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Per-host overrides; context checkpoints support only Claude Code.",
+          "properties": {
+            "claude": {
+              "$ref": "#/$defs/contextCheckpointValues"
+            }
+          }
+        }
+      }
+    },
     "hostOverrides": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
         "armDelay": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 3,
-          "default": 0.8,
-          "description": "Seconds the panel ignores input after appearing, for this host; out-of-range values are clamped to 0...3."
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 3
+            },
+            {
+              "$ref": "#/$defs/durationText"
+            }
+          ],
+          "default": 0.5,
+          "description": "Time the panel ignores input after appearing, for this host: a number of seconds, or a string with a unit such as \"500ms\"; out-of-range values are clamped to 0...3 seconds."
         },
         "chainedArmDelay": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 3,
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 3
+            },
+            {
+              "$ref": "#/$defs/durationText"
+            }
+          ],
           "default": 0.1,
-          "description": "Seconds a panel ignores input when it appears right after the previous panel was answered, for this host; every other panel uses armDelay. Out-of-range values are clamped to 0...3."
+          "description": "Time a panel ignores input when it appears right after the previous panel was answered, for this host; every other panel uses armDelay. A number of seconds, or a string with a unit such as \"100ms\"; out-of-range values are clamped to 0...3 seconds."
         },
         "idleSeconds": {
-          "type": "number",
-          "minimum": 0,
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 30
+            },
+            {
+              "$ref": "#/$defs/durationText"
+            }
+          ],
           "default": 5,
-          "description": "Seconds of no keyboard, mouse or held-modifier activity required before a panel is shown, for this host."
+          "description": "Time of no keyboard, mouse or held-modifier activity required before a panel is shown, for this host, from 1 to 30 seconds: a number of seconds, or a string with a unit such as \"500ms\" or \"2s\"."
         },
         "graceSeconds": {
-          "type": "number",
-          "minimum": 0,
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 30
+            },
+            {
+              "$ref": "#/$defs/durationText"
+            }
+          ],
           "default": 0,
-          "description": "Seconds a hook waits for its request to resolve elsewhere before it queues a panel, for this host."
+          "description": "Time a hook waits for its request to resolve elsewhere before it queues a panel, for this host, from 0 to 30 seconds: a number of seconds, or a string with a unit such as \"500ms\" or \"2s\"."
         },
         "handoffApps": {
           "type": "array",
@@ -49,17 +230,56 @@
           "minItems": 1,
           "maxItems": 6,
           "items": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 1440
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0.1667,
+                "maximum": 1440
+              },
+              {
+                "$ref": "#/$defs/durationText"
+              }
+            ]
           },
           "default": [1, 5, 15, 30],
-          "description": "Durations, in minutes and in menu order, offered by the panel's Snooze menu, for this host."
+          "description": "Durations in menu order, from 10 seconds to 24 hours, offered by the panel's Snooze menu, for this host; each is a number of minutes or a string with a unit such as \"30s\" or \"1h\"."
         },
         "includeHeadlessSessions": {
           "type": "boolean",
           "default": false,
           "description": "Whether a non-interactive Claude Code session, such as claude -p, still gets a panel instead of being skipped, for this host; no effect for Codex, Cursor or Antigravity."
+        },
+        "approvalCard": {
+          "type": "boolean",
+          "description": "Whether a corner card with a Show button appears when this host's approval has been waiting approvalCardDelay seconds while you keep working. Defaults to the top-level approvalCard, then on for Codex, Cursor and Antigravity and off for Claude Code."
+        },
+        "approvalCardDelay": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 1,
+              "maximum": 600
+            },
+            {
+              "$ref": "#/$defs/durationText"
+            }
+          ],
+          "default": 5,
+          "description": "How long an approval waits for a pause in your typing before its card appears, from 1 second to 10 minutes: a number of seconds, or a string with a unit such as \"5s\" or \"2m\"; for this host."
+        },
+        "waitingNoticeDelay": {
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 10,
+              "maximum": 3600
+            },
+            {
+              "$ref": "#/$defs/durationText"
+            }
+          ],
+          "default": 10,
+          "description": "How long an agent has been waiting before the notice appears, from 10 seconds to 1 hour: a number of seconds, or a string with a unit such as \"10s\" or \"2m\"; for this host."
         }
       }
     }
@@ -70,30 +290,60 @@
       "description": "A JSON Schema reference for editor validation; ignored by countersign itself."
     },
     "armDelay": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 3,
-      "default": 0.8,
-      "description": "Seconds the panel ignores input after appearing; out-of-range values are clamped to 0...3."
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3
+        },
+        {
+          "$ref": "#/$defs/durationText"
+        }
+      ],
+      "default": 0.5,
+      "description": "Time the panel ignores input after appearing: a number of seconds, or a string with a unit such as \"500ms\"; out-of-range values are clamped to 0...3 seconds."
     },
     "chainedArmDelay": {
-      "type": "number",
-      "minimum": 0,
-      "maximum": 3,
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 3
+        },
+        {
+          "$ref": "#/$defs/durationText"
+        }
+      ],
       "default": 0.1,
-      "description": "Seconds a panel ignores input when it appears right after the previous panel was answered; every other panel uses armDelay. Out-of-range values are clamped to 0...3."
+      "description": "Time a panel ignores input when it appears right after the previous panel was answered; every other panel uses armDelay. A number of seconds, or a string with a unit such as \"100ms\"; out-of-range values are clamped to 0...3 seconds."
     },
     "idleSeconds": {
-      "type": "number",
-      "minimum": 0,
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 30
+        },
+        {
+          "$ref": "#/$defs/durationText"
+        }
+      ],
       "default": 5,
-      "description": "Seconds of no keyboard, mouse or held-modifier activity required before a panel is shown."
+      "description": "Time of no keyboard, mouse or held-modifier activity required before a panel is shown, from 1 to 30 seconds: a number of seconds, or a string with a unit such as \"500ms\" or \"2s\"."
     },
     "graceSeconds": {
-      "type": "number",
-      "minimum": 0,
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 30
+        },
+        {
+          "$ref": "#/$defs/durationText"
+        }
+      ],
       "default": 0,
-      "description": "Seconds a hook waits for its request to resolve elsewhere before it queues a panel."
+      "description": "Time a hook waits for its request to resolve elsewhere before it queues a panel, from 0 to 30 seconds: a number of seconds, or a string with a unit such as \"500ms\" or \"2s\"."
     },
     "handoffApps": {
       "type": "array",
@@ -108,12 +358,94 @@
       "minItems": 1,
       "maxItems": 6,
       "items": {
-        "type": "integer",
-        "minimum": 1,
-        "maximum": 1440
+        "anyOf": [
+          {
+            "type": "number",
+            "minimum": 0.1667,
+            "maximum": 1440
+          },
+          {
+            "$ref": "#/$defs/durationText"
+          }
+        ]
       },
       "default": [1, 5, 15, 30],
-      "description": "Durations, in minutes and in menu order, offered by the panel's Snooze menu."
+      "description": "Durations in menu order, from 10 seconds to 24 hours, offered by the panel's Snooze menu; each is a number of minutes or a string with a unit such as \"30s\" or \"1h\"."
+    },
+    "quietHours": {
+      "type": "array",
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["days", "from", "to"],
+        "properties": {
+          "days": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "type": "string",
+              "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+            },
+            "description": "The days a window starts on."
+          },
+          "from": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "description": "Local start time, HH:mm."
+          },
+          "to": {
+            "type": "string",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "description": "Local end time, HH:mm, different from the start. Earlier than the start means the window runs past midnight."
+          }
+        }
+      },
+      "default": [],
+      "description": "Recurring windows in which panels wait, like a snooze that repeats; top level only."
+    },
+    "rules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["decision"],
+        "properties": {
+          "decision": {
+            "type": "string",
+            "enum": ["allow", "deny"],
+            "description": "Whether a matching request is answered with allow or deny without a panel."
+          },
+          "agent": {
+            "type": "string",
+            "enum": ["claude", "codex", "cursor", "antigravity"],
+            "description": "Limits the rule to one agent; leave out for all four."
+          },
+          "project": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Limits the rule to requests whose working directory is this folder or inside it; an absolute path or one starting with ~."
+          },
+          "tool": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Limits the rule to tools whose name matches; * is the only wildcard, as in mcp__github__*."
+          },
+          "command": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Limits the rule to shell commands matching this pattern: a command prefix such as \"git status\", or a base and argument glob such as \"npm:*\"."
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1,
+            "description": "Deny rules only: the reason shown to the agent; defaults to \"Denied by a Countersign rule.\"."
+          }
+        }
+      },
+      "default": [],
+      "description": "Countersign's own allow and deny rules, checked before a panel shows. Deny wins; a compound command is allowed only when every part is."
     },
     "checkForUpdates": {
       "type": "boolean",
@@ -131,6 +463,79 @@
       "enum": ["default", "acceptEdits", "auto"],
       "default": "default",
       "description": "What Claude Code switches to when you approve its plan."
+    },
+    "panelSound": {
+      "type": "string",
+      "enum": [
+        "none",
+        "Basso",
+        "Blow",
+        "Bottle",
+        "Frog",
+        "Funk",
+        "Glass",
+        "Hero",
+        "Morse",
+        "Ping",
+        "Pop",
+        "Purr",
+        "Sosumi",
+        "Submarine",
+        "Tink"
+      ],
+      "default": "none",
+      "description": "A system sound played once when a panel appears, except the next panel in a chain of answers; none plays nothing; top level only."
+    },
+    "waitingNotices": {
+      "type": "boolean",
+      "default": true,
+      "description": "Whether a corner card appears when an agent has been waiting for you; setup adds the Stop hook while it is on, and turning it off from Settings removes it; top level only."
+    },
+    "waitingNoticeDelay": {
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 10,
+          "maximum": 3600
+        },
+        {
+          "$ref": "#/$defs/durationText"
+        }
+      ],
+      "default": 10,
+      "description": "How long an agent has been waiting before the notice appears, from 10 seconds to 1 hour: a number of seconds, or a string with a unit such as \"10s\" or \"2m\"; hosts.<agent>.waitingNoticeDelay overrides it per agent."
+    },
+    "waitingNoticeDuration": {
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 3,
+          "maximum": 3600
+        },
+        {
+          "$ref": "#/$defs/durationText"
+        }
+      ],
+      "default": 10,
+      "description": "How long a waiting-agent notice stays on screen before it closes by itself, from 3 seconds to 1 hour: a number of seconds, or a string with a unit such as \"10s\" or \"1m\". Only visible time counts."
+    },
+    "approvalCard": {
+      "type": "boolean",
+      "description": "Whether a corner card with a Show button appears when an approval has been waiting approvalCardDelay seconds while you keep working. Unset, it is on for Codex, Cursor and Antigravity and off for Claude Code; hosts.<agent>.approvalCard overrides it per agent."
+    },
+    "approvalCardDelay": {
+      "anyOf": [
+        {
+          "type": "number",
+          "minimum": 1,
+          "maximum": 600
+        },
+        {
+          "$ref": "#/$defs/durationText"
+        }
+      ],
+      "default": 5,
+      "description": "How long an approval waits for a pause in your typing before its card appears, from 1 second to 10 minutes: a number of seconds, or a string with a unit such as \"5s\" or \"2m\"."
     },
     "includeHeadlessSessions": {
       "type": "boolean",
@@ -158,6 +563,10 @@
       "type": "string",
       "minLength": 1,
       "description": "Bundle identifier of the app Open in Editor opens config.json with; absent uses the default app macOS would open it with; top level only."
+    },
+    "contextCheckpoints": {
+      "$ref": "#/$defs/contextCheckpoints",
+      "description": "Optional notes that ask Claude Code to wrap up, compact or hand off as its context grows; on by default, Claude Code only."
     },
     "hosts": {
       "type": "object",

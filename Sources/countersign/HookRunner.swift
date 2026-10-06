@@ -17,7 +17,8 @@ enum HookRunner {
       exit(0)
     }
 
-    let (configFile, configLogLines) = ConfigFileLoader.load(paths: paths)
+    let (configFile, configLogLines) = ConfigFileLoader.load(
+      paths: paths, soundNames: SystemSounds.installedNames)
     for line in configLogLines {
       log.write("config: \(line)")
     }
@@ -25,9 +26,26 @@ enum HookRunner {
 
     let input = FileHandle.standardInput.readDataToEndOfFile()
 
+    if options.host == .claude, ClaudeAdapter.isCursorPayload(input) {
+      log.write("ignored: a Cursor payload in a Claude Code hook")
+      exit(0)
+    }
+
+    if options.event == .waiting {
+      WaitingRecorder.recordTurnEnded(
+        input: input, host: options.host, settings: settings, paths: paths, log: log)
+    }
+
+    WaitingRecorder.clearRecord(input: input, host: options.host, paths: paths, log: log)
+
     if PauseSwitch(file: paths.pauseFile).isPaused {
       log.write("paused")
       exit(0)
+    }
+
+    if options.host == .claude, ClaudeAdapter.eventName(of: input) == ContextHookSetup.eventName {
+      ContextCheckpointRunner.run(
+        input: input, settings: settings, paths: paths, log: log, startedAt: startedAt)
     }
 
     let request: ApprovalRequest
@@ -41,6 +59,13 @@ enum HookRunner {
       "start host=\(options.host.rawValue) tool=\(request.toolName) "
         + "project=\(request.projectName) agent=\(request.agentType ?? "-")")
 
+    let ruleDecision = RuleEvaluator.decide(request, rules: settings.rules, home: paths.home)
+    if case .deny(let message, let ruleIndex) = ruleDecision {
+      answerFromRule(
+        .deny(reason: message, interrupt: false), verb: "denied", ruleIndex: ruleIndex,
+        answer: .deniedByRule, request: request, paths: paths, log: log)
+    }
+
     if request.runsInSandbox {
       log.write("skipped: sandboxed command")
       exit(0)
@@ -50,6 +75,25 @@ enum HookRunner {
       log.write("skipped: \(request.toolName) not asked about")
       exit(0)
     }
+
+    if case .allow(let ruleIndex) = ruleDecision {
+      answerFromRule(
+        .allowAsIs, verb: "allowed", ruleIndex: ruleIndex, answer: .allowedByRule,
+        request: request, paths: paths, log: log)
+    }
+
+    let cursorEnvironment =
+      request.host == .cursor
+      ? CursorEnvironment.read(home: paths.home, workspaceRoot: request.cwd) : nil
+    if let cursorEnvironment {
+      log.write(cursorEnvironment.logLine)
+      if cursorEnvironment.allowsWithoutAsking(request) {
+        log.write("skipped: on Cursor's allowlist")
+        exit(0)
+      }
+    }
+    let handBackPolicy =
+      cursorEnvironment.map { HandBackPolicy.forCursor($0.runMode) } ?? .handsBack
 
     let hostApp = HostApp.resolve()
     if let hostApp {
@@ -71,26 +115,48 @@ enum HookRunner {
 
     showPanel(
       for: request, mode: .hook, settings: settings, paths: paths, log: log, startedAt: startedAt,
-      hostApp: hostApp)
+      hostApp: hostApp, handBackPolicy: handBackPolicy)
+  }
+
+  private static func answerFromRule(
+    _ outcome: ApprovalOutcome, verb: String, ruleIndex: Int, answer: DecisionAnswer,
+    request: ApprovalRequest, paths: AppPaths, log: EventLog
+  ) -> Never {
+    writeReply(outcome, host: request.host)
+    log.write("rule: \(verb) by rules[\(ruleIndex)]")
+    log.write("outcome: \(describe(outcome))")
+    recordDecision(
+      request: request, answer: answer, history: DecisionHistory(paths: paths), log: log)
+    exit(0)
   }
 
   static func showPanel(
     for request: ApprovalRequest, mode: PanelRunMode, settings: Settings, paths: AppPaths,
-    log: EventLog, startedAt: ContinuousClock.Instant, hostApp: HostApp?
+    log: EventLog, startedAt: ContinuousClock.Instant, hostApp: HostApp?,
+    checkpoint: ContextCheckpointSession? = nil, handBackPolicy: HandBackPolicy = .handsBack
   ) -> Never {
     let clock = ContinuousClock()
     let host = request.host
+    let waitingHandBack = WaitingHandBack(
+      request: request, mode: mode, settings: settings, hostApp: hostApp, paths: paths, log: log)
     let watcher =
       mode.followsChat
       ? ResolutionWatcher(request: request, sessionsDirectory: paths.claudeSessionsDirectory)
       : nil
     let pauseSwitch = PauseSwitch(file: paths.pauseFile)
-    let quietTime = QuietTime(file: paths.quietFile)
+    let quietState = QuietState(
+      paths: paths, schedule: QuietSchedule(windows: settings.quietHours))
+    func isPaused() -> Bool {
+      mode.honorsPause && pauseSwitch.isPaused
+    }
     func abandonReason() -> String? {
       if let reason = watcher?.poll() {
         return reason.rawValue
       }
-      if mode.honorsPause, pauseSwitch.isPaused {
+      if let reason = checkpoint?.abandonReason() {
+        return reason
+      }
+      if isPaused() {
         return "paused"
       }
       return nil
@@ -108,19 +174,25 @@ enum HookRunner {
         exit(0)
       }
       if handBackIsDue() {
-        handBack(host: host, log: log)
+        handBack(
+          request: request, policy: handBackPolicy, log: log, waiting: waitingHandBack,
+          history: DecisionHistory(paths: paths))
       }
       guard clock.now < graceDeadline else { break }
       Thread.sleep(forTimeInterval: 0.25)
     }
 
     let queue = TicketQueue(directory: paths.queueDirectory, lockFile: paths.displayLockFile)
-    let ticket: Ticket
+    if mode.waitsForApprovalsFirst {
+      waitUntilNoApprovalIsQueued(queue: queue, log: log, abandonReason: abandonReason)
+    }
+    let subagentChain = SubagentDescription.chain(for: request)
+    var ticket: Ticket
     do {
       ticket = try queue.enqueue(
         TicketSummary(
-          request: request, agentDescription: SubagentDescription.resolve(for: request),
-          isTestPanel: mode.isTest)
+          request: request, agentDescription: SubagentDescription.resolve(from: subagentChain),
+          isTestPanel: mode.isTest, answersInChat: handBackPolicy.answersInChat)
       )
     } catch {
       log.write("failed to enqueue: \(error)")
@@ -128,10 +200,30 @@ enum HookRunner {
     }
     queue.removeOnTermination(ticket)
 
+    var menuOutcome: ApprovalOutcome?
+    var showsWithoutIdle = false
+    var showRequested = false
+    func shouldStopWaiting() -> Bool {
+      if abandonReason() != nil || handBackIsDue() {
+        return true
+      }
+      guard let answer = queue.takeMenuAnswer(for: ticket) else { return false }
+      switch receiveMenuAnswer(answer, ticket: ticket, queue: queue, log: log) {
+      case .finish(let outcome):
+        menuOutcome = outcome
+        return true
+      case .moved(let moved):
+        ticket = moved.ticket
+        showsWithoutIdle = moved.place == .front
+        showRequested = true
+        return false
+      case .ignored:
+        return false
+      }
+    }
     let turn =
       mode.waitsItsTurn
-      ? queue.waitForTurn(
-        ticket, pollInterval: 0.25, shouldAbandon: { abandonReason() != nil || handBackIsDue() })
+      ? queue.waitForTurn(ticket, pollInterval: 0.25, shouldAbandon: shouldStopWaiting)
       : TestPanelCommand.takeDisplay(queue: queue, ticket: ticket, log: log)
     let lease: DisplayLease?
     switch turn {
@@ -140,12 +232,33 @@ enum HookRunner {
     case .nextInLine:
       lease = nil
     case .abandoned:
+      if let menuOutcome {
+        writeReply(menuOutcome, host: host)
+        log.write("outcome: \(describe(menuOutcome))")
+        recordDecision(
+          request: request,
+          answer: DecisionAnswer.answer(
+            for: menuOutcome, checkpointChoice: nil, isCheckpoint: false),
+          history: DecisionHistory(paths: paths), log: log)
+        queue.remove(ticket)
+        if menuOutcome == .noDecision {
+          waitingHandBack.record()
+        }
+        exit(0)
+      }
       let reason = abandonReason()
       queue.remove(ticket)
       if reason == nil, handBackIsDue() {
-        handBack(host: host, log: log)
+        handBack(
+          request: request, policy: handBackPolicy, log: log, waiting: waitingHandBack,
+          history: DecisionHistory(paths: paths))
       }
       log.write("resolved while queued: \(reason ?? "unknown")")
+      if !mode.isTest, let reason, reason != "paused" {
+        recordDecision(
+          request: request, answer: .resolvedElsewhere,
+          history: DecisionHistory(paths: paths), log: log)
+      }
       exit(0)
     }
 
@@ -155,9 +268,14 @@ enum HookRunner {
     let activityGate = ActivityGate(idleSeconds: settings.idleSeconds)
     let displayWatch = DisplayWatch(
       app: app, request: request, mode: mode, queue: queue, ticket: ticket, lease: lease,
-      log: log, activityGate: activityGate, quietTime: quietTime, settings: settings,
-      waitingEntries: initialWaitingEntries, sessionsDirectory: paths.claudeSessionsDirectory,
-      hostApp: hostApp, abandonReason: abandonReason, handBackIsDue: handBackIsDue)
+      log: log, activityGate: activityGate, quietState: quietState, settings: settings,
+      subagentChain: subagentChain, waitingEntries: initialWaitingEntries,
+      sessionsDirectory: paths.claudeSessionsDirectory, history: DecisionHistory(paths: paths),
+      hostApp: hostApp, paths: paths, checkpoint: checkpoint, showsWithoutIdle: showsWithoutIdle,
+      showRequested: showRequested, waitingHandBack: waitingHandBack,
+      handBackPolicy: handBackPolicy,
+      cardSlots: WaitingStore(directory: paths.waitingDirectory),
+      abandonReason: abandonReason, handBackIsDue: handBackIsDue, isPaused: isPaused)
     let timer = Timer(
       timeInterval: 0.25, target: displayWatch, selector: #selector(DisplayWatch.tick),
       userInfo: nil, repeats: true)
@@ -167,16 +285,98 @@ enum HookRunner {
     exit(0)
   }
 
+  private static func waitUntilNoApprovalIsQueued(
+    queue: TicketQueue, log: EventLog, abandonReason: () -> String?
+  ) {
+    var hasLoggedWait = false
+    while queue.approvalCount(excluding: nil) > 0 {
+      if !hasLoggedWait {
+        hasLoggedWait = true
+        log.write("waiting for approvals")
+      }
+      if let reason = abandonReason() {
+        log.write("resolved while waiting for approvals: \(reason)")
+        exit(0)
+      }
+      Thread.sleep(forTimeInterval: 0.25)
+    }
+  }
+
+  enum MenuAnswerEffect {
+    case finish(ApprovalOutcome)
+    case moved(ShowNowResult)
+    case ignored
+  }
+
+  static func receiveMenuAnswer(
+    _ answer: MenuAnswer, ticket: Ticket, queue: TicketQueue, log: EventLog
+  ) -> MenuAnswerEffect {
+    guard MenuAnswer.offered(for: ticket.summary).contains(answer) else {
+      log.write("answered from the menu: \(answer.rawValue), not offered for this request")
+      return .ignored
+    }
+    log.write("answered from the menu: \(answer.rawValue)")
+    if let outcome = answer.outcome {
+      return .finish(outcome)
+    }
+    guard let moved = showNow(ticket, queue: queue, log: log) else { return .ignored }
+    return .moved(moved)
+  }
+
+  static func showNow(_ ticket: Ticket, queue: TicketQueue, log: EventLog) -> ShowNowResult? {
+    do {
+      let moved = try queue.showNow(
+        ticket, isOnScreen: { QueueHandoffChannel(ticket: $0).shownDisplayID() != nil })
+      switch moved.place {
+      case .front: log.write("show now: moved to the front")
+      case .behindShownPanel: log.write("show now: next after the panel on screen")
+      }
+      return moved
+    } catch {
+      log.write("show now: failed to move: \(error)")
+      return nil
+    }
+  }
+
+  static func recordDecision(
+    request: ApprovalRequest, answer: DecisionAnswer, history: DecisionHistory, log: EventLog
+  ) {
+    do {
+      try history.append(DecisionHistoryEntry(request: request, answer: answer))
+    } catch {
+      log.write("history: failed to record: \(error)")
+    }
+  }
+
   static func writeReply(_ outcome: ApprovalOutcome, host: ApprovalCore.Host) {
     guard let data = host.encode(outcome) else { return }
     FileHandle.standardOutput.write(data)
     FileHandle.standardOutput.write(Data("\n".utf8))
   }
 
-  private static func handBack(host: ApprovalCore.Host, log: EventLog) -> Never {
-    writeReply(.noDecision, host: host)
-    log.write(TimeoutHandBack.logLine(for: host))
+  private static func handBack(
+    request: ApprovalRequest, policy: HandBackPolicy, log: EventLog, waiting: WaitingHandBack,
+    history: DecisionHistory
+  ) -> Never {
+    let outcome = policy.timeoutOutcome()
+    writeReply(outcome, host: request.host)
+    log.write(policy.timeoutLogLine(for: request.host))
+    recordTimeoutOutcome(outcome, request: request, history: history, log: log, waiting: waiting)
     exit(0)
+  }
+
+  static func recordTimeoutOutcome(
+    _ outcome: ApprovalOutcome, request: ApprovalRequest, history: DecisionHistory, log: EventLog,
+    waiting: WaitingHandBack
+  ) {
+    guard outcome != .noDecision else {
+      waiting.record()
+      return
+    }
+    recordDecision(
+      request: request,
+      answer: DecisionAnswer.answer(for: outcome, checkpointChoice: nil, isCheckpoint: false),
+      history: history, log: log)
   }
 
   private static func describe(_ error: Error) -> String {
@@ -189,6 +389,7 @@ enum HookRunner {
   static func describe(_ outcome: ApprovalOutcome) -> String {
     switch outcome {
     case .noDecision: return "no decision"
+    case .addContext: return "context note"
     case .allow(_, let updatedPermissions):
       return updatedPermissions.isEmpty ? "allow" : "allow+permissions"
     case .deny(_, let interrupt): return interrupt ? "deny+interrupt" : "deny"
@@ -202,6 +403,8 @@ private final class DisplayWatch: NSObject {
     case queued
     case waitingForIdle
     case shown(controller: PanelController)
+    case parked
+    case showingResult(card: TestPanelResultCard)
   }
 
   private struct PendingHandoff {
@@ -221,16 +424,35 @@ private final class DisplayWatch: NSObject {
   private let host: ApprovalCore.Host
   private let mode: PanelRunMode
   private let queue: TicketQueue
-  private let ticket: Ticket
+  private var ticket: Ticket
+  private var showsWithoutIdle: Bool
+  private var showRequested: Bool
+  private var quietTimeAtDisplay: Date?
   private let log: EventLog
   private let activityGate: ActivityGate
-  private let quietTime: QuietTime
+  private let quietState: QuietState
   private let settings: Settings
+  private var configReload: ConfigReload
+  private var approvalCardEnabled: Bool
+  private var approvalCardDelaySeconds: Double
   private let systemActivity = SystemActivity()
   private let abandonReason: () -> String?
   private let handBackIsDue: () -> Bool
   private let sessionsDirectory: URL
+  private let history: DecisionHistory
   private let hostApp: HostApp?
+  private let checkpoint: ContextCheckpointSession?
+  private let waitingHandBack: WaitingHandBack
+  private let handBackPolicy: HandBackPolicy
+  private let cardSlots: WaitingStore
+  private let isPaused: () -> Bool
+  private var waitingForIdleSince = ProcessInfo.processInfo.systemUptime
+  private var waitFollowsStepAside = false
+  private var missionControlHoldLogged = false
+  private var approvalCard: CornerCard?
+  private var approvalCardStage = ApprovalCardStage.notShown
+  private var approvalClaim: ApprovalClaim?
+  private var checkpointChoice: ContextCheckpointChoice?
   private var lease: DisplayLease?
   private var state: State
   private var lastWaitingEntries: [WaitingEntry]
@@ -243,32 +465,54 @@ private final class DisplayWatch: NSObject {
   private var handoffPoll: Timer?
   private var hasEvaluatedChatTracking = false
   private var chatTrackingDrift: ChatTrackingDrift?
+  private let subagentChain: [SubagentChainLink]?
+  private let paths: AppPaths
 
   init(
     app: PanelApplication, request: ApprovalRequest, mode: PanelRunMode, queue: TicketQueue,
     ticket: Ticket, lease: DisplayLease?, log: EventLog, activityGate: ActivityGate,
-    quietTime: QuietTime, settings: Settings, waitingEntries: [WaitingEntry],
-    sessionsDirectory: URL, hostApp: HostApp?, abandonReason: @escaping () -> String?,
-    handBackIsDue: @escaping () -> Bool
+    quietState: QuietState, settings: Settings, subagentChain: [SubagentChainLink]?,
+    waitingEntries: [WaitingEntry], sessionsDirectory: URL, history: DecisionHistory,
+    hostApp: HostApp?, paths: AppPaths,
+    checkpoint: ContextCheckpointSession?, showsWithoutIdle: Bool, showRequested: Bool,
+    waitingHandBack: WaitingHandBack, handBackPolicy: HandBackPolicy, cardSlots: WaitingStore,
+    abandonReason: @escaping () -> String?, handBackIsDue: @escaping () -> Bool,
+    isPaused: @escaping () -> Bool
   ) {
     self.app = app
+    self.paths = paths
     self.request = request
     self.host = request.host
     self.mode = mode
     self.queue = queue
     self.ticket = ticket
+    self.showsWithoutIdle = showsWithoutIdle
+    self.showRequested = showRequested
     self.lease = lease
     self.log = log
     self.activityGate = activityGate
-    self.quietTime = quietTime
+    self.quietState = quietState
     self.settings = settings
+    self.approvalCardEnabled = settings.approvalCard
+    self.approvalCardDelaySeconds = settings.approvalCardDelay
+    var configReload = ConfigReload(paths: paths, soundNames: SystemSounds.installedNames)
+    _ = configReload.changedFile()
+    self.configReload = configReload
+    self.subagentChain = subagentChain
     self.lastWaitingEntries = waitingEntries
     self.sessionsDirectory = sessionsDirectory
+    self.history = history
     self.hostApp = hostApp
+    self.checkpoint = checkpoint
+    self.waitingHandBack = waitingHandBack
+    self.handBackPolicy = handBackPolicy
+    self.cardSlots = cardSlots
     self.abandonReason = abandonReason
     self.handBackIsDue = handBackIsDue
+    self.isPaused = isPaused
     self.state = lease == nil ? .queued : .waitingForIdle
     super.init()
+    observeScreenChanges()
     if lease == nil {
       log.write("next in line")
       app.afterLaunch { [weak self] in self?.startWarmStandby() }
@@ -290,6 +534,8 @@ private final class DisplayWatch: NSObject {
     if anotherRequestWaits() {
       yieldToAnotherRequest()
     }
+    takeMenuAnswer()
+    followApprovalCardSwitch()
 
     switch state {
     case .queued:
@@ -297,20 +543,31 @@ private final class DisplayWatch: NSObject {
       followHeadDisplay()
 
     case .waitingForIdle:
-      guard !quietTimeHoldsPanels() else { return }
-      guard
-        activityGate.isIdle(
-          secondsSinceLastInput: systemActivity.secondsSinceLastInput(),
-          modifiersHeld: systemActivity.modifiersHeld())
-      else { return }
-      showAfterIdle()
+      if queue.isOvertakenFromMenu(ticket) {
+        giveWayToRequestShownFromMenu()
+        return
+      }
+      let quiet = quietTimeHoldsPanels() && !showRequested
+      if quiet {
+        holdApprovalCardForQuietTime()
+      }
+      if !quiet,
+        showsWithoutIdle
+          || activityGate.isIdle(
+            secondsSinceLastInput: systemActivity.secondsSinceLastInput(),
+            modifiersHeld: systemActivity.modifiersHeld())
+      {
+        showAfterIdle()
+        return
+      }
+      logMissionControlHold()
+      showApprovalCardIfDue(quiet: quiet)
 
     case .shown(let controller):
-      if quietTimeHoldsPanels() {
+      if quietTimeHoldsPanels(), quietState.activeUntil() != quietTimeAtDisplay {
         closeShownPanel(controller)
         log.write("stepped aside: quiet time")
-        state = .waitingForIdle
-        log.write("waiting for idle")
+        waitForIdle(afterStepAside: false)
         return
       }
       let waitingEntries = queue.waitingEntries(excluding: ticket)
@@ -318,11 +575,190 @@ private final class DisplayWatch: NSObject {
         lastWaitingEntries = waitingEntries
         controller.setWaitingEntries(waitingEntries)
       }
+
+    case .parked:
+      let quiet = quietTimeHoldsPanels()
+      if quiet {
+        holdApprovalCardForQuietTime()
+      }
+      showApprovalCardIfDue(quiet: quiet)
+
+    case .showingResult:
+      break
     }
   }
 
   private func quietTimeHoldsPanels() -> Bool {
-    mode.honorsQuietTime && quietTime.activeUntil() != nil
+    mode.honorsQuietTime && quietState.activeUntil() != nil
+  }
+
+  private func markDisplayed() {
+    showsWithoutIdle = false
+    showRequested = false
+    quietTimeAtDisplay = quietState.activeUntil()
+  }
+
+  private func logMissionControlHold() {
+    let showing = systemActivity.isMissionControlShowing
+    if showing, !missionControlHoldLogged {
+      log.write("waiting: Mission Control is open")
+    }
+    missionControlHoldLogged = showing
+  }
+
+  private func waitForIdle(afterStepAside: Bool) {
+    state = .waitingForIdle
+    waitingForIdleSince = ProcessInfo.processInfo.systemUptime
+    waitFollowsStepAside = afterStepAside
+    log.write("waiting for idle")
+  }
+
+  private func followApprovalCardSwitch() {
+    guard let file = configReload.changedFile() else { return }
+    let latest = Settings.resolve(file: file, host: host)
+    approvalCardEnabled = latest.approvalCard
+    approvalCardDelaySeconds = latest.approvalCardDelay
+    guard !approvalCardEnabled, approvalCard != nil else { return }
+    closeApprovalCard()
+    approvalCardStage = .notShown
+    log.write("approval card: closed (cards turned off)")
+  }
+
+  private func showApprovalCardIfDue(quiet: Bool) {
+    guard
+      ApprovalCardTiming.shouldShow(
+        enabled: approvalCardEnabled, mode: mode,
+        secondsWaiting: ProcessInfo.processInfo.systemUptime - waitingForIdleSince,
+        delay: approvalCardDelay(), quiet: quiet, paused: isPaused(), stage: approvalCardStage)
+    else { return }
+    guard
+      let card = CornerCard.inFreeSlot(
+        of: cardSlots,
+        model: .approval(hostName: host.displayName, projectName: request.projectName),
+        accessibilityTitle: "Countersign approval", appearance: settings.appearance,
+        onAction: { [weak self] in self?.showFromApprovalCard() },
+        onDismiss: { [weak self] in self?.dismissApprovalCard() })
+    else {
+      claimApprovalSlot()
+      return
+    }
+    withdrawApprovalClaim()
+    approvalCard = card
+    approvalCardStage = .shown
+    card.show()
+    log.write("approval card: shown")
+  }
+
+  private func approvalCardDelay() -> TimeInterval {
+    if case .parked = state {
+      return 0
+    }
+    return ApprovalCardTiming.delay(
+      afterStepAside: waitFollowsStepAside, configured: approvalCardDelaySeconds)
+  }
+
+  private func claimApprovalSlot() {
+    guard approvalClaim == nil else { return }
+    let claim = ApprovalClaim.current()
+    approvalClaim = claim
+    log.write("approval card: waiting for a slot")
+    do {
+      try cardSlots.writeApprovalClaim(claim)
+    } catch {
+      log.write("approval card: failed to claim a slot: \(error)")
+    }
+  }
+
+  private func withdrawApprovalClaim() {
+    guard let approvalClaim else { return }
+    cardSlots.removeApprovalClaim(approvalClaim)
+    self.approvalClaim = nil
+  }
+
+  private func holdApprovalCardForQuietTime() {
+    waitingForIdleSince = ProcessInfo.processInfo.systemUptime
+    waitFollowsStepAside = false
+    guard approvalCard != nil else { return }
+    closeApprovalCard()
+    approvalCardStage = approvalCardStage.afterQuietTime
+    log.write("approval card: closed for quiet time")
+  }
+
+  private func showFromApprovalCard() {
+    switch state {
+    case .waitingForIdle:
+      closeApprovalCard()
+      showsWithoutIdle = true
+      showRequested = true
+      log.write("approval card: show")
+    case .parked:
+      log.write("approval card: show")
+      guard let moved = HookRunner.showNow(ticket, queue: queue, log: log) else { return }
+      ticket = moved.ticket
+      showsWithoutIdle = moved.place == .front
+      showRequested = true
+      leaveParking()
+    case .queued, .shown, .showingResult:
+      break
+    }
+  }
+
+  private func leaveParking() {
+    closeApprovalCard()
+    state = .queued
+    startWarmStandby()
+  }
+
+  private func dismissApprovalCard() {
+    closeApprovalCard()
+    approvalCardStage = .dismissed
+    log.write("approval card: dismissed")
+  }
+
+  private func closeApprovalCard() {
+    withdrawApprovalClaim()
+    approvalCard?.close()
+    approvalCard = nil
+  }
+
+  private func takeMenuAnswer() {
+    let isShown: Bool
+    switch state {
+    case .queued, .waitingForIdle, .parked: isShown = false
+    case .shown: isShown = true
+    case .showingResult: return
+    }
+    guard let answer = queue.takeMenuAnswer(for: ticket) else { return }
+    if answer == .show, isShown {
+      log.write("answered from the menu: show, already on screen")
+      return
+    }
+    switch HookRunner.receiveMenuAnswer(answer, ticket: ticket, queue: queue, log: log) {
+    case .finish(let outcome):
+      if case .queued = state {
+        discardHandoff()
+        discardPreparedPanel("answered from the menu")
+      }
+      finish(outcome)
+    case .moved(let moved):
+      ticket = moved.ticket
+      showsWithoutIdle = moved.place == .front
+      showRequested = true
+      if case .parked = state {
+        leaveParking()
+      }
+    case .ignored:
+      break
+    }
+  }
+
+  private func giveWayToRequestShownFromMenu() {
+    closeApprovalCard()
+    lease?.release()
+    lease = nil
+    state = .queued
+    log.write("gave way to a request shown from the menu")
+    startWarmStandby()
   }
 
   private func makeController(handoffBackdrop: BackdropWindow?, afterHandoff: Bool)
@@ -341,22 +777,59 @@ private final class DisplayWatch: NSObject {
     return PanelController(
       request: request, waitingEntries: waitingEntries,
       armDuration: afterHandoff ? settings.chainedArmDelay : settings.armDelay,
-      snoozeMinutes: settings.snoozeMinutes, questionNotes: settings.questionNotes,
-      modeAfterPlan: settings.modeAfterPlan,
+      snoozePresets: settings.snoozePresets, questionNotes: settings.questionNotes,
+      modeAfterPlan: settings.modeAfterPlan, panelSound: settings.panelSound,
       appearance: settings.appearance, accentColor: settings.accentColor,
-      chatTrackingDrift: chatTrackingDrift, isTestPanel: mode.isTest,
-      handoffBackdrop: handoffBackdrop, afterHandoff: afterHandoff,
+      chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
+      isTestPanel: mode.isTest, handoffBackdrop: handoffBackdrop, afterHandoff: afterHandoff,
       onFinish: { [weak self] outcome in self?.finish(outcome) },
       onSnooze: { [weak self] seconds in self?.handleSnooze(seconds) },
-      onStepAside: { [weak self] reason in self?.handleStepAside(reason) })
+      onStepAside: { [weak self] reason in self?.handleStepAside(reason) },
+      sessionIdle: checkpoint?.isIdle() ?? false,
+      escapeKeepsWaiting: handBackPolicy == .keepsWaiting,
+      alwaysAllowOffer: alwaysAllowOffer,
+      onAlwaysAllow: { [weak self] offer in self?.saveAlwaysAllow(offer) },
+      onCheckpointChoice: checkpoint == nil && !mode.isTest
+        ? nil : { [weak self] choice in self?.handleCheckpointChoice(choice) })
+  }
+
+  private var alwaysAllowOffer: AlwaysAllowOffer? {
+    guard !mode.isTest, checkpoint == nil else { return nil }
+    return AlwaysAllowOffer.offer(for: request, home: paths.home)
+  }
+
+  private func saveAlwaysAllow(_ offer: AlwaysAllowOffer) {
+    do {
+      try RuleFileWriter.add(offer.rules, configFile: paths.configFile)
+      log.write(
+        "rule: saved \(offer.rules.count) rule(s) for \(host.rawValue) in \(request.projectName)")
+    } catch {
+      log.write("rule: failed to save: \(SetupRun.describe(error))")
+    }
+  }
+
+  private var isCheckpoint: Bool {
+    guard case .contextCheckpoint = request.kind else { return false }
+    return true
+  }
+
+  private func handleCheckpointChoice(_ choice: ContextCheckpointChoice) {
+    checkpointChoice = choice
+    guard !mode.isTest else { return }
+    log.write("context choice: \(choice.rawValue)")
+    if choice == .notThisSession {
+      checkpoint?.mute()
+    }
   }
 
   private func showAfterIdle() {
+    closeApprovalCard()
     handOffIfAskingAppIsFrontmost()
     let controller = makeController(handoffBackdrop: nil, afterHandoff: false)
     app.show(controller)
     publishShownDisplay(of: controller)
     log.write("displayed")
+    markDisplayed()
     state = .shown(controller: controller)
   }
 
@@ -373,8 +846,15 @@ private final class DisplayWatch: NSObject {
   }
 
   private func yieldToAnotherRequest() -> Never {
-    if case .shown(let controller) = state {
+    switch state {
+    case .shown(let controller):
       closeShownPanel(controller)
+    case .showingResult(let card):
+      card.close()
+    case .waitingForIdle, .parked:
+      closeApprovalCard()
+    case .queued:
+      break
     }
     queue.remove(ticket)
     lease?.release()
@@ -391,6 +871,7 @@ private final class DisplayWatch: NSObject {
     let milliseconds =
       (ProcessInfo.processInfo.systemUptime - handedOff.handoff.receivedAt) * 1000
     log.write("displayed after queue handoff in \(String(format: "%.1f", milliseconds)) ms")
+    markDisplayed()
     state = .shown(controller: handedOff.controller)
   }
 
@@ -407,21 +888,27 @@ private final class DisplayWatch: NSObject {
   }
 
   private func handOffIfAskingAppIsFrontmost() {
-    guard !mode.isTest else { return }
+    guard !mode.isTest, mode.usesHandoffApps else { return }
     let frontmostApp = NSWorkspace.shared.frontmostApplication
     guard let frontmostBundleID = frontmostApp?.bundleIdentifier,
       HandoffCheck.shouldHandOff(
         frontmostBundleID: frontmostBundleID, frontmostPID: frontmostApp?.processIdentifier,
         handoffApps: settings.handoffApps, hostAppPID: hostApp?.processIdentifier)
     else { return }
+    guard handBackPolicy == .handsBack else {
+      log.write("handoff: \(frontmostBundleID) frontmost, kept (Cursor would run it unasked)")
+      return
+    }
     log.write("handoff: \(frontmostBundleID) frontmost")
     if let outcome = host.handoffOutcome {
       HookRunner.writeReply(outcome, host: host)
     }
+    closeApprovalCard()
     discardHandoff()
     discardPreparedPanel("handed off")
     queue.remove(ticket)
     lease?.release()
+    waitingHandBack.record()
     exit(0)
   }
 
@@ -433,25 +920,39 @@ private final class DisplayWatch: NSObject {
       discardPreparedPanel("resolved")
       wording = "resolved while queued"
     case .waitingForIdle:
+      closeApprovalCard()
       wording = "resolved while waiting for idle"
+    case .parked:
+      closeApprovalCard()
+      wording = "resolved while parked"
     case .shown(let controller):
       closeShownPanel(controller)
       wording = "resolved while displayed"
+    case .showingResult(let card):
+      card.close()
+      wording = "resolved while showing the result"
     }
     queue.remove(ticket)
     lease?.release()
     log.write("\(wording): \(reason)")
+    if !mode.isTest, reason != "paused" {
+      HookRunner.recordDecision(
+        request: request, answer: .resolvedElsewhere, history: history, log: log)
+    }
     exit(0)
   }
 
   private func handBack() -> Never {
-    HookRunner.writeReply(.noDecision, host: host)
-    log.write(TimeoutHandBack.logLine(for: host))
+    let outcome = handBackPolicy.timeoutOutcome()
+    HookRunner.writeReply(outcome, host: host)
+    log.write(handBackPolicy.timeoutLogLine(for: host))
     switch state {
     case .queued:
       discardHandoff()
       discardPreparedPanel("handed back")
-    case .waitingForIdle:
+    case .waitingForIdle, .parked:
+      closeApprovalCard()
+    case .showingResult:
       break
     case .shown(let controller):
       handOffToNextInLine(from: controller)
@@ -459,24 +960,91 @@ private final class DisplayWatch: NSObject {
     }
     queue.remove(ticket)
     lease?.release()
+    HookRunner.recordTimeoutOutcome(
+      outcome, request: request, history: history, log: log, waiting: waitingHandBack)
     exit(0)
   }
 
   private func finish(_ outcome: ApprovalOutcome) {
+    if mode == .hook, handBackPolicy == .keepsWaiting, outcome == .noDecision,
+      case .shown(let controller) = state
+    {
+      stepAsideAsLater(controller)
+      return
+    }
     switch mode {
     case .hook:
       HookRunner.writeReply(outcome, host: host)
       log.write("outcome: \(HookRunner.describe(outcome))")
+    case .checkpoint:
+      HookRunner.writeReply(outcome, host: host)
+      log.write("outcome: context \(checkpointChoice?.rawValue ?? "dismissed")")
     case .test(let kind):
       log.write(TestPanelLog.outcome(outcome, kind: kind))
     }
+    if !mode.isTest {
+      HookRunner.recordDecision(
+        request: request,
+        answer: DecisionAnswer.answer(
+          for: outcome, checkpointChoice: checkpointChoice, isCheckpoint: isCheckpoint),
+        history: history, log: log)
+    }
+    closeApprovalCard()
+    var panelFrame: NSRect?
     if case .shown(let controller) = state {
+      panelFrame = controller.frame
       handOffToNextInLine(from: controller)
       closeShownPanel(controller)
     }
     queue.remove(ticket)
     lease?.release()
-    exit(0)
+    lease = nil
+    if outcome == .noDecision {
+      waitingHandBack.record()
+    }
+    guard case .test(let kind) = mode, let panelFrame else { exit(0) }
+    showResult(of: outcome, kind: kind, around: panelFrame)
+  }
+
+  private func stepAsideAsLater(_ controller: PanelController) {
+    guard settings.approvalCard else {
+      closeShownPanel(controller)
+      waitAfterStepAside(Self.laterReason)
+      return
+    }
+    parkUntilAsked(controller)
+  }
+
+  private func parkUntilAsked(_ controller: PanelController) {
+    handOffToNextInLine(from: controller)
+    closeShownPanel(controller)
+    let parked: Ticket
+    do {
+      parked = try queue.park(ticket)
+    } catch {
+      log.write("failed to park: \(error)")
+      waitAfterStepAside(Self.laterReason)
+      return
+    }
+    ticket = parked
+    lease?.release()
+    lease = nil
+    approvalCardStage = .notShown
+    state = .parked
+    log.write("stepped aside: \(Self.laterReason)")
+    log.write("parked: back from the card or the menu")
+  }
+
+  private static let laterReason = "later"
+
+  private func showResult(of outcome: ApprovalOutcome, kind: TestPanelKind, around frame: NSRect) {
+    let result = TestPanelResult.describe(outcome, kind: kind, checkpointChoice: checkpointChoice)
+    let card = TestPanelResultCard(
+      title: result.title, detail: result.detail, around: frame, appearance: settings.appearance,
+      onClose: { exit(0) })
+    state = .showingResult(card: card)
+    card.show()
+    log.write(TestPanelLog.resultShown)
   }
 
   private func handOffToNextInLine(from controller: PanelController) {
@@ -500,7 +1068,6 @@ private final class DisplayWatch: NSObject {
     guard case .queued = state else { return }
     preparation = QueueHandoffChannel(ticket: ticket).publishPreparation()
     listenForHandoff()
-    observeScreenChanges()
     preparePanel()
   }
 
@@ -512,19 +1079,26 @@ private final class DisplayWatch: NSObject {
   }
 
   private func observeScreenChanges() {
-    guard case .queued = state, screenObserver == nil else { return }
+    guard screenObserver == nil else { return }
     screenObserver = NotificationCenter.default.addObserver(
       forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
     ) { [weak self] _ in
-      MainActor.assumeIsolated { self?.prepareAgainForNewScreens() }
+      MainActor.assumeIsolated { self?.followScreenChange() }
     }
   }
 
-  private func stopObservingScreenChanges() {
-    if let screenObserver {
-      NotificationCenter.default.removeObserver(screenObserver)
+  private func followScreenChange() {
+    switch state {
+    case .queued:
+      prepareAgainForNewScreens()
+    case .waitingForIdle, .parked:
+      approvalCard?.followScreenChange()
+    case .shown(let controller):
+      controller.followScreenChange()
+      publishShownDisplay(of: controller)
+    case .showingResult(let card):
+      card.followScreenChange()
     }
-    screenObserver = nil
   }
 
   private func preparePanel() {
@@ -641,15 +1215,13 @@ private final class DisplayWatch: NSObject {
     handoffListener = nil
     preparation?.cancel()
     preparation = nil
-    stopObservingScreenChanges()
     guard let handedOff = pendingHandoff,
       handedOff.handoff.isFresh(at: ProcessInfo.processInfo.systemUptime),
-      !quietTimeHoldsPanels()
+      showRequested || !quietTimeHoldsPanels()
     else {
       discardHandoff()
       discardPreparedPanel("no handoff")
-      state = .waitingForIdle
-      log.write("waiting for idle")
+      waitForIdle(afterStepAside: false)
       return
     }
     if let reason = abandonReason() {
@@ -678,7 +1250,7 @@ private final class DisplayWatch: NSObject {
     }
     let until = Date().addingTimeInterval(seconds)
     do {
-      try quietTime.quiet(until: until)
+      try quietState.quietTime.quiet(until: until)
     } catch {
       log.write("failed to set quiet time: \(error)")
       return
@@ -686,8 +1258,7 @@ private final class DisplayWatch: NSObject {
     guard case .shown(let controller) = state else { return }
     closeShownPanel(controller)
     log.write("quiet time until \(Self.formattedTime(until)) (\(DurationText.describe(seconds)))")
-    state = .waitingForIdle
-    log.write("waiting for idle")
+    waitForIdle(afterStepAside: false)
   }
 
   private func endTestPanelOnSnooze(_ seconds: TimeInterval) -> Never {
@@ -703,9 +1274,13 @@ private final class DisplayWatch: NSObject {
   private func handleStepAside(_ reason: StepAsideReason) {
     guard case .shown(let controller) = state else { return }
     closeShownPanel(controller)
-    log.write("stepped aside: \(reason.rawValue)")
-    state = .waitingForIdle
-    log.write("waiting for idle")
+    waitAfterStepAside(reason.rawValue)
+  }
+
+  private func waitAfterStepAside(_ reason: String) {
+    log.write("stepped aside: \(reason)")
+    approvalCardStage = approvalCardStage.afterStepAside
+    waitForIdle(afterStepAside: true)
   }
 
   private static func formattedTime(_ date: Date) -> String {

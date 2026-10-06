@@ -6,10 +6,9 @@ when you write or check a release note, or when `swift scripts/release-index.swi
 rejects one.
 
 Every Countersign release is one file here, plus a generated index. See
-[.claude/skills/release-notes/SKILL.md](../.claude/skills/release-notes/SKILL.md) for the
-step-by-step writing guidance, and
 [docs/tooling.md](../docs/tooling.md#the-generated-release-index) for why the index is generated
-rather than hand-maintained.
+rather than hand-maintained, and [docs/release.md](../docs/release.md#cutting-a-release) for where
+the note fits in cutting a release.
 
 ## File naming
 
@@ -49,6 +48,21 @@ after it and no `- item` lines under it instead:
 tags:
 ```
 
+### Filling `testedWith`
+
+`claudeCode` and `codex` are the versions of Claude Code and Codex actually used to check the
+release before publishing it, not a minimum or a guess. Run `claude --version` and
+`codex --version`, and record exactly what you tested with.
+
+`cursor` is optional: fill it in only when the release was also checked with Cursor, with the
+version actually used. Find it in Cursor > About, or in the `cursor_version` field Cursor sends in
+its hook payloads.
+
+`antigravity` is optional in the same way: fill it in only when the release was also checked with
+Google Antigravity, with the version actually used. Run `agy --version` for the CLI, or read it from
+the desktop app's About window when the release was checked there instead. Antigravity's hook
+payloads carry no version.
+
 ## Body
 
 `## ` sections, in exactly this order:
@@ -69,6 +83,16 @@ After `## Security`, two more sections are optional, in this order if present:
 7. `## Notes` — anything else worth calling out.
 
 Nothing else goes in the body. The GitHub release body is this note's body, verbatim.
+
+The body is for someone running Countersign: describe what changed for them, not the
+implementation. "The panel now stays open when you switch Spaces" reads correctly; "fixed a
+window-level bug in `PanelController`" does not. It has to stand on its own, without the commit
+history behind it.
+
+A note never carries install steps. `.github/workflows/release.yml` appends an "Install this
+version" section after the body, with the curl command filled in to that release's own version
+(see [The release workflow](../docs/release.md#the-release-workflow)); a note that repeated it would
+duplicate it or drift from it.
 
 ## The generated index
 

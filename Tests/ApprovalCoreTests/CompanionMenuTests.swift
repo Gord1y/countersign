@@ -8,7 +8,7 @@ import Testing
     isPaused: Bool = false,
     quietUntil: Date? = nil,
     pendingEntries: [WaitingEntry] = [],
-    snoozeMinutes: [Int] = Settings.defaultSnoozeMinutes,
+    snoozePresets: [TimeInterval] = Settings.defaultSnoozePresets,
     launchAtLogin: LaunchAtLoginState = .notRegistered,
     sponsorURL: URL? = CompanionMenu.sponsorURL,
     buyMeACoffeeURL: URL? = nil,
@@ -19,7 +19,7 @@ import Testing
       isPaused: isPaused,
       quietUntil: quietUntil,
       pendingEntries: pendingEntries,
-      snoozeMinutes: snoozeMinutes,
+      snoozePresets: snoozePresets,
       launchAtLogin: launchAtLogin,
       sponsorURL: sponsorURL,
       buyMeACoffeeURL: buyMeACoffeeURL,
@@ -32,9 +32,111 @@ import Testing
     _ input: CompanionMenuInput, timeZone: TimeZone = .gmt
   ) -> [CompanionMenuEntry] {
     CompanionMenu.items(for: input, timeZone: timeZone).compactMap { item in
-      guard case .entry(let entry) = item else { return nil }
+      guard case .entry(let entry) = item, entry.title != "Recent Decisions" else { return nil }
       return entry
     }
+  }
+
+  private func decisionsEntry(
+    _ input: CompanionMenuInput, timeZone: TimeZone = .gmt
+  ) throws -> CompanionMenuEntry {
+    let found = CompanionMenu.items(for: input, timeZone: timeZone).compactMap {
+      item -> CompanionMenuEntry? in
+      guard case .entry(let entry) = item, entry.title == "Recent Decisions" else { return nil }
+      return entry
+    }
+    return try #require(found.first)
+  }
+
+  private func decision(
+    _ index: Int, answer: DecisionAnswer, tool: String = "Bash", title: String = "git status"
+  ) -> DecisionHistoryEntry {
+    DecisionHistoryEntry(
+      date: Date(timeIntervalSince1970: TimeInterval(14 * 3600 + 5 * 60 + index)), host: .claude,
+      project: "shop-api", tool: tool, title: title, answer: answer)
+  }
+
+  @Test func recentDecisionsShowsOneDisabledRowWhenThereIsNoHistory() throws {
+    let entry = try decisionsEntry(input())
+    #expect(entry.isEnabled)
+    #expect(
+      entry.submenu == [.entry(CompanionMenuEntry(title: "No decisions yet", isEnabled: false))])
+  }
+
+  @Test func recentDecisionsListsDisabledRowsThenAClearHistoryAction() throws {
+    var withHistory = input()
+    withHistory.recentDecisions = [
+      decision(0, answer: .approved),
+      decision(1, answer: .denied, tool: "Edit", title: "App.swift"),
+      decision(2, answer: .answeredInChat),
+      decision(3, answer: .resolvedElsewhere),
+      decision(
+        4, answer: .compactAfterStep, tool: "Context checkpoint", title: "Context at 240K"),
+    ]
+    let entry = try decisionsEntry(withHistory)
+    #expect(
+      entry.submenu == [
+        .entry(
+          CompanionMenuEntry(
+            title: "✓ Bash · shop-api · 14:05 — git status", isEnabled: false)),
+        .entry(
+          CompanionMenuEntry(
+            title: "✕ Edit · shop-api · 14:05 — App.swift", isEnabled: false)),
+        .entry(
+          CompanionMenuEntry(
+            title: "↩ Bash · shop-api · 14:05 — git status", isEnabled: false)),
+        .entry(
+          CompanionMenuEntry(
+            title: "↩ Bash · shop-api · 14:05 — git status", isEnabled: false)),
+        .entry(
+          CompanionMenuEntry(
+            title: "• Context checkpoint · shop-api · 14:05 — Context at 240K",
+            isEnabled: false)),
+        .separator,
+        .entry(CompanionMenuEntry(title: "Clear History", action: .clearDecisionHistory)),
+      ])
+  }
+
+  @Test func recentDecisionsShowsAtMostTenRows() throws {
+    var withHistory = input()
+    withHistory.recentDecisions = (0..<15).map { decision($0, answer: .approved) }
+    let entry = try decisionsEntry(withHistory)
+    #expect(entry.submenu.count == 12)
+  }
+
+  @Test func everyCheckpointAnswerGetsTheBullet() {
+    for answer in [
+      DecisionAnswer.continued, .compactAfterStep, .handOff, .notThisSession, .dismissed,
+    ] {
+      let title = CompanionMenu.decisionRowTitle(
+        for: decision(0, answer: answer), timeZone: .gmt)
+      #expect(title.hasPrefix("• "))
+    }
+  }
+
+  @Test func ruleAnswersShowTheApprovedAndDeniedGlyphsAndRule() {
+    #expect(
+      CompanionMenu.decisionRowTitle(
+        for: decision(0, answer: .allowedByRule, title: "pnpm lint"), timeZone: .gmt)
+        == "✓ Bash · shop-api · rule · 14:05 — pnpm lint")
+    #expect(
+      CompanionMenu.decisionRowTitle(
+        for: decision(0, answer: .deniedByRule, title: "rm -rf x"), timeZone: .gmt)
+        == "✕ Bash · shop-api · rule · 14:05 — rm -rf x")
+    #expect(
+      CompanionMenu.decisionRowTitle(
+        for: decision(0, answer: .approved, title: "pnpm lint"), timeZone: .gmt)
+        == "✓ Bash · shop-api · 14:05 — pnpm lint")
+  }
+
+  @Test func recentDecisionsSitsBetweenPendingAndPause() {
+    let titles = CompanionMenu.items(for: input(), timeZone: .gmt).compactMap { item -> String? in
+      guard case .entry(let entry) = item else { return nil }
+      return entry.title
+    }
+    #expect(titles[1] == "No requests pending")
+    #expect(titles[2] == "Recent Decisions")
+    #expect(titles[3] == "Pause Countersign")
   }
 
   private func entry(
@@ -47,6 +149,27 @@ import Testing
 
   private static let quietUntil = Date(timeIntervalSince1970: 14 * 3600 + 5 * 60 + 59)
 
+  @Test func contextEntryAppearsAfterPendingWithDisabledRowsOnlyWhenRowsExist() throws {
+    let rows = [
+      ContextMeterRow(
+        sessionID: "a", project: "shop-api", tokens: 212_000, title: "shop-api · 212K tokens"),
+      ContextMeterRow(
+        sessionID: "b", project: "web", tokens: 90_000, title: "web · 90K tokens"),
+    ]
+    var withRows = input()
+    withRows.contextRows = rows
+    let entry = try entry(2, of: withRows)
+    #expect(entry.title == "Context in live sessions")
+    #expect(entry.isEnabled)
+    #expect(
+      entry.submenu == [
+        .entry(CompanionMenuEntry(title: "shop-api · 212K tokens", isEnabled: false)),
+        .entry(CompanionMenuEntry(title: "web · 90K tokens", isEnabled: false)),
+      ])
+    #expect(
+      !entries(input()).contains { $0.title == "Context in live sessions" })
+  }
+
   @Test func activeMenuListsEveryItemInOrder() throws {
     let sponsor = try #require(CompanionMenu.sponsorURL)
     let documentation = try #require(CompanionMenu.documentationURL)
@@ -58,16 +181,20 @@ import Testing
       items == [
         .entry(CompanionMenuEntry(title: "Countersign is on", isEnabled: false)),
         .entry(CompanionMenuEntry(title: "No requests pending", isEnabled: false)),
+        .entry(
+          CompanionMenuEntry(
+            title: "Recent Decisions",
+            submenu: [.entry(CompanionMenuEntry(title: "No decisions yet", isEnabled: false))])),
         .separator,
         .entry(CompanionMenuEntry(title: "Pause Countersign", action: .pause)),
         .entry(
           CompanionMenuEntry(
             title: "Snooze",
             submenu: [
-              .entry(CompanionMenuEntry(title: "Quiet for 1 minute", action: .snooze(minutes: 1))),
-              .entry(CompanionMenuEntry(title: "5 minutes", action: .snooze(minutes: 5))),
-              .entry(CompanionMenuEntry(title: "15 minutes", action: .snooze(minutes: 15))),
-              .entry(CompanionMenuEntry(title: "30 minutes", action: .snooze(minutes: 30))),
+              .entry(CompanionMenuEntry(title: "Quiet for 1 minute", action: .snooze(seconds: 60))),
+              .entry(CompanionMenuEntry(title: "5 minutes", action: .snooze(seconds: 300))),
+              .entry(CompanionMenuEntry(title: "15 minutes", action: .snooze(seconds: 900))),
+              .entry(CompanionMenuEntry(title: "30 minutes", action: .snooze(seconds: 1800))),
             ])),
         .separator,
         .entry(CompanionMenuEntry(title: "Settings…", keyEquivalent: ",", action: .openSettings)),
@@ -146,7 +273,7 @@ import Testing
 
   @Test func versionDefaultsToTheBinarysOwnVersion() throws {
     let defaulted = CompanionMenuInput(
-      isPaused: false, quietUntil: nil, pendingEntries: [], snoozeMinutes: [1],
+      isPaused: false, quietUntil: nil, pendingEntries: [], snoozePresets: [60],
       launchAtLogin: .notRegistered)
     #expect(defaulted.version == CountersignVersion.current)
     #expect(defaulted.sponsorURL == CompanionMenu.sponsorURL)
@@ -261,6 +388,90 @@ import Testing
       ])
   }
 
+  @Test func aPendingRequestWithATicketOffersShowNowDenyAndAnswerInChat() throws {
+    let summary = TicketSummary(host: .claude, project: "shop-api", tool: "Bash", agentType: nil)
+    let pending = try entry(
+      1, of: input(pendingEntries: [WaitingEntry(summary: summary, ticketID: "0001-42")]))
+
+    #expect(
+      pending.submenu == [
+        .entry(
+          CompanionMenuEntry(
+            title: "Claude Code · shop-api · Bash",
+            submenu: [
+              .entry(
+                CompanionMenuEntry(
+                  title: "Show Now", action: .answerPending(ticketID: "0001-42", answer: .show))),
+              .entry(
+                CompanionMenuEntry(
+                  title: "Deny", action: .answerPending(ticketID: "0001-42", answer: .deny))),
+              .entry(
+                CompanionMenuEntry(
+                  title: "Answer in Chat",
+                  action: .answerPending(ticketID: "0001-42", answer: .chat))),
+            ]))
+      ])
+  }
+
+  @Test func checkpointsAndUnreadableTicketsOfferOnlyShowNow() throws {
+    let checkpoint = TicketSummary(
+      host: .claude, project: "shop-api", tool: "Context checkpoint", agentType: nil,
+      isContextCheckpoint: true)
+    let pending = try entry(
+      1,
+      of: input(pendingEntries: [
+        WaitingEntry(summary: checkpoint, ticketID: "0001-42"),
+        WaitingEntry(summary: nil, ticketID: "0002-43"),
+      ]))
+
+    #expect(
+      pending.submenu == [
+        .entry(
+          CompanionMenuEntry(
+            title: "Claude Code · shop-api · Context checkpoint",
+            submenu: [
+              .entry(
+                CompanionMenuEntry(
+                  title: "Show Now", action: .answerPending(ticketID: "0001-42", answer: .show)))
+            ])),
+        .entry(
+          CompanionMenuEntry(
+            title: "Unknown request",
+            submenu: [
+              .entry(
+                CompanionMenuEntry(
+                  title: "Show Now", action: .answerPending(ticketID: "0002-43", answer: .show)))
+            ])),
+      ])
+  }
+
+  @Test func pendingRowsFollowTheQueueOrderAndKeepEachTicketsID() throws {
+    let first = TicketSummary(host: .codex, project: "a", tool: "Bash", agentType: nil)
+    let second = TicketSummary(host: .cursor, project: "b", tool: "Shell", agentType: nil)
+    let pending = try entry(
+      1,
+      of: input(pendingEntries: [
+        WaitingEntry(summary: second, ticketID: "0002-2"),
+        WaitingEntry(summary: first, ticketID: "0001-1"),
+      ]))
+
+    let rows = pending.submenu.compactMap { item -> CompanionMenuEntry? in
+      guard case .entry(let row) = item else { return nil }
+      return row
+    }
+    #expect(rows.map(\.title) == ["Cursor · b · Shell", "Codex · a · Bash"])
+    #expect(rows.allSatisfy { $0.isEnabled && $0.action == nil })
+    let ids = rows.map { row in
+      row.submenu.compactMap { item -> String? in
+        guard case .entry(let action) = item,
+          case .answerPending(let ticketID, _)? = action.action
+        else { return nil }
+        return ticketID
+      }
+    }
+    #expect(ids == [["0002-2", "0002-2", "0002-2"], ["0001-1", "0001-1", "0001-1"]])
+  }
+
   @Test func showATestPanelSitsRightAfterSettingsAndAsksForACommand() throws {
     let settings = try entry(4, of: input())
     let testPanel = try entry(5, of: input())
@@ -310,38 +521,48 @@ import Testing
   }
 
   @Test func customSnoozePresetsKeepTheirOrderAndWording() throws {
-    let snooze = try entry(3, of: input(snoozeMinutes: [2, 60, 90]))
+    let snooze = try entry(3, of: input(snoozePresets: [120, 3600, 5400]))
 
     #expect(
       snooze.submenu == [
-        .entry(CompanionMenuEntry(title: "Quiet for 2 minutes", action: .snooze(minutes: 2))),
-        .entry(CompanionMenuEntry(title: "1 hour", action: .snooze(minutes: 60))),
-        .entry(CompanionMenuEntry(title: "90 minutes", action: .snooze(minutes: 90))),
+        .entry(CompanionMenuEntry(title: "Quiet for 2 minutes", action: .snooze(seconds: 120))),
+        .entry(CompanionMenuEntry(title: "1 hour", action: .snooze(seconds: 3600))),
+        .entry(CompanionMenuEntry(title: "90 minutes", action: .snooze(seconds: 5400))),
+      ])
+  }
+
+  @Test func subMinuteSnoozePresetsReadInSeconds() throws {
+    let snooze = try entry(3, of: input(snoozePresets: [30, 300]))
+
+    #expect(
+      snooze.submenu == [
+        .entry(CompanionMenuEntry(title: "Quiet for 30 seconds", action: .snooze(seconds: 30))),
+        .entry(CompanionMenuEntry(title: "5 minutes", action: .snooze(seconds: 300))),
       ])
   }
 
   @Test func snoozeWithNoPresetsAndNoQuietTimeIsDisabled() throws {
     #expect(
-      try entry(3, of: input(snoozeMinutes: []))
+      try entry(3, of: input(snoozePresets: []))
         == CompanionMenuEntry(title: "Snooze", isEnabled: false))
   }
 
   @Test func snoozeWithNoPresetsDuringQuietTimeOnlyEndsIt() throws {
     #expect(
-      try entry(3, of: input(quietUntil: Self.quietUntil, snoozeMinutes: []))
+      try entry(3, of: input(quietUntil: Self.quietUntil, snoozePresets: []))
         == CompanionMenuEntry(title: "End Quiet Time (until 14:05)", action: .endQuietTime))
   }
 
-  @Test func snoozeMinutesComeFromTheTopLevelOfTheConfigFileOnly() {
-    #expect(CompanionMenu.snoozeMinutes(for: ConfigFile()) == Settings.defaultSnoozeMinutes)
-    #expect(CompanionMenu.snoozeMinutes(for: ConfigFile(snoozeMinutes: [3, 7])) == [3, 7])
+  @Test func snoozePresetsComeFromTheTopLevelOfTheConfigFileOnly() {
+    #expect(CompanionMenu.snoozePresets(for: ConfigFile()) == Settings.defaultSnoozePresets)
+    #expect(CompanionMenu.snoozePresets(for: ConfigFile(snoozePresets: [180, 420])) == [180, 420])
     let hostOnly = ConfigFile(
-      claude: ConfigFile.HostOverrides(snoozeMinutes: [10]),
-      codex: ConfigFile.HostOverrides(snoozeMinutes: [20]))
-    #expect(CompanionMenu.snoozeMinutes(for: hostOnly) == Settings.defaultSnoozeMinutes)
+      claude: ConfigFile.HostOverrides(snoozePresets: [600]),
+      codex: ConfigFile.HostOverrides(snoozePresets: [1200]))
+    #expect(CompanionMenu.snoozePresets(for: hostOnly) == Settings.defaultSnoozePresets)
     let both = ConfigFile(
-      snoozeMinutes: [4], claude: ConfigFile.HostOverrides(snoozeMinutes: [10]))
-    #expect(CompanionMenu.snoozeMinutes(for: both) == [4])
+      snoozePresets: [240], claude: ConfigFile.HostOverrides(snoozePresets: [600]))
+    #expect(CompanionMenu.snoozePresets(for: both) == [240])
   }
 
   @Test func buyMeACoffeeIsHiddenUntilItHasALink() throws {

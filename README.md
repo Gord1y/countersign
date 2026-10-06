@@ -102,8 +102,24 @@ writes and sends: [Safety and privacy](docs/safety-and-privacy.md).
       <b>Antigravity too.</b> Commands and MCP tool calls, same panel (see <a href="docs/limitations.md">Limitations</a>).
     </td>
     <td>
-      <img width="100%" src="docs/images/tile-settings.jpg" alt="The Settings window with all four hosts wired and the status row showing Countersign is on"><br>
+      <img width="100%" src="docs/images/tile-settings.jpg" alt="The Settings window with all four hosts wired"><br>
       <b>Settings, no terminal needed.</b> Wire, update or remove hooks, tune panels, see the status.
+    </td>
+  </tr>
+  <tr>
+    <td>
+      <img width="100%" src="docs/images/tile-rules.jpg" alt="Settings ▸ Rules with allow and deny rules and one-click suggestions"><br>
+      <b>Allow and deny rules.</b> Routine requests answered before any panel, with one-click suggestions.
+    </td>
+    <td>
+      <img width="100%" src="docs/images/tile-checkpoint.jpg" alt="A context checkpoint panel with Continue, Compact after this step, Hand off &amp; start fresh and Not this session"><br>
+      <b>Context checkpoints.</b> Compact or hand off before a Claude Code session runs long.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img width="100%" src="docs/images/tile-cards.jpg" alt="Two corner cards: Codex is waiting for you, with Go there, and Cursor needs your approval, with Show"><br>
+      <b>Corner cards.</b> A notice when an agent is waiting, and a card when an approval is stuck behind your typing.
     </td>
   </tr>
 </table>
@@ -115,7 +131,7 @@ writes and sends: [Safety and privacy](docs/safety-and-privacy.md).
 - **Behaves like an alert.** <kbd>Return</kbd> approves, <kbd>⌫</kbd> opens the deny step (Keep
   planning for a plan), <kbd>Esc</kbd> hands the prompt back to the chat, and nothing you type
   leaks into the app underneath, even after <kbd>⌘</kbd><kbd>Tab</kbd>. Keys and clicks in its
-  first 800 ms are ignored.
+  first 500 ms are ignored.
 - **Leaves your place alone.** It takes the keyboard without activating its own app; when it
   closes, your editor or chat gets its caret and selection back exactly where they were.
 - **Knows when you already answered.** Reply in Claude Code's chat and the panel, or the queued
@@ -124,17 +140,48 @@ writes and sends: [Safety and privacy](docs/safety-and-privacy.md).
 - **Real context for edits.** The enclosing function or block, real line numbers, and "Show N
   unchanged lines" rows that expand up to the whole file. Codex patches get the same treatment.
 - **Approve, or deny with a reason.** Approve's ▾ menu holds the "Always allow" rules Claude Code
-  suggests, each with the exact rule and where it is saved. Deny takes a reason, and for Claude
-  Code also offers **Deny & stop**.
+  suggests, each with the exact rule and where it is saved; for Codex, **Always allow** saves a
+  Countersign rule for that project. Deny takes a reason, and for Claude Code also offers
+  **Deny & stop**.
+- **Allow and deny rules.** A rule answers a request before any panel shows: allow lets it
+  through, deny blocks it and tells the agent why. Narrow a rule by agent, project, tool or
+  command; deny always wins, and a compound command is allowed only when every part is. Add them
+  in Settings ▸ Rules, or pick a suggestion such as deny `sudo`; see
+  [Allow and deny rules](docs/configuration.md#allow-and-deny-rules).
 - **Questions and plans.** Claude's `AskUserQuestion` as tabs with numbered options, multi-select,
   an Other field and an optional note (off by default); plans as Markdown, with the mode Claude
   continues in.
 - **Snooze.** Quiet for a preset duration. Requests answered in their chats meanwhile drop out, the
   rest come back one at a time.
+- **Scheduled quiet hours.** Recurring windows, such as weekday evenings, in which panels wait
+  like a snooze. Set them in Settings ▸ Panels; see
+  [Quiet hours](docs/configuration.md#panels).
+- **A sound cue (optional).** One macOS sound when a panel appears, off by default; see
+  [Sound](docs/configuration.md#panels).
+- **Waiting-agent notices.** When an agent has finished a turn, or handed a request back
+  to its own prompt, and you have been away from it for 10 seconds (by default), a small corner
+  card says which agent is waiting, with a **Go there** button. On by default, and it never takes
+  focus; see [Waiting-agent notices](docs/configuration.md#panels).
+- **Approval cards.** When a request is waiting for you to pause and you keep working, a corner
+  card such as "Cursor needs your approval · shop-api" has a **Show** button that brings the panel
+  up at once. On by default for Codex, Cursor and Antigravity; see
+  [Approval cards](docs/configuration.md#panels).
+- **Decision history and menu answers.** The menu-bar app lists your last ten answers, and lets you
+  deny a pending request, hand it back to its chat, or bring its panel up with **Show Now**, even
+  during a snooze, without waiting for a pause; see
+  [the menu-bar app](docs/menu-bar-app.md#pause-snooze-and-pending-requests).
+- **Accessible.** Panels announce themselves to VoiceOver, read shortcuts and diff lines aloud, and
+  honour Reduce Motion and Increase Contrast; see [design/panel.md](docs/design/panel.md#accessibility).
+- **Context checkpoints (Claude Code).** Countersign asks, at three
+  context sizes, whether to compact or hand off before your session gets too long, without ever
+  making a prompt wait. On by default; turn it off in Settings ▸ Panels; see
+  [Context checkpoints](docs/configuration.md#context-checkpoints-claude-code).
 - **Fails safe.** Any error, timeout or crash means "no decision": the agent falls back to its own
   prompt, and Cursor and Antigravity carry on as they would without Countersign.
 - **Cursor too.** Shell commands Cursor runs outside its sandbox, and every MCP tool call, get the
-  same panel. Commands inside Cursor's sandbox are left to Cursor.
+  same panel. Commands inside Cursor's sandbox are left to Cursor. Until Cursor fixes a hook bug,
+  its own run mode still decides after you approve, so in Allowlist mode it asks you again
+  ([Limitations](docs/limitations.md)).
 - **Antigravity too.** Every command and MCP tool call from the `agy` CLI, the Antigravity app and
   the IDE; reading files, edits and its other tools are left to Antigravity. Until Google fixes a
   hook bug, it still asks you itself after you approve ([Limitations](docs/limitations.md)).
@@ -142,8 +189,8 @@ writes and sends: [Safety and privacy](docs/safety-and-privacy.md).
   Settings, a test panel to try your settings on, Launch at Login, the update check and Help.
   Quitting it asks whether to keep showing panels or pause them until you reopen it. Approvals work
   the same without it.
-- **Settings without the terminal.** One resizable window shows whether Countersign is on, paused
-  or quiet, with a sidebar for Agents, App, Panels and Help, plus Advanced behind a button in App: wire,
+- **Settings without the terminal.** One resizable window has Pause and Snooze buttons in its
+  header and shows when Countersign is paused or quiet, with a sidebar for Agents, App, Panels and Help, plus Advanced behind a button in App: wire,
   update or remove each agent's hooks, tune panels and try them on a test panel. Every hook change
   shows its diff first, and every other change is saved as soon as you make it; any setting that's
   been changed can be reset to its default, alone or as a group.
@@ -178,7 +225,7 @@ it steps aside, swallowing that one key, until your next pause. ⌘ shortcuts su
 | `countersign pause` / `resume` | Turn the panel off and on. While paused, every prompt goes to its chat |
 | `countersign snooze 15m` | Quiet time for all prompts. Accepts `90s`, `15m`, `1h` or plain minutes |
 | `countersign snooze off` | End quiet time early |
-| `countersign test-panel` | Shows a test panel with your settings; add `question` or `plan` for those. Nothing reaches an agent |
+| `countersign test-panel` | Shows a test panel with your settings; add `question`, `plan` or `context` for those. Nothing reaches an agent |
 | `countersign --version` | Prints the installed version |
 | `countersign help` | Lists every command, with the help and support links |
 

@@ -47,18 +47,53 @@ panel shows up in the icon within two seconds.
   snooze underneath it would only resurface later as a surprise.
 - **Snooze** starts quiet time for one of your presets (the top-level `snoozeMinutes` in the
   [config file](configuration.md)), like `countersign snooze`. Requests wait and come back one at a
-  time when it ends. Once quiet time is running, **Snooze** is replaced by a single **End Quiet
-  Time (until …)** entry that ends it early.
-- The menu lists the requests waiting for a panel, oldest first, by agent, project and tool. The
-  list is for reading only; each request is answered in its own panel.
+  time when it ends, except one you bring up with **Show Now**. Once quiet time is running, **Snooze** is replaced by a single **End Quiet
+  Time (until …)** entry that ends it early. The same entry appears during a quiet-hours window
+  from your config file, and ending it skips that window.
+- The menu lists the requests waiting for a panel, in the order they will show, by agent, project
+  and tool. Each one opens a submenu:
+  - **Show Now** brings that request up next. With no panel on screen it appears at once, without
+    waiting for a pause in your typing; with a panel on screen it becomes the next one, right
+    after you answer that panel. It comes up during quiet time too, since you asked for it; the
+    other requests keep waiting for quiet time to end.
+  - **Deny** denies it without opening the panel, exactly like the panel's **Deny** with no
+    reason: the agent gets "Denied in the approval panel."
+  - **Answer in Chat** hands it to the agent's own prompt, exactly like <kbd>Esc</kbd> in the
+    panel.
+
+  A context checkpoint offers only **Show Now**, and so does a request Countersign can't read. A
+  Cursor request in Auto-review or Run Everything mode offers **Show Now** and **Deny** but not
+  **Answer in Chat**, because there Cursor would run the command without asking you. When you put
+  such a request away with **Later**, it stays in this list, and **Show Now** brings its panel back
+  (see [Cursor](agents.md#cursor)).
+  There is no Approve: a menu line can't show you the command or the change, and an approval is
+  the one answer that lets something run. Answers given from the menu show up in **Recent
+  Decisions** like any other.
+- **Context in live sessions** appears right below it, only when context checkpoints and the
+  menu-bar meter are both on and at least one Claude Code session is running. Its submenu has one
+  read-only line per session, such as `shop-api · 212K tokens`, largest first, up to eight. Sessions
+  whose Claude Code process has ended are left out. Countersign reads each session's transcript
+  when you open the menu, not in the background; if a transcript cannot be read, the size from that
+  session's last prompt is shown.
+- **Recent Decisions** lists your last ten answers, newest first, one read-only line each, such as
+  `✓ Bash · shop-api · 14:05 — git status`. The mark says what happened: ✓ approved, ✕ denied,
+  ↩ answered in the chat or resolved there before you got to it, • a choice on a context
+  checkpoint. A request answered by one of your [rules](configuration.md#allow-and-deny-rules)
+  shows ✓ or ✕ with `rule` after the project, such as
+  `✓ Bash · shop-api · rule · 14:05 — pnpm lint`. Below a separator, **Clear History** empties the list and deletes the stored
+  history. With nothing recorded, the submenu shows a single `No decisions yet`. What is stored,
+  and for how long, is in [safety-and-privacy.md](safety-and-privacy.md#what-it-writes).
 
 ## Settings
 
 **Settings…** (<kbd>⌘</kbd><kbd>,</kbd> while the menu is open) opens the Settings window. Under
-the line that says whether Countersign is on, its five groups are **Agents**, where you
-[connect your agents](setup.md), **Panels**, for how panels behave, **App**, for what this app
-does, **Help**, for guides, updates and ways to support Countersign, and **Advanced**, for where
-the [config file](configuration.md) is. Closing the window leaves the app running.
+the header, which holds Pause and Snooze buttons and shows when Countersign is paused or quiet,
+including during a [quiet-hours window](configuration.md#panels), its sidebar lists **Agents**,
+where you [connect your agents](setup.md), **App**, for what this app does, **Panels**, for how
+panels behave, **Rules**, for the [rules](configuration.md#allow-and-deny-rules) that
+answer before a panel shows, **Context** while context checkpoints are on, and **Help**, for
+guides, updates and ways to support Countersign. **Advanced**, for where the
+[config file](configuration.md) is, opens from a button at the bottom of App. Closing the window leaves the app running.
 
 The first time Settings opens, a short four-step tour appears over it: what wiring an agent does,
 how a panel waits for you before it appears, the test panel, and what's under App. Skip or Done on
@@ -81,13 +116,14 @@ first." or "A request is waiting for a panel; answer it first." A request that a
 test panel is up closes it and takes its place.
 
 Try every key and button: whatever you choose only closes the test panel. Nothing runs, and
-nothing reaches an agent. Picking a Snooze duration closes it too, without starting quiet time.
+nothing reaches an agent. A small card then says what you picked and what a real request would
+have done; click it, press Esc or wait 4 seconds and it goes. Picking a Snooze duration closes it too, without starting quiet time.
 Because you asked for it, it appears even while Countersign is paused or in quiet time, and
 `handoffApps` doesn't apply.
 
 In Settings, **Show a test panel** at the end of **Panels** has a button for each kind:
-**Command**, **Question** and **Plan**. They are dimmed and the row says "Showing a test panel…"
-while one is up, and a test panel that doesn't show says why on the row. From the terminal,
+**Command**, **Question** and **Plan**. While one is up, a click on any of them
+brings a hidden test panel back instead of showing another, and a test panel that doesn't show says why on the row. From the terminal,
 `countersign test-panel` does the same, and `countersign test-panel question` and
 `countersign test-panel plan` show a set of questions or a plan instead; when it can't show, it
 prints the reason, such as `countersign: a panel is already on screen; answer it first`, and
@@ -102,6 +138,13 @@ agent, so it starts in the menu bar when you log in. When macOS wants your appro
 says so and takes you to System Settings > General > Login Items. The login item points at the app
 where it was when you turned this on, so check that list after moving the app. The Settings window
 has the same switch under **App** when it runs from Countersign.app.
+
+## After an upgrade
+
+The first time a new version starts, if an agent's hooks need an update, Settings opens on Agents,
+once per version. 0.2.0 adds the hook entries for waiting-agent notices and context checkpoints.
+Each Update shows its change before it writes anything. `countersign setup` does the same from a
+terminal.
 
 ## Check for updates
 

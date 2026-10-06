@@ -1,6 +1,8 @@
 import AppKit
 
 final class ApprovalPanel: NSPanel {
+  static let floatingLevel = NSWindow.Level(rawValue: NSWindow.Level.floating.rawValue + 1)
+
   var onEscape: (() -> Void)?
 
   init() {
@@ -21,7 +23,7 @@ final class ApprovalPanel: NSPanel {
     backgroundColor = .clear
     hasShadow = true
     isFloatingPanel = true
-    level = NSWindow.Level(rawValue: NSWindow.Level.floating.rawValue + 1)
+    level = Self.floatingLevel
     collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle, .stationary]
     hidesOnDeactivate = false
     isMovable = false

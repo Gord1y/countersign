@@ -5,6 +5,8 @@ own chat, or that the host is gone, and drops its panel instead of asking a ques
 longer matters. It covers Claude Code's session registry and transcripts, the sessions Countersign
 skips, and the warning a panel shows when it cannot follow the chat. Read it when a panel stays up
 after the person answered in the chat, or when you change how Claude Code sessions are read.
+A context checkpoint panel is not watched here: `ContextCheckpointWatcher` abandons it instead
+(see "Choices and what Claude receives" and "The hook path" in [checkpoints.md](checkpoints.md)).
 
 ## Where Claude Code's session registry lives
 

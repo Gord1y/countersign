@@ -47,6 +47,14 @@ public struct AppPaths: Sendable, Equatable {
     supportDirectory.appendingPathComponent("queue")
   }
 
+  public var contextCheckpointsDirectory: URL {
+    supportDirectory.appendingPathComponent("context")
+  }
+
+  public var waitingDirectory: URL {
+    supportDirectory.appendingPathComponent("waiting")
+  }
+
   public var displayLockFile: URL {
     queueDirectory.appendingPathComponent("display.lock")
   }
@@ -59,12 +67,24 @@ public struct AppPaths: Sendable, Equatable {
     supportDirectory.appendingPathComponent("quiet-until")
   }
 
+  public var quietHoursSkippedFile: URL {
+    supportDirectory.appendingPathComponent("quiet-hours-skipped-until")
+  }
+
   public var codexHookTrustFile: URL {
     supportDirectory.appendingPathComponent("codex-hook-trust.json")
   }
 
+  public var codexWaitingHookTrustFile: URL {
+    supportDirectory.appendingPathComponent("codex-waiting-hook-trust.json")
+  }
+
   public var tourShownFile: URL {
     supportDirectory.appendingPathComponent("tour-shown")
+  }
+
+  public var lastSeenVersionFile: URL {
+    supportDirectory.appendingPathComponent("last-seen-version")
   }
 
   public var companionLockFile: URL {
@@ -73,6 +93,14 @@ public struct AppPaths: Sendable, Equatable {
 
   public var updateCheckFile: URL {
     supportDirectory.appendingPathComponent("update-check.json")
+  }
+
+  public var decisionHistoryFile: URL {
+    supportDirectory.appendingPathComponent("history.jsonl")
+  }
+
+  public var decisionHistoryLockFile: URL {
+    supportDirectory.appendingPathComponent("history.lock")
   }
 
   public var logFile: URL {

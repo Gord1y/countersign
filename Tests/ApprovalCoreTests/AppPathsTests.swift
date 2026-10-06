@@ -14,6 +14,14 @@ import Testing
     #expect(paths.claudeSessionsDirectory.path == "/Users/dev/.claude/sessions")
     #expect(paths.queueDirectory.path == "/Users/dev/Library/Application Support/Countersign/queue")
     #expect(
+      paths.contextCheckpointsDirectory.path
+        == "/Users/dev/Library/Application Support/Countersign/context"
+    )
+    #expect(
+      paths.waitingDirectory.path
+        == "/Users/dev/Library/Application Support/Countersign/waiting"
+    )
+    #expect(
       paths.displayLockFile.path
         == "/Users/dev/Library/Application Support/Countersign/queue/display.lock"
     )
@@ -22,12 +30,20 @@ import Testing
       paths.quietFile.path == "/Users/dev/Library/Application Support/Countersign/quiet-until"
     )
     #expect(
+      paths.quietHoursSkippedFile.path
+        == "/Users/dev/Library/Application Support/Countersign/quiet-hours-skipped-until"
+    )
+    #expect(
       paths.codexHookTrustFile.path
         == "/Users/dev/Library/Application Support/Countersign/codex-hook-trust.json"
     )
     #expect(
       paths.tourShownFile.path
         == "/Users/dev/Library/Application Support/Countersign/tour-shown"
+    )
+    #expect(
+      paths.lastSeenVersionFile.path
+        == "/Users/dev/Library/Application Support/Countersign/last-seen-version"
     )
     #expect(
       paths.companionLockFile.path

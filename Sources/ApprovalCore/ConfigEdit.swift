@@ -6,6 +6,7 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
   case idleSeconds
   case graceSeconds
   case snoozeMinutes
+  case quietHours
   case handoffApps
   case checkForUpdates
   case questionNotes
@@ -14,6 +15,58 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
   case appearance
   case accentColor
   case editorApp
+  case panelSound
+  case waitingNotices
+  case waitingNoticeDelay
+  case waitingNoticeDuration
+  case approvalCard
+  case approvalCardDelay
+  case contextCheckpointsEnabled
+  case contextMode
+  case contextStandardThresholds
+  case contextMillionThresholds
+  case contextModelThresholds
+  case contextRearmBelow
+  case contextHandoffFile
+  case contextNoteSoft
+  case contextNoteStatus
+  case contextNoteInsist
+  case contextNoteCompact
+  case contextNoteHandoff
+  case contextMenuBarMeter
+
+  public var keyPath: [String] {
+    switch self {
+    case .contextCheckpointsEnabled: return ["contextCheckpoints", "enabled"]
+    case .contextMode: return ["contextCheckpoints", "mode"]
+    case .contextStandardThresholds: return ["contextCheckpoints", "thresholds", "200k"]
+    case .contextMillionThresholds: return ["contextCheckpoints", "thresholds", "1m"]
+    case .contextModelThresholds: return ["contextCheckpoints", "modelThresholds"]
+    case .contextRearmBelow: return ["contextCheckpoints", "rearmBelow"]
+    case .contextHandoffFile: return ["contextCheckpoints", "handoffFile"]
+    case .contextNoteSoft: return ["contextCheckpoints", "notes", "soft"]
+    case .contextNoteStatus: return ["contextCheckpoints", "notes", "status"]
+    case .contextNoteInsist: return ["contextCheckpoints", "notes", "insist"]
+    case .contextNoteCompact: return ["contextCheckpoints", "notes", "compact"]
+    case .contextNoteHandoff: return ["contextCheckpoints", "notes", "handoff"]
+    case .contextMenuBarMeter: return ["contextCheckpoints", "menuBarMeter"]
+    default: return [rawValue]
+    }
+  }
+
+  public static let agentDelays: [PreferenceName] = [
+    .idleSeconds, .graceSeconds, .armDelay, .chainedArmDelay, .approvalCardDelay,
+  ]
+
+  public var noteName: String? {
+    switch self {
+    case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteCompact,
+      .contextNoteHandoff:
+      return keyPath.last
+    default:
+      return nil
+    }
+  }
 }
 
 public enum PreferenceEdit: Sendable, Equatable {
@@ -21,34 +74,134 @@ public enum PreferenceEdit: Sendable, Equatable {
   case chainedArmDelay(Double)
   case idleSeconds(Double)
   case graceSeconds(Double)
-  case snoozeMinutes([Int])
+  case snoozePresets([TimeInterval])
+  case quietHours([QuietWindow])
   case checkForUpdates(Bool)
   case quitBehavior(QuitBehavior)
   case modeAfterPlan(PlanApprovalMode)
+  case panelSound(String)
+  case waitingNotices(Bool)
+  case waitingNoticeDelay(TimeInterval)
+  case waitingNoticeDuration(TimeInterval)
+  case approvalCard(Bool)
+  case approvalCardDelay(TimeInterval)
   case questionNotes(Bool)
   case appearance(AppearanceChoice)
   case accentColor(HexColor)
   case addHandoffApp(String)
   case removeHandoffApp(String)
+  case removeRule(ApprovalRule)
+  case replaceRule(old: ApprovalRule, new: ApprovalRule)
+  case addRules([ApprovalRule])
   case editorApp(String)
+  case contextCheckpointsEnabled(Bool)
+  case contextMode(ContextCheckpointMode)
+  case contextStandardThresholds([Int])
+  case contextMillionThresholds([Int])
+  case setContextModelThresholds(prefix: String, ladder: [Int])
+  case removeContextModelThresholds(prefix: String)
+  case contextRearmBelow(Double)
+  case contextHandoffFile(String)
+  case contextNote(PreferenceName, String)
+  case contextMenuBarMeter(Bool)
   case reset(PreferenceName)
+  indirect case forAgent(Host, PreferenceEdit)
 
-  public var key: PreferenceName {
+  public var key: PreferenceName? {
     switch self {
+    case .removeRule, .addRules, .replaceRule: return nil
     case .armDelay: return .armDelay
     case .chainedArmDelay: return .chainedArmDelay
     case .idleSeconds: return .idleSeconds
     case .graceSeconds: return .graceSeconds
-    case .snoozeMinutes: return .snoozeMinutes
+    case .snoozePresets: return .snoozeMinutes
+    case .quietHours: return .quietHours
     case .checkForUpdates: return .checkForUpdates
     case .quitBehavior: return .quitBehavior
     case .modeAfterPlan: return .modeAfterPlan
+    case .panelSound: return .panelSound
+    case .waitingNotices: return .waitingNotices
+    case .waitingNoticeDelay: return .waitingNoticeDelay
+    case .waitingNoticeDuration: return .waitingNoticeDuration
+    case .approvalCard: return .approvalCard
+    case .approvalCardDelay: return .approvalCardDelay
     case .questionNotes: return .questionNotes
     case .appearance: return .appearance
     case .accentColor: return .accentColor
     case .addHandoffApp, .removeHandoffApp: return .handoffApps
     case .editorApp: return .editorApp
+    case .contextCheckpointsEnabled: return .contextCheckpointsEnabled
+    case .contextMode: return .contextMode
+    case .contextStandardThresholds: return .contextStandardThresholds
+    case .contextMillionThresholds: return .contextMillionThresholds
+    case .setContextModelThresholds, .removeContextModelThresholds:
+      return .contextModelThresholds
+    case .contextRearmBelow: return .contextRearmBelow
+    case .contextHandoffFile: return .contextHandoffFile
+    case .contextNote(let name, _): return name
+    case .contextMenuBarMeter: return .contextMenuBarMeter
     case .reset(let name): return name
+    case .forAgent(_, let inner): return inner.key
+    }
+  }
+
+  public var editsRules: Bool {
+    switch self {
+    case .removeRule, .addRules, .replaceRule: return true
+    default: return false
+    }
+  }
+
+  public var isOutsidePreferenceValues: Bool {
+    switch self {
+    case .removeRule, .addRules, .replaceRule, .forAgent: return true
+    default: return false
+    }
+  }
+
+  var isAllowedForAgent: Bool {
+    switch self {
+    case .armDelay, .chainedArmDelay, .idleSeconds, .graceSeconds, .waitingNoticeDelay,
+      .approvalCard, .approvalCardDelay:
+      return true
+    case .reset(let name):
+      return name == .approvalCard || PreferenceName.agentDelays.contains(name)
+    default:
+      return false
+    }
+  }
+
+  public static func removingAgentDelays(in file: ConfigFile) -> [PreferenceEdit] {
+    Host.allCases.flatMap { host -> [PreferenceEdit] in
+      guard let overrides = file.overrides(for: host) else { return [] }
+      let present: [(PreferenceName, Bool)] = [
+        (.idleSeconds, overrides.idleSeconds != nil),
+        (.graceSeconds, overrides.graceSeconds != nil),
+        (.armDelay, overrides.armDelay != nil),
+        (.chainedArmDelay, overrides.chainedArmDelay != nil),
+        (.approvalCardDelay, overrides.approvalCardDelay != nil),
+      ]
+      return present.filter(\.1).map { .forAgent(host, .reset($0.0)) }
+    }
+  }
+}
+
+extension JSONSpanNode {
+  fileprivate func durationSeconds(bareUnit: TimeInterval) -> TimeInterval? {
+    let seconds =
+      stringValue.flatMap { DurationText.parse($0, bareUnit: bareUnit) }
+      ?? numberValue.map { $0 * bareUnit }
+    return seconds.map(PreferenceRules.thousandths)
+  }
+}
+
+public enum RuleEditError: Error, Equatable, Sendable, CustomStringConvertible {
+  case changedOnDisk
+
+  public var description: String {
+    switch self {
+    case .changedOnDisk:
+      return "the rule changed in the file since Settings showed it, so the edit was not saved"
     }
   }
 }
@@ -83,68 +236,189 @@ public enum ConfigEdit {
     PreferenceRules.numberText(value)
   }
 
+  static func minutesFragment(_ seconds: TimeInterval) -> JSONFragment {
+    let minutes = seconds / 60
+    if minutes.truncatingRemainder(dividingBy: 1) == 0, let whole = Int(exactly: minutes) {
+      return .integer(whole)
+    }
+    return .string(DurationText.compact(seconds))
+  }
+
   private static func apply(_ edit: PreferenceEdit, to document: inout JSONSourceDocument)
     throws
   {
-    let key = edit.key.rawValue
+    if case .forAgent(let host, let inner) = edit {
+      guard inner.isAllowedForAgent else { return }
+      try apply(inner, prefix: ["hosts", host.rawValue], to: &document)
+      return
+    }
+    try apply(edit, prefix: [], to: &document)
+  }
+
+  private static func apply(
+    _ edit: PreferenceEdit, prefix: [String], to document: inout JSONSourceDocument
+  ) throws {
+    if case .removeRule(let rule) = edit {
+      try remove(rule, in: &document)
+      return
+    }
+    if case .addRules(let rules) = edit {
+      try add(rules, in: &document)
+      return
+    }
+    if case .replaceRule(let old, let new) = edit {
+      try replace(old, with: new, in: &document)
+      return
+    }
+    guard let name = edit.key else { return }
+    let path = prefix + name.keyPath
+    let key = name.keyPath.first ?? name.rawValue
     switch edit {
     case .armDelay(let value), .chainedArmDelay(let value), .idleSeconds(let value),
-      .graceSeconds(let value):
-      try set(key, to: .number(spelling(value)), in: &document) {
-        $0.numberValue == value
+      .graceSeconds(let value), .approvalCardDelay(let value):
+      let written = PreferenceRules.thousandths(value)
+      try set(path, to: .number(spelling(written)), in: &document) {
+        $0.numberValue == written
       }
-    case .snoozeMinutes(let minutes):
-      try set(key, to: .array(minutes.map(JSONFragment.integer)), in: &document) {
-        $0.elements?.map(\.numberValue) == minutes.map { Double($0) }
+    case .waitingNoticeDelay(let seconds), .waitingNoticeDuration(let seconds):
+      let written = PreferenceRules.thousandths(seconds)
+      try set(path, to: .number(spelling(written)), in: &document) {
+        $0.durationSeconds(bareUnit: 1) == written
       }
+    case .snoozePresets(let presets):
+      try set(path, to: .array(presets.map(minutesFragment)), in: &document) {
+        $0.elements?.map { $0.durationSeconds(bareUnit: 60) }
+          == presets.map { Optional(PreferenceRules.thousandths($0)) }
+      }
+    case .quietHours(let windows):
+      try set(path, to: .array(windows.map(quietWindowFragment)), in: &document) { _ in false }
     case .checkForUpdates(let enabled):
-      try set(key, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
+      try set(path, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
     case .quitBehavior(let behavior):
-      try set(key, to: .string(behavior.rawValue), in: &document) {
+      try set(path, to: .string(behavior.rawValue), in: &document) {
         $0.stringValue == behavior.rawValue
       }
     case .modeAfterPlan(let mode):
-      try set(key, to: .string(mode.rawValue), in: &document) {
+      try set(path, to: .string(mode.rawValue), in: &document) {
         $0.stringValue == mode.rawValue
       }
+    case .panelSound(let name):
+      try set(path, to: .string(name), in: &document) { $0.stringValue == name }
+    case .waitingNotices(let enabled), .approvalCard(let enabled):
+      try set(path, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
     case .questionNotes(let enabled):
-      try set(key, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
+      try set(path, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
     case .appearance(let appearance):
-      try set(key, to: .string(appearance.rawValue), in: &document) {
+      try set(path, to: .string(appearance.rawValue), in: &document) {
         $0.stringValue == appearance.rawValue
       }
     case .accentColor(let color):
-      try set(key, to: .string(color.hex), in: &document) {
+      try set(path, to: .string(color.hex), in: &document) {
         $0.stringValue.flatMap(HexColor.init(hex:)) == color
       }
     case .addHandoffApp(let bundleID):
       try add(bundleID, key: key, in: &document)
     case .removeHandoffApp(let bundleID):
       try remove(bundleID, key: key, in: &document)
+    case .removeRule, .addRules, .replaceRule:
+      return
     case .editorApp(let bundleID):
-      try set(key, to: .string(bundleID), in: &document) { $0.stringValue == bundleID }
+      try set(path, to: .string(bundleID), in: &document) { $0.stringValue == bundleID }
+    case .contextCheckpointsEnabled(let enabled), .contextMenuBarMeter(let enabled):
+      try set(path, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
+    case .contextMode(let mode):
+      try set(path, to: .string(mode.rawValue), in: &document) {
+        $0.stringValue == mode.rawValue
+      }
+    case .contextStandardThresholds(let ladder), .contextMillionThresholds(let ladder):
+      try set(path, to: .array(ladder.map(JSONFragment.integer)), in: &document) {
+        $0.elements?.map(\.numberValue) == ladder.map { Double($0) }
+      }
+    case .setContextModelThresholds(let prefix, let ladder):
+      try set(path + [prefix], to: .array(ladder.map(JSONFragment.integer)), in: &document) {
+        $0.elements?.map(\.numberValue) == ladder.map { Double($0) }
+      }
+    case .removeContextModelThresholds(let prefix):
+      try removeMember(path + [prefix], in: &document)
+    case .contextRearmBelow(let ratio):
+      try set(path, to: .number(spelling(ratio)), in: &document) { $0.numberValue == ratio }
+    case .contextHandoffFile(let file):
+      try set(path, to: .string(file), in: &document) { $0.stringValue == file }
+    case .contextNote(let name, let text):
+      guard name.noteName != nil else { return }
+      try set(path, to: .string(text), in: &document) { $0.stringValue == text }
+    case .reset(.approvalCard):
+      try removeMember(path, in: &document)
+      if prefix.isEmpty {
+        for host in Host.allCases {
+          try removeMember(["hosts", host.rawValue, "approvalCard"], in: &document)
+        }
+      }
     case .reset:
-      try removeTopLevelMember(key, in: &document)
+      try removeMember(path, in: &document)
+    case .forAgent:
+      return
     }
   }
 
-  private static func removeTopLevelMember(_ key: String, in document: inout JSONSourceDocument)
+  private static func quietWindowFragment(_ window: QuietWindow) -> JSONFragment {
+    .object([
+      JSONFragmentMember(key: "days", value: .array(window.days.map { .string($0.rawValue) })),
+      JSONFragmentMember(key: "from", value: .string(window.fromText)),
+      JSONFragmentMember(key: "to", value: .string(window.toText)),
+    ])
+  }
+
+  private static func removeMember(_ path: [String], in document: inout JSONSourceDocument)
     throws
   {
-    guard let index = document.root.memberIndex(named: key) else { return }
-    try document.removeMember(at: index, from: document.root)
+    var parent = document.root
+    for key in path.dropLast() {
+      guard let child = parent.member(named: key)?.value, child.members != nil else { return }
+      parent = child
+    }
+    guard let leaf = path.last, let index = parent.memberIndex(named: leaf) else { return }
+    try document.removeMember(at: index, from: parent)
   }
 
   private static func set(
     _ key: String, to fragment: JSONFragment, in document: inout JSONSourceDocument,
     holds: (JSONSpanNode) -> Bool
   ) throws {
-    guard let existing = document.root.member(named: key) else {
-      try document.appendMember(JSONFragmentMember(key: key, value: fragment), to: document.root)
+    try set([key], to: fragment, in: &document, holds: holds)
+  }
+
+  private static func set(
+    _ path: [String], to fragment: JSONFragment, in document: inout JSONSourceDocument,
+    holds: (JSONSpanNode) -> Bool
+  ) throws {
+    var parent = document.root
+    for (depth, key) in path.dropLast().enumerated() {
+      guard let existing = parent.member(named: key) else {
+        let missing = nested(Array(path.dropFirst(depth + 1)), around: fragment)
+        try document.appendMember(JSONFragmentMember(key: key, value: missing), to: parent)
+        return
+      }
+      guard existing.value.members != nil else {
+        let replacement = nested(Array(path.dropFirst(depth + 1)), around: fragment)
+        try document.replaceValue(existing.value, with: replacement)
+        return
+      }
+      parent = existing.value
+    }
+    guard let leaf = path.last else { return }
+    guard let existing = parent.member(named: leaf) else {
+      try document.appendMember(JSONFragmentMember(key: leaf, value: fragment), to: parent)
       return
     }
     guard !holds(existing.value) else { return }
     try document.replaceValue(existing.value, with: fragment)
+  }
+
+  private static func nested(_ path: [String], around fragment: JSONFragment) -> JSONFragment {
+    path.reversed().reduce(fragment) { inner, key in
+      .object([JSONFragmentMember(key: key, value: inner)])
+    }
   }
 
   private static func add(_ bundleID: String, key: String, in document: inout JSONSourceDocument)
@@ -161,6 +435,69 @@ public enum ConfigEdit {
     }
     guard !elements.contains(where: { $0.stringValue == bundleID }) else { return }
     try document.appendElement(.string(bundleID), to: existing)
+  }
+
+  private static func ruleFragment(_ rule: ApprovalRule) -> JSONFragment {
+    let members: [(String, String?)] = [
+      ("decision", rule.decision.rawValue), ("agent", rule.agent?.rawValue),
+      ("project", rule.project), ("tool", rule.tool), ("command", rule.command),
+      ("message", rule.decision == .deny ? rule.message : nil),
+    ]
+    return .object(
+      members.compactMap { key, value in
+        value.map { JSONFragmentMember(key: key, value: .string($0)) }
+      })
+  }
+
+  private static func add(_ rules: [ApprovalRule], in document: inout JSONSourceDocument) throws {
+    let decoder = JSONDecoder()
+    for rule in rules {
+      let fragment = ruleFragment(rule)
+      guard let existing = document.root.member(named: "rules")?.value else {
+        try document.appendMember(
+          JSONFragmentMember(key: "rules", value: .array([fragment])), to: document.root)
+        continue
+      }
+      guard let elements = existing.elements else {
+        try document.replaceValue(existing, with: .array([fragment]))
+        continue
+      }
+      let alreadyThere = elements.contains { element in
+        let raw = Data(document.bytes[element.range])
+        return (try? decoder.decode(JSONValue.self, from: raw)).flatMap(ConfigFileParser.rule)
+          == rule
+      }
+      guard !alreadyThere else { continue }
+      try document.appendElement(fragment, to: existing)
+    }
+  }
+
+  private static func replace(
+    _ old: ApprovalRule, with new: ApprovalRule, in document: inout JSONSourceDocument
+  ) throws {
+    guard let array = document.root.member(named: "rules")?.value, let elements = array.elements
+    else { throw RuleEditError.changedOnDisk }
+    let decoder = JSONDecoder()
+    let match = elements.first { element in
+      let raw = Data(document.bytes[element.range])
+      return (try? decoder.decode(JSONValue.self, from: raw)).flatMap(ConfigFileParser.rule)
+        == old
+    }
+    guard let match else { throw RuleEditError.changedOnDisk }
+    try document.replaceValue(match, with: ruleFragment(new))
+  }
+
+  private static func remove(_ rule: ApprovalRule, in document: inout JSONSourceDocument) throws {
+    guard let array = document.root.member(named: "rules")?.value, let elements = array.elements
+    else { return }
+    let decoder = JSONDecoder()
+    let index = elements.firstIndex { element in
+      let raw = Data(document.bytes[element.range])
+      return (try? decoder.decode(JSONValue.self, from: raw)).flatMap(ConfigFileParser.rule)
+        == rule
+    }
+    guard let index else { return }
+    try document.removeElement(at: index, from: array)
   }
 
   private static func remove(

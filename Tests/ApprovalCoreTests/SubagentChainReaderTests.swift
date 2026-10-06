@@ -147,11 +147,86 @@ private struct ChainFixture {
     try fixture.writeMainTranscript(spawning: "toolu_unrelated")
     try fixture.writeMeta(
       agentID: "agent1", agentType: "general-purpose", description: "Orphaned",
-      toolUseID: "toolu_root", spawnDepth: 1)
+      toolUseID: "toolu_root", spawnDepth: 2)
 
     #expect(
       SubagentChainReader.chain(transcriptPath: fixture.transcriptPath, agentID: "agent1")
         == nil)
+  }
+
+  @Test func aDepthThreeChainFollowsParentAgentIdWithoutOpeningAnyTranscript() throws {
+    let fixture = try ChainFixture()
+    defer { fixture.remove() }
+
+    try fixture.writeRawMeta(
+      agentID: "leaf",
+      json: String(decoding: try FixtureLoader.data("claude-subagent-meta-child"), as: UTF8.self)
+        .replacingOccurrences(of: "a2f187b802690c409", with: "middle"))
+    try fixture.writeRawMeta(
+      agentID: "middle",
+      json:
+        #"{"agentType":"general-purpose","description":"Middle","toolUseId":"toolu_middle","parentAgentId":"top","spawnDepth":2}"#
+    )
+    try fixture.writeRawMeta(
+      agentID: "top",
+      json: String(decoding: try FixtureLoader.data("claude-subagent-meta-root"), as: UTF8.self))
+
+    #expect(!FileManager.default.fileExists(atPath: fixture.transcriptPath))
+    let chain = SubagentChainReader.chain(transcriptPath: fixture.transcriptPath, agentID: "leaf")
+    #expect(chain?.map(\.agentID) == ["top", "middle", "leaf"])
+    #expect(chain?.map(\.agentType) == ["Explore", "general-purpose", "general-purpose"])
+  }
+
+  @Test func spawnDepthOneWithoutAParentEndsAtTheMainSessionWithoutReadingItsTranscript() throws {
+    let fixture = try ChainFixture()
+    defer { fixture.remove() }
+
+    try fixture.writeRawMeta(
+      agentID: "top",
+      json: String(decoding: try FixtureLoader.data("claude-subagent-meta-root"), as: UTF8.self))
+
+    #expect(!FileManager.default.fileExists(atPath: fixture.transcriptPath))
+    let chain = SubagentChainReader.chain(transcriptPath: fixture.transcriptPath, agentID: "top")
+    #expect(chain?.map(\.agentID) == ["top"])
+  }
+
+  @Test func aMissingSpawnDepthFallsBackToTheTranscriptWalk() throws {
+    let fixture = try ChainFixture()
+    defer { fixture.remove() }
+
+    try fixture.writeMainTranscript(spawning: "toolu_depth1")
+    try fixture.writeRawMeta(
+      agentID: "parent",
+      json:
+        #"{"agentType":"general-purpose","description":"Top level task","toolUseId":"toolu_depth1"}"#
+    )
+    try fixture.writeAgentTranscript(agentID: "parent", spawning: "toolu_depth2")
+    try fixture.writeRawMeta(
+      agentID: "child",
+      json:
+        #"{"agentType":"Explore","description":"Nested task","toolUseId":"toolu_depth2"}"#)
+
+    let chain = SubagentChainReader.chain(
+      transcriptPath: fixture.transcriptPath, agentID: "child")
+    #expect(chain?.map(\.agentID) == ["parent", "child"])
+  }
+
+  @Test func aCycleOfParentAgentIdsIsNil() throws {
+    let fixture = try ChainFixture()
+    defer { fixture.remove() }
+
+    try fixture.writeRawMeta(
+      agentID: "a",
+      json:
+        #"{"agentType":"general-purpose","description":"A","toolUseId":"toolu_a","parentAgentId":"b","spawnDepth":2}"#
+    )
+    try fixture.writeRawMeta(
+      agentID: "b",
+      json:
+        #"{"agentType":"general-purpose","description":"B","toolUseId":"toolu_b","parentAgentId":"a","spawnDepth":3}"#
+    )
+
+    #expect(SubagentChainReader.chain(transcriptPath: fixture.transcriptPath, agentID: "a") == nil)
   }
 
   @Test func missingSubagentsDirectoryIsNil() throws {
@@ -206,6 +281,18 @@ private struct ChainFixture {
       SubagentChainReader.chain(transcriptPath: fixture.transcriptPath, agentID: leafID) == nil)
   }
 
+  @Test func theSubagentTranscriptLivesBesideTheMainTranscript() throws {
+    let data = try FixtureLoader.data("claude-bash-subagent")
+    let request = try ClaudeAdapter.parse(data)
+    let mainTranscriptPath = try #require(request.transcriptPath)
+    let agentID = try #require(request.agentID)
+
+    #expect(
+      SubagentChainReader.transcriptPath(mainTranscriptPath: mainTranscriptPath, agentID: agentID)
+        == "/Users/dev/.claude/projects/shop-api/b7e1c2a4-9f3d-4e2a-8c1b-5a6d7e8f9012/subagents/agent-a1b2c3d4.jsonl"
+    )
+  }
+
   @Test func anEmptyParentTranscriptNeverMatchesByAccident() throws {
     let fixture = try ChainFixture()
     defer { fixture.remove() }
@@ -214,7 +301,7 @@ private struct ChainFixture {
     try fixture.writeEmptyAgentTranscript(agentID: "sibling")
     try fixture.writeMeta(
       agentID: "agent1", agentType: "general-purpose", description: "Orphaned",
-      toolUseID: "toolu_root", spawnDepth: 1)
+      toolUseID: "toolu_root", spawnDepth: 2)
 
     #expect(
       SubagentChainReader.chain(transcriptPath: fixture.transcriptPath, agentID: "agent1")

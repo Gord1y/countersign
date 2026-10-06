@@ -74,6 +74,41 @@ to load such a file too. A missing file is "cannot tell" for the verdict; for th
 writes, it means no hash was stored yet, while a file that cannot be read or understood leaves the
 record's hash at write unknown (`CodexHashAtWrite.unread`).
 
+## Stop hooks
+
+Waiting-agent notices hook each host's end-of-turn event. `WaitingEnvelope` reads only the
+session, the project folder and the transcript path from it. The Codex and Cursor `Stop` payloads
+were captured on 2026-10-01 (`codex-stop.json`, `cursor-stop.json` in the test fixtures), and the
+Antigravity CLI 1.2.17 one on 2026-10-05 (`antigravity-stop.json`), once its entry had the flat
+shape Antigravity requires (see "The waiting entries of Codex, Cursor and Antigravity" in
+[setup.md](setup.md)). Every entry runs `<exe> hook --host <host> --event waiting` with a 30
+second timeout and no `async`, which only Claude Code has.
+
+- Codex sends `session_id`, `turn_id`, `transcript_path` (the rollout file), `cwd`,
+  `hook_event_name` `"Stop"`, `model`, `permission_mode`, `stop_hook_active` and
+  `last_assistant_message`, the Claude Code field names.
+- Cursor sends `hook_event_name` `"stop"`, `conversation_id` and `session_id` (the same value),
+  `generation_id`, `status` (`"completed"`), `loop_count`, the model fields and token counts,
+  `cursor_version`, `workspace_roots`, `user_email` and `transcript_path`, and no `cwd`: the project
+  folder is the first workspace root. It carries `cursor_version`, so a Cursor turn that also runs
+  Claude Code's `Stop` hook is ignored there (see "Cursor payloads in Claude Code hooks").
+- Antigravity sends camelCase keys: the fields every Antigravity hook carries (`conversationId`,
+  `workspacePaths`, `transcriptPath`, `artifactDirectoryPath`, `modelName`) plus `executionNum`,
+  `terminationReason` (`"NO_TOOL_CALL"` for a turn that ended without a tool call), `error` and
+  `fullyIdle`. There is no event name in it. Its reply may be `{"decision": "continue"}` to keep
+  the agent going; the waiting entry prints nothing, so the agent stops as usual.
+
+- Claude Code: `hooks.Stop` in `settings.json`, `async`.
+- Codex: `hooks.Stop` in `$CODEX_HOME/hooks.json`, in one group without a matcher. Codex runs it
+  only after the person trusts it with `/hooks` in a Codex session, recorded under
+  `<hooks.json path>:stop:<group>:<hook>` in `config.toml` (the label `stop` was confirmed by the
+  record Codex wrote for it), so the entry has its own trust record and Doctor line.
+- Cursor: `hooks.stop` in `~/.cursor/hooks.json`, outside `CursorAdapter.events` (confirmed: the
+  captured payload came from that entry).
+- Antigravity: the named hook `countersign-waiting` in `~/.gemini/config/hooks.json`, with `Stop`
+  as its one event in the flat shape Antigravity requires for it (no matcher, no group; see "The
+  waiting entries" in [setup](setup.md)), beside the `countersign` hook.
+
 ## The deny message default
 
 A denial with no reason, or one that is only whitespace, is silently unhelpful on the other end
@@ -95,16 +130,76 @@ from the requesting agent up to the depth-1 root, and any missing file, missing 
 failure anywhere along the way returns `nil` for the whole chain rather than a partial one, so the
 header can fall back to the plain `subagent · <agentType>` chip.
 
-There is no explicit parent pointer to follow (a `parentAgentId` field has been observed in some
-real meta files, but it is not documented and the fixtures that ship with this repo do not carry
-it, so the reader does not depend on it). Instead, each step reads the current agent's
-`toolUseId` and finds which transcript contains it: the main transcript first (that agent is the
-root, and the walk stops), otherwise each `agent-*.jsonl` in the same `subagents` directory except
-the current agent's own file. The match is a byte search for the id string, not a JSON parse of
+The walk is meta-first. Checked on Claude Code 2.1.278 against 933 local metas: `parentAgentId` is
+a top-level key of `agent-<id>.meta.json` only (never in a `.jsonl` row), it is present exactly
+when `spawnDepth` is 2 or more (176 at depth 2, 4 at depth 3), and absent on all 753 depth-1
+agents, whose parent is the main session. So each hop reads one small meta file: a
+`parentAgentId` names the next hop, a meta without one and with `spawnDepth` 1 ends the chain at
+the main session, and neither opens a transcript. The cost is one meta read per level instead of a
+full read of the main transcript plus every sibling `agent-*.jsonl` per level.
+
+A meta with no `parentAgentId` whose `spawnDepth` is missing or above 1 (an older Claude Code, or
+an inconsistent file) falls back to the transcript walk for that hop: each step reads the current
+agent's `toolUseId` and finds which transcript contains it: the main transcript first (that agent
+is the root, and the walk stops), otherwise each `agent-*.jsonl` in the same `subagents` directory
+except the current agent's own file. The match is a byte search for the id string, not a JSON parse of
 the whole transcript — these files can be large, and the reader only needs to know which file the
 id appears in, not what else is on that line. A `Set` of visited agent ids guards against a cycle,
 and the walk gives up after 10 levels regardless, so a malformed or looping chain degrades to the
 fallback chip instead of hanging or growing without bound.
+
+## The Claude `UserPromptSubmit` input
+
+The same command, `countersign hook --host claude`, serves `PermissionRequest` and
+`UserPromptSubmit`. The hook reads `hook_event_name` first with `ClaudeAdapter.eventName(of:)`,
+which returns the top-level string or `nil` for anything that is not a JSON object with one, and
+only then parses: `ClaudeAdapter.parse` keeps rejecting any event but `PermissionRequest`, and
+`ClaudeAdapter.parseUserPromptSubmit` rejects any event but `UserPromptSubmit`.
+
+A `UserPromptSubmit` input carries exactly `cwd`, `hook_event_name`, `permission_mode`, `prompt`,
+`prompt_id`, `scratchpad_dir`, `session_id` and `transcript_path` (a real capture,
+`claude-user-prompt-submit.json`). `parseUserPromptSubmit` requires `session_id`, `cwd` and the
+event name, reads `transcript_path` and `permission_mode` when present, and ignores `prompt`, so
+the text a person typed never leaves the parser. It returns a `ContextCheckpointInput`, which
+`ApprovalRequest.contextCheckpoint(_:prompt:)` turns into a request with tool name
+`Context checkpoint` and an empty tool input, so the panel and the queue treat it like any other
+request.
+
+## Cursor payloads in Claude Code hooks
+
+Cursor also runs the hooks in `~/.claude/settings.json`, through its Claude Code compatibility, so
+a Cursor prompt or end of turn reaches `countersign hook --host claude` with a Cursor payload: no
+`cwd`, Cursor's own fields, and an event name that is not Claude Code's. Before anything else, the
+hook checks the input with `ClaudeAdapter.isCursorPayload(_:)`: a JSON object with a
+`cursor_version` key (every captured Cursor payload has one), or whose `hook_event_name` starts
+with a lowercase letter (Claude Code's event names start with a capital, Cursor's with a lowercase
+letter). Such an input exits 0 with empty stdout and one log line, `ignored: a Cursor payload in a
+Claude Code hook`. Cursor's own entries in `~/.cursor/hooks.json` reach Countersign as
+`--host cursor`, so nothing is lost; before the check, every Cursor turn logged `unparseable input:
+missing cwd` and `waiting: unparseable input`.
+
+## The waiting record's envelope
+
+A waiting entry (`hook --event waiting`, see [notice.md](notice.md)) reads only the envelope each
+host sends with every hook, never a Stop-specific field: the hosts' Stop-only fields differ
+(`stop_hook_active`, `status`, `terminationReason`), and the envelope is what all four share with
+their permission payloads. `WaitingEnvelope.parse(_:host:)` reads, treating an empty string as
+missing:
+
+| Host | Session id | Project path | Transcript |
+| --- | --- | --- | --- |
+| Claude Code | `session_id` | `cwd` | `transcript_path` |
+| Codex | `session_id` | `cwd` | `transcript_path` (`null` in `codex-bash.json`) |
+| Cursor | `conversation_id`, else `session_id` | `workspace_roots[0]`, else `cwd` | `transcript_path` |
+| Antigravity | `conversationId` | `workspacePaths[0]` | `transcriptPath` |
+
+No session id or no project path means no record. The project name is the path's last component,
+as `ApprovalRequest.projectName` derives it.
+
+Codex keeps each session's transcript at
+`$CODEX_HOME/sessions/YYYY/MM/DD/rollout-<local time>-<session id>.jsonl` (day folder = start day),
+which `CodexRolloutLocator` finds when the payload's `transcript_path` is `null`; see "Codex rollout
+lookup" in [notice.md](notice.md).
 
 ## How suggestion labels are built
 
@@ -204,8 +299,12 @@ panel it did not need is the cheaper mistake.
 | --- | --- |
 | Approve | `{"permission":"allow"}` |
 | Deny | `{"agent_message":"<reason>","permission":"deny","user_message":"<reason>"}` |
-| Answer in chat (`.noDecision` from the panel) | `{"permission":"ask"}` |
+| Answer in chat (`.noDecision` from the panel), Allowlist and Ask Every Time only | `{"permission":"ask"}` |
+| Later (Esc under Auto-review, Run Everything or an unknown run mode) | nothing yet: the request keeps waiting |
 | Any failure | nothing |
+
+Which of the two rows Esc gets depends on Cursor's run mode; see "Esc under Auto-review and Run
+Everything" below.
 
 The reason is the typed one, or `ApprovalOutcome.defaultDenyMessage`, the same default the other
 hosts get. Cursor shows `user_message` to the person and hands `agent_message` to the agent, so both
@@ -226,7 +325,89 @@ Cursor too, so `hook` still logs `handoff: <bundle id> frontmost` and then write
 `{"permission":"ask"}` before exiting, rather than leaving stdout empty. Pausing Countersign stays
 silent for every host, including Cursor, because a pause means behaving as if Countersign weren't
 installed; the handoff never means that, so it is the one silent-for-the-other-hosts exit where
-Cursor gets an answer instead.
+Cursor gets an answer instead. Under Auto-review, Run Everything or an unknown run mode the handoff
+does not apply at all (see the next section).
+
+### Approve is not enough yet
+
+Cursor ignores a hook's `allow` and `ask` and decides by its own run mode; only `deny` is
+respected. On 2026-10-04, with Cursor 3.22.12 in Allowlist mode, Approve ▾ → Always allow on
+`curl -sI https://example.com` saved the rule, the hook printed `{"permission":"allow"}`
+(`outcome: allow`), and Cursor showed its own approval prompt; after an update to Cursor 3.23.12 the same day, plain
+Approve in Allowlist mode still did. Cursor's staff call it "an open bug
+ticket" ("right now only `deny` is respected", 2026-05-23, in
+[Support authoritative allow, deny, and ask verdicts from hooks](https://forum.cursor.com/t/support-authoritative-allow-deny-and-ask-verdicts-from-hooks/161342));
+it has been reported since Cursor 2.1.36
+([beforeShellExecution hook permissions ignored](https://forum.cursor.com/t/beforeshellexecution-hook-permissions-allow-ask-ignored-allow-list-takes-precedence/144244)).
+So after Approve, Cursor follows its run mode: Allowlist asks again unless the command is on its
+allowlist, Auto-review hands the command to its AI review (the 2026-10-01 `ask` run below is the
+same path), and Run Everything runs it. `Host.honorsHookAllow` is false for Cursor, so the panel
+offers no Approve ▾ → Always allow (see "Always allow" in [rules.md](rules.md)); a saved allow
+rule would only hide the panel while Cursor asked anyway. An allow rule written by hand still keeps
+the panel away, and a deny rule blocks.
+
+The one way around it for Always allow would be writing the command into Cursor's own allowlist.
+A `terminalAllowlist` in `~/.cursor/permissions.json` replaces the in-app list entirely and makes
+Cursor's allowlist settings read-only, so Countersign would have to copy the in-app entries over
+and own that file from then on; writing the in-app list in Cursor's settings database while Cursor
+runs is out. Neither is done; [ROADMAP.md](../../ROADMAP.md) tracks it. When Cursor fixes the bug,
+Approve works with nothing changed, and `honorsHookAllow` turns true once checked against the fixed
+version, which brings the Always allow row back.
+
+### Esc under Auto-review and Run Everything
+
+On 2026-10-01, with Cursor in Auto-review, the panel showed for `ls ~`, the person pressed Esc, the
+hook printed `{"permission":"ask"}`, and Cursor ran the command. `ask` reaches the person only under
+Allowlist and Ask Every Time. Under Auto-review it goes to Cursor's AI classifier, and under Run
+Everything the command simply runs. So in those modes "no decision" is never printed: every path
+that would hand the request back keeps it waiting or denies it instead.
+
+`HookRunner.run` turns the run mode it already reads ("Reading Cursor's run mode and allowlist"
+below) into a `HandBackPolicy` with `HandBackPolicy.forCursor`, and passes it to the panel. The
+switch is `CursorRunMode.handBackRunsUnasked`. An unknown run mode counts as one that would run the
+command unasked, the safe side. Shell commands and MCP calls follow the same policy. Every other
+host, every test panel and every context checkpoint is `.handsBack`, unchanged.
+
+| Run mode | Esc, click outside, the link | Menu's Answer in Chat | Frontmost-app handoff | 3540 s timeout |
+| --- | --- | --- | --- | --- |
+| Allowlist, Ask Every Time (`.handsBack`) | `ask` | offered | `ask` | `ask` |
+| Auto-review, Run Everything, unknown (`.keepsWaiting`) | Later | not offered | skipped | deny |
+
+**Later.** The panel's link reads "Later" instead of "Answer in chat", with the same `esc` hint
+(`PanelModel.escapeKeepsWaiting`). Esc, a click outside or the link then do not finish the request.
+The panel hands the screen to the next request in line exactly as a finished panel does, closes,
+parks its ticket (`TicketQueue.park`, see "Parked tickets" in [queue.md](queue.md)) and releases the
+display lease, and an approval corner card shows at once, without the configured delay. The log
+reads `stepped aside: later`, then `parked: back from the card or the menu`. The panel comes back
+only from the card's Show (`approval card: show`) or the menu bar's Show Now (`answered from the
+menu: show`). Both go through `TicketQueue.showNow`, which unparks the ticket and puts it at the
+front of the queue, or right behind a panel on screen, and a ticket at the front shows without
+waiting for idle, as Show Now does for any request. The card's ✕ closes the card and leaves the
+request parked, so only the menu's Show Now brings it back. Quiet time hides the card while it lasts
+and shows it again after; the request stays parked. The menu's Deny still answers a parked request,
+and pausing Countersign abandons it silently, as it does any request.
+
+With approval cards switched off there is no card to come back from, so Later steps aside the way a
+lost focus does: the panel closes, the display lease is kept, and the panel returns on the next idle
+(`stepped aside: later`). A ticket that cannot be parked steps aside the same way after logging
+`failed to park: <error>`.
+
+**The timeout denies.** At the hand-back deadline ("Handing back before Cursor's timeout" below) a
+`.keepsWaiting` request prints a deny with `No answer in Countersign within an hour, so Cursor did
+not run this.` as both `user_message` and `agent_message` (`HandBackPolicy.timeoutOutcome()`),
+logs `denied: cursor timeout near`, records the deny in the decision history like any deny, and
+records no waiting notice, because the agent is not waiting on the person. That bends "nothing is
+ever decided by a timeout" on purpose, toward the safe side: the only alternatives are a hand-back
+that runs the command unasked, or Cursor's own timeout, which fails open. The user accepted the
+trade. It applies wherever the request is: in the grace period, queued, waiting for idle, parked
+or on screen.
+
+**The handoff is skipped.** The frontmost-app handoff assumes Cursor will ask the person itself.
+Here it would not, so `hook` logs `handoff: <bundle id> frontmost, kept (Cursor would run it
+unasked)` and shows the panel anyway.
+
+**The menu.** The ticket's summary carries `answersInChat: false`, so `MenuAnswer.offered(for:)`
+lists Show Now and Deny only.
 
 ### Handing back before Cursor's timeout
 
@@ -238,8 +419,10 @@ the command through without a word from anybody, so the Cursor hook hands back f
 (`TimeoutHandBack.entryTimeoutSeconds`, which is `HookSetup.timeoutSeconds`), that is 3540
 seconds after the hook process started, it prints `{"permission":"ask"}`, logs `handed back: cursor
 timeout near` (`TimeoutHandBack.logLine(for:)`), and exits 0, whether the request was in the grace
-period, queued, waiting for a pause or on screen. That is not a decision: Cursor shows its own prompt, as it does for "Answer in
-chat".
+period, queued, waiting for a pause or on screen. Under Allowlist and Ask Every Time that is not a
+decision: Cursor shows its own prompt, as it does for "Answer in chat". Under Auto-review, Run
+Everything or an unknown run mode the same deadline denies instead, because `ask` would run the
+command unasked (see "Esc under Auto-review and Run Everything" above).
 
 The clock is `ContinuousClock`, which keeps counting while the Mac sleeps. If Cursor's own timer
 pauses during sleep, the hand-back comes early rather than late. The payload does not carry the
@@ -264,6 +447,97 @@ hook process, the panel goes with it.
 Cursor's app, `com.todesktop.230313mzl4w4u92` in the log's `host app:` line, starts the hook from
 its extension host, so the process-tree walk above finds it like any other host app. `handoffApps`
 works for Cursor through that detection; there is no Cursor entry in the default list.
+
+### Reading Cursor's run mode and allowlist
+
+The hook uses Cursor's run mode and command allowlist to decide whether a request needs the panel.
+Both come from places Cursor does not promise to keep stable, so every read is defensive and every
+failure means "unknown", never a decision.
+
+The run mode and the in-app allowlist live in Cursor's settings database,
+`~/Library/Application Support/Cursor/User/globalStorage/state.vscdb`: a SQLite file in WAL mode
+with one table, `ItemTable (key TEXT UNIQUE ON CONFLICT REPLACE, value BLOB)`. The row we read is
+the key
+`src.vs.platform.reactivestorage.browser.reactiveStorageServiceImpl.persistentStorage.applicationUser`,
+whose value is JSON text. This is an undocumented internal. `CursorStateDatabase` opens the file
+with `SQLITE_OPEN_READONLY`, which works while Cursor has it open, waits at most 200 ms on a busy
+lock, and returns `nil` for a missing file, a file that is not a database, a missing table or a
+missing row. Nothing is written to stderr.
+
+Inside that JSON, `composerState.modes4` is a list of modes, and the entry with id `agent` decides
+the run mode. `CursorRunMode.resolve` maps it in one function:
+
+1. The `agent` entry is missing, or `autoRun` is not a bool: unknown.
+2. `autoRun` is false: asks every time, Cursor's deprecated "Ask Every Time".
+3. `fullAutoRun` or `smartModeAutoRun` is missing or not a bool: unknown.
+4. `fullAutoRun` is true, or `composerState.yoloEnableRunEverything` is true: run everything.
+5. `smartModeAutoRun` is true: auto-review.
+6. Otherwise: allowlist.
+
+This mapping was inferred from one machine's database and the documented run modes (Auto-review,
+Allowlist, Run Everything), so the fixture is a trimmed copy of that one value. It was then checked
+live on Cursor 3.23.12 by switching the run mode in Cursor and reading the row each time:
+Auto-review, Allowlist and Run Everything each resolve to their own mode. Run Everything sets
+`fullAutoRun` to true and `smartModeAutoRun` to false, and leaves `yoloEnableRunEverything` false,
+so that key is kept only as a second signal. Keeping the mapping in one function makes a
+correction a one-line change.
+
+`composerState.yoloCommandAllowlist` is the in-app command allowlist: an array of strings, or
+unknown when it is absent or holds anything else.
+
+Cursor also reads `terminalAllowlist`, an array of strings, from `~/.cursor/permissions.json` (per
+user) and `<workspace>/.cursor/permissions.json` (per repo). When both files exist Cursor
+concatenates the arrays, and once either file defines the field the in-app list is not used.
+`CursorCommandAllowlist.resolve` follows that: the defined arrays are joined in order, user file
+first, and only when neither file defines the field does the in-app list apply. An empty array is a
+defined, empty list. Cursor documents the file as `jsonc`, so it is decoded with
+`allowsJSON5` to accept comments and trailing commas. A missing file, an unparseable file, a root
+that is not an object, an absent key, a value that is not an array, or one non-string element all
+count as "the file does not define the field". With no list from any source the allowlist is
+unknown, and the hook shows the panel as it does today.
+
+The database is read through `import SQLite3`, the system library in the macOS SDK, so it adds no
+dependency. An in-process read takes about a millisecond; spawning `sqlite3` for every hook would
+cost a process launch each time, on a path that runs for every Cursor request.
+
+### Commands on Cursor's allowlist
+
+A shell command that Cursor would run without asking gets no panel. The skip applies only when the
+request is a shell command (never an MCP call; Cursor's MCP allowlist is not read), the run mode is
+allowlist, auto-review or run everything, and the allowlist is known. In Cursor's deprecated "Ask
+Every Time" mode, or when the mode is unknown, Cursor asks about every command whatever the list
+says, so the panel shows.
+
+Cursor documents the matching at cursor.com/docs/reference/permissions: "Matching is case-sensitive
+and uses prefix semantics: `git` matches `git status` but not `gitk`."; the entry `git status`
+matches "Only `git status` (and anything starting with `git status `)"; and `npm:install*` matches
+"`npm install`, `npm install express`, etc. The `:` separates the base command from an args glob."
+`CommandPattern` implements exactly that: without a colon the segment equals the pattern or starts
+with it followed by a space or tab; with a colon the segment's first word must equal the part
+before the first colon and the rest of the segment must match the glob as a whole, where `*` is the
+only wildcard.
+
+Cursor does not document how compound commands (`&&`, `|`, `;`) are matched, so Countersign is
+strict: `ShellCommandSegments` splits the command at `&&`, `||`, `;`, `|`, `|&`, a lone `&` and a
+newline, outside quotes, and every part must match a pattern. A backslash escapes the next
+character outside single quotes, single quotes are literal, and `&` inside a redirection (`2>&1`,
+`>&2`, `&>`, `&>>`) is not a separator. When the splitter cannot tell what runs, it returns
+`nil` and the panel shows: a command substitution `$(`, a backtick, a process substitution `<(` or
+`>(` outside single quotes, any parenthesis outside quotes (subshells, groupings, function
+definitions) or an unclosed quote. Showing a panel Cursor would not have shown is the cheaper
+mistake, the same reasoning as "Only unsandboxed commands" above; skipping a command Cursor would
+have asked about hands a decision back to Cursor that the person expected Countersign to ask.
+
+`CommandPattern` and `ShellCommandSegments` are general `ApprovalCore` API, not Cursor-only:
+Countersign's own allow and deny rules will match commands the same way.
+
+The skip is the same as the sandboxed skip: one log line, exit 0, empty stdout, so Cursor carries
+on with its own flow and an allowlisted command then runs. Countersign never prints `allow` here,
+because it is not the one deciding. Every Cursor request that reaches this check logs
+`cursor: run mode <mode>, allowlist <n> from <the app|permissions.json>` (or `allowlist
+unreadable`) first, and a skipped one then logs `skipped: on Cursor's allowlist`. The workspace
+root for `<workspace>/.cursor/permissions.json` is the request's `cwd`, which the adapter takes
+from the first `workspace_roots` entry, else Cursor's `cwd`.
 
 ## The Antigravity adapter
 
@@ -347,7 +621,8 @@ is [google-antigravity/antigravity-cli#1053](https://github.com/google-antigravi
 open upstream. Antigravity still ships as a normal host, wired by setup like the others, because
 everything else works: the panel queues and waits like any other, **Deny** blocks, and "Answer in
 chat" hands over. Until the bug is fixed, **Approve** is followed by Antigravity's own prompt, so
-the person approves twice. The README, [limitations.md](../limitations.md),
+the person approves twice, and `Host.honorsHookAllow` is false, so the panel offers no Approve ▾ →
+Always allow (see "Always allow" in [rules.md](rules.md)). The README, [limitations.md](../limitations.md),
 [agents.md](../agents.md), [troubleshooting.md](../troubleshooting.md), the Antigravity table in
 [answers.md](answers.md) and an `info` line in `countersign doctor` and the Agents rows, both built
 from `AgentFollowUps.antigravityGoodToKnow` (see "Follow-up lines" in [setup.md](setup.md)), say so.

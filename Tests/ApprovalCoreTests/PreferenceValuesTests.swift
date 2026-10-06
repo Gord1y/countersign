@@ -4,13 +4,65 @@ import Testing
 @testable import ApprovalCore
 
 @Suite struct PreferenceValuesTests {
+  @Test func appliesEveryContextEdit() {
+    var values = PreferenceValues()
+    values = values.applying(.contextCheckpointsEnabled(true))
+    values = values.applying(.contextMode(.silent))
+    values = values.applying(.contextStandardThresholds([1, 2, 3]))
+    values = values.applying(.contextMillionThresholds([4, 5, 6]))
+    values = values.applying(.setContextModelThresholds(prefix: "claude-opus", ladder: [7, 8, 9]))
+    values = values.applying(.setContextModelThresholds(prefix: "claude-haiku", ladder: [1]))
+    values = values.applying(.removeContextModelThresholds(prefix: "claude-haiku"))
+    values = values.applying(.contextRearmBelow(0.5))
+    values = values.applying(.contextHandoffFile("h.md"))
+    values = values.applying(.contextNote(.contextNoteSoft, "a"))
+    values = values.applying(.contextNote(.contextNoteStatus, "b"))
+    values = values.applying(.contextNote(.contextNoteInsist, "c"))
+    values = values.applying(.contextNote(.contextNoteCompact, "d"))
+    values = values.applying(.contextNote(.contextNoteHandoff, "e"))
+    values = values.applying(.contextMenuBarMeter(true))
+    #expect(
+      values.contextCheckpoints
+        == ContextCheckpointSettings(
+          enabled: true, mode: .silent, standardThresholds: [1, 2, 3],
+          millionThresholds: [4, 5, 6], modelThresholds: ["claude-opus": [7, 8, 9]],
+          rearmBelow: 0.5, handoffFile: "h.md",
+          notes: ContextCheckpointNotes(
+            soft: "a", status: "b", insist: "c", compact: "d", handoff: "e"),
+          menuBarMeter: true))
+  }
+
+  @Test func resetsEveryContextNameToItsDefault() {
+    var values = PreferenceValues()
+    values = values.applying(.contextMode(.silent))
+    values = values.applying(.contextNote(.contextNoteSoft, "a"))
+    values = values.applying(.setContextModelThresholds(prefix: "x", ladder: [1]))
+    values = values.applying(.contextMenuBarMeter(true))
+    for name in PreferenceName.allCases {
+      values = values.applying(.reset(name))
+    }
+    #expect(values == PreferenceValues())
+  }
+
+  @Test func readsTheTopLevelContextBlockFromTheFile() {
+    let file = ConfigFile(
+      contextCheckpoints: ContextCheckpointFileValues(
+        enabled: true, mode: .silent, notes: ["soft": "a"]))
+    let settings = PreferenceValues(file: file).contextCheckpoints
+    #expect(settings.enabled)
+    #expect(settings.mode == .silent)
+    #expect(settings.notes.soft == "a")
+    #expect(settings.notes.status == ContextCheckpointNotes.default.status)
+    #expect(PreferenceValues(file: ConfigFile()).contextCheckpoints == .default)
+  }
+
   @Test func startsFromTheBuiltInDefaults() {
     let values = PreferenceValues()
     #expect(values.armDelay == Settings.defaultArmDelay)
     #expect(values.chainedArmDelay == Settings.defaultChainedArmDelay)
     #expect(values.idleSeconds == Settings.defaultIdleSeconds)
     #expect(values.graceSeconds == Settings.defaultGraceSeconds)
-    #expect(values.snoozeMinutes == Settings.defaultSnoozeMinutes)
+    #expect(values.snoozePresets == Settings.defaultSnoozePresets)
     #expect(values.handoffApps == Settings.defaultHandoffApps)
     #expect(values.checkForUpdates == Settings.defaultCheckForUpdates)
     #expect(values.quitBehavior == .ask)
@@ -22,14 +74,14 @@ import Testing
   @Test func readsEveryTopLevelKeyFromTheFile() {
     let file = ConfigFile(
       armDelay: 1.5, chainedArmDelay: 0.3, idleSeconds: 8, graceSeconds: 2,
-      handoffApps: ["com.x"], snoozeMinutes: [10], checkForUpdates: true, quitBehavior: .pause,
+      handoffApps: ["com.x"], snoozePresets: [600], checkForUpdates: true, quitBehavior: .pause,
       modeAfterPlan: .auto, questionNotes: true,
       claude: ConfigFile.HostOverrides(armDelay: 3))
     #expect(
       PreferenceValues(file: file)
         == PreferenceValues(
           armDelay: 1.5, chainedArmDelay: 0.3, idleSeconds: 8, graceSeconds: 2,
-          snoozeMinutes: [10], handoffApps: ["com.x"], checkForUpdates: true,
+          snoozePresets: [600], handoffApps: ["com.x"], checkForUpdates: true,
           quitBehavior: .pause, modeAfterPlan: .auto, questionNotes: true))
   }
 
@@ -51,7 +103,8 @@ import Testing
     #expect(values.applying(.chainedArmDelay(0.4)) == PreferenceValues(chainedArmDelay: 0.4))
     #expect(values.applying(.idleSeconds(7)) == PreferenceValues(idleSeconds: 7))
     #expect(values.applying(.graceSeconds(3)) == PreferenceValues(graceSeconds: 3))
-    #expect(values.applying(.snoozeMinutes([2, 4])) == PreferenceValues(snoozeMinutes: [2, 4]))
+    #expect(
+      values.applying(.snoozePresets([120, 240])) == PreferenceValues(snoozePresets: [120, 240]))
     #expect(values.applying(.checkForUpdates(true)) == PreferenceValues(checkForUpdates: true))
     #expect(values.applying(.quitBehavior(.pause)) == PreferenceValues(quitBehavior: .pause))
     #expect(
@@ -66,11 +119,11 @@ import Testing
 
   @Test func applyingTheShownValueChangesNothing() {
     let values = PreferenceValues(
-      armDelay: 1.5, idleSeconds: 8, snoozeMinutes: [10], handoffApps: ["com.a"],
+      armDelay: 1.5, idleSeconds: 8, snoozePresets: [600], handoffApps: ["com.a"],
       quitBehavior: .keepShowing)
     #expect(values.applying(.armDelay(1.5)) == values)
     #expect(values.applying(.idleSeconds(8)) == values)
-    #expect(values.applying(.snoozeMinutes([10])) == values)
+    #expect(values.applying(.snoozePresets([600])) == values)
     #expect(values.applying(.quitBehavior(.keepShowing)) == values)
     #expect(values.applying(.modeAfterPlan(Settings.defaultModeAfterPlan)) == values)
     #expect(values.applying(.checkForUpdates(Settings.defaultCheckForUpdates)) == values)
@@ -80,10 +133,10 @@ import Testing
 
   @Test func resetRestoresTheBuiltInDefaultOfOneName() {
     let values = PreferenceValues(
-      armDelay: 1.5, snoozeMinutes: [10], handoffApps: ["com.a"], quitBehavior: .pause,
+      armDelay: 1.5, snoozePresets: [600], handoffApps: ["com.a"], quitBehavior: .pause,
       modeAfterPlan: .auto, questionNotes: true)
     #expect(values.applying(.reset(.armDelay)).armDelay == Settings.defaultArmDelay)
-    #expect(values.applying(.reset(.snoozeMinutes)).snoozeMinutes == Settings.defaultSnoozeMinutes)
+    #expect(values.applying(.reset(.snoozeMinutes)).snoozePresets == Settings.defaultSnoozePresets)
     #expect(values.applying(.reset(.handoffApps)).handoffApps == Settings.defaultHandoffApps)
     #expect(values.applying(.reset(.quitBehavior)).quitBehavior == Settings.defaultQuitBehavior)
     #expect(
@@ -99,7 +152,7 @@ import Testing
     #expect(
       values.applying(.reset(.armDelay))
         == PreferenceValues(
-          snoozeMinutes: [10], handoffApps: ["com.a"], quitBehavior: .pause,
+          snoozePresets: [600], handoffApps: ["com.a"], quitBehavior: .pause,
           modeAfterPlan: .auto, questionNotes: true))
   }
 
@@ -126,7 +179,7 @@ import Testing
     let values = PreferenceValues(file: ConfigFileParser.parse(Data(original)).file)
     let edits: [PreferenceEdit] = [
       .armDelay(1.1), .chainedArmDelay(0), .idleSeconds(12), .graceSeconds(3),
-      .snoozeMinutes([2, 4]), .addHandoffApp("com.c"), .removeHandoffApp("com.a"),
+      .snoozePresets([120, 240]), .addHandoffApp("com.c"), .removeHandoffApp("com.a"),
       .checkForUpdates(true), .questionNotes(true), .quitBehavior(.pause),
       .modeAfterPlan(.acceptEdits),
     ]

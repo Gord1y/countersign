@@ -83,18 +83,12 @@ struct AdvancedSection: View {
   }
 }
 
-private struct EditorAppOption: Identifiable {
-  let id: String
-  let name: String
-  let icon: NSImage
-}
-
 private struct EditorAppMenu: View {
   let model: SettingsModel
 
   var body: some View {
     Menu {
-      Button(defaultAppLabel) { model.reset(.editorApp) }
+      Button(PreferenceName.editorApp.defaultText) { model.reset(.editorApp) }
       ForEach(installedApps) { app in
         Button {
           model.setEditorApp(app.id)
@@ -115,29 +109,12 @@ private struct EditorAppMenu: View {
     .fixedSize()
   }
 
-  private var defaultAppLabel: String {
-    guard let name = defaultAppName else { return PreferenceName.editorApp.defaultText }
-    return "Default app (\(name))"
-  }
-
-  private var defaultAppName: String? {
-    guard let url = NSWorkspace.shared.urlForApplication(toOpen: model.configFile) else {
-      return nil
-    }
-    return FileManager.default.displayName(atPath: url.path)
-  }
-
   private var installedApps: [EditorAppOption] {
-    NSWorkspace.shared.urlsForApplications(toOpen: model.configFile).compactMap { url in
-      guard let bundleID = Bundle(url: url)?.bundleIdentifier else { return nil }
-      return EditorAppOption(
-        id: bundleID, name: FileManager.default.displayName(atPath: url.path),
-        icon: NSWorkspace.shared.icon(forFile: url.path))
-    }
+    EditorApps.installed(opening: model.configFile)
   }
 
   private var menuTitle: String {
-    guard let bundleID = model.editorApp else { return defaultAppLabel }
+    guard let bundleID = model.editorApp else { return PreferenceName.editorApp.defaultText }
     if let match = installedApps.first(where: { $0.id == bundleID }) {
       return match.name
     }
@@ -145,14 +122,7 @@ private struct EditorAppMenu: View {
   }
 
   private func chooseOtherApp() {
-    let panel = NSOpenPanel()
-    panel.allowedContentTypes = [.application]
-    panel.directoryURL = URL(fileURLWithPath: "/Applications")
-    panel.allowsMultipleSelection = false
-    panel.canChooseDirectories = false
-    guard panel.runModal() == .OK, let url = panel.url,
-      let bundleID = Bundle(url: url)?.bundleIdentifier
-    else { return }
-    model.setEditorApp(bundleID)
+    guard let picked = EditorApps.pickApplication() else { return }
+    model.setEditorApp(picked.id)
   }
 }

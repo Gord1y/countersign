@@ -8,7 +8,7 @@ private struct QuestionContentWidthPreferenceKey: PreferenceKey {
   }
 }
 
-private struct QuestionCardBackground: ViewModifier {
+struct QuestionCardBackground: ViewModifier {
   let selected: Bool
   let isHovering: Bool
 
@@ -31,18 +31,20 @@ private struct QuestionCardBackground: ViewModifier {
   }
 }
 
-private struct OptionCard<Content: View>: View {
+struct OptionCard<Content: View>: View {
   let selected: Bool
+  let shortcut: String?
   let action: () -> Void
   let content: Content
 
   @State private var isHovering = false
 
   init(
-    selected: Bool, action: @escaping () -> Void,
+    selected: Bool, shortcut: String? = nil, action: @escaping () -> Void,
     @ViewBuilder content: () -> Content
   ) {
     self.selected = selected
+    self.shortcut = shortcut
     self.action = action
     self.content = content()
   }
@@ -54,6 +56,9 @@ private struct OptionCard<Content: View>: View {
         .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
+    .accessibilityElement(children: .combine)
+    .accessibilityAddTraits(selected ? .isSelected : [])
+    .accessibilityHint(shortcut.map(PanelAnnouncement.shortcutHint(for:)) ?? "")
     .onHover { hovering in isHovering = hovering }
   }
 }
@@ -179,6 +184,7 @@ struct QuestionView: View {
         Text(tabLabel(index))
         if answered {
           Image(systemName: "checkmark")
+            .accessibilityHidden(true)
         }
       }
       .font(.system(size: 12, weight: .medium))
@@ -192,6 +198,8 @@ struct QuestionView: View {
       )
     }
     .buttonStyle(.plain)
+    .accessibilityValue(answered ? "Answered" : "")
+    .accessibilityAddTraits(selected ? .isSelected : [])
   }
 
   @ViewBuilder
@@ -234,6 +242,7 @@ struct QuestionView: View {
     let selected = answers[index].selectedOptions.contains(optionIndex)
     return OptionCard(
       selected: selected,
+      shortcut: "\(optionIndex + 1)",
       action: { pickOption(questionIndex: index, optionIndex: optionIndex) },
       content: {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -241,6 +250,7 @@ struct QuestionView: View {
           Text(Image(systemName: indicatorSymbol(selected: selected, multiSelect: multiSelect)))
             .font(.system(size: 13))
             .foregroundStyle(selected ? CountersignPalette.accentText : Color.secondary)
+            .accessibilityHidden(true)
           VStack(alignment: .leading, spacing: 2) {
             Text(option.label)
               .font(.system(size: 13, weight: .medium))
@@ -412,6 +422,7 @@ struct QuestionView: View {
         }
       }
       .buttonStyle(PrimaryButtonStyle())
+      .panelPrimaryAccessibility(shortcut: "⏎", model: model)
       .disabled(!model.isArmed || !allAnswered)
     }
   }

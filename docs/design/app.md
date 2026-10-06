@@ -58,9 +58,9 @@ switches the app to `NSApplication.ActivationPolicy.regular` while its window is
 `.accessory` when it closes, so Settings gets a Dock icon and a ⌘-Tab entry for exactly as long as
 it needs one. This applies whether Settings was opened from the menu-bar companion or from the bare
 `countersign settings` CLI binary; the CLI binary has no bundle and so no `CFBundleIconFile`, which
-is why `SettingsWindowController` also renders `CountersignMark` at 256pt into
-`NSApplication.applicationIconImage` the first time it needs to show a Dock icon, rather than
-leaving the Dock to fall back to a generic one.
+is why `SettingsWindowController` also renders `CountersignMark` at 256pt, at the backing scale of
+the screen the Settings window is on, into `NSApplication.applicationIconImage` the first time it
+needs to show a Dock icon, rather than leaving the Dock to fall back to a generic one.
 
 ## Why ad-hoc signing
 
@@ -172,6 +172,28 @@ what the header and the widely used LaunchAtLogin-Modern package (which pairs
 `SMAppService.mainApp` with the same check) rely on; it has not been checked on a real login here
 yet, so the log says which it was: `companion: started at login` or `companion: started`.
 
+#### After an upgrade
+
+0.2.0 turns on waiting-agent notices and context checkpoints by default, and both need hook entries
+that only setup or Settings ▸ Agents writes. Nothing else tells a 0.1.0 user, so those features
+would silently never fire. The first time a new version's companion starts, if any agent needs an
+update, it opens Settings on the Agents pane, where the rows already show "Needs an update" with an
+Update button that shows its change before writing. No new UI; the update check stays off by
+default.
+
+`applicationDidFinishLaunching` decides this after the settings observer is added and before the
+login or manual branch. `UpgradeNudge.isUpgrade` compares `last-seen-version`
+(`AppPaths.lastSeenVersionFile`) with `CountersignVersion.current`, then the file is rewritten with
+the current version, so the nudge happens once per version. If writing the file fails, the log says
+`companion: could not record the version` and the next launch asks again. 0.1.0 wrote no version file, so without one the answer
+is whether `tour-shown` exists: a 0.1.0 user has it once they opened Settings, and a fresh install
+has neither file and gets the first-run tour instead, so it is not an upgrade. When it is an upgrade
+the companion computes every agent's `HostWiring.status` with the inputs `countersign setup` uses,
+and `UpgradeNudge.needsAgentUpdate` is true for any `needsUpdate`; not installed, not wired, wired
+and unusable never count. The Agents pane then replaces both the login and the manual branch for
+that launch, so a login launch opens it too. The log says `companion: first run of <version>; an
+agent needs an update, opening Settings ▸ Agents` or `...; agents are up to date`.
+
 When the companion is already running, there are two ways the second opening reaches it:
 
 - LaunchServices usually finds the running app and sends it a reopen event instead of starting a
@@ -222,10 +244,17 @@ action, and `ApprovalCoreTests` covers it. `CompanionController` in `MenuBarComp
 renders those items into `NSMenuItem`s, with `autoenablesItems` off so the model's enabled state
 is the one shown, and performs the chosen `CompanionMenuAction`.
 
+`CompanionMenuInput.contextRows` carries the context meter: `currentInput()` fills it when the menu
+opens, only if context checkpoints and `menuBarMeter` are on for Claude Code, and `items` turns a
+non-empty list into a "Context in live sessions" submenu of disabled rows right after the pending
+entry. Nothing refreshes it while the menu is closed, and the icon's 2 s timer never touches
+transcripts. See [checkpoints.md](checkpoints.md#the-menu-bar-meter).
+
 | Item | What it does | File |
 | --- | --- | --- |
 | "Countersign is on", "Paused" or "Quiet until 14:05" | Disabled status line; paused wins over quiet time. The time is local, `HH:mm`, from `TimeOfDayText`, the same formatter `countersign status` uses | reads `paused`, `quiet-until` |
-| "N requests pending" | Submenu listing every live ticket oldest first, read-only. "No requests pending", disabled, when there are none | reads `queue/` |
+| "N requests pending" | Submenu listing every live ticket in queue order. Each row is a submenu of "Show Now", "Deny" and "Answer in Chat", or "Show Now" alone for a checkpoint or an unreadable ticket, each writing that ticket's answer file (see "Answering from the menu bar" in [queue.md](queue.md)). "No requests pending", disabled, when there are none | reads `queue/`, writes `queue/<id>.answer` |
+| "Recent Decisions" | Submenu of the last ten `DecisionHistory` entries, newest first, disabled rows like `✓ Bash · shop-api · 14:05 — git status`, then a separator and "Clear History" (`DecisionHistory.clear()`). One disabled "No decisions yet" row when empty | reads and clears `history.jsonl` |
 | "Pause Countersign" / "Resume Countersign" | `StateSwitches.pause()` ends quiet time then pauses, exactly `countersign pause`; "Resume Countersign" is `PauseSwitch.resume()`, exactly `countersign resume` | writes `paused`, `quiet-until` |
 | "Snooze" | Disabled with no submenu while paused; while quiet time is active, replaced by a single "End Quiet Time (until 14:05)" entry (`QuietTime.clear()`); otherwise quiet time for each preset (`StateSwitches.snooze(until:)`) | writes `quiet-until` |
 | "Settings…" (⌘,) | Opens the settings window, or brings it to the front | through the window |
@@ -235,6 +264,26 @@ is the one shown, and performs the chosen `CompanionMenuAction`.
 | "Support the Developer" | "Sponsor on GitHub" opens `https://github.com/sponsors/Gord1y`, "Buy Me a Coffee" opens `https://buymeacoffee.com/gord1y` | none |
 | "Countersign 0.1.0" | Disabled, from `CountersignVersion.current` | none |
 | "Quit Countersign" (⌘Q) | Asks whether panels keep appearing, then quits the companion, and only the companion (see "Quit" below) | may write `quitBehavior`, `paused` |
+
+`ApprovalCore.DecisionHistory` is the store behind "Recent Decisions": `history.jsonl` in the
+support directory, one `DecisionHistoryEntry` per line (`date`, `host`, `project`, `tool`,
+`title`, `answer`), written by the hook process, read by the companion. A file was chosen over
+the log because the log rotates by size and is free text, and over one file per entry because the
+menu wants the newest ten in one read. The hook that finishes a real panel appends its own line
+(`DecisionAnswer.answer(for:checkpointChoice:isCheckpoint:)` maps the outcome), and so does a hook
+that stops because the chat resolved its request while it was queued, waiting for idle or shown
+(`resolvedElsewhere`); a pause ending a request is not a decision and writes nothing, and test
+panels never write. Several hooks can finish at once, so `append` takes an exclusive `flock` on
+`history.lock` (retrying for about two seconds, since `ExclusiveFileLock.acquire` never blocks),
+rewrites the file atomically, and trims to the last 200 lines only once it passes 250, so most
+appends stay a plain append-and-replace of a small file instead of a trim every time. `recent`
+skips any line that does not decode, so a hand-edited or half-written file costs a row, never the
+menu. A failed append is logged as `history: failed to record` and ignored; the reply to the
+agent has already been written by then, so it can never change an answer. The `title` is the one
+place a fragment of the request is kept: `DecisionTitle` reduces it to a command's first line, a
+file name, an MCP tool name or a question header, cut to 80 characters, so a multi-line script, a
+diff or an answer never lands on disk. The menu reads the file when it opens, like the context
+meter, and never refreshes it while closed.
 
 `TimeOfDayText` pins the `en_US_POSIX` locale, Apple's advice for fixed-format dates, so the
 person's own locale and 12/24-hour preference never rewrite `HH:mm`; `countersign status` and
@@ -246,7 +295,11 @@ to its agent type, when the ticket has one (`TicketSummary.agentLabel`, shared b
 whose content cannot be decoded still gets a row, "Unknown request", so the count in the title and
 the number of rows always agree. The list comes from `TicketQueue.waitingEntries()` (see "Listing
 waiters, not just counting them" in [queue.md](queue.md)), which prunes dead tickets exactly as
-`countersign status` does; the companion never takes the display lock.
+`countersign status` does; the companion never takes the display lock. Each entry carries its
+ticket's id, and the row's actions (`CompanionMenuAction.answerPending(ticketID:answer:)`) hand it
+to `TicketQueue.sendMenuAnswer`, which writes `queue/<id>.answer` for the hook to act on; the
+companion logs `companion: answered request <id> from the menu: <answer>`, or
+`companion: request <id> was already gone` when the ticket has left in the meantime.
 
 The Snooze presets are the top-level `snoozeMinutes` from the config file, falling back to
 `Settings.defaultSnoozeMinutes`; the `hosts.*` blocks never apply, since the companion acts for no
@@ -257,12 +310,39 @@ no decision, and a panel on screen steps aside on its next tick when quiet time 
 time" in [panel.md](panel.md)).
 
 `ApprovalCore.StateSwitches` is the one place that keeps pause and quiet time consistent: pausing,
-from the menu, `countersign pause`, the Settings status card or the quit question's "Pause until I
+from the menu, `countersign pause`, the Settings header's Pause button or the quit question's "Pause until I
 reopen", always clears quiet time first, and snoozing while paused is refused
 (`SnoozeRefusal.paused`) rather than silently queued. A pause already sends every request to its
 agent's own chat, so a snooze underneath it would only resurface later as a surprise once the pause
 ends. `countersign snooze off` still clears quiet time on its own, since ending quiet time is never
 a surprise.
+
+Quiet time has two sources, a snooze (the `quiet-until` file) and the scheduled `quietHours`
+windows from the config file, and `ApprovalCore.QuietState.activeUntil(now:)` is the one accessor
+every reader goes through: the hook's idle gate and its on-screen step-aside, the menu-bar icon and
+menu, the Settings header, `countersign status` and `doctor`. It returns the later end of an active
+snooze and an active window, or nil, so readers keep receiving a single `Date?` and
+`CountersignStatus` and the menu model know nothing about windows. Going through one accessor is
+what stops a reader from honouring the snooze and forgetting the schedule. A snooze started during a
+window therefore extends quiet time only when it ends later, with no special case.
+
+`QuietSchedule.activeWindow(at:)` is pure, with the date and calendar injected. A window belongs to
+the day it starts on, so it looks at today's and yesterday's occurrences: Friday 22:00 to 09:00 is
+active on Saturday 03:00 because the Friday occurrence has not ended. Start and end are built with
+`Calendar.date(bySettingHour:)` on that day rather than by adding a duration, so a window follows
+the wall clock across a daylight-saving change. Windows that touch or overlap are merged into one
+run: a window starting exactly when the current run ends extends it, repeatedly, looking at most
+seven days ahead. The returned end is the run's real end, so "Quiet until" is honest and End now
+skips the whole run rather than resuming quiet time at the next joint. The end is exclusive: at exactly `to` the window is
+over.
+
+Ending quiet time (the menu's "End Quiet Time", the Settings header's End now, `countersign snooze
+off`) is `QuietState.endNow(now:)`. It clears the snooze and, when a window is active, writes that
+window's end to `quiet-hours-skipped-until`, which `QuietState` honours: a window whose end is not
+after the stored time counts as skipped. Storing the end rather than a flag means the skip lapses
+by itself, and the next occurrence of the window applies normally. Pause is unchanged and still
+wins, because `CountersignStatus` checks it before quiet time. Windows are read from `config.json`
+whenever quiet state is read, and the hook uses the settings it resolved when it started.
 
 The Help submenu is the same on every install and needs no input: "Documentation" opens the
 README on GitHub, "Ask a Question…" opens a new GitHub Discussion under the Q&A category, and
@@ -490,7 +570,7 @@ left as it is. Reading the content and removing the file are two steps, so a `co
 landing in the microseconds between them would be removed with the marked pause.
 
 `countersign status` (`state: paused until Countersign opens`), the `doctor` report's `state` line
-and the Settings window's status row ("Paused until Countersign opens") name a marked pause, through
+and the Settings window's header ("Paused until Countersign opens") name a marked pause, through
 `PauseState.description` and `CountersignStatus.pausedUntilAppOpens`. The menu's status line and
 icon only see a plain pause, since the companion ends a marked one as it starts.
 

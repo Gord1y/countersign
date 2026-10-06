@@ -8,6 +8,20 @@ for something specific, or when it behaves differently from what you expected an
 
 - Countersign cannot tell which chat tab you are looking at. The idle rule and the fast "answered
   in chat" detection are what keep it out of the way for the chat you are reading.
+- A panel waits while Mission Control or App Exposé is open. macOS has no public way to tell that
+  either is showing, so Countersign recognizes the Dock window macOS 26 draws for them; if a later
+  macOS draws them differently, a panel can again open while they are on screen after a pause.
+  Trackpad gestures on their own don't count as activity, because resting fingers on the trackpad
+  look the same to Countersign as a gesture.
+- The waiting-agent notice cannot bring a specific terminal tab or window forward, only the app
+  the agent runs in: **Go there** opens that app, and you find the session yourself.
+- The notice cannot tell a turn that ends with a question in the chat from any other finished
+  turn, so both look the same: the agent is waiting for you.
+- Headless sessions, such as `claude -p`, never get a notice, since nobody is at a chat to answer
+  them.
+- The panel has no Tab loop. It owns the keyboard through its own key handling, so VoiceOver
+  navigates it with its own cursor and presses controls with VoiceOver's press command, and every
+  action also has its shortcut. Dynamic Type is not supported.
 
 ## Claude Code
 
@@ -16,6 +30,13 @@ for something specific, or when it behaves differently from what you expected an
   release changes them, the panel still works; it just stays up until you close it.
 - Two prompts pending in the same Claude session share one status, so if you answer one in the
   chat, the other's panel only notices once its tool finishes.
+- Context checkpoints are Claude Code only; Codex, Cursor and Antigravity have none.
+- A context reading can lag one turn, because Claude Code writes the transcript asynchronously,
+  and it is an estimate from the token counts in that transcript: a nudge, not a meter.
+- The panel cannot run `/compact` or `/clear`. It steers Claude with a note, and Claude's reply
+  tells you what to run.
+- A checkpoint prints no line in the terminal: Claude Code never shows the messages of a hook that
+  runs in the background.
 
 ## Codex
 
@@ -26,6 +47,13 @@ for something specific, or when it behaves differently from what you expected an
 
 ## Cursor
 
+- Cursor can't yet take an approval from a hook: it ignores "allow" and decides by its own run
+  mode, a bug Cursor's staff have confirmed
+  ([forum thread](https://forum.cursor.com/t/support-authoritative-allow-deny-and-ask-verdicts-from-hooks/161342)).
+  So in Allowlist mode **Approve** in the panel is followed by Cursor's own prompt, and you approve
+  twice; in Auto-review Cursor's AI review decides. **Deny** works right away. For the same reason
+  the panel offers no **Always allow** for Cursor. Once Cursor fixes it, Approve will be enough,
+  with nothing to change in Countersign.
 - Cursor is asked only about shell commands it runs outside its sandbox and about MCP tool calls;
   file edits and sandboxed commands follow Cursor's own settings.
 - Cursor's hooks cover only shell commands and MCP tool calls, so its own questions and its file
@@ -39,8 +67,8 @@ for something specific, or when it behaves differently from what you expected an
 - Antigravity can't yet take an approval from a hook: it ignores "allow" and asks you itself
   anyway ([google-antigravity/antigravity-cli#1053](https://github.com/google-antigravity/antigravity-cli/issues/1053)).
   So for now **Approve** in the panel is followed by Antigravity's own prompt, and you approve
-  twice; **Deny** works right away. Once Google fixes it, Approve will be enough, with nothing to
-  change in Countersign.
+  twice; **Deny** works right away. For the same reason the panel offers no **Always allow** for
+  Antigravity. Once Google fixes it, Approve will be enough, with nothing to change in Countersign.
 - Antigravity is asked only about commands and MCP tool calls, and a request is never noticed as
   answered elsewhere.
 - Only the `agy` CLI was tried by hand; the Antigravity app and IDE read the same hooks file but

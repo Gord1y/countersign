@@ -24,6 +24,8 @@ case "test-panel":
   TestPanelCommand.run(Array(arguments.dropFirst()))
 case "snapshot":
   SnapshotCommand.run(Array(arguments.dropFirst()))
+case WaitingRecorder.noticeCommand:
+  WaitingNoticeCommand.run(Array(arguments.dropFirst()))
 case "pause":
   StatusCommand.pause()
 case "resume":

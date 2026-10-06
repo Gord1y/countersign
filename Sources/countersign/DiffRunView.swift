@@ -111,6 +111,22 @@ final class DiffRunHostView: NSView {
   override var isFlipped: Bool { true }
   override var allowsVibrancy: Bool { false }
 
+  override func accessibilityRole() -> NSAccessibility.Role? { .group }
+
+  override func accessibilityChildren() -> [Any]? {
+    guard let window else { return [] }
+    let showsNumbers = gutter == .numbered
+    return zip(lines, rowSpans).map { line, span in
+      let rowFrame = NSRect(x: 0, y: span.top, width: bounds.width, height: span.bottom - span.top)
+      let element = NSAccessibilityElement()
+      element.setAccessibilityRole(.staticText)
+      element.setAccessibilityParent(self)
+      element.setAccessibilityLabel(DiffLineSpeech.label(for: line, showsNumbers: showsNumbers))
+      element.setAccessibilityFrame(window.convertToScreen(convert(rowFrame, to: nil)))
+      return element
+    }
+  }
+
   private var contentHeight: CGFloat { rowSpans.last?.bottom ?? 0 }
 
   func update(lines: [NumberedLine], gutter: DiffGutter) {

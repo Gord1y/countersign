@@ -7,7 +7,8 @@ private let brewPath = "/opt/homebrew/bin/countersign"
 
 private func install(_ text: String?, path: String = brewPath) throws -> String {
   let bytes = try HookSetup.install(
-    into: text.map { Array($0.utf8) }, host: .cursor, executablePath: path)
+    into: text.map { Array($0.utf8) }, host: .cursor, executablePath: path,
+    addsWaitingEntry: false)
   return String(decoding: bytes, as: UTF8.self)
 }
 

@@ -33,6 +33,108 @@ top-level keys:
 Codex's `hooks.json` gets the same shape with `--host codex` and one more field,
 `"statusMessage": "Waiting for the approval panel"`.
 
+### The Context checkpoints entry
+
+While Context checkpoints are on, which is the default, Claude Code's file gets a second entry,
+under `hooks.UserPromptSubmit`, in one group without a `matcher` (the event has none):
+
+```json
+"hooks": {
+  "UserPromptSubmit": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "/opt/homebrew/bin/countersign hook --host claude",
+          "async": true,
+          "timeout": 3600
+        }
+      ]
+    }
+  ]
+}
+```
+
+The command is the same string as the `PermissionRequest` entry's; the hook tells the two events
+apart by `hook_event_name` in its input. Three facts decide the shape:
+
+- `async: true` keeps the prompt from waiting. Claude Code runs the hook in the background,
+  applies no timeout to it once backgrounded, and delivers its `additionalContext` at Claude's
+  next request (verified live on Claude Code 2.1.278). Without `async`, a `UserPromptSubmit` hook
+  that times out blocks the prompt, which Claude Code documents.
+- `timeout: 3600` covers a Claude Code that ignores `async`: the prompt then waits for the panel
+  instead of being blocked at the 30 second default.
+- Recognition is the same as for the `PermissionRequest` entry (see "How our entry is
+  recognised"), searched under `hooks.UserPromptSubmit`. Anyone else's hooks under the event are
+  never touched.
+
+`ContextHookSetup.install` adds the entry, or refreshes it when one of ours already exists under
+the event: the `command`, `async` and `timeout` are set with the same rules as "Install" (a value
+that is already right, however it is spelled, is left as written). The Settings toggle
+(`ContextHookRun`) calls it when the feature is turned on, and `HookSetup.install` calls it for
+Claude Code when `addsContextEntry` is true, which is what Wire, Update and `countersign setup` pass
+while checkpoints are on (see "The context entry follows the setting" below). With
+`addsContextEntry` false, `HookSetup.install` only refreshes an existing `UserPromptSubmit` entry
+of ours and never adds one, so a person who has turned the feature off never gets an entry, and one
+who has it on never keeps a stale one. A stale entry shows as "Needs an update" in the Agents rows.
+
+### The context entry follows the setting
+
+Setup and Update add Claude Code's async `UserPromptSubmit` context entry while checkpoints are on,
+which is the default, and only refresh it while they are off. `HookSetup.install` takes
+`addsContextEntry` beside `addsWaitingEntry`, and `HostWiring.status` reports a missing entry as an
+update (`HostWiringUpdate.addsContextEntry`) only for Claude Code. `countersign setup` and Settings
+pass the resolved `contextCheckpoints.enabled`; `Doctor` does the same so its wiring check agrees.
+The Settings toggle still adds and removes the entry itself (`ContextHookRun`).
+
+Why: checkpoints became on by default in 0.2.0, and before this only the toggle wrote the entry,
+so a default-on setting would have had no hook behind it, and everyone who never touched the
+toggle would have been "on" with doctor warning.
+
+### The waiting-agent entry
+
+Waiting-agent notices add one more entry for Claude Code, under `hooks.Stop`, in one group without
+a `matcher`:
+
+```json
+"Stop": [
+  {
+    "hooks": [
+      {
+        "type": "command",
+        "command": "<exe> hook --host claude --event waiting",
+        "async": true,
+        "timeout": 30
+      }
+    ]
+  }
+]
+```
+
+- `async` so the end of a turn never waits for Countersign. 30 seconds because the hook only
+  records the turn end and exits.
+- The command says what it is with `--event waiting` (`HookOptions.event`, `HookCommand` with its
+  `event` parameter) instead of relying on the payload's `hook_event_name`: Antigravity's payloads
+  have no event-name field, so every host's waiting entry names itself on its own command line.
+  `HookCommand.isCommand` compares the event too, so the approval and the waiting command of one
+  host never match each other.
+- Notices are on by default, so setup adds it. `HookSetup.install` takes `addsWaitingEntry`, with
+  no default: every caller passes the resolved `waitingNotices` setting (`SetupRun`,
+  `HostWiring.status`, the Settings model, `countersign setup`, Doctor). When true it calls
+  `WaitingHookSetup.install`, which adds the `Stop` entry or refreshes the one that is there
+  (command path, `async`, `timeout`), so Wire, Update and every `countersign setup` put it in the
+  same diff as the permission entry. When false it calls `WaitingHookSetup.refresh`, which only
+  refreshes an existing entry and never adds or removes one: with notices off, setup leaves a
+  leftover entry alone and Doctor reports it. `HostWiring.status` runs the same install, so an
+  agent wired before 0.2.0 reads "Needs an update" (`HostWiringUpdate.addsWaitingEntry`, "Adds the
+  Stop entry for waiting-agent notices") until setup or Update applies it. Turning the Settings
+  toggle off removes the entries through `WaitingHookRun` (preview, then apply with a backup, over
+  the wired hosts in `WaitingHookSetup.supportedHosts`) and writes `waitingNotices: false`, which
+  is what keeps setup from adding them again; turning it on adds them the same way.
+  `countersign setup --remove` removes it too, and someone else's `Stop` hooks stay untouched.
+- Until the notice runtime exists, `hook --event waiting` logs `waiting: <host> not handled yet`
+  and exits 0.
+
 Cursor's `hooks.json` has no groups and no `type`: each event holds a plain list of entries, and
 ours goes under both events Countersign answers, shell commands and MCP tools:
 
@@ -92,12 +194,60 @@ whitespace is treated like a missing one. An empty `CLAUDE_CONFIG_DIR` or `CODEX
 unset; Cursor and Antigravity have no variable for their directories. When no host is detected,
 setup says so and exits 0.
 
+### The waiting entries of Codex, Cursor and Antigravity
+
+The other three hosts are wired the same way as Claude Code: setup adds the entry while notices
+are on and only refreshes it while they are off, the toggle adds and removes it through
+`WaitingHookRun` (every wired host's file appears in one diff), and `countersign setup --remove`
+and `HookSetup.uninstall` remove it. Each shape follows the host's existing Countersign entry, and
+each detail that needed a capture lives in one named constant of `WaitingHookSetup`
+(`cursorEventName`, `antigravityHookName` and `CodexHookTrust.waitingEventLabel`) so a fix is one
+line. The Codex and Cursor captures of 2026-10-01 confirmed `waitingEventLabel` (`stop`) and
+`cursorEventName` (`stop`). None of the three has `async`, which only Claude Code has: the hook
+exits at once, with a 30 second timeout.
+
+- Codex, `hooks.Stop`, the layout of Claude's entry without `async`: one group with no `matcher`
+  and no `statusMessage`, holding `{"type": "command", "command": "<exe> hook --host codex --event
+  waiting", "timeout": 30}`.
+- Cursor, `hooks.stop`, a plain entry like the others: `{"command": "<exe> hook --host cursor
+  --event waiting", "timeout": 30}`. `stop` is never added to `CursorAdapter.events`: setup adds
+  every event in that list unconditionally, and the waiting entry depends on the setting.
+  `CursorHookSetup.sites`, which
+  scans only that list, never sees the `stop` key, so Cursor's own install and uninstall leave the
+  entry alone; `WaitingHookSetup` owns it and recognises it with `CursorHookSetup.isCountersignEntry`.
+- Antigravity, a second named hook, `countersign-waiting`, with `Stop` as its one event. `Stop` is
+  flat: its array holds the handler `{"type": "command", "command": "<exe> hook --host antigravity
+  --event waiting", "timeout": 30}` directly, with no `matcher` and no `hooks` group. Only the tool
+  events, `PreToolUse` and `PostToolUse`, take the grouped shape; the hooks reference built into
+  the Antigravity CLI says so ("Flat (list of handler objects directly)" for `Stop`), and CLI
+  1.2.17 rejects a grouped `Stop` with `invalid hook "countersign-waiting": command hook must
+  specify 'command'`. An early 0.2.0 build wrote the grouped shape, and because Antigravity rejects
+  the whole file, that also silenced the `countersign` approval hook. Antigravity rejects the whole
+  file when any entry is invalid, so the entry must keep the exact shape
+  `AntigravityHookSetup.flatEntry(inSetupShape:event:)` checks, and anything else under that name,
+  the grouped shape included, is replaced on install. A second name is the point: the
+  `countersign` hook keeps its one-event shape, and its install, uninstall and doctor code stay
+  untouched, where adding `Stop` to it would have broken the rule that the name holds exactly one
+  event.
+
+Codex runs a new hook only once the person trusts it, so the `Stop` entry has its own trust record,
+`AppPaths.codexWaitingHookTrustFile` (`codex-waiting-hook-trust.json`), the same format as the
+approval entry's record with the key `<hooks.json path>:stop:<group>:<hook>`
+(`CodexHookTrust.current(hooksFileBytes:hooksFilePath:event:label:)`; the label `stop` is Codex's
+snake_case of the event name, confirmed by the record Codex wrote when the entry was trusted). `WaitingHookRun.apply` and `SetupRun` save that
+record whenever they write Codex's file and the `Stop` entry exists afterwards, and delete it
+otherwise. Nothing persists a learned hash for it: `countersign doctor` judges it from what was
+stored at write time, so a change of the stored hash still reads as trusted. Turning the
+notices on in Settings for a Codex file that changes adds one sentence to the confirmation: Codex
+then asks you to trust the new Stop hook, in `/hooks` in a Codex session.
+
 ## How our entry is recognised
 
 Our entry is a hook object whose `type` is `command` and whose `command` has, as its first word,
 an executable path named `countersign` and, as its second word, `hook`. A first word in single or
 double quotes counts as one word, so a path with spaces is still found. Only
-`hooks.PermissionRequest` is searched; an entry of ours under another event is left alone. Only
+`hooks.PermissionRequest` is searched, and for Claude Code also `hooks.UserPromptSubmit` (see "The
+Context checkpoints entry"); an entry of ours under any other event is left alone. Only
 those two words count: an entry of ours with anything else after `hook`, another host, no
 `--host` or an extra word, is still ours, and install rewrites its command (see "Install").
 
@@ -204,12 +354,12 @@ the hosts, resolves the executable and answers the question from the terminal or
 ## The window
 
 Plain `countersign setup` and `countersign settings` open one titled, closable, resizable window,
-"Countersign", with its header (the mark, version and Close) and status row fixed at the top, the
+"Countersign", with its header (the mark, version, Pause, Snooze and Close) fixed at the top, the
 sidebar fixed on the left, and only the selected group's content in a scroll view; a page taller
 than the window, or a diff disclosed later, scrolls while everything above and beside it stays in
 place. Its size and where the frame is remembered are in "Window size" in [settings.md](settings.md),
 its header in "Header" there, its groups, Agents, App, Panels and Help in a sidebar plus Advanced
-behind a button at the bottom of App, in "Groups and layout" there, next to the status row, the
+behind a button at the bottom of App, in "Groups and layout" there, next to the header's status controls, the
 Panels, App and Advanced groups, and when each preference is written; this section covers the
 Agents group and how the window runs.
 
@@ -251,12 +401,20 @@ values for the host under `hosts`, the row shows them in one read-only line with
 the file (see "Panels and App" in [settings.md](settings.md)); no button on the row writes that
 file.
 
-"Show changes" discloses the text `setup --cli` would print for the same answer: the file's path
-and unified diff, or its `already up to date` line, and for a wired row the diff of removing the
-entry. `SetupRun.preview` produces it by running
+Wire, Update and Remove write nothing on click. Each asks first in a popup (`HostHookPrompt`, an
+`NSAlert` shown as a sheet on the Settings window) titled for the action, such as "Update
+Countersign's Claude Code hook?", whose line under the title names the file and either says it is
+created or that a backup is kept, and whose buttons are the action's own name and Cancel. Below
+them it shows the text `setup --cli` would print for the same answer: the file's path and unified
+diff, or its `already up to date` line, and for a wired row the diff of removing the entry. Only
+the action's button writes, and it applies the action that was shown, even if the row changed while
+the popup was open; while a popup is up every row's button is disabled. `SetupRun.preview`
+produces the text by running
 `SetupRun` with `writesFiles: false`, which prints every diff, counts every change as applied
-without asking, writes nothing and never touches the Codex hook trust record. The diff is monospaced and
-selectable, added lines green and removed lines red, and scrolls sideways instead of wrapping.
+without asking, writes nothing and never touches the Codex hook trust record. The diff
+(`HookDiffPreview`, the same view as the waiting-notices and context-hook popups) is monospaced
+and selectable, added lines green and removed lines red, twelve lines tall, and scrolls sideways
+instead of wrapping.
 
 When more than one copy of Countersign is installed, a notice sits at the top of the group, above
 the rows; the copies it lists are in "More than one copy installed" below, and the notice itself
@@ -293,6 +451,16 @@ Before a file that already exists is written, it is copied to
 `settings.json.countersign-20260926-143012.bak`. If that name is already taken, nothing is written
 and the file is reported as failed.
 
+After the copy, `ConfigFileStore` keeps the newest three backups of that file
+(`ConfigFileStore.keptBackups`) and removes the rest. Every write takes a backup, so without a limit
+each Settings session, Update, notice toggle and Always allow left one more next to the file, and
+they piled up by the day. Only names in exactly the pattern above count, so a hand-made
+`settings.json.countersign-keep.bak` or another file's backup is never removed. Names sort by time,
+so the oldest go first, except across the hour a clock goes back or a time-zone change, where a
+newer local-time stamp can sort before an older one and go first; three recent copies remain either
+way. A backup that can't be removed stays and the write goes ahead: pruning tidies up, it never
+decides whether a write succeeds.
+
 The new content goes to a temporary file in the same directory, which gets the original file's
 permission bits, and is then renamed over the original. Readers see the old file or the new one,
 never half of each, and a `0600` settings file stays `0600`. A config file that is a symlink, as in
@@ -317,6 +485,11 @@ In Antigravity's file, uninstall removes the top-level named hook `countersign`,
 (every one, if the key appears more than once), and nothing else. A file install created from
 nothing ends up as `{}`, and a file install appended the named hook to is back to its original
 bytes. Every other named hook, including one that runs countersign, is left alone.
+
+In Claude Code's file, uninstall (Remove, and `setup --cli --uninstall`) removes every entry of
+ours under both `hooks.PermissionRequest` and `hooks.UserPromptSubmit`, with the same rules for a
+group or an event left empty. `hooks` stays. Someone else's hooks under `UserPromptSubmit` are
+left alone.
 
 ## The stable path
 

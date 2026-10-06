@@ -4,6 +4,7 @@ public enum ApprovalOutcome: Sendable, Equatable {
   case allow(updatedInput: JSONValue?, updatedPermissions: [JSONValue])
   case deny(message: String, interrupt: Bool)
   case noDecision
+  case addContext(String)
 
   public static let allowAsIs = ApprovalOutcome.allow(updatedInput: nil, updatedPermissions: [])
 

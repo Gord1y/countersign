@@ -5,7 +5,9 @@ import SwiftUI
 enum SettingsMetrics {
   static let padding: CGFloat = 24
   static let sectionSpacing: CGFloat = 28
-  static let headerSpacing: CGFloat = 16
+  static let blockSpacing: CGFloat = 14
+  static let headerVerticalPadding: CGFloat = 12
+  static let contentTopInset: CGFloat = 16
   static let rowPadding: CGFloat = 14
   static let glyphWidth: CGFloat = 18
   static let cornerRadius: CGFloat = 10
@@ -31,42 +33,114 @@ struct SettingsPage: View {
       HStack(alignment: .top, spacing: SettingsMetrics.sectionSpacing) {
         SettingsSidebar(model: model)
           .frame(width: SettingsMetrics.sidebarWidth, alignment: .leading)
-        ScrollView(.vertical) {
-          SettingsContent(model: model)
-            .background(ScrollElasticityDisabler())
-        }
-        .scrollBounceBehavior(.basedOnSize)
-        .scrollIndicators(.visible)
-        .id(model.selectedPane.rawValue)
+        SettingsScrollView(model: model, pane: model.selectedPane)
       }
       .padding(.horizontal, SettingsMetrics.padding)
+    }
+    .sheet(
+      item: Binding(
+        get: { model.editorChoice },
+        set: { if $0 == nil { model.cancelEditorChoice() } })
+    ) { choice in
+      EditorChoiceSheet(
+        choice: choice, configFile: model.configFile,
+        onOpen: { model.chooseEditor(bundleID: $0, always: $1) },
+        onCancel: { model.cancelEditorChoice() })
     }
   }
 }
 
-private struct ScrollElasticityDisabler: NSViewRepresentable {
-  func makeNSView(context: Context) -> ScrollElasticityDisablerView {
-    ScrollElasticityDisablerView()
+private struct SettingsScrollView: NSViewRepresentable {
+  let model: SettingsModel
+  let pane: SettingsPane
+
+  func makeCoordinator() -> Coordinator {
+    Coordinator(pane: pane)
   }
 
-  func updateNSView(_ nsView: ScrollElasticityDisablerView, context: Context) {
-    nsView.disableVerticalElasticity()
+  func makeNSView(context: Context) -> NSScrollView {
+    let scrollView = NSScrollView()
+    scrollView.hasVerticalScroller = true
+    scrollView.hasHorizontalScroller = false
+    scrollView.autohidesScrollers = false
+    scrollView.verticalScrollElasticity = .none
+    scrollView.horizontalScrollElasticity = .none
+    scrollView.drawsBackground = false
+    scrollView.borderType = .noBorder
+
+    let documentView = SettingsDocumentView(model: model)
+    documentView.translatesAutoresizingMaskIntoConstraints = false
+    scrollView.documentView = documentView
+
+    let clipView = scrollView.contentView
+    NSLayoutConstraint.activate([
+      documentView.topAnchor.constraint(equalTo: clipView.topAnchor),
+      documentView.leadingAnchor.constraint(equalTo: clipView.leadingAnchor),
+      documentView.trailingAnchor.constraint(equalTo: clipView.trailingAnchor),
+      documentView.widthAnchor.constraint(equalTo: clipView.widthAnchor),
+    ])
+    return scrollView
+  }
+
+  func updateNSView(_ scrollView: NSScrollView, context: Context) {
+    guard context.coordinator.pane != pane else { return }
+    context.coordinator.pane = pane
+    scrollView.contentView.scroll(to: .zero)
+    scrollView.reflectScrolledClipView(scrollView.contentView)
+  }
+
+  final class Coordinator {
+    var pane: SettingsPane
+
+    init(pane: SettingsPane) {
+      self.pane = pane
+    }
   }
 }
 
-private final class ScrollElasticityDisablerView: NSView {
-  override func viewDidMoveToWindow() {
-    super.viewDidMoveToWindow()
-    disableVerticalElasticity()
+private struct SettingsDocumentContent: View {
+  let model: SettingsModel
+  let width: CGFloat?
+
+  var body: some View {
+    SettingsContent(model: model)
+      .fixedSize(horizontal: false, vertical: true)
+      .frame(width: width)
+      .frame(maxHeight: .infinity, alignment: .top)
   }
+}
+
+private final class SettingsDocumentView: NSView {
+  private let model: SettingsModel
+  private let hostingView: NSHostingView<SettingsDocumentContent>
+
+  init(model: SettingsModel) {
+    self.model = model
+    hostingView = NSHostingView(rootView: SettingsDocumentContent(model: model, width: nil))
+    super.init(frame: .zero)
+    hostingView.sizingOptions = [.intrinsicContentSize]
+    hostingView.translatesAutoresizingMaskIntoConstraints = false
+    addSubview(hostingView)
+    NSLayoutConstraint.activate([
+      hostingView.topAnchor.constraint(equalTo: topAnchor),
+      hostingView.bottomAnchor.constraint(equalTo: bottomAnchor),
+      hostingView.leadingAnchor.constraint(equalTo: leadingAnchor),
+      hostingView.trailingAnchor.constraint(equalTo: trailingAnchor),
+    ])
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("SettingsDocumentView does not support NSCoding")
+  }
+
+  override var isFlipped: Bool { true }
 
   override func layout() {
     super.layout()
-    disableVerticalElasticity()
-  }
-
-  func disableVerticalElasticity() {
-    enclosingScrollView?.verticalScrollElasticity = .none
+    let width = bounds.width
+    guard width > 0, hostingView.rootView.width != width else { return }
+    hostingView.rootView = SettingsDocumentContent(model: model, width: width)
   }
 }
 
@@ -74,7 +148,8 @@ struct SettingsHeader: View {
   let model: SettingsModel
 
   var body: some View {
-    VStack(spacing: SettingsMetrics.headerSpacing) {
+    let controls = model.headerControls
+    VStack(alignment: .leading, spacing: 6) {
       HStack(spacing: 8) {
         CountersignMark()
           .frame(width: 20, height: 20)
@@ -85,15 +160,159 @@ struct SettingsHeader: View {
           .foregroundStyle(.secondary)
           .textSelection(.enabled)
         Spacer(minLength: 12)
+        if let caption = controls.caption() {
+          Text(caption.text)
+            .font(PanelTypography.caption)
+            .foregroundStyle(caption.tint.color)
+            .lineLimit(1)
+        }
+        HeaderPauseButton(model: model, controls: controls)
+        HeaderSnoozeButton(model: model, controls: controls)
         Button("Close") { model.requestClose?() }
           .buttonStyle(SecondaryButtonStyle())
       }
-      StatusRow(model: model)
+      if let error = model.statusError {
+        InlineMessage(error, tone: .problem)
+      }
     }
     .padding(.horizontal, SettingsMetrics.padding)
-    .padding(.top, SettingsMetrics.padding)
-    .padding(.bottom, SettingsMetrics.sectionSpacing)
+    .padding(.vertical, SettingsMetrics.headerVerticalPadding)
     .frame(maxWidth: .infinity)
+    .background(Color(nsColor: .windowBackgroundColor))
+    .overlay(alignment: .bottom) {
+      SettingsHairline(opacity: 0.12)
+    }
+    .zIndex(1)
+  }
+}
+
+extension HeaderControlTint {
+  fileprivate var color: Color {
+    switch self {
+    case .secondary: return .secondary
+    case .yellow: return Color(nsColor: .systemYellow)
+    case .amber:
+      return Color(
+        nsColor: NSColor(name: nil) { appearance in
+          if appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua {
+            return .systemYellow
+          }
+          return NSColor(srgbRed: 0.55, green: 0.36, blue: 0, alpha: 1)
+        })
+    case .blue: return Color(nsColor: .systemBlue)
+    }
+  }
+}
+
+private struct HeaderIconButton: View {
+  let symbol: String
+  let tint: HeaderControlTint
+  let help: String
+  let action: () -> Void
+
+  var body: some View {
+    Button(action: action) {
+      Image(systemName: symbol)
+        .font(.system(size: 13, weight: .medium))
+        .foregroundStyle(tint.color)
+        .frame(width: 28, height: 28)
+        .background(
+          RoundedRectangle(cornerRadius: 7, style: .continuous)
+            .fill(Color.primary.opacity(0.06))
+        )
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .help(help)
+    .accessibilityLabel(help)
+  }
+}
+
+private struct HeaderPauseButton: View {
+  let model: SettingsModel
+  let controls: SettingsHeaderControls
+
+  var body: some View {
+    HeaderIconButton(
+      symbol: "pause.fill", tint: controls.pauseTint, help: controls.pauseHelp
+    ) {
+      model.togglePause()
+    }
+    .accessibilityValue(controls.pauseAccessibilityValue)
+  }
+}
+
+private struct HeaderSnoozeButton: View {
+  let model: SettingsModel
+  let controls: SettingsHeaderControls
+
+  @State private var isPresented = false
+
+  var body: some View {
+    HeaderIconButton(
+      symbol: "moon.zzz", tint: controls.snoozeTint, help: controls.snoozeHelp
+    ) {
+      isPresented = true
+    }
+    .disabled(!controls.snoozeIsEnabled)
+    .opacity(controls.snoozeIsEnabled ? 1 : 0.4)
+    .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+      SnoozePopoverView(model: model, controls: controls) { isPresented = false }
+    }
+  }
+}
+
+private struct SnoozePopoverView: View {
+  let model: SettingsModel
+  let controls: SettingsHeaderControls
+  let dismiss: () -> Void
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: 2) {
+      if let heading = controls.quietHeading() {
+        Text(heading)
+          .font(.system(size: 13, weight: .semibold))
+          .padding(.horizontal, 8)
+          .padding(.bottom, 4)
+        SnoozePopoverRow(title: "End now") {
+          model.endQuietTime()
+          dismiss()
+        }
+      } else {
+        ForEach(Array(model.snoozeChoices.enumerated()), id: \.offset) { index, seconds in
+          SnoozePopoverRow(title: SnoozeTitle.describe(seconds: seconds, isFirst: index == 0)) {
+            model.snooze(seconds: seconds)
+            dismiss()
+          }
+        }
+      }
+    }
+    .padding(8)
+    .frame(minWidth: 180, alignment: .leading)
+  }
+}
+
+private struct SnoozePopoverRow: View {
+  let title: String
+  let action: () -> Void
+
+  @State private var isHovered = false
+
+  var body: some View {
+    Button(action: action) {
+      Text(title)
+        .font(.system(size: 13))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 5)
+        .background(
+          RoundedRectangle(cornerRadius: 6, style: .continuous)
+            .fill(Color.primary.opacity(isHovered ? 0.1 : 0))
+        )
+        .contentShape(Rectangle())
+    }
+    .buttonStyle(.plain)
+    .onHover { isHovered = $0 }
   }
 }
 
@@ -102,13 +321,15 @@ struct SettingsSidebar: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 2) {
-      ForEach(SettingsPane.sidebar, id: \.self) { pane in
+      ForEach(SettingsPane.sidebar(showsContext: model.contextCheckpointsEnabled), id: \.self) {
+        pane in
         SettingsSidebarRow(pane: pane, isSelected: isSelected(pane)) {
           model.select(pane)
         }
       }
       Spacer(minLength: 0)
     }
+    .padding(.top, SettingsMetrics.contentTopInset)
   }
 
   private func isSelected(_ pane: SettingsPane) -> Bool {
@@ -127,6 +348,7 @@ private struct SettingsSidebarRow: View {
         Image(systemName: icon)
           .font(.system(size: 13))
           .frame(width: 18)
+          .accessibilityHidden(true)
         Text(pane.title)
           .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
         Spacer(minLength: 0)
@@ -141,6 +363,7 @@ private struct SettingsSidebarRow: View {
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
+    .accessibilityAddTraits(isSelected ? .isSelected : [])
   }
 
   private var icon: String {
@@ -148,6 +371,8 @@ private struct SettingsSidebarRow: View {
     case .agents: return "person.2"
     case .app: return "macwindow"
     case .panels: return "rectangle.stack"
+    case .rules: return "checklist"
+    case .context: return "gauge.with.dots.needle.33percent"
     case .help: return "questionmark.circle"
     case .advanced: return "slider.horizontal.3"
     }
@@ -159,6 +384,7 @@ struct SettingsContent: View {
 
   var body: some View {
     SettingsPaneView(pane: model.selectedPane, model: model)
+      .padding(.top, SettingsMetrics.contentTopInset)
       .padding(.bottom, SettingsMetrics.padding)
       .frame(maxWidth: .infinity, alignment: .leading)
   }
@@ -173,6 +399,8 @@ struct SettingsPaneView: View {
     case .agents: AgentsSection(model: model)
     case .panels: PanelsSection(model: model)
     case .app: AppSection(model: model)
+    case .rules: RulesSection(model: model)
+    case .context: ContextSection(model: model)
     case .help: HelpSection(model: model)
     case .advanced: AdvancedSection(model: model)
     }
@@ -200,8 +428,24 @@ struct SettingsSection<Content: View>: View {
   }
 }
 
+struct SettingsHairline: View {
+  let opacity: Double
+
+  @Environment(\.colorSchemeContrast) private var contrast
+
+  var body: some View {
+    Rectangle()
+      .fill(
+        contrast == .increased ? Color(nsColor: .separatorColor) : Color.primary.opacity(opacity)
+      )
+      .frame(height: 1)
+  }
+}
+
 struct SettingsGroup<Content: View>: View {
   let content: Content
+
+  @Environment(\.colorSchemeContrast) private var contrast
 
   init(@ViewBuilder content: () -> Content) {
     self.content = content()
@@ -218,16 +462,53 @@ struct SettingsGroup<Content: View>: View {
     )
     .overlay(
       RoundedRectangle(cornerRadius: SettingsMetrics.cornerRadius, style: .continuous)
-        .stroke(Color.primary.opacity(0.08), lineWidth: 1)
+        .stroke(
+          contrast == .increased ? Color(nsColor: .separatorColor) : Color.primary.opacity(0.08),
+          lineWidth: 1)
     )
+  }
+}
+
+struct SettingsBlocks<Content: View>: View {
+  let content: Content
+
+  init(@ViewBuilder content: () -> Content) {
+    self.content = content()
+  }
+
+  var body: some View {
+    VStack(alignment: .leading, spacing: SettingsMetrics.blockSpacing) {
+      content
+    }
+  }
+}
+
+struct SettingsBlock<Content: View>: View {
+  let title: String
+  let content: Content
+
+  init(_ title: String, @ViewBuilder content: () -> Content) {
+    self.title = title
+    self.content = content()
+  }
+
+  var body: some View {
+    SettingsGroup {
+      Text(title)
+        .font(PanelTypography.body)
+        .fontWeight(.semibold)
+        .accessibilityAddTraits(.isHeader)
+        .padding(.horizontal, SettingsMetrics.rowPadding)
+        .padding(.top, SettingsMetrics.rowPadding)
+        .padding(.bottom, 2)
+      content
+    }
   }
 }
 
 struct SettingsDivider: View {
   var body: some View {
-    Rectangle()
-      .fill(Color.primary.opacity(0.08))
-      .frame(height: 1)
+    SettingsHairline(opacity: 0.08)
       .padding(.leading, SettingsMetrics.rowPadding)
   }
 }
@@ -253,6 +534,7 @@ struct InlineMessage: View {
       Image(systemName: symbol)
         .font(.system(size: 11))
         .foregroundStyle(color)
+        .accessibilityHidden(true)
       Text(text)
         .font(PanelTypography.secondary)
         .foregroundStyle(textColor)
@@ -261,6 +543,7 @@ struct InlineMessage: View {
         .textSelection(.enabled)
         .help(text)
     }
+    .accessibilityElement(children: .combine)
   }
 
   private var symbol: String {
@@ -289,60 +572,6 @@ struct InlineMessage: View {
   }
 }
 
-struct StatusRow: View {
-  let model: SettingsModel
-
-  var body: some View {
-    SettingsGroup {
-      VStack(alignment: .leading, spacing: 8) {
-        HStack(alignment: .center, spacing: 10) {
-          Image(systemName: model.status.icon.symbolName)
-            .font(.system(size: 15))
-            .foregroundStyle(glyphColor)
-            .frame(width: SettingsMetrics.glyphWidth)
-            .accessibilityLabel(model.status.icon.accessibilityLabel)
-          VStack(alignment: .leading, spacing: 2) {
-            Text(model.status.title())
-              .font(.system(size: 13, weight: .semibold))
-            Text(model.status.detail)
-              .font(PanelTypography.secondary)
-              .foregroundStyle(.secondary)
-              .fixedSize(horizontal: false, vertical: true)
-          }
-          Spacer(minLength: 12)
-          actionButton
-        }
-        if let error = model.statusError {
-          InlineMessage(error, tone: .problem)
-            .padding(.leading, SettingsMetrics.glyphWidth + 10)
-        }
-      }
-      .padding(SettingsMetrics.rowPadding)
-    }
-  }
-
-  @ViewBuilder
-  private var actionButton: some View {
-    let action = model.status.action
-    switch action {
-    case .pause:
-      Button(action.title) { model.performStatusAction() }
-        .buttonStyle(SecondaryButtonStyle())
-    case .resume, .endQuietTime:
-      Button(action.title) { model.performStatusAction() }
-        .buttonStyle(PrimaryButtonStyle())
-    }
-  }
-
-  private var glyphColor: Color {
-    switch model.status {
-    case .active: return Color(nsColor: .systemGreen)
-    case .paused, .pausedUntilAppOpens: return Color(nsColor: .systemOrange)
-    case .quiet: return Color(nsColor: .systemIndigo)
-    }
-  }
-}
-
 struct AgentsSection: View {
   let model: SettingsModel
 
@@ -363,6 +592,21 @@ struct AgentsSection: View {
         }
       }
     }
+    .modifier(HostHookPromptPresenter(model: model))
+  }
+}
+
+private struct HostHookPromptPresenter: ViewModifier {
+  let model: SettingsModel
+
+  func body(content: Content) -> some View {
+    content.onChange(of: model.hostChange != nil) { _, isPending in
+      guard isPending, let change = model.hostChange else { return }
+      HostHookPrompt.present(
+        change: change, home: model.homeDirectory, on: NSApp.keyWindow,
+        onConfirm: { model.confirmHostChange() },
+        onCancel: { model.cancelHostChange() })
+    }
   }
 }
 
@@ -377,6 +621,7 @@ private struct HostRowView: View {
           .font(.system(size: 15))
           .foregroundStyle(glyphColor)
           .frame(width: SettingsMetrics.glyphWidth)
+          .accessibilityHidden(true)
         VStack(alignment: .leading, spacing: 2) {
           Text(row.location.host.displayName)
             .font(.system(size: 13, weight: .semibold))
@@ -389,10 +634,11 @@ private struct HostRowView: View {
           .truncationMode(.middle)
           .textSelection(.enabled)
         }
+        .accessibilityElement(children: .combine)
         Spacer(minLength: 12)
         actionButton
       }
-      VStack(alignment: .leading, spacing: 8) {
+      Group {
         if case .unusable(let reason) = row.status {
           InlineMessage(reason, tone: .problem)
         } else if let detail = HostWiring.detail(for: row.status, host: row.location.host) {
@@ -403,14 +649,6 @@ private struct HostRowView: View {
         }
         if let note = model.ownValueNotes[row.id] {
           OwnValuesNote(note: note, host: row.id, model: model)
-        }
-        if row.preview?.hasChanges == true {
-          ChangesDisclosure(isExpanded: row.showsChanges) {
-            model.toggleChanges(row.id)
-          }
-          if row.showsChanges, let preview = row.preview {
-            SetupDiffView(text: preview.text)
-          }
         }
         if let problem = row.problem {
           InlineMessage(problem, tone: .problem)
@@ -429,13 +667,13 @@ private struct HostRowView: View {
     if let action = row.action {
       switch action {
       case .wire, .update:
-        Button(action.title) { model.apply(row.id) }
+        Button(action.title) { model.requestHostChange(row.id) }
           .buttonStyle(PrimaryButtonStyle())
-          .disabled(!row.canApply)
+          .disabled(!row.canApply || model.hostChange != nil)
       case .remove:
-        Button(action.title) { model.apply(row.id) }
+        Button(action.title) { model.requestHostChange(row.id) }
           .buttonStyle(LinkButtonStyle())
-          .disabled(!row.canApply)
+          .disabled(!row.canApply || model.hostChange != nil)
       }
     }
   }
@@ -471,6 +709,7 @@ private struct OwnValuesNote: View {
         Image(systemName: "doc.text")
           .font(.system(size: 11))
           .foregroundStyle(.secondary)
+          .accessibilityHidden(true)
         Text(note)
           .font(PanelTypography.secondary)
           .foregroundStyle(.secondary)
@@ -499,6 +738,7 @@ private struct AgentFollowUpView: View {
         Image(systemName: symbol)
           .font(.system(size: 11))
           .foregroundStyle(symbolColor)
+          .accessibilityHidden(true)
         (Text(label).font(.system(size: 12, weight: .semibold)).foregroundStyle(labelColor)
           + Text(" " + followUp.text).font(PanelTypography.secondary).foregroundStyle(.secondary))
           .textSelection(.enabled)
@@ -539,6 +779,7 @@ struct ChangesDisclosure: View {
         Image(systemName: "chevron.right")
           .font(.system(size: 9, weight: .semibold))
           .rotationEffect(.degrees(isExpanded ? 90 : 0))
+          .accessibilityHidden(true)
         Text(isExpanded ? "Hide \(subject)" : "Show \(subject)")
       }
       .font(PanelTypography.secondary)
@@ -546,42 +787,5 @@ struct ChangesDisclosure: View {
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
-  }
-}
-
-struct SetupDiffView: View {
-  let text: String
-
-  var body: some View {
-    CodeCard {
-      ScrollView(.horizontal) {
-        Text(Self.styled(text))
-          .font(PanelTypography.code)
-          .textSelection(.enabled)
-          .fixedSize()
-      }
-    }
-  }
-
-  static func styled(_ text: String) -> AttributedString {
-    let lines = text.hasSuffix("\n") ? String(text.dropLast()) : text
-    var result = AttributedString()
-    for (index, line) in lines.split(separator: "\n", omittingEmptySubsequences: false)
-      .enumerated()
-    {
-      if index > 0 {
-        result += AttributedString("\n")
-      }
-      var part = AttributedString(String(line))
-      if line.hasPrefix("+"), !line.hasPrefix("+++") {
-        part.foregroundColor = Color(nsColor: .systemGreen)
-      } else if line.hasPrefix("-"), !line.hasPrefix("---") {
-        part.foregroundColor = Color(nsColor: .systemRed)
-      } else if line.hasPrefix("@@") || line.hasPrefix("---") || line.hasPrefix("+++") {
-        part.foregroundColor = .secondary
-      }
-      result += part
-    }
-    return result
   }
 }

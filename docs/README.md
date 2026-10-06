@@ -8,8 +8,8 @@ for what you want to do; each line says when that page is the one to open.
 - [Connect your agents](setup.md): read it when you install Countersign, add another agent, or
   want to know what setup wrote to your files and how to undo it.
 - [Configuration](configuration.md): read it when you want to change how long the panel waits,
-  the snooze presets, the update check, or a setting for one agent, or try your settings on a test
-  panel.
+  the snooze presets, quiet hours, the sound, waiting-agent notices, the update check, context
+  checkpoints, or a setting for one agent, or try your settings on a test panel.
 - [What each agent gets](agents.md): read it to know what Approve, Deny or "Answer in chat" does
   in Claude Code, Codex, Cursor or Antigravity, and which requests get a panel.
 - [The menu-bar app](menu-bar-app.md): read it when you want pause, snooze, Settings and a test
@@ -26,6 +26,7 @@ for what you want to do; each line says when that page is the one to open.
 - [Tooling](tooling.md): read it before changing a script, the commit message check, a CI
   workflow or a repository setting on GitHub.
 - [Releasing](release.md): read it when you cut a release or change the curl installer.
+- [Review checklist](review-checklist.md): read it before reviewing a change or a release.
 - [Screenshots](screenshots.md): read it when a README screenshot needs updating.
 - [Release notes](../releases/README.md): read it when you write a release note.
 - [Design overview](design/README.md): read it first, for the path from a prompt arriving to a
@@ -48,5 +49,9 @@ for what you want to do; each line says when that page is the one to open.
     CLI, the companion's single instance, menu, test panel launch and update check.
   - [The app icon](design/icon.md): the app icon: what it is, why amber, and the copy of its mark
     the panel's header draws in code.
+  - [Context checkpoints](design/checkpoints.md): how a Claude Code session's context size is
+    measured from its transcript.
+  - [Waiting notices](design/notice.md): how an agent that ended its turn is recorded, how the
+    corner card decides when to show and when to close, and what it never does.
 - [Roadmap](../ROADMAP.md): read it for the ideas under consideration and what would move each one
   forward.

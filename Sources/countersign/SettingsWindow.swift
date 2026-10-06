@@ -46,13 +46,13 @@ private final class SettingsApplicationDelegate: NSObject, NSApplicationDelegate
 final class SettingsWindowController: NSObject, NSWindowDelegate {
   static let title = "Countersign"
   static let frameAutosaveName = "Countersign Settings"
-  static let paneDefaultsKey = "Countersign Settings Pane"
   static let statusRefreshInterval: TimeInterval = 2
 
   let model: SettingsModel
   private let window: NSWindow
   private let onClose: @MainActor () -> Void
   private var statusTimer: Timer?
+  private var screenObserver: (any NSObjectProtocol)?
   private var tourWindow: NSWindow?
   private var tourHostingController: NSHostingController<FirstRunTourView>?
 
@@ -63,11 +63,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
       contentRect: NSRect(origin: .zero, size: SettingsWindowPlacement.defaultContentSize),
       styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
     super.init()
-    model.select(
-      SettingsPane(storedValue: UserDefaults.standard.string(forKey: Self.paneDefaultsKey)))
-    model.rememberPane = { pane in
-      UserDefaults.standard.set(pane.rawValue, forKey: Self.paneDefaultsKey)
-    }
     window.title = Self.title
     window.isReleasedWhenClosed = false
     window.contentMinSize = SettingsWindowPlacement.minimumContentSize
@@ -98,8 +93,12 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
   }
 
   func show(forceTour: Bool = false) {
+    model.beginVisit()
     NSApplication.shared.setActivationPolicy(.regular)
-    Self.configurePlaceholderIconIfNeeded()
+    keepOnUsableScreen()
+    observeScreenChanges()
+    Self.configurePlaceholderIconIfNeeded(
+      scale: (window.screen ?? NSScreen.main)?.backingScaleFactor ?? 2)
     window.makeKeyAndOrderFront(nil)
     window.orderFrontRegardless()
     NSApplication.shared.activate()
@@ -115,9 +114,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
 
   private func presentTour(step: FirstRunTourStep) {
     let hostingController = NSHostingController(rootView: tourView(for: step))
-    let sheetWindow = NSWindow(
-      contentRect: .zero, styleMask: [.borderless], backing: .buffered, defer: false)
-    sheetWindow.isReleasedWhenClosed = false
+    let sheetWindow = SettingsSheetWindow()
     sheetWindow.contentViewController = hostingController
     tourWindow = sheetWindow
     tourHostingController = hostingController
@@ -167,20 +164,40 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
       tourHostingController = nil
     }
     model.commitEditing()
+    model.closeTestCards()
     statusTimer?.invalidate()
     statusTimer = nil
+    if let screenObserver {
+      NotificationCenter.default.removeObserver(screenObserver)
+    }
+    screenObserver = nil
     NSApplication.shared.setActivationPolicy(.accessory)
     onClose()
   }
 
   private static var didConfigurePlaceholderIcon = false
 
-  private static func configurePlaceholderIconIfNeeded() {
+  private func observeScreenChanges() {
+    guard screenObserver == nil else { return }
+    screenObserver = NotificationCenter.default.addObserver(
+      forName: NSApplication.didChangeScreenParametersNotification, object: nil, queue: .main
+    ) { [weak self] _ in
+      MainActor.assumeIsolated { self?.keepOnUsableScreen() }
+    }
+  }
+
+  private func keepOnUsableScreen() {
+    guard let placed = NSScreen.placement(for: window.frame), placed.frame != window.frame
+    else { return }
+    window.setFrame(placed.frame, display: true)
+  }
+
+  private static func configurePlaceholderIconIfNeeded(scale: CGFloat) {
     guard !didConfigurePlaceholderIcon else { return }
     didConfigurePlaceholderIcon = true
     guard Bundle.main.object(forInfoDictionaryKey: "CFBundleIconFile") == nil else { return }
     let renderer = ImageRenderer(content: CountersignMark().frame(width: 256, height: 256))
-    renderer.scale = NSScreen.main?.backingScaleFactor ?? 2
+    renderer.scale = scale
     guard let image = renderer.nsImage else { return }
     NSApplication.shared.applicationIconImage = image
   }
