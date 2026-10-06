@@ -451,6 +451,16 @@ Before a file that already exists is written, it is copied to
 `settings.json.countersign-20260926-143012.bak`. If that name is already taken, nothing is written
 and the file is reported as failed.
 
+After the copy, `ConfigFileStore` keeps the newest three backups of that file
+(`ConfigFileStore.keptBackups`) and removes the rest. Every write takes a backup, so without a limit
+each Settings session, Update, notice toggle and Always allow left one more next to the file, and
+they piled up by the day. Only names in exactly the pattern above count, so a hand-made
+`settings.json.countersign-keep.bak` or another file's backup is never removed. Names sort by time,
+so the oldest go first, except across the hour a clock goes back or a time-zone change, where a
+newer local-time stamp can sort before an older one and go first; three recent copies remain either
+way. A backup that can't be removed stays and the write goes ahead: pruning tidies up, it never
+decides whether a write succeeds.
+
 The new content goes to a temporary file in the same directory, which gets the original file's
 permission bits, and is then renamed over the original. Readers see the old file or the new one,
 never half of each, and a `0600` settings file stays `0600`. A config file that is a symlink, as in

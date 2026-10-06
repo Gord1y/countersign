@@ -75,13 +75,14 @@ import Testing
     #expect(reading?.hasMillionTokenWindow == true)
   }
 
-  @Test func readsWholeFileWhenTheTailHoldsNoUsage() throws {
+  @Test func onlyTheHookReadFallsBackToTheWholeFileWhenTheTailHoldsNoUsage() throws {
     let mainRow = try fixtureLines("claude-transcript-usage")[1]
     let filler = String(repeating: "{\"type\":\"last-prompt\"}\n", count: 30_000)
     #expect(filler.utf8.count > 600_000)
     let url = try temporaryFile(String(mainRow) + "\n" + filler)
     defer { try? FileManager.default.removeItem(at: url) }
-    #expect(ContextUsageReader.read(transcriptURL: url)?.tokens == 34400)
+    #expect(ContextUsageReader.read(transcriptURL: url, identity: nil)?.reading.tokens == 34400)
+    #expect(ContextUsageReader.read(transcriptURL: url) == nil)
   }
 
   private func paddingRows(bytes: Int) -> String {

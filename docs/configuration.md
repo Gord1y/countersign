@@ -314,7 +314,7 @@ and `approvalCardDelay`.
 
 For a request from an agent, its `hosts` value wins over the top-level one, which wins over the
 default. This file is the only place settings live: the hook command takes nothing but
-`--host <agent>`. The menu-bar app's Snooze menu isn't tied to one agent, so it always uses the
+`--host <agent>`, plus `--event waiting` on the Stop entry of waiting-agent notices. The menu-bar app's Snooze menu isn't tied to one agent, so it always uses the
 top-level `snoozeMinutes`, and quiet hours are top-level only too.
 
 #### Mistakes in the file
@@ -382,8 +382,10 @@ A compound command such as `cd app && pnpm lint | tee out.log` is split into its
 `||`, `;`, `|` and newlines, with quotes respected. A deny rule applies when any part matches. An
 allow rule applies only when every part is matched by some allow rule in scope, so
 `ls && rm -rf build` is not allowed by an allow rule for `ls` alone. A command Countersign can't
-split safely, for example one with `$(...)` or backticks, is never decided by a rule with a
-`command`, allow or deny: it gets its panel.
+split safely is never decided by a rule with a `command`, allow or deny: it gets its panel. That is
+any command with a `$` outside single quotes (a variable, `$(...)`, `$'...'` or `${...}`),
+backticks, parentheses, braces, a `#` comment, or an output redirection to a file (`> out`, `>> log`;
+`2>&1`, `>&2` and `> /dev/null` are fine).
 
 A rule without a `command` decides every request in its scope, whatever the tool. An allow rule
 with only `"agent": "codex"` lets every Codex request through, so scope it with care.
@@ -454,8 +456,9 @@ Block `rm -rf` for every agent, with your own reason:
 A bad entry never stops the others. An entry that isn't an object, has no `"allow"` or `"deny"`
 decision, or has an `agent`, `project`, `tool`, `command` or `message` of the wrong kind is dropped
 and logged, for example `rules[2].agent: expected "claude", "codex", "cursor" or "antigravity",
-dropped`. An unknown key in an entry is logged and ignored. A `rules` value that isn't an array is
-ignored.
+dropped`. An entry with a key Countersign doesn't know is dropped too, with a line such as
+`rules[0]: unknown key "comand", dropped`: ignoring a misspelled `command` would leave an allow rule
+that lets every request in its scope through. A `rules` value that isn't an array is ignored.
 
 Rules are off while Countersign is paused, like everything else it does.
 

@@ -92,6 +92,9 @@ testedWith:
 - **Wire**, **Update** and **Remove** in Settings ▸ Agents show the change in a popup and write
   only when you confirm it, replacing **Show changes**.
 - Settings scrolls more smoothly.
+- Each file Countersign changes, an agent's hook file or `config.json`, keeps only its three newest
+  `.countersign-<time>.bak` backups. Older ones are removed the next time Countersign writes that
+  file.
 - Shell highlighting in panels is readable on both light and dark appearances.
 
 ## Fixed
@@ -111,9 +114,10 @@ testedWith:
 
 - Any error, crash or timeout still means "no decision", never an approval. If Countersign can't
   read Cursor's run mode, it keeps the command waiting rather than letting Cursor run it.
-- A command Countersign can't split safely, such as one with `$(...)` or backticks, is never
-  decided by a command rule and shows the panel, and a compound command is allowed only when an
-  allow rule covers every part of it.
+- A command Countersign can't split safely is never decided by a command rule and shows the panel:
+  any command with a `$` outside single quotes (a variable, `$(...)`, `$'...'` or `${...}`),
+  backticks, parentheses, braces, a `#` comment, or an output redirection to a file. A compound
+  command is allowed only when an allow rule covers every part of it.
 - Still no account and no telemetry.
 
 ## Upgrading

@@ -24,6 +24,22 @@ import Testing
     second.release()
   }
 
+  @Test func aDescriptorIsStillLinkedOnlyWhileItsPathNamesTheSameFile() throws {
+    let root = temporaryRoot()
+    defer { try? FileManager.default.removeItem(at: root) }
+    try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
+    let file = root.appendingPathComponent("session.lock")
+    try Data().write(to: file)
+    let descriptor = open(file.path, O_RDWR | O_CLOEXEC)
+    #expect(descriptor >= 0)
+    defer { close(descriptor) }
+    #expect(ExclusiveFileLock.isStillLinked(descriptor, at: file))
+    unlink(file.path)
+    #expect(!ExclusiveFileLock.isStillLinked(descriptor, at: file))
+    try Data().write(to: file)
+    #expect(!ExclusiveFileLock.isStillLinked(descriptor, at: file))
+  }
+
   @Test func droppingTheLastReferenceReleasesTheLock() throws {
     let root = temporaryRoot()
     defer { try? FileManager.default.removeItem(at: root) }

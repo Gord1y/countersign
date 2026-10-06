@@ -40,8 +40,9 @@ public enum DurationText {
   }
 
   public static func describe(_ seconds: TimeInterval) -> String {
-    let totalSeconds = Int64(seconds.rounded())
-    guard totalSeconds > 0 else { return "0 seconds" }
+    let rounded = seconds.rounded()
+    guard rounded >= 1 else { return "0 seconds" }
+    guard let totalSeconds = Int64(exactly: rounded) else { return compact(seconds) }
 
     if totalSeconds % 3600 == 0 {
       let hours = totalSeconds / 3600
@@ -61,7 +62,10 @@ public enum DurationText {
 
   private static func numberText(_ value: Double) -> String {
     let thousandths = (value * 1000).rounded() / 1000
-    if thousandths.truncatingRemainder(dividingBy: 1) == 0 { return String(Int64(thousandths)) }
+    if thousandths.truncatingRemainder(dividingBy: 1) == 0, let whole = Int64(exactly: thousandths)
+    {
+      return String(whole)
+    }
     return String(thousandths)
   }
 }

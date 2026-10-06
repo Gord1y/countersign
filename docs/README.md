@@ -26,6 +26,7 @@ for what you want to do; each line says when that page is the one to open.
 - [Tooling](tooling.md): read it before changing a script, the commit message check, a CI
   workflow or a repository setting on GitHub.
 - [Releasing](release.md): read it when you cut a release or change the curl installer.
+- [Review checklist](review-checklist.md): read it before reviewing a change or a release.
 - [Screenshots](screenshots.md): read it when a README screenshot needs updating.
 - [Release notes](../releases/README.md): read it when you write a release note.
 - [Design overview](design/README.md): read it first, for the path from a prompt arriving to a

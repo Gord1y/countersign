@@ -27,3 +27,6 @@ jobs:
       - run: curl -sSfL https://raw.githubusercontent.com/rhysd/actionlint/914e7df21a07ef503a81201c76d2b11c789d3fca/scripts/download-actionlint.bash | bash -s -- 1.7.12 .
       - run: ./actionlint -color
       - run: shellcheck scripts/*.sh scripts/*/*.sh scripts/git-hooks/* install.sh
+      - run: scripts/rulesets.sh --check
+        env:
+          GH_TOKEN: ${{ github.token }}

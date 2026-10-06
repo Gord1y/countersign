@@ -833,8 +833,12 @@ public enum ConfigFileParser {
       logLines.append("\(path): expected an object, dropped")
       return nil
     }
-    for key in object.keys.sorted() where !ruleKeys.contains(key) {
-      logLines.append("unknown key \"\(path).\(key)\", ignored")
+    let unknownKeys = object.keys.sorted().filter { !ruleKeys.contains($0) }
+    guard unknownKeys.isEmpty else {
+      let names = unknownKeys.map { "\"\($0)\"" }.joined(separator: ", ")
+      let noun = unknownKeys.count == 1 ? "key" : "keys"
+      logLines.append("\(path): unknown \(noun) \(names), dropped")
+      return nil
     }
     guard let decision = object["decision"]?.stringValue.flatMap(ApprovalRule.Decision.init)
     else {

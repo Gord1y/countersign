@@ -53,10 +53,11 @@ Open every pull request against `staging`; `main` only moves when a release is c
 - One task per pull request. It is squash-merged into `staging` as a single commit whose subject
   is the pull request's title followed by ` (#<number>)`, and whose body is empty, so write the
   title as a Conventional Commit (`<type>[(scope)][!]: <subject>`). The `title` check enforces it.
-- A pull request merges once `gates`, `commits`, `release-index`, `lint` and `title` pass, an
-  approving review is in, and the branch is up to date with `staging` ("Update branch" on the pull
-  request brings it up to date). The maintainer's own pull requests are approved by the Claude
-  review; everyone else's by the maintainer, whose review is requested automatically.
+- A pull request merges once `gates`, `commits`, `release-index`, `lint` and `title` pass and the
+  branch is up to date with `staging` ("Update branch" on the pull request brings it up to date).
+  The maintainer reviews every pull request someone else opens before merging it (their review is
+  requested automatically), and reviews their own work locally before each release, against
+  [docs/review-checklist.md](docs/review-checklist.md).
 - For a pull request from a fork, the workflows wait until the maintainer approves them to run.
 - Nobody pushes to `staging` or `main` directly, the maintainer included. At release time a pull
   request from `staging` into `main` is merged with a merge commit; see

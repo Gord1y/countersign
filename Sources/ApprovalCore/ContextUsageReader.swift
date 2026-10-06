@@ -29,16 +29,7 @@ public enum ContextUsageReader {
       let tailData = try? handle.readToEnd()
     else { return nil }
 
-    if let reading = reading(fromLines: tailLines(from: tailData, startedMidFile: startOffset > 0))
-    {
-      return reading
-    }
-    guard startOffset > 0 else { return nil }
-
-    guard (try? handle.seek(toOffset: 0)) != nil, let wholeData = try? handle.readToEnd() else {
-      return nil
-    }
-    return reading(fromLines: tailLines(from: wholeData, startedMidFile: false))
+    return reading(fromLines: tailLines(from: tailData, startedMidFile: startOffset > 0))
   }
 
   public static func read(

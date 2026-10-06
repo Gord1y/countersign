@@ -594,7 +594,8 @@ bytes changed, then reads it back, so the controls always show what the file hol
 - The file is backed up the way setup backs up a hook file (see "Backups and writing" in
   [setup.md](setup.md)), once per window session, before its first write, not once per change.
   The first backup already holds the file as it was before the session, which is the copy worth
-  keeping; a backup per change would leave dozens of copies after a few stepper clicks; and a
+  keeping; a backup per change would push it out after three stepper clicks, since only the newest
+  three backups of a file are kept; and a
   backup's name has one-second resolution, so two changes within the same second would need the
   same name and the second write would fail. A window session is one `SettingsModel`: each time the
   window opens, the first write backs up again.
@@ -618,7 +619,9 @@ the two groups, so it shows whichever group is open; Launch at login, the test p
 
 The window reads the hosts' files again whenever it becomes key, and the config file too when its
 bytes changed on disk, so a change made in an editor shows up when the person comes back to the
-window. That reread never replaces text the person is typing: while the Snooze presets field has
+window. A config file that can no longer be read shows the same problem line as when the window
+opens on one, rather than leaving the old values up as if they were still the file's. That reread
+never replaces text the person is typing: while the Snooze presets field has
 the focus, or shows an error, it keeps its text, and the add field is never touched by a reread.
 Every other control shows the file's new value. A write reads the file again first, so it lands on
 top of an edit made elsewhere instead of undoing it.
@@ -696,7 +699,10 @@ The switch never writes `config.json` on its own. Changing it asks `SettingsMode
 waiting-agent notices?", with "Countersign changes <paths> and keeps a backup." and the buttons Turn
 On / Turn Off and Cancel, or OK alone with the failure lines when a file cannot be changed. On
 confirm, `WaitingHookRun.apply` writes the hook file with a backup and only then is `waitingNotices`
-written. With no wired Claude Code the popup shows "Nothing to change." and confirming writes only
+written. It applies to the locations the popup previewed, which `WaitingHookChange` keeps, not to
+the wired agents at confirm time: the window rereads the agents when it becomes key, so an agent
+wired while the popup was open would otherwise be changed without its diff ever being shown. With
+no wired Claude Code the popup shows "Nothing to change." and confirming writes only
 the config. Two fields sit directly under the switch, outside the delays group: Notice after, and
 below it Show notice for (`waitingNoticeDuration`, how long a notice stays up before it closes by
 itself; see "Closing by itself" in [notice.md](notice.md)). Both always show and edit the
@@ -1026,9 +1032,10 @@ context notes sheet (`RuleSheet`), 440 pt wide: Decision (Allow | Deny), Agent, 
 field plus Choose…, an `NSOpenPanel` limited to one directory, shown abbreviated with `~`), Tool,
 Command (code font) and, only while Deny is selected, Message. Empty fields mean "any". The pure
 state lives in `RuleDraft` (`ApprovalCore`): its `problems` mirror what the file reader rejects
-(a project that is not a full path or does not start with `~`; a command that
-`ShellCommandSegments.split` cannot read or that splits into several parts, because a rule matches
-each part of a compound command on its own), and Save stays disabled while there are any. A
+(a project that is not a full path or does not start with `~`; a command that splits into several
+parts, because a rule matches each part of a compound command on its own; a command that
+`ShellCommandSegments.split` cannot read, with its own line saying such a command always gets its
+panel, since a rule could never match it), and Save stays disabled while there are any. A
 message on an allow rule is dropped when the rule is built, as the reader would ignore it. An
 allow rule with no agent, project, tool and command shows the warning "This allows every request
 from every agent." in the warning style; it does not block saving, because a blanket allow is a
@@ -1038,7 +1045,11 @@ New rules go through `PreferenceEdit.addRules`, edits through `PreferenceEdit.re
 which replaces the first element that reads as a rule equal to `old` with the new object, in place,
 so the rule keeps its position in the file. Like removal it matches on the parsed rule and not on an index. Both
 run through `SettingsModel.write`, so a failed write keeps the sheet open and shows
-`rulesError` in it.
+`rulesError` in it. When `old` is no longer in the file, because it was edited or removed there
+while the sheet was open, `replaceRule` throws `RuleEditError.changedOnDisk` instead of writing
+nothing: a write that changes nothing counts as saved, so the sheet would close and the edit would
+be lost without a word. Removing a rule that is already gone still succeeds, since the file already
+says what the person asked for.
 
 Entries the parser dropped are counted from the config's log lines: every line that starts with
 `rules` except the "only used by deny rules" note, which does not drop an entry. When the count is

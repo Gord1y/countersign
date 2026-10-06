@@ -22,11 +22,27 @@ import Testing
     #expect(ShellCommandSegments.split("echo a\\;b")?.count == 1)
   }
 
-  @Test func redirectionsAreNotSeparators() {
+  @Test func harmlessRedirectionsAreNotSeparators() {
     #expect(ShellCommandSegments.split("ls 2>&1") == ["ls 2>&1"])
     #expect(ShellCommandSegments.split("ls >&2") == ["ls >&2"])
-    #expect(ShellCommandSegments.split("ls &> out") == ["ls &> out"])
-    #expect(ShellCommandSegments.split("ls &>> out") == ["ls &>> out"])
+    #expect(ShellCommandSegments.split("ls >/dev/null") == ["ls >/dev/null"])
+    #expect(ShellCommandSegments.split("ls 2> /dev/null") == ["ls 2> /dev/null"])
+    #expect(ShellCommandSegments.split("ls &>/dev/null; pwd") == ["ls &>/dev/null", "pwd"])
+    #expect(ShellCommandSegments.split("sort < in.txt") == ["sort < in.txt"])
+  }
+
+  @Test func aRedirectionThatWritesAFileIsUnknown() {
+    #expect(ShellCommandSegments.split("ls > out") == nil)
+    #expect(ShellCommandSegments.split("ls >> out") == nil)
+    #expect(ShellCommandSegments.split("ls >| out") == nil)
+    #expect(ShellCommandSegments.split("ls &> out") == nil)
+    #expect(ShellCommandSegments.split("ls &>> out") == nil)
+    #expect(ShellCommandSegments.split("ls 2>out") == nil)
+    #expect(ShellCommandSegments.split("ls >&out") == nil)
+    #expect(ShellCommandSegments.split("ls >&1x") == nil)
+    #expect(ShellCommandSegments.split("ls >/dev/null.txt") == nil)
+    #expect(ShellCommandSegments.split("ls >\"/dev/null\"") == nil)
+    #expect(ShellCommandSegments.split("cat <> file") == nil)
   }
 
   @Test func substitutionsAndGroupingsAreUnknown() {
@@ -36,6 +52,36 @@ import Testing
     #expect(ShellCommandSegments.split("diff <(ls) <(ls)") == nil)
     #expect(ShellCommandSegments.split("cat >(tee x)") == nil)
     #expect(ShellCommandSegments.split("(cd x && ls)") == nil)
+  }
+
+  @Test func aCommentIsUnknown() {
+    #expect(ShellCommandSegments.split("git log # '\nrm -rf x\n#'") == nil)
+    #expect(ShellCommandSegments.split("ls #note") == nil)
+    #expect(ShellCommandSegments.split("ls;#note") == nil)
+  }
+
+  @Test func aHashInsideAWordIsKept() {
+    #expect(
+      ShellCommandSegments.split("curl https://example.test/#top")
+        == ["curl https://example.test/#top"])
+  }
+
+  @Test func aDollarOutsideSingleQuotesIsUnknown() {
+    #expect(ShellCommandSegments.split("echo $HOME") == nil)
+    #expect(ShellCommandSegments.split("echo \"$HOME\"") == nil)
+    #expect(ShellCommandSegments.split("git log $'\\'' ; rm -rf x\n'") == nil)
+    #expect(ShellCommandSegments.split("echo \"${(e)${:-\\$(id)}}\"") == nil)
+  }
+
+  @Test func anEscapedOrSingleQuotedDollarIsKept() {
+    #expect(ShellCommandSegments.split("echo \\$HOME")?.count == 1)
+    #expect(ShellCommandSegments.split("echo \"\\$HOME\"")?.count == 1)
+    #expect(ShellCommandSegments.split("echo '$HOME'")?.count == 1)
+  }
+
+  @Test func bracesAreUnknown() {
+    #expect(ShellCommandSegments.split("{ ls; }") == nil)
+    #expect(ShellCommandSegments.split("echo a{b,c}") == nil)
   }
 
   @Test func singleQuotesHideSubstitutions() {

@@ -88,10 +88,12 @@ panel shows up in the icon within two seconds.
 
 **Settings…** (<kbd>⌘</kbd><kbd>,</kbd> while the menu is open) opens the Settings window. Under
 the header, which holds Pause and Snooze buttons and shows when Countersign is paused or quiet,
-including during a [quiet-hours window](configuration.md#panels), its five groups are **Agents**,
-where you [connect your agents](setup.md), **Panels**, for how panels behave, **App**, for what this app
-does, **Help**, for guides, updates and ways to support Countersign, and **Advanced**, for where
-the [config file](configuration.md) is. Closing the window leaves the app running.
+including during a [quiet-hours window](configuration.md#panels), its sidebar lists **Agents**,
+where you [connect your agents](setup.md), **App**, for what this app does, **Panels**, for how
+panels behave, **Rules**, for the [rules](configuration.md#allow-and-deny-rules) that
+answer before a panel shows, **Context** while context checkpoints are on, and **Help**, for
+guides, updates and ways to support Countersign. **Advanced**, for where the
+[config file](configuration.md) is, opens from a button at the bottom of App. Closing the window leaves the app running.
 
 The first time Settings opens, a short four-step tour appears over it: what wiring an agent does,
 how a panel waits for you before it appears, the test panel, and what's under App. Skip or Done on
@@ -115,7 +117,7 @@ test panel is up closes it and takes its place.
 
 Try every key and button: whatever you choose only closes the test panel. Nothing runs, and
 nothing reaches an agent. A small card then says what you picked and what a real request would
-have done; click it, press Esc or wait 8 seconds and it goes. Picking a Snooze duration closes it too, without starting quiet time.
+have done; click it, press Esc or wait 4 seconds and it goes. Picking a Snooze duration closes it too, without starting quiet time.
 Because you asked for it, it appears even while Countersign is paused or in quiet time, and
 `handoffApps` doesn't apply.
 

@@ -195,6 +195,17 @@ extension JSONSpanNode {
   }
 }
 
+public enum RuleEditError: Error, Equatable, Sendable, CustomStringConvertible {
+  case changedOnDisk
+
+  public var description: String {
+    switch self {
+    case .changedOnDisk:
+      return "the rule changed in the file since Settings showed it, so the edit was not saved"
+    }
+  }
+}
+
 public enum ConfigEdit {
   public static func applying(_ edits: [PreferenceEdit], to original: [UInt8]?) throws
     -> [UInt8]
@@ -465,14 +476,14 @@ public enum ConfigEdit {
     _ old: ApprovalRule, with new: ApprovalRule, in document: inout JSONSourceDocument
   ) throws {
     guard let array = document.root.member(named: "rules")?.value, let elements = array.elements
-    else { return }
+    else { throw RuleEditError.changedOnDisk }
     let decoder = JSONDecoder()
     let match = elements.first { element in
       let raw = Data(document.bytes[element.range])
       return (try? decoder.decode(JSONValue.self, from: raw)).flatMap(ConfigFileParser.rule)
         == old
     }
-    guard let match else { return }
+    guard let match else { throw RuleEditError.changedOnDisk }
     try document.replaceValue(match, with: ruleFragment(new))
   }
 

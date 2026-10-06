@@ -29,7 +29,11 @@ the latest.
 Transcripts grow without bound, so the reader looks only at the last 512 KiB. When the read did
 not start at offset 0, the first line is cut off mid-row and is dropped. If the tail holds no
 usable row at all, for example because a long run of tool output pushed the last usage row out of
-it, the reader falls back to reading the whole file once.
+it, the hook's read, `read(transcriptURL:identity:)`, falls back to reading the whole file once.
+The tail-only `read(transcriptURL:)` that the watcher and the menu-bar meter call on every tick has
+no fallback and returns nothing: the meter shows the session's last saved tokens, and the watcher
+looks again when the file next grows. With a fallback there, a transcript of hundreds of
+megabytes would be read whole on every growth.
 
 A compaction writes a `system` row with `subtype: "compact_boundary"`, a `uuid` and
 `compactMetadata.postTokens`. When that row comes after the latest main usage row, the next usage
@@ -103,8 +107,15 @@ State is one small JSON file per session, `<session id>.json`, in
 Writes go to a temporary file in the same folder and are renamed into place. A missing, unreadable
 or undecodable file means "no state"; a key missing from an older file decodes as its fresh
 value. Concurrent hooks for one session serialise on `<session id>.lock` (a non-blocking `flock`,
-retried for about a second, after which the hook does nothing). Files untouched for 30 days are
-pruned.
+retried for about a second, after which the hook does nothing). State files, and temporary files a
+failed save left behind, are pruned once untouched for 30 days. A lock file is pruned only when its
+session has no state file left and nobody holds the lock: `flock` never changes a file's
+modification time, so a lock file is always older than a long session's state, and deleting a held
+one would let a second hook lock a new file at the same path and plan alongside the first. The
+store deletes a lock while holding it, and `ExclusiveFileLock` refuses a lock on a path that no
+longer names the file it opened (see "Why the lock file is never deleted" in
+[queue.md](queue.md)), so a hook that opened the old file just before it went retries on the new
+one. Turning checkpoints off removes every lock the same way.
 
 ## The menu-bar meter
 
