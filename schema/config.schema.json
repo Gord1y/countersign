@@ -452,6 +452,11 @@
       "default": false,
       "description": "Whether the menu-bar companion checks for a newer release on its own, at most once every 24 hours; top level only."
     },
+    "showSkills": {
+      "type": "boolean",
+      "default": true,
+      "description": "Show the Skills group, which lists what countersign-skills installed. Turn it off to hide the group; top level only."
+    },
     "quitBehavior": {
       "type": "string",
       "enum": ["ask", "keepShowing", "pause"],

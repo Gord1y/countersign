@@ -14,7 +14,7 @@ enum SnapshotCommand {
     + "       countersign snapshot --settings"
     + " [--home <dir>] [--show-copies]"
     + " [--status active|paused|paused-until-open|quiet] [--size <width>x<height>]"
-    + " [--tab agents|panels|app|rules|context|help|advanced] [--restore-prompt panels|app]"
+    + " [--tab agents|panels|app|rules|skills|context|help|advanced] [--restore-prompt panels|app]"
     + " [--app-copy add|replace-link|update|copied|failed]"
     + " [--explanation <preferenceName>] [--editor-choice ask|missing] [--rule-sheet new|edit]"
     + " [--appearance light|dark] -o <out.png>\n"

@@ -217,6 +217,7 @@ What the menu-bar app does, and how panels and the Settings window look:
 | When Countersign quits | `quitBehavior` | `"ask"` |
 | Appearance | `appearance` | `"system"` |
 | Accent colour | `accentColor` | `"#E6B04A"` (Amber) |
+| Skills in the sidebar | `showSkills` | `true` |
 
 - **Launch at login**: registers Countersign as a macOS login item, so it starts automatically when
   you log in. macOS keeps this, not `config.json`. More in
@@ -238,6 +239,9 @@ What the menu-bar app does, and how panels and the Settings window look:
   it is easy to read, and a filled button's label is near-black or white, whichever reads better.
   Deny stays red, the mark in a panel's header keeps the app icon's amber, and the menu-bar icon
   stays monochrome.
+- **Skills in the sidebar** (`showSkills`): turn it off to hide the Skills group in Settings, the
+  one that lists what countersign-skills installed. Set from App, under Appearance. Top level
+  only.
 
 ### Advanced
 
@@ -297,8 +301,8 @@ profile. If you set `XDG_CONFIG_HOME` only there, its Settings window edits
 
 Every key except `quietHours`, `checkForUpdates`, `quitBehavior`, `modeAfterPlan`, `panelSound`,
 `waitingNotices`, `waitingNoticeDuration`, `questionNotes`, `editorApp`, `appearance`, `accentColor`,
-`contextCheckpoints`, `rules`, `hosts` and `$schema` can also be set for one agent, under
-`hosts.claude`, `hosts.codex`, `hosts.cursor` or `hosts.antigravity`:
+`showSkills`, `contextCheckpoints`, `rules`, `hosts` and `$schema` can also be set for one agent,
+under `hosts.claude`, `hosts.codex`, `hosts.cursor` or `hosts.antigravity`:
 
 ```json
 {

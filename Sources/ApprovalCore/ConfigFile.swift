@@ -58,6 +58,7 @@ public struct ConfigFile: Sendable, Equatable {
   public var questionNotes: Bool?
   public var appearance: AppearanceChoice?
   public var accentColor: HexColor?
+  public var showSkills: Bool?
   public var editorApp: String?
   public var claude: HostOverrides?
   public var codex: HostOverrides?
@@ -88,6 +89,7 @@ public struct ConfigFile: Sendable, Equatable {
     questionNotes: Bool? = nil,
     appearance: AppearanceChoice? = nil,
     accentColor: HexColor? = nil,
+    showSkills: Bool? = nil,
     editorApp: String? = nil,
     claude: HostOverrides? = nil,
     codex: HostOverrides? = nil,
@@ -117,6 +119,7 @@ public struct ConfigFile: Sendable, Equatable {
     self.questionNotes = questionNotes
     self.appearance = appearance
     self.accentColor = accentColor
+    self.showSkills = showSkills
     self.editorApp = editorApp
     self.claude = claude
     self.codex = codex
@@ -161,7 +164,7 @@ public enum ConfigFileParser {
     "snoozeMinutes", "quietHours", "checkForUpdates", "quitBehavior", "modeAfterPlan",
     "panelSound", "waitingNotices", "waitingNoticeDelay", "waitingNoticeDuration", "approvalCard",
     "approvalCardDelay", "includeHeadlessSessions", "questionNotes", "editorApp", "hosts",
-    "appearance", "accentColor", "contextCheckpoints", "rules",
+    "appearance", "accentColor", "showSkills", "contextCheckpoints", "rules",
     "$schema",
   ]
   static let contextCheckpointKeys: Set<String> = [
@@ -242,6 +245,9 @@ public enum ConfigFileParser {
       root["appearance"], path: "appearance", logLines: &logLines)
     file.accentColor = readAccentColor(
       root["accentColor"], path: "accentColor", logLines: &logLines)
+    file.showSkills = readBool(
+      root["showSkills"], path: "showSkills",
+      defaultValue: Settings.defaultShowSkills, logLines: &logLines)
     file.editorApp = readEditorApp(root["editorApp"], path: "editorApp", logLines: &logLines)
     file.rules = readRules(root["rules"], path: "rules", logLines: &logLines)
 

@@ -14,6 +14,7 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
   case modeAfterPlan
   case appearance
   case accentColor
+  case showSkills
   case editorApp
   case panelSound
   case waitingNotices
@@ -88,6 +89,7 @@ public enum PreferenceEdit: Sendable, Equatable {
   case questionNotes(Bool)
   case appearance(AppearanceChoice)
   case accentColor(HexColor)
+  case showSkills(Bool)
   case addHandoffApp(String)
   case removeHandoffApp(String)
   case removeRule(ApprovalRule)
@@ -128,6 +130,7 @@ public enum PreferenceEdit: Sendable, Equatable {
     case .questionNotes: return .questionNotes
     case .appearance: return .appearance
     case .accentColor: return .accentColor
+    case .showSkills: return .showSkills
     case .addHandoffApp, .removeHandoffApp: return .handoffApps
     case .editorApp: return .editorApp
     case .contextCheckpointsEnabled: return .contextCheckpointsEnabled
@@ -306,6 +309,8 @@ public enum ConfigEdit {
       try set(path, to: .string(name), in: &document) { $0.stringValue == name }
     case .waitingNotices(let enabled), .approvalCard(let enabled):
       try set(path, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
+    case .showSkills(let shown):
+      try set(path, to: .bool(shown), in: &document) { $0.content == .bool(shown) }
     case .questionNotes(let enabled):
       try set(path, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
     case .appearance(let appearance):

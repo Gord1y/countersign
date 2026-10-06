@@ -90,6 +90,7 @@ enum SettingsCopyTarget: Equatable {
   case copyStep(Int)
   case agentPrompt
   case versionCommand
+  case skillsUpdateCommand
 }
 
 enum SettingsUpdateCheckPhase: Equatable {
@@ -233,6 +234,8 @@ final class SettingsModel {
   private(set) var newContextModelPrefix = ""
   private(set) var newContextModelLadder = ""
   private(set) var copied: SettingsCopyTarget?
+  private(set) var skillsOverview = SkillsOverview(
+    availability: .notInstalled, skills: [], rules: [], additions: [])
   private(set) var customAccentColor: HexColor?
   private(set) var updateCheckPhase = SettingsUpdateCheckPhase.idle
   var requestClose: (() -> Void)?
@@ -263,6 +266,13 @@ final class SettingsModel {
     }
     loadPreferences()
     refreshHosts()
+    refreshSkills()
+  }
+
+  func refreshSkills() {
+    let paths = environment.paths
+    skillsOverview = SkillsOverview.read(
+      paths: paths, agentExists: { SkillsOverview.installerAgentExists($0, paths: paths) })
   }
 
   var configFile: URL {
@@ -288,6 +298,7 @@ final class SettingsModel {
   var handoffApps: [String] { preferences.handoffApps }
   var quietHours: [QuietWindow] { preferences.quietHours }
   var checkForUpdates: Bool { preferences.checkForUpdates }
+  var showSkills: Bool { preferences.showSkills }
   var quitBehavior: QuitBehavior { preferences.quitBehavior }
   var modeAfterPlan: PlanApprovalMode { preferences.modeAfterPlan }
   var panelSound: String { preferences.panelSound }
@@ -351,9 +362,18 @@ final class SettingsModel {
   }
 
   func select(_ pane: SettingsPane) {
-    guard pane != selectedPane else { return }
-    selectedPane = pane
+    let shown = visiblePane(for: pane)
+    guard shown != selectedPane else { return }
+    selectedPane = shown
     visit.begin()
+  }
+
+  private func visiblePane(for pane: SettingsPane) -> SettingsPane {
+    switch pane {
+    case .context where !contextCheckpointsEnabled: return .panels
+    case .skills where !showSkills: return .app
+    default: return pane
+    }
   }
 
   func beginVisit() {
@@ -436,6 +456,7 @@ final class SettingsModel {
   func refreshFromDisk() {
     refreshStatus()
     refreshHosts()
+    refreshSkills()
     if launchAtLoginAvailable {
       launchAtLogin = LaunchAtLogin.state
     }
@@ -603,9 +624,7 @@ final class SettingsModel {
     if launchAtLoginAvailable {
       launchAtLogin = LaunchAtLogin.state
     }
-    if selectedPane == .context, !contextCheckpointsEnabled {
-      select(.panels)
-    }
+    select(selectedPane)
   }
 
   func setArmDelay(_ value: Double) {
@@ -901,6 +920,10 @@ final class SettingsModel {
 
   func setCheckForUpdates(_ enabled: Bool) {
     write(.checkForUpdates(enabled))
+  }
+
+  func setShowSkills(_ shown: Bool) {
+    write(.showSkills(shown))
   }
 
   func setQuitBehavior(_ behavior: QuitBehavior) {
@@ -1480,6 +1503,7 @@ final class SettingsModel {
       return steps.indices.contains(index) ? steps[index].command ?? "" : ""
     case .agentPrompt: return duplicateInstall?.agentPrompt ?? ""
     case .versionCommand: return installVersionMismatch?.command ?? ""
+    case .skillsUpdateCommand: return skillsOverview.updateCommand ?? ""
     }
   }
 

@@ -358,6 +358,12 @@ struct AppSection: View {
             }
             SettingsDivider()
             AccentColorRow(model: model)
+            SettingsDivider()
+            PreferenceRow(.showSkills, model: model, problem: model.writeErrors[.showSkills]) {
+              SettingsSwitch(
+                PreferenceName.showSkills.title,
+                isOn: Binding(get: { model.showSkills }, set: { model.setShowSkills($0) }))
+            }
           }
           .disabled(model.configProblem != nil)
         }

@@ -58,6 +58,11 @@ How each answer plays out, agent by agent, is in [agents.md](agents.md); the des
   `terminalAllowlist` in `~/.cursor/permissions.json` and the project's `.cursor/permissions.json`.
   Nothing else in them is used.
 - Its own config file.
+- For the Settings window's Skills group, the countersign-skills state folder
+  (`~/.config/countersign/skills`), the `catalog.json` of each folder it names, and the agents'
+  skills folders, to show which skills are installed and which have updates. It only reads them.
+  The **Open countersign-skills on GitHub** button only opens your browser; Countersign makes no
+  request of its own.
 
 None of this leaves your Mac, and none of it is written to the log.
 

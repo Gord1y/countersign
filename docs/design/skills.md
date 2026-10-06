@@ -124,3 +124,11 @@ promise.
 - **`installerAgentExists` is the installer's rule**: Claude when its config root exists, Codex
   when `$HOME/.codex` exists, Antigravity when `$HOME/.gemini/antigravity-cli` exists, any other
   agent never. The caller passes it as `agentExists`, so tests can inject their own.
+
+Settings shows the overview in its own sidebar group, Skills, after Rules and before Context. The
+model reads it in `refreshFromDisk()` and when it is created, so the first frame is current and
+never a verdict from the last visit; the view itself reads nothing. Top-level `showSkills: false`
+hides the group, and a window left on Skills falls back to App. An unreadable catalog's message
+wraps instead of truncating, because the folder path in it is long. The group holds the source
+lines, the updates notice with `updateCommand` and a Copy button, one row per skill with a chip per
+agent, and the rules; it changes nothing.

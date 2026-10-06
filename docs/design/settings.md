@@ -104,8 +104,8 @@ minutes in seconds (`90 seconds`), because `DurationText.describe` rounds to the
 ## Precedence
 
 For a hook of host X, in order: `hosts.X` in the config file beats the top-level value, which
-beats the built-in default. `checkForUpdates`, `questionNotes` and `quitBehavior` have no per-host
-value, so for them the order starts at the top level. A `hosts.X` list, such as `handoffApps`,
+beats the built-in default. `checkForUpdates`, `questionNotes`, `quitBehavior` and `showSkills` have no
+per-host value, so for them the order starts at the top level. A `hosts.X` list, such as `handoffApps`,
 replaces the top-level list for that host rather than adding to it.
 
 The config file is the only source. `countersign hook` takes `--host <host>` and nothing else:
@@ -162,7 +162,8 @@ The group is chosen before the window is ordered in front. A new window starts o
 that wants another group passes it to `show(pane:)`, and it is selected before the window shows. A
 reused window keeps its group, and a window that has closed (`isClosed`) is never reused, even in
 the moment before the companion drops it. After that only the person changes the group, apart from
-Context falling back to Panels when context checkpoints are turned off in the file.
+Context falling back to Panels when context checkpoints are turned off in the file, and Skills
+falling back to App when `showSkills` is turned off, since App is where its switch lives.
 
 ### Window size
 
@@ -208,8 +209,9 @@ ends up.
 ### Groups and layout
 
 The header's pause and snooze controls (see "Status" below) sit at the top, outside every group:
-they are the state Countersign is in right now, not a setting. Below the header, a sidebar lists Agents, App, Panels, Rules (and Context while that feature is on) and Help,
-in that order, at every window width (`SettingsPane.sidebar`; `ApprovalCore.SettingsPane` also holds
+they are the state Countersign is in right now, not a setting. Below the header, a sidebar lists
+Agents, App, Panels, Rules, Skills (unless `showSkills` is off), Context (while that feature is on)
+and Help, in that order, at every window width (`SettingsPane.sidebar`; `ApprovalCore.SettingsPane` also holds
 each group's title and subtitle). The selected item is highlighted; the content area to its right
 shows that one group, scrolled to its top, with only its subtitle above it, not its title again,
 since the sidebar already names it:
@@ -218,8 +220,9 @@ since the sidebar already names it:
 | --- | --- | --- |
 | Agents | a row per agent (Wire, Update and Remove, each confirmed in a popup that shows its diff), the notice about a second copy, on each row the values `hosts.<agent>` sets, and, once wired, its follow-up line and Codex's "Mark as done" (`AgentFollowUp`; see "Follow-up lines" and "The Codex hook trust record" in [setup.md](setup.md)) | each agent's own hook file; the Codex hook trust record, never `config.json` |
 | Panels | five blocks: Delays (Same delays for all agents, then while it is off an Agent picker with the four agents, then Wait for idle, Grace period, Arm delay, Arm delay after an answer, Show card after), Interruptions (Hand off when frontmost, Snooze presets, Quiet hours, Sound), Corner cards (Waiting-agent notices, Notice after, Show notice for, Approval card with one checkbox per agent), Claude Code (Notes on answers, Mode after a plan, Context checkpoints) and Try it (Show a test panel, Show a test card), then Restore Defaults | `config.json`, for every agent, or under `hosts.<agent>` for the delays and the Approval card checkboxes |
-| App | General (Launch at login, Check for updates, When Countersign quits), Appearance (Appearance, Accent colour) and, while there is an offer to copy Countersign.app, Install, then Advanced… and Restore Defaults | macOS's login items, `config.json`, `~/Applications` |
+| App | General (Launch at login, Check for updates, When Countersign quits), Appearance (Appearance, Accent colour, Skills in the sidebar) and, while there is an offer to copy Countersign.app, Install, then Advanced… and Restore Defaults | macOS's login items, `config.json`, `~/Applications` |
 | Rules | the intro line, one row per rule in file order with a remove button, the unreadable-entries notice (see "Rules" below) | `config.json`, the top-level `rules` array |
+| Skills | the source of the installed countersign-skills, the updates notice with its command, each skill with the agents it is installed for, the rules (see [skills.md](skills.md#the-overview)) | nothing; it only reads |
 | Help | the tour, documentation, ask a question, report a problem, contact the developer, updates, then support links | nothing in `config.json`; `update-check.json` after Check for Updates |
 | Advanced | the config file's path, Open in Editor, Copy Path, Open with, the schema, what only the file can set, and the prompt for a coding agent | `config.json` for Open with; otherwise nothing beyond creating a missing `config.json` to open it |
 
@@ -403,6 +406,7 @@ The window edits top-level keys only:
 | App | When Countersign quits, a menu | `quitBehavior` | "Ask", "Keep showing panels" or "Pause panels" |
 | App | Appearance, a segmented control | `appearance` | "System", "Light" or "Dark" |
 | App | Accent colour, six swatches and a color well | `accentColor` | Amber, Blue, Green, Purple, Pink, Graphite, or any color as `#RRGGBB` |
+| App | Skills in the sidebar, a switch | `showSkills` | on or off; top level only |
 
 Every one of these rows is a `PreferenceRow`, the one component that lays out a row's title, its
 caption, a trailing control, an optional detail below (Hand off when frontmost's list and add

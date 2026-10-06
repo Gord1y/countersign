@@ -5,17 +5,21 @@ public enum SettingsPane: String, CaseIterable, Sendable {
   case panels
   case app
   case rules
+  case skills
   case context
   case help
   case advanced
 
   public static let standard = SettingsPane.agents
-  public static let sidebar: [SettingsPane] = sidebar(showsContext: false)
+  public static let sidebar: [SettingsPane] = sidebar(
+    showsContext: false, showsSkills: Settings.defaultShowSkills)
 
-  public static func sidebar(showsContext: Bool) -> [SettingsPane] {
-    showsContext
-      ? [.agents, .app, .panels, .rules, .context, .help]
-      : [.agents, .app, .panels, .rules, .help]
+  public static func sidebar(showsContext: Bool, showsSkills: Bool) -> [SettingsPane] {
+    var panes: [SettingsPane] = [.agents, .app, .panels, .rules]
+    if showsSkills { panes.append(.skills) }
+    if showsContext { panes.append(.context) }
+    panes.append(.help)
+    return panes
   }
 
   public var title: String {
@@ -24,6 +28,7 @@ public enum SettingsPane: String, CaseIterable, Sendable {
     case .panels: return "Panels"
     case .app: return "App"
     case .rules: return "Rules"
+    case .skills: return "Skills"
     case .context: return "Context"
     case .help: return "Help"
     case .advanced: return "Advanced"
@@ -44,6 +49,10 @@ public enum SettingsPane: String, CaseIterable, Sendable {
       return "What the menu-bar app does, and how panels and Settings look."
     case .rules:
       return "Allow or deny requests before a panel shows."
+    case .skills:
+      return
+        "Skills and rules from countersign-skills. Countersign only reads them; it never installs"
+        + " or changes anything."
     case .context:
       return
         "Context checkpoints for Claude Code sessions. Saved to config.json as soon as you"
@@ -57,7 +66,7 @@ public enum SettingsPane: String, CaseIterable, Sendable {
 
   public var preferenceNames: [PreferenceName] {
     switch self {
-    case .agents, .rules, .help, .advanced: return []
+    case .agents, .rules, .skills, .help, .advanced: return []
     case .panels:
       return [
         .idleSeconds, .graceSeconds, .armDelay, .chainedArmDelay, .snoozeMinutes, .quietHours,
@@ -65,7 +74,7 @@ public enum SettingsPane: String, CaseIterable, Sendable {
         .panelSound, .waitingNoticeDelay, .waitingNoticeDuration,
         .approvalCard, .approvalCardDelay,
       ]
-    case .app: return [.checkForUpdates, .quitBehavior, .appearance, .accentColor]
+    case .app: return [.checkForUpdates, .quitBehavior, .appearance, .accentColor, .showSkills]
     case .context:
       return [
         .contextMode, .contextStandardThresholds, .contextMillionThresholds,

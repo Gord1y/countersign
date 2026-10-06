@@ -251,6 +251,9 @@ default, and most can be set per agent. Every key: [docs/configuration.md](docs/
 - Everything else stays on your Mac: the config file, the request queue, the log and the agents'
   own hook files it edits (each backed up first). See what it reads and writes:
   [docs/safety-and-privacy.md](docs/safety-and-privacy.md).
+- Settings' Skills group reads the countersign-skills state folder, its catalogs and the agents'
+  skills folders to show what is installed; nothing leaves your Mac, and its GitHub button only
+  opens your browser.
 - Any error, crash or timeout means "no decision", never an approval.
 
 The CLI and app are only ad-hoc signed, not notarized: a `curl | sh` install never passes through a
