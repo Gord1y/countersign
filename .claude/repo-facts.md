@@ -102,7 +102,7 @@ disagree, the contract doc wins.
 | The review workflow, and who posts the formal review and the tracking comment | none: there is no automated review and the rulesets require no approval; the maintainer reviews locally ([docs/review-checklist.md](../docs/review-checklist.md)) and reviews outside contributors' pull requests on GitHub |
 | The severity scale, and what is never reported | 🔴 Blocker (safety contract or hard rule; requests changes), 🟠 Major, 🟡 Minor, 🔵 Nit; unverified findings are questions, never invented ([docs/review-checklist.md](../docs/review-checklist.md#severity)) |
 | How to serve the PR head for a browser pass | no browser surface; build the PR head in a worktree and install it (`scripts/install.sh && scripts/build-app.sh`) after the maintainer quits the app |
-| Git commands the repo denies, so the person lands fixes themselves | `.claude/settings.json` denies force pushes, `git push --mirror` and `--delete`, `git reset --hard`, `git clean`, `git rebase`, `git filter-branch`, `git update-ref -d`, `git checkout -- …` and `git restore .`, and asks before any other push |
+| Git commands the repo denies, so the person lands fixes themselves | `.claude/settings.json` denies force pushes, `git push --mirror` and `--delete`, `git reset --hard`, `git clean`, `git rebase`, `git filter-branch`, `git update-ref -d`, `git checkout -- …` and `git restore .`; no rule allows any other push |
 | Where uncommitted drafts go | `writeups/reviews/pr-<n>/` |
 
 ## writeups-cleanup

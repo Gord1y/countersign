@@ -12,7 +12,8 @@ paths:
 - `scripts/check.sh` is the definition of done, run after
   `swift format format --in-place --recursive Package.swift Sources Tests`. Changing what it
   checks, `.swift-format`, `Package.swift`, `scripts/git-hooks/**`, workflows or
-  `.claude/settings.json` needs the user's approval; those edits prompt on purpose.
+  `.claude/settings.json` needs the user's approval before the edit. No permission rule asks for
+  it: `.claude/settings.json` has no `ask` list, so inside the sandbox nothing prompts.
 - Scripts are POSIX `sh` with `set -eu`. Most need nothing beyond macOS, git and `plutil`; the
   build, release and screenshot scripts also need the Swift toolchain, and so does
   `scripts/test-release-index.sh`, which runs `scripts/release-index.swift` directly;
