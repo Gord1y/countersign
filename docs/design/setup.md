@@ -573,7 +573,7 @@ A copy is one install, grouped by where it came from:
 
 | Copy | Found when | Its paths | Version | Removed with |
 | --- | --- | --- | --- | --- |
-| Homebrew | `<prefix>/bin/countersign` exists, for `/opt/homebrew` and `/usr/local` | that link; the keg, what `<prefix>/opt/countersign` resolves to; a `~/Applications/Countersign.app` link into the keg (see "Linking Countersign.app") | the keg's folder name, `…/Cellar/countersign/<version>` | `brew uninstall countersign`, plus `rm ~/Applications/Countersign.app` for that link |
+| Homebrew | `<prefix>/bin/countersign` exists, for `/opt/homebrew` and `/usr/local` | that link; the keg, what `<prefix>/opt/countersign` resolves to; a `~/Applications/Countersign.app` link into the keg (see "Linking Countersign.app"), or a real `~/Applications/Countersign.app` directory when `~/.local/bin/countersign` is not a regular file, the keg has a `Countersign.app` with a readable version, and the copy's version is equal to or lower than it | the keg's folder name, `…/Cellar/countersign/<version>` | `brew uninstall countersign`, plus `rm ~/Applications/Countersign.app` for a link, or `rm -rf ~/Applications/Countersign.app` for a real copy |
 | Installer | `~/.local/bin/countersign` is a regular file, not a link | that file, and `~/Applications/Countersign.app` when it is a real directory | that app's `CFBundleShortVersionString`, else what `~/.local/bin/countersign --version` prints within 2 seconds; both are kept for the version check below | `rm ~/.local/bin/countersign`, plus `rm -rf ~/Applications/Countersign.app` for its app |
 | Countersign.app | `/Applications/Countersign.app` is a real directory, or `~/Applications/Countersign.app` is one and no installer copy owns it | the bundle | its `CFBundleShortVersionString` | `rm -rf <the bundle>` |
 
@@ -584,6 +584,15 @@ counted, compared by resolved path, is never counted again: a `~/.local/bin/coun
 Homebrew's binary is no installer copy, and an `/Applications` that links to `~/Applications` does
 not make the installer's app a second copy. A dangling link counts as nothing. A version that
 cannot be read shows as "version unknown".
+
+A real copy of Homebrew's own app in `~/Applications` is part of the Homebrew install, not a second
+one: Countersign makes that copy itself for Homebrew users and keeps it current (see "Copying
+Countersign.app"). It is claimed for Homebrew only at the keg app's version or lower, read from
+`CFBundleShortVersionString` and never from the keg's folder name, which can carry a `_1`; a higher
+or unreadable version stays a Countersign.app copy of its own. A claimed copy lower than the keg app
+is not a duplicate but a version mismatch, which Doctor's `versions` line and Settings report as "The
+copy of Countersign.app in ~/Applications is older than Homebrew's", with `countersign settings` as
+the command. The installer's app-versus-CLI mismatch keeps priority over it.
 
 With two copies or more, each is marked with what is known about it. The hooks call it: every
 entry's executable path, read the way doctor reads it (`Doctor.executablePaths`), resolved and

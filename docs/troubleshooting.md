@@ -32,7 +32,7 @@ lines worth acting on:
 | Doctor says | What to do |
 | --- | --- |
 | `copies: 2 copies of Countersign are installed; …` | Choose one to keep; see [below](#two-copies-of-countersign-are-installed) |
-| `versions: the menu-bar app is older than the command-line tool: …`, or the other way round | Run the command at the end of the line; see [below](#the-menu-bar-app-and-the-command-line-tool-are-on-different-versions) |
+| `versions: the menu-bar app is older than the command-line tool: …`, , the other way round, or `the copy of Countersign.app in ~/Applications is older than Homebrew's: …` | Run the command at the end of the line; see [below](#the-menu-bar-app-and-the-command-line-tool-are-on-different-versions) |
 | `no countersign entry in …`, or `… is missing` or `… is empty` | Connect that agent: `countersign setup`, or **Wire** in Settings |
 | `… differs from the stable path …` | `countersign setup`; an upgrade or a second install moved the binary |
 | `… does not exist or is not executable` | `countersign setup` from the copy you use now |
@@ -214,6 +214,10 @@ and when the command-line tool is older, which matters more because your agents'
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Gord1y/countersign/main/install.sh | sh
 ```
+
+With Homebrew, Countersign keeps its own copy of the menu-bar app in `~/Applications`. When that copy
+is older than Homebrew's, `versions` says so; the menu-bar app updates its copy when it starts, and
+`countersign settings` opens Settings ▸ App to do it now.
 
 ## Codex shows no panel
 

@@ -68,6 +68,7 @@ struct InstalledCopy: Sendable, Equatable {
   let removals: [InstallRemoval]
   let hasApp: Bool
   let cliPath: String?
+  let appCopyVersion: String?
 
   var version: String? {
     appVersion ?? cliVersion
@@ -237,6 +238,7 @@ public struct InstallVersionMismatch: Sendable, Equatable {
   public let appVersion: String
   public let cliVersion: String
   public let appIsOlder: Bool
+  let isHomebrewCopy: Bool
 
   init?(appVersion: String, cliVersion: String) {
     guard let app = UpdateCheck.semverParts(appVersion),
@@ -245,22 +247,41 @@ public struct InstallVersionMismatch: Sendable, Equatable {
     self.appVersion = appVersion
     self.cliVersion = cliVersion
     appIsOlder = app.lexicographicallyPrecedes(cli)
+    isHomebrewCopy = false
+  }
+
+  init?(homebrewCopyVersion: String, kegAppVersion: String) {
+    guard let copy = InstalledCopies.orderedVersion(homebrewCopyVersion),
+      let keg = InstalledCopies.orderedVersion(kegAppVersion), copy.lexicographicallyPrecedes(keg)
+    else { return nil }
+    appVersion = homebrewCopyVersion
+    cliVersion = kegAppVersion
+    appIsOlder = true
+    isHomebrewCopy = true
   }
 
   public var title: String {
-    appIsOlder
+    if isHomebrewCopy {
+      return "The copy of Countersign.app in ~/Applications is older than Homebrew's"
+    }
+    return appIsOlder
       ? "The menu-bar app is older than the command-line tool"
       : "The command-line tool is older than the menu-bar app"
   }
 
   public var advice: String {
-    appIsOlder
+    if isHomebrewCopy {
+      return
+        "Countersign.app in ~/Applications is \(appVersion) but Homebrew installed \(cliVersion). The menu-bar app updates its copy when it starts; to update it now, open Settings ▸ App:"
+    }
+    return appIsOlder
       ? "Countersign.app is \(appVersion) but countersign is \(cliVersion). Update the app:"
       : "countersign is \(cliVersion) but Countersign.app is \(appVersion), and your agents' hooks run countersign. Update it:"
   }
 
   public var command: String {
-    appIsOlder ? Self.appUpdateCommand : UpdateCommand.curlInstallCommand
+    if isHomebrewCopy { return "countersign settings" }
+    return appIsOlder ? Self.appUpdateCommand : UpdateCommand.curlInstallCommand
   }
 
   public var doctorLine: DoctorLine {
@@ -294,10 +315,22 @@ public enum InstalledCopies {
     home: URL, root: URL, fileSystem: InstallFileSystem, cliVersion: (String) -> String?
   ) -> InstallVersionMismatch? {
     let copies = detect(home: home, root: root, fileSystem: fileSystem, cliVersion: cliVersion)
-    guard let installer = copies.first(where: { $0.source == .installer }), installer.hasApp,
+    if let installer = copies.first(where: { $0.source == .installer }), installer.hasApp,
       let appVersion = installer.appVersion, let cliVersion = installer.cliVersion
-    else { return nil }
-    return InstallVersionMismatch(appVersion: appVersion, cliVersion: cliVersion)
+    {
+      return InstallVersionMismatch(appVersion: appVersion, cliVersion: cliVersion)
+    }
+    for homebrew in copies where homebrew.source.isHomebrew {
+      guard let copyVersion = homebrew.appCopyVersion, let keg = homebrew.paths.dropFirst().first,
+        let kegAppVersion = bundleVersion(keg + "/" + appBundle, fileSystem: fileSystem)
+      else { continue }
+      if let mismatch = InstallVersionMismatch(
+        homebrewCopyVersion: copyVersion, kegAppVersion: kegAppVersion)
+      {
+        return mismatch
+      }
+    }
+    return nil
   }
 
   public static func version(fromVersionOutput output: String) -> String? {
@@ -456,6 +489,7 @@ private struct InstallScan {
     var executables = [resolvedBinary]
     var removals: [InstallRemoval] = [.brewUninstall(prefix: prefix)]
     var hasApp = false
+    var appCopyVersion: String?
     let keg = fileSystem.resolved(system(prefix + "/opt/" + HookCommand.executableName))
     if let keg {
       claimed.append(keg)
@@ -471,13 +505,30 @@ private struct InstallScan {
       {
         paths.append(link)
         removals.append(.remove(link))
+      } else if let copyVersion = ownCopyVersion(link, kegApp: kegApp) {
+        paths.append(link)
+        executables.append(contentsOf: appExecutables(link))
+        removals.append(.removeDirectory(link))
+        appCopyVersion = copyVersion
       }
     }
     let version = keg.flatMap(InstalledCopies.kegVersion)
     return InstalledCopy(
       source: .homebrew(prefix: prefix), appVersion: hasApp ? version : nil, cliVersion: version,
       paths: paths, executables: executables, removals: removals, hasApp: hasApp,
-      cliPath: binary)
+      cliPath: binary, appCopyVersion: appCopyVersion)
+  }
+
+  private mutating func ownCopyVersion(_ copy: String, kegApp: String) -> String? {
+    guard fileSystem.kind(copy) == .directory,
+      fileSystem.kind(inHome(InstalledCopies.installerCLI)) != .file,
+      let kegVersion = bundleVersion(kegApp).flatMap(InstalledCopies.orderedVersion),
+      let copyVersion = bundleVersion(copy),
+      let ordered = InstalledCopies.orderedVersion(copyVersion),
+      !kegVersion.lexicographicallyPrecedes(ordered),
+      let resolved = fileSystem.resolved(copy), claim(resolved)
+    else { return nil }
+    return copyVersion
   }
 
   mutating func installer(cliVersion: (String) -> String?) -> InstalledCopy? {
@@ -502,7 +553,8 @@ private struct InstallScan {
     }
     return InstalledCopy(
       source: .installer, appVersion: appVersion, cliVersion: cliVersion(cli), paths: paths,
-      executables: executables, removals: removals, hasApp: hasApp, cliPath: cli)
+      executables: executables, removals: removals, hasApp: hasApp, cliPath: cli,
+      appCopyVersion: nil)
   }
 
   mutating func app(at path: String) -> InstalledCopy? {
@@ -512,7 +564,7 @@ private struct InstallScan {
     return InstalledCopy(
       source: .app, appVersion: bundleVersion(path), cliVersion: nil, paths: [path],
       executables: appExecutables(path), removals: [.removeDirectory(path)], hasApp: true,
-      cliPath: nil)
+      cliPath: nil, appCopyVersion: nil)
   }
 
   private func appExecutables(_ app: String) -> [String] {
