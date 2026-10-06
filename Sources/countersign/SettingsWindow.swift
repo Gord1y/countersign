@@ -28,11 +28,42 @@ enum SettingsCommand {
 @MainActor
 private final class SettingsApplicationDelegate: NSObject, NSApplicationDelegate {
   private var controller: SettingsWindowController?
+  private var setupController: SetupWindowController?
+  private var isSwitchingToSetup = false
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     SettingsMenu.install()
     let controller = SettingsWindowController(
+      model: SettingsModel(environment: .current()),
+      onClose: { [weak self] in
+        guard self?.isSwitchingToSetup != true else { return }
+        exit(0)
+      })
+    controller.model.requestSetup = { [weak self] in self?.openSetup() }
+    self.controller = controller
+    controller.show()
+  }
+
+  private func openSetup() {
+    if let setupController {
+      setupController.show()
+      return
+    }
+    isSwitchingToSetup = true
+    controller?.model.requestClose?()
+    isSwitchingToSetup = false
+    let setupController = SetupWindowController(
+      model: SetupModel(settings: SettingsModel(environment: .current())),
+      onOpenSettings: { [weak self] in self?.reopenSettings() }, onClose: { exit(0) })
+    self.setupController = setupController
+    setupController.show()
+  }
+
+  private func reopenSettings() {
+    setupController = nil
+    let controller = SettingsWindowController(
       model: SettingsModel(environment: .current()), onClose: { exit(0) })
+    controller.model.requestSetup = { [weak self] in self?.openSetup() }
     self.controller = controller
     controller.show()
   }
@@ -74,7 +105,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     window.delegate = self
     placeWindow()
     model.requestClose = { [weak self] in self?.window.performClose(nil) }
-    model.requestTour = { [weak self] in self?.presentTourIfNeeded(force: true) }
     window.appearance = model.appearance.windowAppearance
     model.applyAppearance = { [weak self] appearance in
       guard let window = self?.window,

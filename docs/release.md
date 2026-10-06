@@ -87,15 +87,18 @@ last step, right after it prints `installed countersign <version>`:
   no terminal is available to ask on (the same `/dev/tty` probe described above), it prints
   `next: countersign setup` instead, since there's nobody there to show a window to.
 - If `$HOME/Applications/Countersign.app` exists once the install is done, whether installed just
-  now or already there and left in place, it runs `open "$app_dir"`: an ordinary launch, which
-  starts the menu-bar app and opens its Settings window, and prints
+  now or already there and left in place, it runs `open "$app_dir" --args --setup`: a launch with `--setup`, which
+  starts the menu-bar app and opens its setup window even on a Mac that already has Countersign
+  state, as long as Countersign.app is not already running. When it is, macOS drops the arguments
+  and `open` only reopens it, which brings up Settings; after a reinstall the running copy is the
+  previous version anyway, which the installer tells you to quit and open again. It prints
   `opening Countersign to set up your agents`. If `open` itself fails, for example an SSH session
   with a terminal but no GUI login for LaunchServices to hand the app to, that failure doesn't fail
   the install: it's swallowed and `next: countersign setup` is printed instead, the same as when
   nothing is opened at all. Otherwise it starts `$HOME/.local/bin/countersign setup` in the
   background, detached from the installer (stdin from `/dev/null`, output to `/dev/null`,
-  backgrounded with `&`) so the installer exits at once rather than wait on the Settings window, and
-  prints `opening Countersign Settings to set up your agents`.
+  backgrounded with `&`) so the installer exits at once rather than wait on the setup window, and
+  prints `opening the Countersign setup window`.
 - If the app bundle already existed and this run just replaced it while a previous
   `Countersign.app` process was still running (`pgrep -f "$app_dir/Contents/MacOS/countersign"`),
   it also prints

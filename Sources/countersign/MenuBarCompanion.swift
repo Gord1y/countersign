@@ -11,10 +11,16 @@ enum MenuBarCompanion {
     let instanceLock: ExclusiveFileLock
     do {
       guard let acquired = try ExclusiveFileLock.acquire(paths.companionLockFile) else {
+        let asksForSetup = CommandLine.arguments.contains(CompanionLaunch.setupArgument)
         DistributedNotificationCenter.default().postNotificationName(
-          CompanionController.openSettingsNotification, object: nil, userInfo: nil,
-          deliverImmediately: true)
-        log.write("companion: already running, asked it to open Settings")
+          asksForSetup
+            ? CompanionController.openSetupNotification
+            : CompanionController.openSettingsNotification,
+          object: nil, userInfo: nil, deliverImmediately: true)
+        log.write(
+          asksForSetup
+            ? "companion: already running, asked it to open setup"
+            : "companion: already running, asked it to open Settings")
         exit(0)
       }
       instanceLock = acquired
@@ -38,6 +44,8 @@ enum MenuBarCompanion {
 private final class CompanionController: NSObject, NSApplicationDelegate, NSMenuDelegate {
   static let openSettingsNotification = Notification.Name(
     CompanionLaunch.openSettingsNotificationName)
+  static let openSetupNotification = Notification.Name(
+    CompanionLaunch.openSetupNotificationName)
   private static let refreshInterval: TimeInterval = 2
   private static let updateCheckInterval: TimeInterval = 3600
 
@@ -59,6 +67,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   private var manualCheckResult: ManualUpdateCheckResult?
   private var updateCheckRequests = UpdateCheckRequests()
   private var settingsWindow: SettingsWindowController?
+  private var setupWindow: SetupWindowController?
   private var pendingQuit: QuitOutcome?
   private var isMenuOpen = false
   private var reportedCopyRefreshFailures: Set<String> = []
@@ -107,15 +116,34 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     DistributedNotificationCenter.default().addObserver(
       self, selector: #selector(openSettingsRequested(_:)), name: Self.openSettingsNotification,
       object: nil, suspensionBehavior: .deliverImmediately)
+    DistributedNotificationCenter.default().addObserver(
+      self, selector: #selector(openSetupRequested(_:)), name: Self.openSetupNotification,
+      object: nil, suspensionBehavior: .deliverImmediately)
     let opensSettingsForUpgrade = opensSettingsAfterUpgrade()
     let relaunch = takeFreshCopyRefreshRelaunch()
     if opensSettingsForUpgrade { return }
     if let relaunch {
-      if relaunch.opensSettings { openSettings() }
+      if relaunch.opensSettings { openSetupOrSettings() }
       return
     }
     guard launchOpensSettings else {
       log.write("companion: started at login")
+      return
+    }
+    openSetupOrSettings()
+  }
+
+  private var opensSetupAtLaunch: Bool {
+    CommandLine.arguments.contains(CompanionLaunch.setupArgument)
+      || SetupLaunch.opensSetup(
+        setupShown: FileManager.default.fileExists(atPath: paths.setupShownFile.path),
+        tourShown: FileManager.default.fileExists(atPath: paths.tourShownFile.path))
+  }
+
+  private func openSetupOrSettings() {
+    if opensSetupAtLaunch {
+      log.write("companion: started, opening setup")
+      openSetup()
       return
     }
     log.write("companion: started")
@@ -135,6 +163,13 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     Task { @MainActor [weak self] in
       self?.log.write("companion: another launch asked to open settings")
       self?.openSettings()
+    }
+  }
+
+  @objc nonisolated private func openSetupRequested(_ notification: Notification) {
+    Task { @MainActor [weak self] in
+      self?.log.write("companion: another launch asked to open setup")
+      self?.openSetup()
     }
   }
 
@@ -176,6 +211,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
 
   private var isAnythingOnScreen: Bool {
     if let settingsWindow, !settingsWindow.isClosed { return true }
+    if setupWindow?.window?.isVisible == true { return true }
     return TestPanelLauncher.shared.isRunning || NSApplication.shared.modalWindow != nil
       || isMenuOpen
   }
@@ -460,8 +496,8 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
       log.write("companion: opened Login Items in System Settings")
     case .openURL(let url):
       openInDefaultApp(url)
-    case .showTour:
-      openSettings(forceTour: true)
+    case .setUp:
+      openSetup()
     case .reportProblem:
       openReportAProblem()
     case .checkForUpdatesNow:
@@ -620,6 +656,32 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     settingsWindow = controller
     controller.show(forceTour: forceTour, pane: pane)
     log.write("companion: opened settings")
+  }
+
+  private func openSetup() {
+    if let setupWindow {
+      setupWindow.show()
+      return
+    }
+    let controller = SetupWindowController(
+      model: SetupModel(settings: SettingsModel(environment: .current())),
+      onOpenSettings: { [weak self] in
+        self?.dropSetupWindow()
+        self?.openSettings()
+      },
+      onClose: { [weak self] in
+        self?.dropSetupWindow()
+        if self?.settingsWindow?.isClosed ?? true {
+          NSApplication.shared.setActivationPolicy(.accessory)
+        }
+      })
+    setupWindow = controller
+    controller.show()
+    log.write("companion: opened setup")
+  }
+
+  private func dropSetupWindow() {
+    DispatchQueue.main.async { [weak self] in self?.setupWindow = nil }
   }
 
   private func openReportAProblem() {

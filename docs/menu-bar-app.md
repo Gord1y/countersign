@@ -101,10 +101,10 @@ answer before a panel shows, **Context** while context checkpoints are on, and *
 guides, updates and ways to support Countersign. **Advanced**, for where the
 [config file](configuration.md) is, opens from a button at the bottom of App. Closing the window leaves the app running.
 
-The first time Settings opens, a short four-step tour appears over it: what wiring an agent does,
-how a panel waits for you before it appears, the test panel, and what's under App. Skip or Done on
-its last step means it won't come back on its own; **Show the Tour** under **Help**, in the menu or
-in Settings, brings it back whenever you want it.
+The first time you open the app on a new Mac, one with no Countersign state, it shows the
+[setup window](setup.md#from-the-setup-window) instead of Settings. Opening it later shows
+Settings; **Set Up…** under **Help**, in the menu or in Settings, brings setup back whenever you
+want it.
 
 ## Test panel
 
@@ -177,8 +177,7 @@ doesn't read or write `update-check.json` and doesn't affect the app's next sche
 
 ## Help
 
-- **Show the Tour** opens Settings and shows the first-run tour again, whether or not you've seen
-  it before.
+- **Set Up…** opens the setup window, whether or not you've been through it before.
 - **Documentation** opens the README on GitHub.
 - **Report a Problem…** opens a new GitHub bug report, filled in with your macOS version, your
   Countersign version and the report `countersign doctor` prints, with your home folder shown as
@@ -187,7 +186,7 @@ doesn't read or write `update-check.json` and doesn't affect the app's next sche
   [gord1y.dev](https://www.gord1y.dev/).
 - **Support the Developer** links to GitHub Sponsors and Buy Me a Coffee.
 
-Settings ▸ **Help** offers the same: the tour, documentation, asking a question, reporting a
+Settings ▸ **Help** offers the same: set up, documentation, asking a question, reporting a
 problem, contacting the developer, checking for updates and the two support links, all in one
 group. It's there for anyone who runs `countersign settings` without ever opening this menu, such
 as someone who installed only the command-line tool. `countersign help` prints the same Help and

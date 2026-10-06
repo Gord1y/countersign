@@ -223,7 +223,7 @@ since the sidebar already names it:
 | App | General (Launch at login, Check for updates, When Countersign quits), Appearance (Appearance, Accent colour, Skills in the sidebar) and, while there is an offer to copy Countersign.app, Install, then Advanced… and Restore Defaults | macOS's login items, `config.json`, `~/Applications` |
 | Rules | the intro line, one row per rule in file order with a remove button, the unreadable-entries notice (see "Rules" below) | `config.json`, the top-level `rules` array |
 | Skills | the source of the installed countersign-skills, the updates notice with its command, each skill with the agents it is installed for, the rules (see [skills.md](skills.md#the-overview)) | nothing; it only reads |
-| Help | the tour, documentation, ask a question, report a problem, contact the developer, updates, then support links | nothing in `config.json`; `update-check.json` after Check for Updates |
+| Help | set up, documentation, ask a question, report a problem, contact the developer, updates, then support links | nothing in `config.json`; `update-check.json` after Check for Updates |
 | Advanced | the config file's path, Open in Editor, Copy Path, Open with, the schema, what only the file can set, and the prompt for a coding agent | `config.json` for Open with; otherwise nothing beyond creating a missing `config.json` to open it |
 
 The groups follow what a control changes and where the change lands, so one subtitle can say it
@@ -847,12 +847,13 @@ so it never appears in a Restore Defaults line or a reset button.
 The group holds three `SettingsGroup` cards, `HelpSection` in `SettingsHelpView.swift`, separated by
 `SettingsSection`'s own spacing rather than a metric of their own:
 
-1. Tour, Documentation, Ask a question, Report a problem, Contact the developer, each a
+1. Setup, Documentation, Ask a question, Report a problem, Contact the developer, each a
    `PreferenceRow` with a single trailing button and no `PreferenceName` behind it (like the Test
-   panel row and Advanced's rows, they carry no info button or reset). Show the Tour calls
-   `SettingsModel.requestTour`, a closure `SettingsWindowController.init` sets to
-   `presentTourIfNeeded(force: true)`, the same call the companion's own "Show the Tour" menu item
-   reaches through `openSettings(forceTour: true)`. Documentation, Ask a question and Contact the
+   panel row and Advanced's rows, they carry no info button or reset). Set Up… calls
+   `SettingsModel.requestSetup`, a closure the owner of the window sets. The companion sets it to
+   its `openSetup()`, the call its own Help ▸ Set Up… menu item reaches; the Settings window of a
+   `countersign settings` or `countersign setup` process sets it to close Settings and show the setup
+   window in the same process. Documentation, Ask a question and Contact the
    developer open `CompanionMenu.documentationURL`, `.askAQuestionURL` and `.contactDeveloperURL`
    the same way the companion's Help submenu does, skipping the button when the URL is `nil`, and
    Report a problem calls `ReportProblem.url()`. That type, in `ReportProblem.swift`, holds the body
@@ -935,7 +936,7 @@ other key as it is.
 
 The window shows a four-step tour the first time Settings opens: whenever
 `SettingsWindowController.show(forceTour:)` runs with `forceTour` false, which is every path that
-opens the window except the menu bar's Help ▸ Show the Tour, it presents the tour as a sheet
+opens the window, it presents the tour as a sheet
 (`window.beginSheet`, an `NSHostingController<FirstRunTourView>`) unless
 `AppPaths.tourShownFile` already exists. Skip or Done, on any step, creates that empty file and
 ends the sheet; Back and Next swap the hosting controller's `rootView` for the neighbouring step
@@ -962,8 +963,7 @@ terminal already read and write without disagreeing (see "What it writes" in
 [safety-and-privacy.md](../safety-and-privacy.md)). `UserDefaults` would tie it to
 `Countersign.app`'s bundle identifier alone and miss the CLI entirely.
 
-The menu bar's Help ▸ Show the Tour opens Settings and presents the tour with `forceTour: true`,
-skipping the `tourShownFile` check, so it always shows regardless of whether it's been seen.
+Help ▸ Set Up… no longer reaches the tour: it opens the setup window.
 `countersign snapshot --tour 1|2|3|4` renders one step's `FirstRunTourView` alone, the same way
 `--quit-prompt` renders the quit question's content view (see "Snapshots" in
 [panel.md](panel.md)).

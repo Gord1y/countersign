@@ -381,6 +381,9 @@ if ! wait_for_marker "$home18/open-called"; then
 elif ! grep -qF "$home18/Applications/Countersign.app" "$home18/open-called"; then
   fail "pty, setup unset, app installed: fake open was not called with the app path"
 fi
+if ! grep -qF -- "--args --setup" "$home18/open-called"; then
+  fail "pty, setup unset, app installed: fake open was not called with --args --setup: $(cat "$home18/open-called")"
+fi
 if ! grep -qF "opening Countersign to set up your agents" "$out18"; then
   fail "pty, setup unset, app installed: did not print the app open line: $(cat "$out18")"
 fi
@@ -397,7 +400,7 @@ setup_override=0
 if ! wait_for_marker "$home19/setup-called"; then
   fail "pty, setup unset, app disabled: fake countersign setup was not called: $(cat "$out19")"
 fi
-if ! grep -qF "opening Countersign Settings to set up your agents" "$out19"; then
+if ! grep -qF "opening the Countersign setup window" "$out19"; then
   fail "pty, setup unset, app disabled: did not print the CLI open line: $(cat "$out19")"
 fi
 if grep -qF "next: countersign setup" "$out19"; then
@@ -443,6 +446,9 @@ fi
 setup_override=0
 if ! wait_for_marker "$home22/open-called"; then
   fail "no terminal, setup forced on: fake open was not called: $(cat "$out22")"
+fi
+if ! grep -qF -- "--args --setup" "$home22/open-called"; then
+  fail "no terminal, setup forced on: fake open was not called with --args --setup: $(cat "$home22/open-called")"
 fi
 if ! grep -qF "opening Countersign to set up your agents" "$out22"; then
   fail "no terminal, setup forced on: did not print the app open line: $(cat "$out22")"

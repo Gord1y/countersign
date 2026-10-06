@@ -40,7 +40,7 @@ public enum CompanionMenuAction: Sendable, Equatable {
   case disableLaunchAtLogin
   case approveLaunchAtLogin
   case openURL(URL)
-  case showTour
+  case setUp
   case reportProblem
   case checkForUpdatesNow
   case copyUpgradeCommand(String)
@@ -333,7 +333,7 @@ public enum CompanionMenu {
 
   private static func helpEntry() -> CompanionMenuEntry {
     var submenu: [CompanionMenuItem] = [
-      .entry(CompanionMenuEntry(title: "Show the Tour", action: .showTour))
+      .entry(CompanionMenuEntry(title: "Set Up…", action: .setUp))
     ]
     if let documentationURL {
       submenu.append(

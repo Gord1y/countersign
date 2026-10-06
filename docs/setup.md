@@ -18,7 +18,7 @@ signed app, since only a browser download sets the quarantine flag Gatekeeper ch
 The curl installer asks whether to also install the optional [menu-bar app](menu-bar-app.md)
 (default yes); the CLI alone is fully usable, so put `COUNTERSIGN_APP=0` before `sh` to skip the
 app, or `COUNTERSIGN_APP=1` to install it without being asked. It then asks whether to open
-Countersign so you can set up your agents (default yes); put `COUNTERSIGN_SETUP=0` before `sh` to
+Countersign's setup window (default yes); put `COUNTERSIGN_SETUP=0` before `sh` to
 skip that without asking, or `COUNTERSIGN_SETUP=1` to open it without asking. For an older release, put
 `COUNTERSIGN_VERSION=<x.y.z>` before `sh` in the curl command; Homebrew always installs the latest.
 The full installer behaviour, including what each variable rejects and how it picks a default
@@ -27,11 +27,13 @@ without a terminal to ask in: [release.md](release.md#the-curl-installer).
 To build from source instead (Xcode 26 or later), clone the repository and run
 `scripts/install.sh`.
 
-## From the Settings window
+## From the setup window
 
-The curl installer asks at the end of a fresh install and opens this window for you unless you say
-no (see [release.md](release.md#the-curl-installer)); otherwise open Countersign.app from the Finder,
-Spotlight or Launchpad, or run `countersign setup`. Setup opens a small window with three steps:
+The curl installer asks at the end of an install and opens the setup window for you unless you say
+no (see [release.md](release.md#the-curl-installer)). The first time you open Countersign.app on a
+Mac with no Countersign state, it opens the setup window too. Otherwise run `countersign setup`, or
+choose **Set Up…** under **Help** in the menu bar or in Settings. Setup opens a small window with
+three steps:
 
 1. **Wire your agents.** Each agent Countersign found gets a row. **Wire** writes the hook into
    every agent that is Not wired or Needs an update, and each row's change is behind its

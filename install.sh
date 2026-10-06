@@ -178,14 +178,14 @@ elif (exec </dev/tty >/dev/tty) 2>/dev/null; then
 fi
 
 if [ "$open_setup" = "1" ] && [ -e "$app_dir" ]; then
-  if open "$app_dir"; then
+  if open "$app_dir" --args --setup; then
     echo "opening Countersign to set up your agents"
   else
     echo "next: countersign setup"
   fi
 elif [ "$open_setup" = "1" ]; then
   (nohup "$bin_dir/countersign" setup </dev/null >/dev/null 2>&1 &)
-  echo "opening Countersign Settings to set up your agents"
+  echo "opening the Countersign setup window"
 else
   echo "next: countersign setup"
 fi

@@ -42,7 +42,7 @@ row, even though the value still differs from the default. **Panels** and **App*
 confirm, whenever it was changed.
 
 Its settings are in a sidebar — Agents, App, Panels, Rules, Context while context checkpoints are
-on, and Help, the last holding the tour, documentation, questions and problem reports, updates,
+on, and Help, the last holding set up, documentation, questions and problem reports, updates,
 and support links — in that order at every window width, plus **Advanced**, opened through a button
 at the bottom of App. Drag the
 window's edges to resize it: the sidebar's order never changes. It opens again at the size and

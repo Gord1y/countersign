@@ -41,11 +41,11 @@ Older versions, installs without questions and building from source:
 
 ## Set up
 
-The install script offers to open Countersign for you; after Homebrew, run `countersign setup`.
-Either way, wire the agents you use: the window shows each change before writing it and backs up
-every file it changes, and `countersign setup --cli` does the same in the terminal. Codex asks you
-to trust a new hook once: run `/hooks` in Codex and approve it. What setup changes and how to undo
-it: [docs/setup.md](docs/setup.md).
+The install script opens the setup window for you; after Homebrew, run `countersign setup`. It
+takes three steps: wire the agents it found (each change behind "Show the change", every changed
+file backed up), try a test panel, done. `countersign setup --cli` does it in the terminal. Codex
+asks you to trust a new hook once: run `/hooks` in Codex and approve it. What setup changes and how
+to undo it: [docs/setup.md](docs/setup.md).
 
 ---
 
@@ -218,8 +218,8 @@ it steps aside, swallowing that one key, until your next pause. ⌘ shortcuts su
 
 | Command | What it does |
 | --- | --- |
-| `countersign setup` | Opens the setup window; `setup --cli` does the same in the terminal |
-| `countersign settings` | Opens the same window |
+| `countersign setup` | Opens the setup window: wire your agents and try a test panel; `setup --cli` does it in the terminal |
+| `countersign settings` | Opens the Settings window |
 | `countersign doctor` | Checks your setup and prints a plain, pasteable report |
 | `countersign status` | Active or paused, queued requests, quiet time, log location |
 | `countersign pause` / `resume` | Turn the panel off and on. While paused, every prompt goes to its chat |

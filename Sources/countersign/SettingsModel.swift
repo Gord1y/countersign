@@ -239,7 +239,7 @@ final class SettingsModel {
   private(set) var customAccentColor: HexColor?
   private(set) var updateCheckPhase = SettingsUpdateCheckPhase.idle
   var requestClose: (() -> Void)?
-  var requestTour: (() -> Void)?
+  var requestSetup: (() -> Void)?
   var applyAppearance: ((AppearanceChoice) -> Void)?
 
   @ObservationIgnored private let testCornerCards = TestCornerCards()

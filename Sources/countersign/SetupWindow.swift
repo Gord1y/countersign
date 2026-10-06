@@ -87,12 +87,20 @@ enum SetupWindowCommand {
 private final class SetupApplicationDelegate: NSObject, NSApplicationDelegate {
   private var setupController: SetupWindowController?
   private var settingsController: SettingsWindowController?
+  private var isSwitchingToSetup = false
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     SettingsMenu.install()
-    let environment = SettingsEnvironment.current()
+    openSetup()
+  }
+
+  private func openSetup() {
+    isSwitchingToSetup = true
+    settingsController?.model.requestClose?()
+    isSwitchingToSetup = false
+    settingsController = nil
     let controller = SetupWindowController(
-      model: SetupModel(settings: SettingsModel(environment: environment)),
+      model: SetupModel(settings: SettingsModel(environment: .current())),
       onOpenSettings: { [weak self] in self?.openSettings() }, onClose: { exit(0) })
     setupController = controller
     controller.show()
@@ -100,7 +108,12 @@ private final class SetupApplicationDelegate: NSObject, NSApplicationDelegate {
 
   private func openSettings() {
     let controller = SettingsWindowController(
-      model: SettingsModel(environment: .current()), onClose: { exit(0) })
+      model: SettingsModel(environment: .current()),
+      onClose: { [weak self] in
+        guard self?.isSwitchingToSetup != true else { return }
+        exit(0)
+      })
+    controller.model.requestSetup = { [weak self] in self?.openSetup() }
     settingsController = controller
     controller.show()
   }

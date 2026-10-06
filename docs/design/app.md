@@ -154,13 +154,31 @@ the same path.
 ### Opening Countersign
 
 Opening Countersign.app by hand, from the Finder, Spotlight, Launchpad or `open`, always ends with
-the settings window in front, so a person who never uses a terminal can reach setup and settings:
+a window in front, so a person who never uses a terminal can reach setup and settings:
 
 | Opened | What happens |
 | --- | --- |
-| Nothing running yet | The companion starts, adds its icon and opens the settings window |
+| Nothing running yet, on a Mac with no Countersign state | The companion starts, adds its icon and opens the setup window |
+| Nothing running yet, otherwise | The companion starts, adds its icon and opens the settings window |
+| Nothing running yet, with `--setup` | The companion starts, adds its icon and opens the setup window |
 | At login, by "Launch at Login" | The companion starts and stays in the menu bar, with no window |
 | The companion is already running | Its settings window opens, or comes to the front |
+| The companion is already running, and a second process starts with `--setup` (for example `open -n … --args --setup`) | Its setup window opens, or comes to the front |
+
+A Mac with no Countersign state is one where `SetupLaunch.opensSetup` is true: neither `setup-shown`
+nor `tour-shown` exists in the state folder. A 0.2.0 user has `tour-shown`, so an upgrade never
+shows setup unasked; the installer is the one caller that always wants it, so it opens the app with
+`open "$app_dir" --args --setup` (`CompanionLaunch.setupArgument`). The log says
+`companion: started, opening setup` for either route. If a copy refresh relaunches the app, the
+relaunch decides from the state files alone, since the argument does not survive it. A plain
+`open "$app_dir" --args --setup` on a running Countersign.app is a reopen, which opens Settings,
+because macOS drops the arguments when it does not start a new process.
+
+A second launch cannot show a window itself, so it posts a distributed notification to the running
+companion: `CompanionLaunch.openSettingsNotificationName`, or, when its arguments contain `--setup`,
+`CompanionLaunch.openSetupNotificationName`, and exits. The companion keeps one setup window, brings
+it to the front when it is already open, and drops it when it closes. Help ▸ Set Up… and Settings ▸
+Help ▸ Set Up… always show it.
 
 Telling a login launch apart: macOS starts every app with an "open application" Apple event
 (`kAEOpenApplication`), and for a login item that event carries `keyAEPropData` set to
@@ -190,7 +208,7 @@ login or manual branch. `UpgradeNudge.isUpgrade` compares `last-seen-version`
 the current version, so the nudge happens once per version. If writing the file fails, the log says
 `companion: could not record the version` and the next launch asks again. 0.1.0 wrote no version file, so without one the answer
 is whether `tour-shown` exists: a 0.1.0 user has it once they opened Settings, and a fresh install
-has neither file and gets the first-run tour instead, so it is not an upgrade. When it is an upgrade
+has neither file and gets the setup window instead, so it is not an upgrade. When it is an upgrade
 the companion computes every agent's `HostWiring.status` with the inputs `countersign setup` uses,
 and `UpgradeNudge.needsAgentUpdate` is true for any `needsUpdate`; not installed, not wired, wired
 and unusable never count. The Agents pane then replaces both the login and the manual branch for
