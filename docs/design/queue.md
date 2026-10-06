@@ -488,7 +488,9 @@ hands off to its successor with the same `QueueHandoffChannel` the hook uses. It
 
 If the test runner dies, its probes must not linger or keep the lock. So a waiting probe gives up
 when its parent changes, a probe blocked on stdin finishes at EOF, and every probe ignores
-`SIGPIPE`, so a closed stdout cannot kill it while it still owns a ticket. The test harness reads
+`SIGPIPE`, so a closed stdout cannot kill it while it still owns a ticket. The hook ignores it too
+and writes its reply with the throwing `write(contentsOf:)`, since the legacy `write(_:)` raises an
+uncatchable exception on `EPIPE` and would abort the hook. The test harness reads
 a probe's exit status only after the probe has exited, because `Process` raises an Objective-C
 exception otherwise, and that exception would abort the runner and orphan every probe.
 

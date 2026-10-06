@@ -350,8 +350,7 @@ enum HookRunner {
 
   static func writeReply(_ outcome: ApprovalOutcome, host: ApprovalCore.Host) {
     guard let data = host.encode(outcome) else { return }
-    FileHandle.standardOutput.write(data)
-    FileHandle.standardOutput.write(Data("\n".utf8))
+    ReplyWriter.write(data, to: .standardOutput)
   }
 
   private static func handBack(
