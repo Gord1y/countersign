@@ -825,7 +825,9 @@ the built-in defaults, never of a config file.
 - **Decorative glyphs and status rows.** Icons that repeat the text beside them are hidden from
   VoiceOver: the agent status glyph, the inline message, note and follow-up symbols, the
   disclosure chevron, the app-link glyph and the installed-copy radio glyph (the row carries
-  `.isSelected` instead). An agent row reads its name and its status line as one element, and an
+  `.isSelected` instead). Each installed-copy row reads as one button whose label is the copy's
+  name, its chips and its paths, with `.isSelected` on the chosen one, so VoiceOver reads each copy
+  as one choice. An agent row reads its name and its status line as one element, and an
   inline message reads as one element.
 - **Increase Contrast.** The header rule, `SettingsDivider` and the `SettingsGroup` border use
   `SettingsHairline` and the group stroke, which switch from `Color.primary` at 8 to 12 percent
