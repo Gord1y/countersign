@@ -35,7 +35,9 @@ known, the start times match.
 
 Tickets are written atomically (a dotfile temp in the same directory, then `rename`), so readers
 only ever see complete content. Content that is still unreadable means outside damage, and
-liveness then falls back to `kill` alone.
+liveness then falls back to `kill` alone. A ticket whose file is gone by the time it is read (for
+example, removed by its own owner between the directory listing and the read) is skipped, not
+counted with no summary.
 
 A zombie does not count as live, even though `kill(pid, 0)` succeeds until the parent reaps it.
 `ProcessLiveness` reads `kp_proc.p_stat` from the same `sysctl(KERN_PROC_PID)` call that gives

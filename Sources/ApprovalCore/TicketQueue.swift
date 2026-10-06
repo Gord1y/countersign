@@ -328,10 +328,12 @@ public struct TicketQueue: Sendable {
     directory.appendingPathComponent(ticket.fileName)
   }
 
-  private func readTicket(named name: String) -> Ticket? {
-    guard let parsed = Ticket.parseFileName(name) else { return nil }
-    let data = FileManager.default.contents(atPath: directory.appendingPathComponent(name).path)
-    let content = data.flatMap { try? JSONDecoder().decode(TicketContent.self, from: $0) }
+  func readTicket(named name: String) -> Ticket? {
+    guard let parsed = Ticket.parseFileName(name),
+      let data = FileManager.default.contents(
+        atPath: directory.appendingPathComponent(name).path)
+    else { return nil }
+    let content = try? JSONDecoder().decode(TicketContent.self, from: data)
     return Ticket(
       fileName: name,
       timestamp: parsed.timestamp,
