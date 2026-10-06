@@ -416,7 +416,9 @@ without asking, writes nothing and never touches the Codex hook trust record. Th
 and selectable, added lines green and removed lines red. It sits behind a disclosure
 (`HookDiffDisclosure`), collapsed by default as one row, "Show the change (3 lines added, 1
 removed)", whose count is `DiffSummary` of the diff; clicking the triangle or the label expands it
-in place, relabels the row "Hide the change" and re-lays the alert out. Long lines wrap by
+in place, relabels the row "Hide the change" and re-lays the alert out. The triangle is the one
+accessibility element, carrying the label's text and the expanded state; the label is hidden from
+VoiceOver so the control is read once. Long lines wrap by
 character, and a wrapped continuation is indented one character so it sits after the `+`/`-`/space
 marker column; the view is as tall as its content, at most twelve lines, and scrolls vertically
 past that. A diff shown by default buried the popup's one-line question under thirty lines of JSON,

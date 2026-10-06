@@ -49,6 +49,7 @@ private final class HookDiffDisclosureView: NSStackView {
     label.alignment = .left
     label.target = self
     label.action = #selector(toggle)
+    label.setAccessibilityElement(false)
 
     let header = NSStackView(views: [triangle, label])
     header.orientation = .horizontal
