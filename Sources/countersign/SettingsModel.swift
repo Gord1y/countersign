@@ -1490,12 +1490,16 @@ final class SettingsModel {
   private static func phase(for outcome: UpdateCheckOutcome) -> SettingsUpdateCheckPhase {
     switch outcome {
     case .newerAvailable(let version):
-      let resolvedExecutablePath =
-        Bundle.main.executableURL?.resolvingSymlinksInPath().path ?? "(unresolved)"
+      let resolvedPath = Bundle.main.executableURL?.resolvingSymlinksInPath().path
+      let stablePath = resolvedPath.map {
+        StableExecutablePath.stable(
+          forResolved: $0, home: FileManager.default.homeDirectoryForCurrentUser,
+          isExecutable: FileManager.default.isExecutableFile(atPath:))
+      }
       return .newerAvailable(
         UpdateAvailability(
           version: version,
-          upgradeCommand: UpdateCommand.upgrade(forResolvedExecutablePath: resolvedExecutablePath),
+          upgradeCommand: UpdateCommand.upgrade(forStablePath: stablePath ?? "(unresolved)"),
           releaseNotesURL: UpdateCommand.releaseNotesURL(version: version)))
     case .upToDate:
       return .upToDate

@@ -9,14 +9,19 @@ public enum StableExecutablePath {
       .appendingPathComponent(HookCommand.executableName).path
   }
 
+  public static func homebrewCliPath(prefix: String) -> String {
+    prefix + "/bin/" + HookCommand.executableName
+  }
+
   public static func stable(
-    forResolved path: String, home: URL, isExecutable: (String) -> Bool
+    forResolved path: String, home: URL, isExecutable: (String) -> Bool,
+    prefixes: [String] = InstalledCopies.homebrewPrefixes
   ) -> String {
     if let marker = path.range(of: cellarMarker) {
       return String(path[..<marker.lowerBound]) + "/bin/" + HookCommand.executableName
     }
     guard path.hasSuffix(appBundleSuffix) else { return path }
-    let cli = cliPath(home: home)
-    return isExecutable(cli) ? cli : path
+    let candidates = [cliPath(home: home)] + prefixes.map { homebrewCliPath(prefix: $0) }
+    return candidates.first(where: isExecutable) ?? path
   }
 }

@@ -552,9 +552,13 @@ last. So a resolved path that is the binary inside `Countersign.app`,
 `<anything>/Countersign.app/Contents/MacOS/countersign`, and is outside a Cellar, maps to
 `~/.local/bin/countersign` when that file exists and is executable. The CLI wins over the app:
 dragging the app to the Trash is the more likely way for a person to lose a copy of the binary, so
-hooks stay pointed at the one that survives that. When there is no CLI, or it exists but is not
-executable, the app's own path is used as it is, so hooks still work on a Mac with only the app
-installed. Any other resolved path, such as `~/.local/bin/countersign` itself or a bare binary run
+hooks stay pointed at the one that survives that. Next comes Homebrew: a Homebrew install copies
+the app into `~/Applications` too, and that copy resolves outside any Cellar, so without this step
+wiring from it would write the copy's inner path into every hook, which breaks when the copy is
+replaced or trashed. So when there is no user CLI, `<prefix>/bin/countersign` is tried for each of
+`/opt/homebrew` and `/usr/local`, in that order, and the first executable one wins. When none of
+them is executable, the app's own path is used as it is, so hooks still work on a Mac with only the
+app installed. Any other resolved path, such as `~/.local/bin/countersign` itself or a bare binary run
 from a source checkout, is used as it is.
 
 Running setup again after moving the binary rewrites the existing entry's command with the new

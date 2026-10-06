@@ -203,13 +203,20 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     return configFile
   }
 
+  private func runningStablePath() -> String {
+    guard let resolved = Bundle.main.executableURL?.resolvingSymlinksInPath().path else {
+      return "(unresolved)"
+    }
+    return StableExecutablePath.stable(
+      forResolved: resolved, home: FileManager.default.homeDirectoryForCurrentUser,
+      isExecutable: FileManager.default.isExecutableFile(atPath:))
+  }
+
   private func currentUpdateAvailability() -> UpdateAvailability? {
     guard case .newerAvailable(let version)? = updateCheckState?.outcome else { return nil }
-    let resolvedExecutablePath =
-      Bundle.main.executableURL?.resolvingSymlinksInPath().path ?? "(unresolved)"
     return UpdateAvailability(
       version: version,
-      upgradeCommand: UpdateCommand.upgrade(forResolvedExecutablePath: resolvedExecutablePath),
+      upgradeCommand: UpdateCommand.upgrade(forStablePath: runningStablePath()),
       releaseNotesURL: UpdateCommand.releaseNotesURL(version: version))
   }
 
@@ -257,9 +264,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   }
 
   private func showUpdateCheckAlert(for outcome: UpdateCheckOutcome) {
-    let resolvedExecutablePath =
-      Bundle.main.executableURL?.resolvingSymlinksInPath().path ?? "(unresolved)"
-    let upgradeCommand = UpdateCommand.upgrade(forResolvedExecutablePath: resolvedExecutablePath)
+    let upgradeCommand = UpdateCommand.upgrade(forStablePath: runningStablePath())
     let releaseNotesURL: URL?
     if case .newerAvailable(let version) = outcome {
       releaseNotesURL = UpdateCommand.releaseNotesURL(version: version)

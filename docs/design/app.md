@@ -612,9 +612,11 @@ choosing it is itself the person's consent.
 `newerAvailable`, the menu (`CompanionMenu.items`) adds an "Update available: x.y.z" submenu above
 "Check for Updates…", with "Open Release Notes" opening
 `https://github.com/Gord1y/countersign/releases/tag/vx.y.z` and "Copy Upgrade Command" copying the
-command `ApprovalCore.UpdateCommand.upgrade(forResolvedExecutablePath:)` picks: `brew upgrade
-countersign` when the running binary resolves under a Homebrew Cellar (the same rule
-`StableExecutablePath` uses to find the stable link), otherwise the `curl | sh` installer. A manual
+command `ApprovalCore.UpdateCommand.upgrade(forStablePath:)` picks from the running binary's stable
+path (`StableExecutablePath.stable`, the one the hooks use): `brew upgrade countersign` when it
+is inside a Homebrew Cellar or is `<prefix>/bin/countersign` for a Homebrew prefix, which is what a
+copy of the app in `~/Applications` maps to on a Homebrew install, otherwise the `curl | sh`
+installer. A manual
 check ("Check for Updates…") that finds nothing newer instead shows a disabled "Countersign is up
 to date" line in that same spot, and a failed manual check shows "Couldn't check for updates"; both
 disappear the next time the menu closes, tracked in memory by `CompanionController`, never
