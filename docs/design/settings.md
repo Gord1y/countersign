@@ -158,6 +158,12 @@ the config file and the installed copies again before it is ordered in front, on
 on one reused from an earlier open, so the first frame shows the current state and never a verdict
 from defaults or from the last visit. It reads them once more whenever it becomes key.
 
+The group is chosen before the window is ordered in front. A new window starts on Agents; a caller
+that wants another group passes it to `show(pane:)`, and it is selected before the window shows. A
+reused window keeps its group, and a window that has closed (`isClosed`) is never reused, even in
+the moment before the companion drops it. After that only the person changes the group, apart from
+Context falling back to Panels when context checkpoints are turned off in the file.
+
 ### Window size
 
 The window is resizable, with no maximum. Its content opens at 820 × 800 pt, shrunk to fit the
@@ -256,12 +262,12 @@ App and Advanced as the same row). `SettingsPane.advanced` remains a real case: 
 `--tab` takes, just not listed in the sidebar.
 
 Every open starts on Agents (`SettingsPane.standard`). Each `SettingsWindowController` makes a new
-`SettingsModel`, and the menu-bar app makes a new controller whenever the window was closed, so
-closing Settings and opening it again lands on Agents; choosing Settings… while the window is still
-open keeps the group on screen. Agents is where an upgrade or a new agent needs attention, so a
+`SettingsModel`, and the menu-bar app makes a new controller whenever the window was closed or is
+closing, so closing Settings and opening it again lands on Agents; choosing Settings… while the
+window is still open keeps the group on screen. Agents is where an upgrade or a new agent needs attention, so a
 remembered group could hide it. Up to 0.1.0 the group was remembered under the user-defaults key
 `Countersign Settings Pane`; nothing reads that key any more. A caller that needs another group
-passes it to the companion's `openSettings(pane:)`, and `snapshot --settings` takes `--tab`.
+passes it to the companion's `openSettings(pane:)`, which hands it to `show(pane:)`, and `snapshot --settings` takes `--tab`.
 
 Switching group rebuilds the content area, so no view keeps its own state across it. What matters
 lives in `SettingsModel`: the text in the Snooze presets field and the add field for Hand off when

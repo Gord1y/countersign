@@ -501,9 +501,8 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   }
 
   private func openSettings(forceTour: Bool = false, pane: SettingsPane? = nil) {
-    if let settingsWindow {
-      settingsWindow.show(forceTour: forceTour)
-      if let pane { settingsWindow.model.select(pane) }
+    if let settingsWindow, !settingsWindow.isClosed {
+      settingsWindow.show(forceTour: forceTour, pane: pane)
       return
     }
     SettingsMenu.install()
@@ -513,8 +512,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
         DispatchQueue.main.async { self?.settingsWindow = nil }
       })
     settingsWindow = controller
-    controller.show(forceTour: forceTour)
-    if let pane { controller.model.select(pane) }
+    controller.show(forceTour: forceTour, pane: pane)
     log.write("companion: opened settings")
   }
 

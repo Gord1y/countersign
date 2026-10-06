@@ -51,6 +51,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
   let model: SettingsModel
   private let window: NSWindow
   private let onClose: @MainActor () -> Void
+  private(set) var isClosed = false
   private var statusTimer: Timer?
   private var screenObserver: (any NSObjectProtocol)?
   private var tourWindow: NSWindow?
@@ -92,9 +93,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     model.refreshStatus()
   }
 
-  func show(forceTour: Bool = false) {
+  func show(forceTour: Bool = false, pane: SettingsPane? = nil) {
     model.beginVisit()
     model.refreshFromDisk()
+    if let pane { model.select(pane) }
     NSApplication.shared.setActivationPolicy(.regular)
     keepOnUsableScreen()
     observeScreenChanges()
@@ -159,6 +161,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
   }
 
   func windowWillClose(_ notification: Notification) {
+    isClosed = true
     if let tourWindow {
       window.endSheet(tourWindow)
       self.tourWindow = nil
