@@ -177,7 +177,7 @@ its announcement) are likewise scoped to that one job, on top of the workflow's
    file of `git diff origin/main...origin/staging`, after `git fetch origin`. Fix what it finds
    through pull requests into `staging` first. Then open a pull request from `staging` into `main`,
    titled `chore: release countersign <x.y.z>`, and merge it with a merge commit once its checks
-   pass.
+   pass. GitHub takes the merge commit's subject from that title.
 5. Tag `main`'s new merge commit and push the tag: `git fetch origin`, then
    `git tag v<x.y.z> origin/main` and `git push origin v<x.y.z>`. A pushed `v*` tag can never be
    moved or deleted, so check `git log -1 origin/main` first.

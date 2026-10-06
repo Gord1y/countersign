@@ -178,6 +178,9 @@ are the record, and this section only explains them.
 `staging` through a pull request merged with a merge commit when a release is cut (see
 [release.md](release.md#cutting-a-release)). Rebase merging is off. A squash commit's subject is
 the pull request's title followed by ` (#<number>)`, which GitHub appends, and its body is empty.
+A merge commit into `main` also takes its subject from the pull request's title, and its body is
+empty: the repository's merge commit title is set to the pull request title, and its message to
+blank.
 
 Three rulesets enforce this. Each is committed as `.github/rulesets/<name>.json` in GitHub's own
 ruleset format, and the files are the source of truth. None has a bypass actor, so they bind the
