@@ -594,7 +594,8 @@ bytes changed, then reads it back, so the controls always show what the file hol
 - The file is backed up the way setup backs up a hook file (see "Backups and writing" in
   [setup.md](setup.md)), once per window session, before its first write, not once per change.
   The first backup already holds the file as it was before the session, which is the copy worth
-  keeping; a backup per change would leave dozens of copies after a few stepper clicks; and a
+  keeping; a backup per change would push it out after three stepper clicks, since only the newest
+  three backups of a file are kept; and a
   backup's name has one-second resolution, so two changes within the same second would need the
   same name and the second write would fail. A window session is one `SettingsModel`: each time the
   window opens, the first write backs up again.

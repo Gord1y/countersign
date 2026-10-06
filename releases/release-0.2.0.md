@@ -92,6 +92,9 @@ testedWith:
 - **Wire**, **Update** and **Remove** in Settings ▸ Agents show the change in a popup and write
   only when you confirm it, replacing **Show changes**.
 - Settings scrolls more smoothly.
+- Each file Countersign changes, an agent's hook file or `config.json`, keeps only its three newest
+  `.countersign-<time>.bak` backups. Older ones are removed the next time Countersign writes that
+  file.
 - Shell highlighting in panels is readable on both light and dark appearances.
 
 ## Fixed

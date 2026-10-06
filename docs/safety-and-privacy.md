@@ -86,8 +86,8 @@ None of this leaves your Mac, and none of it is written to the log.
 A request waiting in the queue is a small file naming its agent, project and tool, and the
 subagent that asked, if any; it is removed when the request ends. An answer you pick for it from
 the menu bar is a one-word file next to it (`show`, `deny` or `chat`), removed as soon as the
-request reads it, or with the request. The agents' own hook files, and a
-backup next to each one, are written only when you run setup or click a host button in Settings
+request reads it, or with the request. The agents' own hook files, and up to
+three backups next to each one, are written only when you run setup or click a host button in Settings
 (see [setup.md](setup.md)). The Codex hook trust record holds Countersign's own entry in Codex's
 `hooks.json` and the trust hashes Codex stored for it; setup and the Settings window write it when
 they wire Codex, notice that Codex trusted the hook, or you click **Mark as done**. The config file

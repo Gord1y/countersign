@@ -123,6 +123,30 @@ private let moment = Date(timeIntervalSince1970: 1_790_000_000)
     #expect(backup?.deletingLastPathComponent().path == dotfiles.path)
   }
 
+  @Test func keepsOnlyTheThreeNewestBackupsOfTheFile() throws {
+    let directory = try makeTempDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let file = directory.appendingPathComponent("settings.json")
+    try Data("v0".utf8).write(to: file)
+    let unrelated = [
+      "hooks.json.countersign-20200101-000000.bak", "settings.json.countersign-keep.bak",
+    ]
+    for name in unrelated {
+      try Data("other".utf8).write(to: directory.appendingPathComponent(name))
+    }
+    let dates = (0..<5).map { moment.addingTimeInterval(Double($0) * 60) }
+    for (index, date) in dates.enumerated() {
+      try ConfigFileStore.write(Array("v\(index + 1)".utf8), to: file, date: date, timeZone: utc)
+    }
+    let kept = dates.suffix(3).map {
+      ConfigFileStore.backupName(for: "settings.json", date: $0, timeZone: utc)
+    }
+    let names = try FileManager.default.contentsOfDirectory(atPath: directory.path).sorted()
+    #expect(names == (["settings.json"] + kept + unrelated).sorted())
+    #expect(try contents(of: directory.appendingPathComponent(kept[0])) == "v2")
+    #expect(try contents(of: file) == "v5")
+  }
+
   @Test func refusesToOverwriteAnExistingBackup() throws {
     let directory = try makeTempDirectory()
     defer { try? FileManager.default.removeItem(at: directory) }

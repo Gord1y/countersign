@@ -2,6 +2,8 @@ import Darwin
 import Foundation
 
 public enum ConfigFileStore {
+  static let keptBackups = 3
+
   public static func read(_ file: URL) throws -> [UInt8]? {
     do {
       return [UInt8](try Data(contentsOf: file))
@@ -46,6 +48,7 @@ public enum ConfigFileStore {
           backupName(for: target.lastPathComponent, date: date, timeZone: timeZone))
         try FileManager.default.copyItem(at: target, to: backupFile)
         backup = backupFile
+        pruneBackups(of: target.lastPathComponent, in: directory)
       }
     } else if errno != ENOENT {
       throw posixError()
@@ -59,6 +62,27 @@ public enum ConfigFileStore {
       throw error
     }
     return backup
+  }
+
+  private static func pruneBackups(of fileName: String, in directory: URL) {
+    guard let names = try? FileManager.default.contentsOfDirectory(atPath: directory.path) else {
+      return
+    }
+    let backups = names.filter { isBackupName($0, of: fileName) }.sorted()
+    for name in backups.dropLast(keptBackups) {
+      try? FileManager.default.removeItem(at: directory.appendingPathComponent(name))
+    }
+  }
+
+  private static func isBackupName(_ name: String, of fileName: String) -> Bool {
+    let prefix = "\(fileName).countersign-"
+    let suffix = ".bak"
+    guard name.hasPrefix(prefix), name.hasSuffix(suffix) else { return false }
+    let stamp = Array(name.dropFirst(prefix.count).dropLast(suffix.count))
+    return stamp.count == 15
+      && stamp.indices.allSatisfy { index in
+        index == 8 ? stamp[index] == "-" : stamp[index].isASCII && stamp[index].isNumber
+      }
   }
 
   private static func writeNewFile(_ bytes: [UInt8], at file: URL, permissions: mode_t?) throws {

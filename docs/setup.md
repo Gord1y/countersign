@@ -113,7 +113,8 @@ Settings ▸ Panels removes those entries and setup then leaves them out.
 
 Setup touches only its own entry. Everything else in the file, other hooks, key order,
 indentation, line endings, stays exactly as it was. Before it changes a file that already exists,
-it saves a copy next to it, `<file>.countersign-<yyyyMMdd-HHmmss>.bak`, and prints where. A file
+it saves a copy next to it, `<file>.countersign-<yyyyMMdd-HHmmss>.bak`, and prints where. Only the
+newest three copies of each file are kept; saving a fourth removes the oldest. A file
 that isn't valid JSON, including JSON with comments or trailing commas, is reported and left alone.
 Antigravity ignores its whole hooks file when any entry in it is invalid, so setup writes its entry
 in one exact shape, and replaces a `countersign` hook it finds in any other shape.
@@ -134,8 +135,8 @@ you; see
 Click **Remove** in the window, or run `countersign setup --cli --uninstall`, with `--host` for a
 single agent. Only Countersign's entries are removed. A file setup added to is usually back to its
 original bytes; a Cursor file keeps its `version` and `hooks` keys. Uninstall never touches
-Countersign's own config file. The backups stay where setup saved them, so copying one over its
-file restores that file exactly as it was.
+Countersign's own config file. The newest three backups of each file stay where setup saved them,
+so copying one over its file restores that file exactly as it was before that change.
 
 Remove the entries this way before you uninstall Countersign itself, so no agent is left with a
 hook that points at a missing file.
