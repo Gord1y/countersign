@@ -76,7 +76,7 @@ minutes in seconds (`90 seconds`), because `DurationText.describe` rounds to the
   menu-bar companion's Snooze submenu offers the same presets with the same titles, but from the
   top-level value only: it acts for no single host, so the `hosts.*` blocks never apply to it.
 - **`checkForUpdates`** turns on the menu-bar companion's automatic release check, at most once
-  every 24 hours, on top-level `checkForUpdates: true` only. It has no per-host override, since the
+  every 24 hours (a failed check retries an hour later), on top-level `checkForUpdates: true` only. It has no per-host override, since the
   companion acts for no single host (see "Update check" in [app.md](app.md)). Choosing "Check for
   Updates…" in the menu always checks immediately regardless of this setting.
 - **`quitBehavior`** decides what the menu-bar companion's "Quit Countersign" does: `"ask"` (the
@@ -220,7 +220,7 @@ since the sidebar already names it:
 | Panels | five blocks: Delays (Same delays for all agents, then while it is off an Agent picker with the four agents, then Wait for idle, Grace period, Arm delay, Arm delay after an answer, Show card after), Interruptions (Hand off when frontmost, Snooze presets, Quiet hours, Sound), Corner cards (Waiting-agent notices, Notice after, Show notice for, Approval card with one checkbox per agent), Claude Code (Notes on answers, Mode after a plan, Context checkpoints) and Try it (Show a test panel, Show a test card), then Restore Defaults | `config.json`, for every agent, or under `hosts.<agent>` for the delays and the Approval card checkboxes |
 | App | General (Launch at login, Check for updates, When Countersign quits), Appearance (Appearance, Accent colour) and, while there is an offer to link Countersign.app, Install, then Advanced… and Restore Defaults | macOS's login items, `config.json`, `~/Applications` |
 | Rules | the intro line, one row per rule in file order with a remove button, the unreadable-entries notice (see "Rules" below) | `config.json`, the top-level `rules` array |
-| Help | the tour, documentation, ask a question, report a problem, contact the developer, updates, then support links | nothing in `config.json`; never `update-check.json` |
+| Help | the tour, documentation, ask a question, report a problem, contact the developer, updates, then support links | nothing in `config.json`; `update-check.json` after Check for Updates |
 | Advanced | the config file's path, Open in Editor, Copy Path, Open with, the schema, what only the file can set, and the prompt for a coding agent | `config.json` for Open with; otherwise nothing beyond creating a missing `config.json` to open it |
 
 The groups follow what a control changes and where the change lands, so one subtitle can say it
@@ -863,8 +863,9 @@ The group holds three `SettingsGroup` cards, `HelpSection` in `SettingsHelpView.
    awaiting `UpdateFetcher.fetch(currentVersion:)` on the model, the same fetcher the companion's
    scheduled and manual checks use, and turning the outcome into a phase with the same
    `Bundle.main.executableURL`-derived upgrade command as `MenuBarCompanion.currentUpdateAvailability`.
-   Settings never reads or writes `update-check.json`: it has no scheduled check to persist a last
-   attempt for, and a person who wants that behaviour already has the companion running. Because a
+   Settings records its check's verdict in `update-check.json` under the same rule as the
+   companion (`UpdateCheckState.recording`: a failed check changes nothing), so the menu's "Update
+   available" line follows a check run from Settings. Because a
    fourth "Copy Upgrade Command" or "Release Notes" button next to "Check for Updates" can outgrow
    the row's width beside a short caption, the row's control is `EmptyView()` and its buttons live in
    `detail`, the same full-width slot Show a test panel's three buttons and Hand off when frontmost's

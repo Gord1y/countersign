@@ -1484,6 +1484,12 @@ final class SettingsModel {
     guard updateCheckPhase != .checking else { return }
     updateCheckPhase = .checking
     let outcome = await UpdateFetcher.fetch(currentVersion: CountersignVersion.current)
+    let file = environment.paths.updateCheckFile
+    if let recorded = UpdateCheckState.recording(
+      outcome, at: Date(), over: UpdateCheckStateStore.load(file: file))
+    {
+      try? UpdateCheckStateStore.save(recorded, to: file)
+    }
     updateCheckPhase = Self.phase(for: outcome)
   }
 

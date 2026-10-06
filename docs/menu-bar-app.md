@@ -150,7 +150,8 @@ terminal.
 
 The update check is off by default. Set `checkForUpdates` to `true` in the
 [config file](configuration.md), or turn it on under **App** in Settings, and the app checks at
-most once every 24 hours. **Check for Updates…** checks right away, whatever the setting.
+most once every 24 hours; a check that fails (offline, GitHub unreachable) tries again an hour
+later. **Check for Updates…** checks right away, whatever the setting.
 
 A check is one HTTPS `GET` of
 `https://raw.githubusercontent.com/Gord1y/countersign/main/releases/index.json`, the list of

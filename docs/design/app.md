@@ -597,15 +597,25 @@ The check is opt-in: it only runs automatically when the top-level `checkForUpda
 config file is `true` (default `false`, see [settings.md](settings.md)), so nobody's companion
 talks to the network without asking first. When it is on, `CompanionController` evaluates
 `ApprovalCore.UpdateCheckSchedule.isDue` on launch and then every hour from a repeating `Timer`,
-the same pattern as the icon's 2 s refresh; the rule is at most one attempt per 24 hours, tracked by
+the same pattern as the icon's 2 s refresh; the rule is at most one answered check per 24 hours, tracked by
 the time of the last attempt in `<AppPaths.supportDirectory>/update-check.json`
 (`ApprovalCore.UpdateCheckStateStore`, written atomically the same way `QuietTime` writes
 `quiet-until`). A last-attempt stamp later than `now` can only come from a clock that was once set
 wrong, not from a real future check, so `isDue` treats it the same as no stamp at all and returns
 true rather than waiting out however long the clock was ahead; one extra check is harmless. The
-normal rule, at most one attempt per 24 hours, is unaffected. "Check for Updates…", right under
+normal rule, at most one answered check per 24 hours, is unaffected. "Check for Updates…", right under
 Help in the menu, is always present regardless of the setting and always checks immediately, since
 choosing it is itself the person's consent.
+
+A failed attempt is logged but never recorded (`UpdateCheckState.recording`), so the stored
+verdict and its time stay, a known update stays in the menu, and the hourly timer tries again on
+its next tick instead of waiting a day: the 24-hour rule counts checks that got an answer. A
+stored "Update available" is compared again with the running version
+(`UpdateCheckState.reevaluated`) whenever it is read, so it disappears once that version is
+installed. "Check for Updates…" while a scheduled check is running waits for it
+(`UpdateCheckRequests`) and answers with its result. The companion re-reads `update-check.json`
+each time the menu opens and before each scheduled check, so a check run from Settings, in this
+process or from `countersign settings`, shows in the menu.
 
 `ApprovalCore.UpdateCheck.evaluate` combines the parse and the comparison into one
 `ApprovalCore.UpdateCheckOutcome`, which is what gets persisted and shown. When it is

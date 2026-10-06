@@ -99,6 +99,34 @@ import Testing
     #expect(UpdateCheckStateStore.load(file: file) == nil)
   }
 
+  @Test func reevaluatedComparesAStoredNewerVersionWithTheRunningOne() {
+    let attempt = Date(timeIntervalSince1970: 1_700_000_000)
+    let stored = UpdateCheckState(
+      lastAttempt: attempt, outcome: .newerAvailable(version: "0.3.0"))
+
+    #expect(
+      stored.reevaluated(currentVersion: "0.3.0")
+        == UpdateCheckState(lastAttempt: attempt, outcome: .upToDate))
+    #expect(stored.reevaluated(currentVersion: "0.2.0") == stored)
+    let upToDate = UpdateCheckState(lastAttempt: attempt, outcome: .upToDate)
+    #expect(upToDate.reevaluated(currentVersion: "0.3.0") == upToDate)
+    let unknown = UpdateCheckState(lastAttempt: attempt, outcome: .unknown(reason: "HTTP 404"))
+    #expect(unknown.reevaluated(currentVersion: "0.3.0") == unknown)
+  }
+
+  @Test func recordingKeepsThePreviousStateForAnUnknownOutcome() {
+    let stored = UpdateCheckState(
+      lastAttempt: Date(timeIntervalSince1970: 1), outcome: .newerAvailable(version: "0.3.0"))
+    let now = Date(timeIntervalSince1970: 2)
+
+    #expect(
+      UpdateCheckState.recording(.unknown(reason: "offline"), at: now, over: stored) == stored)
+    #expect(UpdateCheckState.recording(.unknown(reason: "offline"), at: now, over: nil) == nil)
+    #expect(
+      UpdateCheckState.recording(.upToDate, at: now, over: stored)
+        == UpdateCheckState(lastAttempt: now, outcome: .upToDate))
+  }
+
   @Test func loadReturnsNilWhenNewerAvailableHasNoVersion() throws {
     let file = temporaryFile()
     defer { removeContainer(of: file) }

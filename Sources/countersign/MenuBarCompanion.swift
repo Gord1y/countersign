@@ -57,7 +57,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   private var lastConfigLogLines: [String] = []
   private var updateCheckState: UpdateCheckState?
   private var manualCheckResult: ManualUpdateCheckResult?
-  private var isUpdateCheckInFlight = false
+  private var updateCheckRequests = UpdateCheckRequests()
   private var settingsWindow: SettingsWindowController?
   private var pendingQuit: QuitOutcome?
 
@@ -69,8 +69,8 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     quietTime = QuietTime(file: paths.quietFile)
     stateSwitches = StateSwitches(pauseSwitch: pauseSwitch, quietTime: quietTime)
     queue = TicketQueue(directory: paths.queueDirectory, lockFile: paths.displayLockFile)
-    updateCheckState = UpdateCheckStateStore.load(file: paths.updateCheckFile)
     super.init()
+    reloadUpdateCheckState()
   }
 
   func applicationDidFinishLaunching(_ notification: Notification) {
@@ -133,6 +133,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   }
 
   func menuNeedsUpdate(_ menu: NSMenu) {
+    reloadUpdateCheckState()
     menu.removeAllItems()
     menuActions = []
     for item in CompanionMenu.items(for: currentInput()) {
@@ -221,6 +222,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   }
 
   private func performScheduledUpdateCheckIfNeeded() {
+    reloadUpdateCheckState()
     let configFile = loadConfigFile()
     guard configFile.checkForUpdates ?? Settings.defaultCheckForUpdates else { return }
     guard UpdateCheckSchedule.isDue(lastAttempt: updateCheckState?.lastAttempt, now: Date()) else {
@@ -229,9 +231,13 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     performUpdateCheck(manual: false)
   }
 
+  private func reloadUpdateCheckState() {
+    updateCheckState = UpdateCheckStateStore.load(file: paths.updateCheckFile)?
+      .reevaluated(currentVersion: CountersignVersion.current)
+  }
+
   private func performUpdateCheck(manual: Bool) {
-    guard !isUpdateCheckInFlight else { return }
-    isUpdateCheckInFlight = true
+    guard updateCheckRequests.begin(manual: manual) else { return }
     Task { [weak self] in
       guard let self else { return }
       let outcome = await UpdateFetcher.fetch(currentVersion: CountersignVersion.current)
@@ -240,18 +246,20 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   }
 
   private func applyUpdateCheckResult(_ outcome: UpdateCheckOutcome, manual: Bool) {
-    isUpdateCheckInFlight = false
-    let state = UpdateCheckState(lastAttempt: Date(), outcome: outcome)
-    updateCheckState = state
-    do {
-      try UpdateCheckStateStore.save(state, to: paths.updateCheckFile)
-    } catch {
-      log.write("companion: failed to save update-check.json: \(error)")
+    let answersWithAlert = updateCheckRequests.finish(manual: manual)
+    let state = UpdateCheckState.recording(outcome, at: Date(), over: updateCheckState)
+    if let state, state != updateCheckState {
+      updateCheckState = state
+      do {
+        try UpdateCheckStateStore.save(state, to: paths.updateCheckFile)
+      } catch {
+        log.write("companion: failed to save update-check.json: \(error)")
+      }
     }
     if case .unknown(let reason) = outcome {
       log.write("update check: \(reason)")
     }
-    guard manual else { return }
+    guard answersWithAlert else { return }
     switch outcome {
     case .newerAvailable:
       manualCheckResult = nil
