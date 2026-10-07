@@ -9,7 +9,6 @@ struct SettingsEnvironment {
   let locations: [HookConfigLocation]
   let resolvedExecutable: String?
   let runsFromAppBundle: Bool
-  let cliIsExecutable: Bool
   let installRoot: URL
   let probesInstallVersions: Bool
 
@@ -42,8 +41,6 @@ struct SettingsEnvironment {
       },
       resolvedExecutable: Bundle.main.executableURL?.resolvingSymlinksInPath().path,
       runsFromAppBundle: Bundle.main.bundleIdentifier == AppLaunchMode.bundleIdentifier,
-      cliIsExecutable: FileManager.default.isExecutableFile(
-        atPath: StableExecutablePath.cliPath(home: home)),
       installRoot: installRoot,
       probesInstallVersions: probesInstallVersions)
   }
@@ -262,8 +259,8 @@ final class SettingsModel {
     self.status = status ?? Self.readStatus(environment.paths)
     stablePath = environment.resolvedExecutable.map {
       StableExecutablePath.stable(
-        forResolved: $0, home: environment.home, isExecutable: { _ in environment.cliIsExecutable }
-      )
+        forResolved: $0, home: environment.home,
+        isExecutable: FileManager.default.isExecutableFile(atPath:))
     }
     loadPreferences()
     refreshHosts()

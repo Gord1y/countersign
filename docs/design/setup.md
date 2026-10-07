@@ -640,6 +640,12 @@ them is executable, the app's own path is used as it is, so hooks still work on 
 app installed. Any other resolved path, such as `~/.local/bin/countersign` itself or a bare binary run
 from a source checkout, is used as it is.
 
+Every caller (setup, doctor, the menu-bar app, Settings and the upgrade command) asks the file
+system about each candidate with `FileManager.isExecutableFile(atPath:)`. Settings in 0.3.0 answered
+every candidate with whether `~/.local/bin/countersign` existed, so on a Mac with only Homebrew the
+copied app fell back to its own path. It listed correctly wired agents as needing an update, and
+Update then wired them to the copy.
+
 Running setup again after moving the binary rewrites the existing entry's command with the new
 path; the entry keeps its place in the file.
 
