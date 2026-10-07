@@ -12,6 +12,7 @@ if AppLaunchMode.detect(bundleIdentifier: Bundle.main.bundleIdentifier, argument
 @MainActor
 func usage(ofCommand command: String?) -> String? {
   switch command {
+  case "hook": HookRunner.usage
   case "setup": SetupCommand.usage
   case "settings": SettingsCommand.usage
   case "doctor": DoctorCommand.usage

@@ -4,6 +4,9 @@ import Foundation
 
 @MainActor
 enum HookRunner {
+  static let usage =
+    "usage: countersign hook --host claude|codex|cursor|antigravity [--event waiting]"
+
   static func run(_ arguments: [String]) -> Never {
     let startedAt = ContinuousClock.now
     signal(SIGPIPE, SIG_IGN)
