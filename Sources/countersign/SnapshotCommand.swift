@@ -1053,7 +1053,8 @@ enum SnapshotCommand {
           failed: false)
       case .failed:
         model.showAppCopyForSnapshot(
-          offer: nil, message: "Couldn't copy Countersign.app: Permission denied.", failed: true)
+          offer: offer(.add), message: "Couldn't copy Countersign.app: Permission denied.",
+          failed: true)
       }
     }
   }

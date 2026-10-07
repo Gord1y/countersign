@@ -582,6 +582,9 @@ final class SettingsModel {
       appCopyFailed = true
     }
     refreshHosts()
+    if appCopyFailed, appCopyOffer == nil {
+      appCopyOffer = offer
+    }
   }
 
   func showAppCopyForSnapshot(offer: AppBundleCopyOffer?, message: String?, failed: Bool) {
