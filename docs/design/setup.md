@@ -374,9 +374,9 @@ appearing by itself right after Wire reads like a real request.
    written into the view. Agents that are not installed are one `Not installed: …` line. The
    footer reads `1 of 3`, with `Not Now` and `Wire <n> Agents` (`Wire <name>` for one).
 2. **Try it.** No panel shows on its own. The step says nothing done in a test panel reaches an
-   agent, lists the panel's keys as keycaps (the keys line of the retired tour, now
-   `KeyHintFlowLayout`, shared by both views) and offers `Show a Test Panel` to the right of that
-   text, with `Back` and `Next`.
+   agent, with `Show a Test Panel` to the right of that sentence, and below that row, at the
+   window's full width, lists the panel's keys as keycaps (the keys line of the retired tour, now
+   `KeyHintFlowLayout`, shared by both views), with `Back` and `Next`.
 3. **All set.** Every found agent is wired. The rows again, the Codex next step when there is one
    (the other agents' good-to-know lines stay in Settings), the not-installed line and a pointer
    to Settings, with `Open Settings` and `Done`.

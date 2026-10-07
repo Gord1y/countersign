@@ -383,20 +383,18 @@ private struct SetupTryIt: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
       HStack(alignment: .center, spacing: 16) {
-        VStack(alignment: .leading, spacing: 8) {
-          Text(text)
-            .font(PanelTypography.body)
-            .foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
-          SetupKeysLine(segments: Self.segments)
-            .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .layoutPriority(1)
+        Text(text)
+          .font(PanelTypography.body)
+          .foregroundStyle(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .layoutPriority(1)
         Button("Show a Test Panel", action: model.showTestPanel)
           .buttonStyle(SecondaryButtonStyle())
           .fixedSize()
       }
+      SetupKeysLine(segments: Self.segments)
+        .foregroundStyle(.secondary)
       if let problem = model.settings.testPanelError {
         InlineMessage(problem, tone: .problem)
       }
