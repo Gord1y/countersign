@@ -31,7 +31,9 @@ testedWith:
   a 0.2.0 link and updates an older copy.
 - A **Skills** group in Settings, read only. It lists the skills and rules countersign-skills
   installed, their versions, which have updates and the command that runs them. It reads local
-  files only. Hide it with **Skills in the sidebar** in **App ▸ Appearance**, or `showSkills` in
+  files only. A skills folder in Documents, Desktop, Downloads, iCloud Drive or on an external
+  drive is read only after you choose **Show Skills from This Folder**, and macOS then asks for
+  access. Hide it with **Skills in the sidebar** in **App ▸ Appearance**, or `showSkills` in
   `config.json`.
 - `--help` after any command prints that command's usage.
 - `snooze` accepts up to 24 hours and says so when you ask for more.
@@ -59,6 +61,8 @@ testedWith:
 - The menu-bar app retries its lock instead of deferring to an instance that is gone.
 - The `config.json` schema accepts every time and duration the app accepts.
 - VoiceOver reads each installed copy in **More than one copy** as one choice.
+- Wiring an agent twice within the same second no longer fails on the second backup of its
+  config file.
 - The docs name `setup --cli --uninstall`, not `setup --remove`, list the per-agent keys in
   configuration, and describe doctor's `rules` line.
 
