@@ -362,7 +362,8 @@ window's own: `requestHostChange` and `confirmHostChange`, then `refreshFromDisk
 no wiring logic of its own.
 
 It has three steps, each short enough to read at a glance. The user chose this layout over one
-long page from renders on 2026-10-07.
+long page from renders on 2026-10-07. The user asked for no panel they didn't request: a panel
+appearing by itself right after Wire reads like a real request.
 
 1. **Wire your agents.** The intro, then one row per agent that is installed: its glyph, name and
    status. A row to wire adds `Countersign adds a hook to <its file>.`, with `~` for the home
@@ -370,10 +371,10 @@ long page from renders on 2026-10-07.
    that can't be set up shows its reason, which is the status's own text, so no path or reason is
    written into the view. Agents that are not installed are one `Not installed: …` line. The
    footer reads `1 of 3`, with `Not Now` and `Wire <n> Agents` (`Wire <name>` for one).
-2. **Try it.** A test panel shows on its own when step 1 succeeds. The step says nothing it does
-   reaches an agent, lists the panel's keys as keycaps (the keys line of the retired tour, now
-   `KeyHintFlowLayout`, shared by both views) and offers `Show a Test Panel` again, with `Back` and
-   `Next`.
+2. **Try it.** No panel shows on its own. The step says nothing done in a test panel reaches an
+   agent, lists the panel's keys as keycaps (the keys line of the retired tour, now
+   `KeyHintFlowLayout`, shared by both views) and offers `Show a Test Panel` to the right of that
+   text, with `Back` and `Next`.
 3. **All set.** Every found agent is wired. The rows again, the Codex next step when there is one
    (the other agents' good-to-know lines stay in Settings), the not-installed line and a pointer
    to Settings, with `Open Settings` and `Done`.
@@ -392,12 +393,12 @@ that is not installed is only named.
 
 ### Moving on, and failing
 
-`wire()` writes each host in turn. The window moves to step 2 and shows the test panel only when
-every write succeeded and no row still waits to be wired; a row whose preview has a failure counts
-as failed, so a write that never happened cannot read as success. Otherwise the window stays on
-step 1 in the failed state: the failed row reads `Couldn't be wired` with its error, a warning says
-how many agents couldn't be wired and that Countersign left their files unchanged, and the buttons
-are `Done`, `Open Settings` and `Try Again`. `Try Again` writes only the failed rows again; the rows
+`wire()` writes each host in turn. The window moves to step 2 only when every write succeeded and
+no row still waits to be wired; it shows no panel. A row whose preview has a failure counts as
+failed, so a write that never happened cannot read as success. Otherwise the window stays on step 1
+in the failed state: the failed row reads `Couldn't be wired` with its error, a warning says how
+many agents couldn't be wired and that Countersign left their files unchanged, and the buttons are
+`Done`, `Open Settings` and `Try Again`. `Try Again` writes only the failed rows again; the rows
 that were written stay wired.
 
 ### Opening, no agents, closing

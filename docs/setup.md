@@ -39,8 +39,8 @@ three steps:
    every agent that is Not wired or Needs an update, and each row's change is behind its
    **Show the change** line. Pressing **Wire** is the confirmation, so there is no popup. An agent
    that can't be set up is shown with its reason and left alone.
-2. **Try it.** A test panel shows on its own once every file was written. Nothing you do in it
-   reaches an agent, and the step lists its keys.
+2. **Try it.** No panel shows on its own; you show one with **Show a Test Panel**. Nothing you
+   do in it reaches an agent, and the step lists its keys.
 3. **All set.** A summary, and **Open Settings** or **Done**.
 
 If a file can't be written, the window stays on step 1 and offers **Try Again**; Countersign leaves

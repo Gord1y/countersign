@@ -92,7 +92,6 @@ final class SetupModel {
     failures = failed
     guard failed.isEmpty else { return }
     step = 2
-    settings.showTestPanel(.command)
   }
 }
 
@@ -124,8 +123,8 @@ struct SetupView: View {
   private static let noAgentsIntro =
     "Countersign works with Claude Code, Codex, Cursor and Antigravity. Install one, then"
     + " check again."
-  private static let tryItShowing =
-    "A test panel is showing. Nothing you do in it reaches an agent."
+  private static let tryItIntro =
+    "Show a test panel to see how it works. Nothing you do in it reaches an agent."
   private static let makeItYours =
     "Delays, quiet hours, sounds and rules are in Settings. Every setting explains itself with ⓘ."
 
@@ -141,7 +140,7 @@ struct SetupView: View {
     switch model.step {
     case 2:
       SetupHeading(title: "Try it", intro: nil)
-      SetupTryIt(model: model, text: Self.tryItShowing)
+      SetupTryIt(model: model, text: Self.tryItIntro)
     case 3:
       SetupHeading(title: "All set", intro: Self.allSetIntro)
       SetupAgentList(model: model)
@@ -383,18 +382,24 @@ private struct SetupTryIt: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8) {
-      Text(text)
-        .font(PanelTypography.body)
-        .foregroundStyle(.secondary)
-        .fixedSize(horizontal: false, vertical: true)
-      SetupKeysLine(segments: Self.segments)
-        .foregroundStyle(.secondary)
+      HStack(alignment: .center, spacing: 16) {
+        VStack(alignment: .leading, spacing: 8) {
+          Text(text)
+            .font(PanelTypography.body)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+          SetupKeysLine(segments: Self.segments)
+            .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .layoutPriority(1)
+        Button("Show a Test Panel", action: model.showTestPanel)
+          .buttonStyle(SecondaryButtonStyle())
+          .fixedSize()
+      }
       if let problem = model.settings.testPanelError {
         InlineMessage(problem, tone: .problem)
       }
-      Button("Show a Test Panel", action: model.showTestPanel)
-        .buttonStyle(SecondaryButtonStyle())
-        .padding(.top, 4)
     }
   }
 }
