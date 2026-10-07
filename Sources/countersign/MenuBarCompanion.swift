@@ -654,6 +654,10 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
       onClose: { [weak self] in
         DispatchQueue.main.async { self?.settingsWindow = nil }
       })
+    controller.model.requestSetup = { [weak self] in
+      self?.settingsWindow?.model.requestClose?()
+      self?.openSetup()
+    }
     settingsWindow = controller
     controller.show(pane: pane)
     log.write("companion: opened settings")
