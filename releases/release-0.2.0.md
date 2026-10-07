@@ -103,6 +103,8 @@ testedWith:
   request.
 - Panels stay on a usable display when you connect or disconnect screens.
 - A test panel stays up when you press a key it doesn't use.
+- When `config.json` can no longer be read while Settings is open, Settings says so instead of
+  showing the values it read before.
 - A panel no longer opens while Mission Control or App Exposé is on screen, or right after you
   swipe to another Space. It waits until you have left them and paused.
 
