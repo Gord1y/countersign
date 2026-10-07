@@ -2,6 +2,26 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.3.1",
+      "date": "2026-10-07",
+      "title": "Countersign 0.3.1: the copied app keeps your hooks on Homebrew's countersign",
+      "summary": "With Homebrew, Settings in the Countersign.app copy in ~/Applications listed correctly wired agents as needing an update, and Update then pointed their hooks into the copy. It now wires them to Homebrew's countersign, and shows them as wired.",
+      "type": "patch",
+      "breaking": false,
+      "highlights": [
+        "Settings in the copied app keeps your hooks on Homebrew's countersign"
+      ],
+      "tags": [
+        "homebrew",
+        "setup"
+      ],
+      "testedWith": {
+        "claudeCode": "2.1.278",
+        "codex": "0.159.3"
+      },
+      "notes": "releases/release-0.3.1.md"
+    },
+    {
       "version": "0.3.0",
       "date": "2026-10-07",
       "title": "Countersign 0.3.0: a setup window, a Spotlight-visible app for Homebrew and a Skills page",
