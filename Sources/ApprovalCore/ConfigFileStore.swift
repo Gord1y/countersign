@@ -35,13 +35,17 @@ public enum ConfigFileStore {
   private static func freeBackupFile(
     for fileName: String, in directory: URL, date: Date, timeZone: TimeZone
   ) -> URL {
-    var sequence = 1
-    while true {
-      let candidate = directory.appendingPathComponent(
-        backupName(for: fileName, date: date, timeZone: timeZone, sequence: sequence))
-      if !FileManager.default.fileExists(atPath: candidate.path) { return candidate }
-      sequence += 1
-    }
+    let stamp = backupOrder(
+      of: backupName(for: fileName, date: date, timeZone: timeZone), fileName: fileName
+    )?.stamp
+    let names = (try? FileManager.default.contentsOfDirectory(atPath: directory.path)) ?? []
+    let highestSequence =
+      names.compactMap { backupOrder(of: $0, fileName: fileName) }
+      .filter { $0.stamp == stamp }
+      .map(\.sequence)
+      .max() ?? 0
+    return directory.appendingPathComponent(
+      backupName(for: fileName, date: date, timeZone: timeZone, sequence: highestSequence + 1))
   }
 
   @discardableResult

@@ -163,6 +163,30 @@ private let moment = Date(timeIntervalSince1970: 1_790_000_000)
     #expect(try contents(of: file) == "v3")
   }
 
+  @Test func neverReusesAPrunedNameWithinTheSameSecond() throws {
+    let directory = try makeTempDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let file = directory.appendingPathComponent("settings.json")
+    try Data("v0".utf8).write(to: file)
+    var written: [URL] = []
+    for index in 1...6 {
+      let backup = try #require(
+        try ConfigFileStore.write(
+          Array("v\(index)".utf8), to: file, date: moment, timeZone: utc))
+      #expect(FileManager.default.fileExists(atPath: backup.path))
+      written.append(backup)
+    }
+    let names = try FileManager.default.contentsOfDirectory(atPath: directory.path).sorted()
+    let kept = written.suffix(3).map(\.lastPathComponent)
+    #expect(
+      kept == [
+        "settings.json.countersign-20260921-141320-4.bak",
+        "settings.json.countersign-20260921-141320-5.bak",
+        "settings.json.countersign-20260921-141320-6.bak",
+      ])
+    #expect(names == (["settings.json"] + kept).sorted())
+  }
+
   @Test func prunesSuffixedBackupsInWriteOrder() throws {
     let directory = try makeTempDirectory()
     defer { try? FileManager.default.removeItem(at: directory) }
