@@ -403,10 +403,14 @@ private let codexInstalled = codexEntry("\(brewPath) hook --host codex")
 
   @Test func reportsAHookFileThatCannotBeWritten() throws {
     let sandbox = try Sandbox()
-    defer { sandbox.remove() }
+    defer {
+      try? FileManager.default.setAttributes(
+        [.posixPermissions: 0o755], ofItemAtPath: sandbox.claude.directory.path)
+      sandbox.remove()
+    }
     try sandbox.put(claudeOld, at: sandbox.claude.file)
-    let taken = ConfigFileStore.backupName(for: "settings.json", date: moment)
-    try sandbox.put("earlier", at: sandbox.claude.directory.appendingPathComponent(taken))
+    try FileManager.default.setAttributes(
+      [.posixPermissions: 0o555], ofItemAtPath: sandbox.claude.directory.path)
     let outcome = sandbox.run([sandbox.claude])
     #expect(!outcome.succeeded)
     #expect(sandbox.text(of: sandbox.claude.file) == claudeOld)

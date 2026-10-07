@@ -26,7 +26,9 @@ enum WaitingHookPrompt {
     let alert = NSAlert()
     alert.messageText = message(for: change)
     alert.informativeText = informativeText(for: change, home: home)
-    alert.accessoryView = HookDiffPreview.view(text: previewText(for: change))
+    alert.accessoryView = HookDiffDisclosure.accessoryView(
+      for: alert, text: previewText(for: change),
+      isDiff: change.canApply && change.preview.hasChanges)
     if change.canApply {
       alert.addButton(withTitle: change.confirmTitle)
       alert.addButton(withTitle: cancelTitle)

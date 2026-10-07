@@ -560,6 +560,26 @@ import Testing
     lease.release()
     #expect(!childPaths.contains { $0.hasSuffix(lockSuffix) })
   }
+
+  @Test func readingATicketWhoseFileIsGoneYieldsNothing() throws {
+    let temporary = try TemporaryQueue()
+    defer { temporary.remove() }
+    let name = Ticket.fileName(timestamp: 42, pid: getpid())
+
+    #expect(temporary.queue.readTicket(named: name) == nil)
+  }
+
+  @Test func readingATicketWithUndecodableContentKeepsItWithoutASummary() throws {
+    let temporary = try TemporaryQueue()
+    defer { temporary.remove() }
+    let name = Ticket.fileName(timestamp: 42, pid: getpid())
+    try Data("not json".utf8).write(to: temporary.directory.appendingPathComponent(name))
+
+    let ticket = try #require(temporary.queue.readTicket(named: name))
+
+    #expect(ticket.fileName == name)
+    #expect(ticket.summary == nil)
+  }
 }
 
 @Suite struct PauseSwitchTests {

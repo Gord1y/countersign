@@ -9,6 +9,20 @@ public struct UpdateCheckState: Sendable, Equatable {
     self.lastAttempt = lastAttempt
     self.outcome = outcome
   }
+
+  public func reevaluated(currentVersion: String) -> UpdateCheckState {
+    guard case .newerAvailable(let version) = outcome else { return self }
+    return UpdateCheckState(
+      lastAttempt: lastAttempt,
+      outcome: UpdateCheck.compare(current: currentVersion, latest: version))
+  }
+
+  public static func recording(
+    _ outcome: UpdateCheckOutcome, at date: Date, over previous: UpdateCheckState?
+  ) -> UpdateCheckState? {
+    if case .unknown = outcome { return previous }
+    return UpdateCheckState(lastAttempt: date, outcome: outcome)
+  }
 }
 
 public enum UpdateCheckStateStore {

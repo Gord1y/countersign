@@ -22,6 +22,7 @@ extension PreferenceName {
     case .approvalCardDelay: return "Show card after"
     case .appearance: return "Appearance"
     case .accentColor: return "Accent colour"
+    case .showSkills: return "Skills in the sidebar"
     case .editorApp: return "Open with"
     case .contextCheckpointsEnabled: return "Context checkpoints (Claude Code)"
     case .contextMode: return "Checkpoint style"
@@ -64,6 +65,7 @@ extension PreferenceName {
       return "How long an approval waits for a pause before its card shows."
     case .appearance: return "Light or dark for panels and Settings, or follow macOS."
     case .accentColor: return "The colour of Approve and highlights on panels and in Settings."
+    case .showSkills: return "Show the Skills group in the sidebar."
     case .editorApp: return "The app Open in Editor uses for config.json."
     case .contextCheckpointsEnabled:
       return "Nudge long Claude Code sessions toward a deliberate compaction."
@@ -212,6 +214,10 @@ extension PreferenceName {
         + " whatever macOS uses. Choose one if you'd like panels to stand out from the rest of your"
         + " screen, or to match an app that doesn't follow macOS. It changes nothing outside"
         + " Countersign, and the menu-bar icon follows the menu bar as before."
+    case .showSkills:
+      return
+        "Show the Skills group, which lists what countersign-skills installed. Turn it off to hide"
+        + " the group."
     case .accentColor:
       return
         "The colour of Approve and the other filled buttons, and of highlights such as a selected"
@@ -325,6 +331,7 @@ extension PreferenceName {
     case .approvalCardDelay: return Self.secondsText(Settings.defaultApprovalCardDelay)
     case .appearance: return Settings.defaultAppearance.title
     case .accentColor: return AccentPreset.name(of: Settings.defaultAccentColor)
+    case .showSkills: return Self.boolText(Settings.defaultShowSkills)
     case .editorApp: return "Ask every time"
     case .contextCheckpointsEnabled: return Self.boolText(ContextCheckpointSettings.defaultEnabled)
     case .contextMode: return ContextCheckpointSettings.defaultMode.rawValue.capitalized

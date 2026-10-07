@@ -102,7 +102,7 @@ private struct InstallLayout {
             keg + "/bin/countersign", keg + "/Countersign.app/Contents/MacOS/countersign",
           ],
           removals: [.brewUninstall(prefix: "/opt/homebrew")], hasApp: true,
-          cliPath: layout.prefix("/opt/homebrew") + "/bin/countersign")
+          cliPath: layout.prefix("/opt/homebrew") + "/bin/countersign", appCopyVersion: nil)
       ])
     #expect(layout.duplicates() == nil)
   }
@@ -118,7 +118,7 @@ private struct InstallLayout {
           paths: [layout.cli, layout.userApp],
           executables: [layout.cli, layout.userApp + "/Contents/MacOS/countersign"],
           removals: [.remove(layout.cli), .removeDirectory(layout.userApp)], hasApp: true,
-          cliPath: layout.cli)
+          cliPath: layout.cli, appCopyVersion: nil)
       ])
     #expect(layout.detect(cliVersion: { _ in "9.9.9" }).map(\.version) == ["0.1.0"])
     #expect(layout.duplicates() == nil)
@@ -572,6 +572,70 @@ private struct InstallLayout {
       InstalledCopies.versionMismatch(
         home: withoutApp.home, root: withoutApp.root, fileSystem: .local,
         cliVersion: { _ in "0.2.0" }) == nil)
+  }
+
+  @Test func aRealCopyAtHomebrewsVersionBelongsToHomebrew() throws {
+    let layout = try InstallLayout()
+    defer { layout.remove() }
+    try layout.homebrew(version: "0.3.0")
+    try layout.app(at: layout.userApp, version: "0.3.0")
+    let copies = layout.detect()
+    #expect(copies.map(\.source) == [.homebrew(prefix: "/opt/homebrew")])
+    #expect(copies.first?.paths.contains(layout.userApp) == true)
+    #expect(copies.first?.removals.contains(.removeDirectory(layout.userApp)) == true)
+    #expect(copies.first?.appCopyVersion == "0.3.0")
+    #expect(layout.duplicates() == nil)
+  }
+
+  @Test func anOlderRealCopyIsOnlyAVersionMismatch() throws {
+    let layout = try InstallLayout()
+    defer { layout.remove() }
+    try layout.homebrew(version: "0.3.0")
+    try layout.app(at: layout.userApp, version: "0.2.0")
+    #expect(layout.detect().map(\.source) == [.homebrew(prefix: "/opt/homebrew")])
+    let mismatch = try #require(
+      InstalledCopies.versionMismatch(
+        home: layout.home, root: layout.root, fileSystem: .local, cliVersion: { _ in nil }))
+    #expect(
+      mismatch.title == "The copy of Countersign.app in ~/Applications is older than Homebrew's")
+    #expect(
+      mismatch.advice
+        == "Countersign.app in ~/Applications is 0.2.0 but Homebrew installed 0.3.0. The menu-bar app updates its copy when it starts; to update it now, open Settings ▸ App:"
+    )
+    #expect(mismatch.command == "countersign settings")
+  }
+
+  @Test func aNewerRealCopyStaysASecondInstall() throws {
+    let layout = try InstallLayout()
+    defer { layout.remove() }
+    try layout.homebrew(version: "0.3.0")
+    try layout.app(at: layout.userApp, version: "0.4.0")
+    #expect(layout.detect().map(\.source) == [.homebrew(prefix: "/opt/homebrew"), .app])
+    #expect(layout.detect().first?.appCopyVersion == nil)
+  }
+
+  @Test func aRealCopyBesideTheInstallerCLIStaysTheInstallers() throws {
+    let layout = try InstallLayout()
+    defer { layout.remove() }
+    try layout.homebrew(version: "0.3.0")
+    try layout.installer(appVersion: "0.3.0")
+    let copies = layout.detect()
+    #expect(copies.map(\.source) == [.homebrew(prefix: "/opt/homebrew"), .installer])
+    #expect(copies.first?.appCopyVersion == nil)
+    #expect(copies.last?.paths == [layout.cli, layout.userApp])
+  }
+
+  @Test func theKegFolderRevisionDoesNotMakeTheCopyOlder() throws {
+    let layout = try InstallLayout()
+    defer { layout.remove() }
+    try layout.homebrew(version: "0.3.0_1")
+    try layout.app(at: layout.keg(version: "0.3.0_1") + "/Countersign.app", version: "0.3.0")
+    try layout.app(at: layout.userApp, version: "0.3.0")
+    #expect(layout.detect().map(\.source) == [.homebrew(prefix: "/opt/homebrew")])
+    #expect(
+      InstalledCopies.versionMismatch(
+        home: layout.home, root: layout.root, fileSystem: .local, cliVersion: { _ in nil })
+        == nil)
   }
 
   @Test func doctorPrintsTheLinesRightAfterTheVersion() throws {

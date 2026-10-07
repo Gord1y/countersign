@@ -3,12 +3,13 @@ import ApprovalCore
 import Foundation
 
 enum PreviewCommand {
+  static let usage =
+    "usage: countersign preview --host claude|codex|cursor|antigravity <fixture.json> [--waiting N]"
+
   @MainActor
   static func run(_ arguments: [String]) {
     guard let options = parse(arguments) else {
-      CommandLineOutput.fail(
-        "usage: countersign preview --host claude|codex|cursor|antigravity <fixture.json> [--waiting N]"
-      )
+      CommandLineOutput.fail(usage)
     }
 
     let data: Data

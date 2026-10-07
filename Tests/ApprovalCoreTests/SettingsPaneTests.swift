@@ -3,17 +3,28 @@ import Testing
 @testable import ApprovalCore
 
 @Suite struct SettingsPaneTests {
-  @Test func listsTheSevenGroupsInOrder() {
+  @Test func listsTheEightGroupsInOrder() {
     #expect(
-      SettingsPane.allCases == [.agents, .panels, .app, .rules, .context, .help, .advanced])
+      SettingsPane.allCases == [
+        .agents, .panels, .app, .rules, .skills, .context, .help, .advanced,
+      ])
     #expect(
       SettingsPane.allCases.map(\.rawValue) == [
-        "agents", "panels", "app", "rules", "context", "help", "advanced",
+        "agents", "panels", "app", "rules", "skills", "context", "help", "advanced",
       ])
     #expect(
       SettingsPane.allCases.map(\.title) == [
-        "Agents", "Panels", "App", "Rules", "Context", "Help", "Advanced",
+        "Agents", "Panels", "App", "Rules", "Skills", "Context", "Help", "Advanced",
       ])
+  }
+
+  @Test func saysWhatTheSkillsGroupDoes() {
+    #expect(SettingsPane.skills.title == "Skills")
+    #expect(
+      SettingsPane.skills.subtitle
+        == "Skills and rules from countersign-skills. Countersign only reads them; it never"
+        + " installs or changes anything.")
+    #expect(SettingsPane.skills.preferenceNames.isEmpty)
   }
 
   @Test func saysWhatTheRulesGroupDoes() {
@@ -29,14 +40,26 @@ import Testing
         + " change them.")
   }
 
-  @Test func showsTheContextGroupOnlyWhenAsked() {
+  @Test func showsTheContextAndSkillsGroupsOnlyWhenAsked() {
     #expect(
-      SettingsPane.sidebar(showsContext: true) == [
+      SettingsPane.sidebar(showsContext: true, showsSkills: true) == [
+        .agents, .app, .panels, .rules, .skills, .context, .help,
+      ])
+    #expect(
+      SettingsPane.sidebar(showsContext: true, showsSkills: false) == [
         .agents, .app, .panels, .rules, .context, .help,
       ])
     #expect(
-      SettingsPane.sidebar(showsContext: false) == [.agents, .app, .panels, .rules, .help])
-    #expect(SettingsPane.sidebar == SettingsPane.sidebar(showsContext: false))
+      SettingsPane.sidebar(showsContext: false, showsSkills: true) == [
+        .agents, .app, .panels, .rules, .skills, .help,
+      ])
+    #expect(
+      SettingsPane.sidebar(showsContext: false, showsSkills: false) == [
+        .agents, .app, .panels, .rules, .help,
+      ])
+    #expect(
+      SettingsPane.sidebar
+        == SettingsPane.sidebar(showsContext: false, showsSkills: Settings.defaultShowSkills))
   }
 
   @Test func saysWhatEachGroupChangesAndWhereItIsKept() {
@@ -59,7 +82,7 @@ import Testing
   }
 
   @Test func listsTheSidebarGroupsInOrder() {
-    #expect(SettingsPane.sidebar == [.agents, .app, .panels, .rules, .help])
+    #expect(SettingsPane.sidebar == [.agents, .app, .panels, .rules, .skills, .help])
   }
 
   @Test func keepsAdvancedOutOfTheSidebar() {
@@ -79,8 +102,9 @@ import Testing
       ])
     #expect(
       SettingsPane.app.preferenceNames == [
-        .checkForUpdates, .quitBehavior, .appearance, .accentColor,
+        .checkForUpdates, .quitBehavior, .appearance, .accentColor, .showSkills,
       ])
+    #expect(SettingsPane.app.preferenceNames.contains(.showSkills))
     #expect(SettingsPane.agents.preferenceNames == [])
     #expect(SettingsPane.help.preferenceNames.isEmpty)
     #expect(SettingsPane.advanced.preferenceNames == [])

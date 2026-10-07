@@ -2,7 +2,15 @@ import ApprovalCore
 import Foundation
 
 enum StatusCommand {
-  static func pause() {
+  static let pauseUsage = "usage: countersign pause"
+  static let resumeUsage = "usage: countersign resume"
+  static let statusUsage = "usage: countersign status"
+  static let snoozeUsage = "usage: countersign snooze <time>|off"
+  static let snoozeRangeUsage =
+    "usage: countersign snooze <time>|off, where <time> is 10s to 24h, such as 90s, 15m or 1h"
+
+  static func pause(_ arguments: [String]) {
+    guard arguments.isEmpty else { CommandLineOutput.fail(pauseUsage) }
     let paths = AppPaths.standard
     let stateSwitches = StateSwitches(
       pauseSwitch: PauseSwitch(file: paths.pauseFile), quietTime: QuietTime(file: paths.quietFile)
@@ -15,7 +23,8 @@ enum StatusCommand {
     }
   }
 
-  static func resume() {
+  static func resume(_ arguments: [String]) {
+    guard arguments.isEmpty else { CommandLineOutput.fail(resumeUsage) }
     let pauseSwitch = PauseSwitch(file: AppPaths.standard.pauseFile)
     do {
       try pauseSwitch.resume()
@@ -25,7 +34,8 @@ enum StatusCommand {
     }
   }
 
-  static func status() {
+  static func status(_ arguments: [String]) {
+    guard arguments.isEmpty else { CommandLineOutput.fail(statusUsage) }
     let paths = AppPaths.standard
     let pauseSwitch = PauseSwitch(file: paths.pauseFile)
     let queue = TicketQueue(directory: paths.queueDirectory, lockFile: paths.displayLockFile)
@@ -46,7 +56,7 @@ enum StatusCommand {
 
   static func snooze(_ arguments: [String]) {
     guard let argument = arguments.first, arguments.count == 1 else {
-      CommandLineOutput.fail("usage: countersign snooze <duration>|off")
+      CommandLineOutput.fail(snoozeUsage)
     }
     let paths = AppPaths.standard
     let quietTime = QuietTime(file: paths.quietFile)
@@ -59,8 +69,8 @@ enum StatusCommand {
       }
       return
     }
-    guard let seconds = DurationText.parse(argument) else {
-      CommandLineOutput.fail("usage: countersign snooze <duration>|off")
+    guard let seconds = DurationText.snoozeSeconds(argument) else {
+      CommandLineOutput.fail(snoozeRangeUsage)
     }
     let stateSwitches = StateSwitches(
       pauseSwitch: PauseSwitch(file: paths.pauseFile), quietTime: quietTime)

@@ -65,6 +65,9 @@ import Testing
     #expect(values.snoozePresets == Settings.defaultSnoozePresets)
     #expect(values.handoffApps == Settings.defaultHandoffApps)
     #expect(values.checkForUpdates == Settings.defaultCheckForUpdates)
+    #expect(values.showSkills == Settings.defaultShowSkills)
+    #expect(PreferenceValues(file: ConfigFile(showSkills: false)).showSkills == false)
+    #expect(PreferenceValues(file: ConfigFile()).showSkills == true)
     #expect(values.quitBehavior == .ask)
     #expect(values.modeAfterPlan == Settings.defaultModeAfterPlan)
     #expect(values.questionNotes == Settings.defaultQuestionNotes)
@@ -106,6 +109,9 @@ import Testing
     #expect(
       values.applying(.snoozePresets([120, 240])) == PreferenceValues(snoozePresets: [120, 240]))
     #expect(values.applying(.checkForUpdates(true)) == PreferenceValues(checkForUpdates: true))
+    #expect(values.applying(.showSkills(false)) == PreferenceValues(showSkills: false))
+    #expect(
+      PreferenceValues(showSkills: false).applying(.reset(.showSkills)) == PreferenceValues())
     #expect(values.applying(.quitBehavior(.pause)) == PreferenceValues(quitBehavior: .pause))
     #expect(
       values.applying(.modeAfterPlan(.auto)) == PreferenceValues(modeAfterPlan: .auto))
@@ -127,6 +133,7 @@ import Testing
     #expect(values.applying(.quitBehavior(.keepShowing)) == values)
     #expect(values.applying(.modeAfterPlan(Settings.defaultModeAfterPlan)) == values)
     #expect(values.applying(.checkForUpdates(Settings.defaultCheckForUpdates)) == values)
+    #expect(values.applying(.showSkills(Settings.defaultShowSkills)) == values)
     #expect(values.applying(.addHandoffApp("com.a")) == values)
     #expect(values.applying(.removeHandoffApp("com.b")) == values)
   }

@@ -351,9 +351,74 @@ The per-host flow lives in `ApprovalCore.SetupRun`, which takes the printing and
 closures, so `ApprovalCoreTests` drive it against temporary directories. `SetupCommand` only finds
 the hosts, resolves the executable and answers the question from the terminal or `--yes`.
 
+## The setup window
+
+Plain `countersign setup` opens a small window, "Set Up Countersign", 460 pt wide, not resizable,
+as tall as its step needs. It opens centered on both axes of the main screen's visible frame by
+`SettingsWindowPlacement.centeredOrigin`, because AppKit's `center()` puts a window above the
+middle. Later height changes keep the top edge. The installer's last step and the first open of
+Countersign.app are meant to open the same window. `setup --cli` keeps the terminal flow, and
+`countersign settings` keeps the full window (see "The window"). The window is a `SetupModel`,
+which owns a `SettingsModel` and reads its `hostRows`, and a `SetupView`. The write path is the
+Settings window's own: `requestHostChange` and `confirmHostChange`, then `refreshFromDisk`. The
+window adds no wiring logic of its own.
+
+It has three steps, each short enough to read at a glance. The user chose this layout over one
+long page from renders on 2026-10-07. The user asked for no panel they didn't request: a panel
+appearing by itself right after Wire reads like a real request.
+
+1. **Wire your agents.** The intro, then one row per agent that is installed: its glyph, name and
+   status. A row to wire adds `Countersign adds a hook to <its file>.`, with `~` for the home
+   folder, and a collapsed `Show the change (<DiffSummary.text>)` over that row's diff. A row
+   that can't be set up shows its reason, which is the status's own text, so no path or reason is
+   written into the view. Agents that are not installed are one `Not installed: …` line. The
+   footer reads `1 of 3`, with `Not Now` and `Wire <n> Agents` (`Wire <name>` for one).
+2. **Try it.** No panel shows on its own. The step says nothing done in a test panel reaches an
+   agent, with `Show a Test Panel` to the right of that sentence, and below that row, at the
+   window's full width, lists the panel's keys as keycaps (the keys line of the retired tour, now
+   `KeyHintFlowLayout`, shared by both views), with `Back` and `Next`.
+3. **All set.** Every found agent is wired. The rows again, the Codex next step when there is one
+   (the other agents' good-to-know lines stay in Settings), the not-installed line and a pointer
+   to Settings, with `Open Settings` and `Done`.
+
+### Wire is the consent
+
+The `Wire` button is the consent. The window shows no confirm popup: the change each row makes is
+behind that row's disclosure, which shows `preview.text` in `HookDiffPreview`, the diff view the
+Settings popup uses. Nothing is written before the person presses `Wire`.
+
+### What is wired
+
+`SetupAgents` sorts the rows by status. One action wires every found agent that is Not wired or
+Needs an update. An agent that can't be set up is shown with its reason and never wired. An agent
+that is not installed is only named.
+
+### Moving on, and failing
+
+`wire()` writes each host in turn. The window moves to step 2 only when every write succeeded and
+no row still waits to be wired; it shows no panel. A row whose preview has a failure counts as
+failed, so a write that never happened cannot read as success. Otherwise the window stays on step 1
+in the failed state: the failed row reads `Couldn't be wired` with its error, a warning says how
+many agents couldn't be wired and that Countersign left their files unchanged, and the buttons are
+`Done`, `Open Settings` and `Try Again`. `Try Again` writes only the failed rows again; the rows
+that were written stay wired.
+
+### Opening, no agents, closing
+
+A window opened when every found agent is already wired starts on step 3, so running setup again
+shows `All set`, not an offer to wire nothing. With no agent found, step 1 reads `No agents found`
+with `Check Again` and `Not Now`; `Check Again` reads the disk again and moves to step 1 or 3,
+whichever the files now say. Showing the window writes an empty `setup-shown` file in the support
+folder (`AppPaths.setupShownFile`), creating the folder when needed and ignoring a failure, so the
+first-open check (`SetupLaunch`) can tell the window has been shown.
+
+`Done` and `Not Now` close the window, and the process exits 0. `Open Settings` closes it and
+opens the Settings window in the same process; closing that one exits 0. Back from step 2 to step
+1 when every agent is already wired shows the rows with `Next` in place of `Wire`.
+
 ## The window
 
-Plain `countersign setup` and `countersign settings` open one titled, closable, resizable window,
+`countersign settings` opens one titled, closable, resizable window,
 "Countersign", with its header (the mark, version, Pause, Snooze and Close) fixed at the top, the
 sidebar fixed on the left, and only the selected group's content in a scroll view; a page taller
 than the window, or a diff disclosed later, scrolls while everything above and beside it stays in
@@ -413,8 +478,19 @@ produces the text by running
 `SetupRun` with `writesFiles: false`, which prints every diff, counts every change as applied
 without asking, writes nothing and never touches the Codex hook trust record. The diff
 (`HookDiffPreview`, the same view as the waiting-notices and context-hook popups) is monospaced
-and selectable, added lines green and removed lines red, twelve lines tall, and scrolls sideways
-instead of wrapping.
+and selectable, added lines green and removed lines red. It sits behind a disclosure
+(`HookDiffDisclosure`), collapsed by default as one row, "Show the change (3 lines added, 1
+removed)", whose count is `DiffSummary` of the diff; clicking the triangle or the label expands it
+in place, relabels the row "Hide the change" and re-lays the alert out. The triangle is the one
+accessibility element, carrying the label's text and the expanded state; the label is hidden from
+VoiceOver so the control is read once. Long lines wrap by
+character, and a wrapped continuation is indented one character so it sits after the `+`/`-`/space
+marker column; the view is as tall as its content, at most twelve lines, and scrolls vertically
+past that. A diff shown by default buried the popup's one-line question under thirty lines of JSON,
+and a line running off the side with a hidden scroller read as if part of the change were being
+withheld. A failure text, or `Nothing to change.`, is the answer itself, so it shows directly with
+the same wrapping and no disclosure. `countersign snapshot --hook-prompt` draws the popup, collapsed
+or with `--expanded` (see "Snapshots" in [panel.md](panel.md)).
 
 When more than one copy of Countersign is installed, a notice sits at the top of the group, above
 the rows; the copies it lists are in "More than one copy installed" below, and the notice itself
@@ -430,19 +506,63 @@ failure and disables the button, since the click could not change anything. The 
 once, like every control in the window, and writes only the host's own file and, for Codex, the
 trust record, never `config.json` (see "Writing a change" in [settings.md](settings.md)).
 
-### Linking Countersign.app
+### Copying Countersign.app
 
-When a `Countersign.app` sits next to the resolved CLI, at
-`<directory of the binary>/../Countersign.app` (the layout of the release tarball and of a Homebrew
-install), and nothing is at `~/Applications/Countersign.app` (a dangling symbolic link counts as
-something), the App group offers "Link Countersign.app into ~/Applications", since the link is
-about the app rather than an agent's hooks. The click creates
-`~/Applications` when needed and a symbolic link in it. For a Homebrew install the link names
-Homebrew's `opt` path, `/opt/homebrew/opt/countersign/Countersign.app`, rather than the versioned
-Cellar path the bundle was found at, for the reason in "The stable path": the Cellar directory is
-removed on the next upgrade, and `opt` follows the installed version. `ApprovalCore.AppBundleLink`
-holds the rule. Run from inside `Countersign.app`, the candidate would be inside the bundle itself,
-which never exists, so there is no offer.
+A link into Homebrew's prefix is invisible to Spotlight and Launchpad, for two measured reasons:
+Spotlight indexes nothing under `/opt/homebrew` (`mdfind -onlyin /opt/homebrew -count
+"kMDItemFSName == '*'"` prints 0), and it never indexes a symbolic link, so 0.2.0's link at
+`~/Applications/Countersign.app` could not be found. A real bundle in `~/Applications` is indexed.
+So Countersign copies the app there instead, and keeps the copy current after `brew upgrade`.
+`ApprovalCore.AppBundleCopy` holds the rules. The source is
+`<directory of the binary>/../Countersign.app`, the layout of the release tarball and of a Homebrew
+install, named by Homebrew's `opt` path for a Cellar install, since the Cellar folder is removed on
+the next upgrade and `opt` follows the installed version. Run from inside `Countersign.app`, the
+candidate would be inside the bundle itself, which never exists, so there is no offer. It must be a directory whose `CFBundleShortVersionString` reads. Versions come from each bundle's
+`Info.plist`, never from Cellar folder names, which can carry a revision suffix (`0.2.0_1`).
+
+What is at `~/Applications/Countersign.app` decides the offer:
+
+| At the destination | Offer |
+| --- | --- |
+| nothing | add the copy |
+| a symbolic link, dangling or not, wherever it points | replace the link with the copy |
+| a directory with a lower `x.y.z` version than the source | update from that version |
+| a directory with an equal or higher version | none |
+| a directory whose version is unreadable or not `x.y.z` | none |
+| a regular file | none |
+
+Versions compare as `UpdateCheck.semverParts` arrays, lexicographically.
+
+The App group's Install row shows while there is an offer or a message. Its title is
+`Countersign.app`, and the caption and button follow the offer:
+
+| Offer | Caption | Button |
+| --- | --- | --- |
+| add | Found next to this countersign binary. A copy in ~/Applications shows in Spotlight and Launchpad. | Copy into ~/Applications |
+| replace the link | ~/Applications/Countersign.app is a link, which Spotlight and Launchpad don't show. | Replace the Link with a Copy |
+| update | The copy in ~/Applications is `<from>`; this one is `<version>`. | Update the Copy |
+
+The click runs `perform` on the main actor, which is fine: the bundle is about 18 MB, and
+`~/Applications` and `/opt/homebrew` share an APFS volume, where the copy clones. Success reads
+"Copied Countersign.app `<version>` into ~/Applications. Spotlight and Launchpad find it there."
+and a failure shows the error's description as a problem message; both replace the offer once the
+hosts refresh.
+
+The refresh rule is for the app running from the copy. It applies only when the running bundle,
+standardized, is `~/Applications/Countersign.app` and that is a directory (not a link) with a
+readable version. Then, for each Homebrew prefix in order (`/opt/homebrew`, `/usr/local`), the first
+`<prefix>/opt/countersign/Countersign.app` that resolves to a directory with a higher version than
+the copy's is the source of the refresh.
+
+`perform` never leaves half a bundle at the destination. It resolves the source through symbolic
+links, creates `~/Applications` when missing, and copies the bundle to a hidden sibling,
+`.Countersign.app.copying-<UUID>`. Only a complete sibling is moved into place: over a symbolic link
+the link itself is removed (never its target) and the sibling moved in; over a directory
+`FileManager.replaceItemAt(_:withItemAt:)` swaps them in one step; over nothing the sibling is
+moved. On any error the sibling is removed and the error rethrown.
+
+A plain file copy keeps Countersign.app's ad-hoc signature and its bundle identifier, so Launch at
+Login and the menu-bar app keep working from the copy.
 
 ## Backups and writing
 
@@ -511,9 +631,13 @@ last. So a resolved path that is the binary inside `Countersign.app`,
 `<anything>/Countersign.app/Contents/MacOS/countersign`, and is outside a Cellar, maps to
 `~/.local/bin/countersign` when that file exists and is executable. The CLI wins over the app:
 dragging the app to the Trash is the more likely way for a person to lose a copy of the binary, so
-hooks stay pointed at the one that survives that. When there is no CLI, or it exists but is not
-executable, the app's own path is used as it is, so hooks still work on a Mac with only the app
-installed. Any other resolved path, such as `~/.local/bin/countersign` itself or a bare binary run
+hooks stay pointed at the one that survives that. Next comes Homebrew: a Homebrew install copies
+the app into `~/Applications` too, and that copy resolves outside any Cellar, so without this step
+wiring from it would write the copy's inner path into every hook, which breaks when the copy is
+replaced or trashed. So when there is no user CLI, `<prefix>/bin/countersign` is tried for each of
+`/opt/homebrew` and `/usr/local`, in that order, and the first executable one wins. When none of
+them is executable, the app's own path is used as it is, so hooks still work on a Mac with only the
+app installed. Any other resolved path, such as `~/.local/bin/countersign` itself or a bare binary run
 from a source checkout, is used as it is.
 
 Running setup again after moving the binary rewrites the existing entry's command with the new
@@ -532,7 +656,7 @@ A copy is one install, grouped by where it came from:
 
 | Copy | Found when | Its paths | Version | Removed with |
 | --- | --- | --- | --- | --- |
-| Homebrew | `<prefix>/bin/countersign` exists, for `/opt/homebrew` and `/usr/local` | that link; the keg, what `<prefix>/opt/countersign` resolves to; a `~/Applications/Countersign.app` link into the keg (see "Linking Countersign.app") | the keg's folder name, `…/Cellar/countersign/<version>` | `brew uninstall countersign`, plus `rm ~/Applications/Countersign.app` for that link |
+| Homebrew | `<prefix>/bin/countersign` exists, for `/opt/homebrew` and `/usr/local` | that link; the keg, what `<prefix>/opt/countersign` resolves to; a `~/Applications/Countersign.app` link into the keg (see "Copying Countersign.app"), or a real `~/Applications/Countersign.app` directory when `~/.local/bin/countersign` is not a regular file, the keg has a `Countersign.app` with a readable version, and the copy's version is equal to or lower than it | the keg's folder name, `…/Cellar/countersign/<version>` | `brew uninstall countersign`, plus `rm ~/Applications/Countersign.app` for a link, or `rm -rf ~/Applications/Countersign.app` for a real copy |
 | Installer | `~/.local/bin/countersign` is a regular file, not a link | that file, and `~/Applications/Countersign.app` when it is a real directory | that app's `CFBundleShortVersionString`, else what `~/.local/bin/countersign --version` prints within 2 seconds; both are kept for the version check below | `rm ~/.local/bin/countersign`, plus `rm -rf ~/Applications/Countersign.app` for its app |
 | Countersign.app | `/Applications/Countersign.app` is a real directory, or `~/Applications/Countersign.app` is one and no installer copy owns it | the bundle | its `CFBundleShortVersionString` | `rm -rf <the bundle>` |
 
@@ -543,6 +667,15 @@ counted, compared by resolved path, is never counted again: a `~/.local/bin/coun
 Homebrew's binary is no installer copy, and an `/Applications` that links to `~/Applications` does
 not make the installer's app a second copy. A dangling link counts as nothing. A version that
 cannot be read shows as "version unknown".
+
+A real copy of Homebrew's own app in `~/Applications` is part of the Homebrew install, not a second
+one: Countersign makes that copy itself for Homebrew users and keeps it current (see "Copying
+Countersign.app"). It is claimed for Homebrew only at the keg app's version or lower, read from
+`CFBundleShortVersionString` and never from the keg's folder name, which can carry a `_1`; a higher
+or unreadable version stays a Countersign.app copy of its own. A claimed copy lower than the keg app
+is not a duplicate but a version mismatch, which Doctor's `versions` line and Settings report as "The
+copy of Countersign.app in ~/Applications is older than Homebrew's", with `countersign settings` as
+the command. The installer's app-versus-CLI mismatch keeps priority over it.
 
 With two copies or more, each is marked with what is known about it. The hooks call it: every
 entry's executable path, read the way doctor reads it (`Doctor.executablePaths`), resolved and

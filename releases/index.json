@@ -2,6 +2,30 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.3.0",
+      "date": "2026-10-07",
+      "title": "Countersign 0.3.0: a setup window, a Spotlight-visible app for Homebrew and a Skills page",
+      "summary": "A three-step setup window wires the agents it finds, with every change shown first, and replaces the tour. With Homebrew, Settings copies Countersign.app into ~/Applications, where Spotlight finds it, and keeps it current after brew upgrade. Settings gets a read-only Skills group, and the command line and update check get fixes.",
+      "type": "minor",
+      "breaking": false,
+      "highlights": [
+        "A setup window that wires the agents it finds in three steps, replacing the tour",
+        "A Spotlight-visible Countersign.app copy for Homebrew installs, kept current after brew upgrade",
+        "A read-only Skills group in Settings for the countersign-skills you have installed"
+      ],
+      "tags": [
+        "claude-code",
+        "codex",
+        "setup",
+        "homebrew"
+      ],
+      "testedWith": {
+        "claudeCode": "2.1.278",
+        "codex": "0.159.3"
+      },
+      "notes": "releases/release-0.3.0.md"
+    },
+    {
       "version": "0.2.0",
       "date": "2026-10-05",
       "title": "Countersign 0.2.0: allow and deny rules, waiting-agent notices and context checkpoints",

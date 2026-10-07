@@ -90,6 +90,7 @@ enum SettingsCopyTarget: Equatable {
   case copyStep(Int)
   case agentPrompt
   case versionCommand
+  case skillsUpdateCommand
 }
 
 enum SettingsUpdateCheckPhase: Equatable {
@@ -183,9 +184,9 @@ final class SettingsModel {
   let stablePath: String?
 
   private(set) var hostRows: [HostRow] = []
-  private(set) var appLinkOffer: AppBundleLinkOffer?
-  private(set) var appLinkMessage: String?
-  private(set) var appLinkFailed = false
+  private(set) var appCopyOffer: AppBundleCopyOffer?
+  private(set) var appCopyMessage: String?
+  private(set) var appCopyFailed = false
   private(set) var duplicateInstall: DuplicateInstall?
   private(set) var selectedCopyIndex: Int?
   private(set) var installVersionMismatch: InstallVersionMismatch?
@@ -233,10 +234,13 @@ final class SettingsModel {
   private(set) var newContextModelPrefix = ""
   private(set) var newContextModelLadder = ""
   private(set) var copied: SettingsCopyTarget?
+  private(set) var skillsOverview = SkillsOverview(
+    availability: .notInstalled, skills: [], rules: [], additions: [])
+  private(set) var skillsError: String?
   private(set) var customAccentColor: HexColor?
   private(set) var updateCheckPhase = SettingsUpdateCheckPhase.idle
   var requestClose: (() -> Void)?
-  var requestTour: (() -> Void)?
+  var requestSetup: (() -> Void)?
   var applyAppearance: ((AppearanceChoice) -> Void)?
 
   @ObservationIgnored private let testCornerCards = TestCornerCards()
@@ -261,8 +265,30 @@ final class SettingsModel {
         forResolved: $0, home: environment.home, isExecutable: { _ in environment.cliIsExecutable }
       )
     }
-    refreshHosts()
     loadPreferences()
+    refreshHosts()
+    if selectedPane == .skills {
+      refreshSkills()
+    }
+  }
+
+  func refreshSkills() {
+    skillsError = nil
+    let paths = environment.paths
+    skillsOverview = SkillsOverview.read(
+      paths: paths, agentExists: { SkillsOverview.installerAgentExists($0, paths: paths) },
+      approved: SkillFolderApprovals.read(paths.skillFolderApprovalsFile))
+  }
+
+  func showSkills(from folder: URL) {
+    var failure: String?
+    do {
+      try SkillFolderApprovals.add(folder, to: environment.paths.skillFolderApprovalsFile)
+    } catch {
+      failure = SetupRun.describe(error)
+    }
+    refreshSkills()
+    skillsError = failure
   }
 
   var configFile: URL {
@@ -288,6 +314,7 @@ final class SettingsModel {
   var handoffApps: [String] { preferences.handoffApps }
   var quietHours: [QuietWindow] { preferences.quietHours }
   var checkForUpdates: Bool { preferences.checkForUpdates }
+  var showSkills: Bool { preferences.showSkills }
   var quitBehavior: QuitBehavior { preferences.quitBehavior }
   var modeAfterPlan: PlanApprovalMode { preferences.modeAfterPlan }
   var panelSound: String { preferences.panelSound }
@@ -351,9 +378,21 @@ final class SettingsModel {
   }
 
   func select(_ pane: SettingsPane) {
-    guard pane != selectedPane else { return }
-    selectedPane = pane
+    let shown = visiblePane(for: pane)
+    guard shown != selectedPane else { return }
+    selectedPane = shown
     visit.begin()
+    if shown == .skills {
+      refreshSkills()
+    }
+  }
+
+  private func visiblePane(for pane: SettingsPane) -> SettingsPane {
+    switch pane {
+    case .context where !contextCheckpointsEnabled: return .panels
+    case .skills where !showSkills: return .app
+    default: return pane
+    }
   }
 
   func beginVisit() {
@@ -436,6 +475,9 @@ final class SettingsModel {
   func refreshFromDisk() {
     refreshStatus()
     refreshHosts()
+    if selectedPane == .skills {
+      refreshSkills()
+    }
     if launchAtLoginAvailable {
       launchAtLogin = LaunchAtLogin.state
     }
@@ -463,9 +505,9 @@ final class SettingsModel {
           in: ConfigFileStore.fileState(location.file)))
       return row
     }
-    appLinkOffer = environment.resolvedExecutable.flatMap {
-      AppBundleLink.offer(
-        resolvedExecutable: $0, home: environment.home, exists: Self.somethingExists)
+    appCopyOffer = environment.resolvedExecutable.flatMap {
+      AppBundleCopy.offer(
+        resolvedExecutable: $0, home: environment.home, fileSystem: .local)
     }
     let detected = InstallCopiesCheck.duplicates(
       hookExecutables: InstallCopiesCheck.hookExecutables(in: environment.locations),
@@ -549,21 +591,27 @@ final class SettingsModel {
     refreshHosts()
   }
 
-  func linkApp() {
-    guard let offer = appLinkOffer else { return }
+  func copyApp() {
+    guard let offer = appCopyOffer else { return }
     do {
-      try FileManager.default.createDirectory(
-        at: offer.link.deletingLastPathComponent(), withIntermediateDirectories: true)
-      try FileManager.default.createSymbolicLink(
-        atPath: offer.link.path, withDestinationPath: offer.target)
-      appLinkMessage =
-        "Linked \(HomePath.abbreviating(offer.link.path, relativeTo: environment.home)) to \(offer.target)"
-      appLinkFailed = false
+      try AppBundleCopy.perform(source: offer.source, destination: offer.destination)
+      appCopyMessage =
+        "Copied \(AppBundleCopy.bundleName) \(offer.version) into ~/Applications. Spotlight and Launchpad find it there."
+      appCopyFailed = false
     } catch {
-      appLinkMessage = SetupRun.describe(error)
-      appLinkFailed = true
+      appCopyMessage = SetupRun.describe(error)
+      appCopyFailed = true
     }
     refreshHosts()
+    if appCopyFailed, appCopyOffer == nil {
+      appCopyOffer = offer
+    }
+  }
+
+  func showAppCopyForSnapshot(offer: AppBundleCopyOffer?, message: String?, failed: Bool) {
+    appCopyOffer = offer
+    appCopyMessage = message
+    appCopyFailed = failed
   }
 
   func loadPreferences() {
@@ -600,9 +648,7 @@ final class SettingsModel {
     if launchAtLoginAvailable {
       launchAtLogin = LaunchAtLogin.state
     }
-    if selectedPane == .context, !contextCheckpointsEnabled {
-      select(.panels)
-    }
+    select(selectedPane)
   }
 
   func setArmDelay(_ value: Double) {
@@ -898,6 +944,10 @@ final class SettingsModel {
 
   func setCheckForUpdates(_ enabled: Bool) {
     write(.checkForUpdates(enabled))
+  }
+
+  func setShowSkills(_ shown: Bool) {
+    write(.showSkills(shown))
   }
 
   func setQuitBehavior(_ behavior: QuitBehavior) {
@@ -1477,6 +1527,7 @@ final class SettingsModel {
       return steps.indices.contains(index) ? steps[index].command ?? "" : ""
     case .agentPrompt: return duplicateInstall?.agentPrompt ?? ""
     case .versionCommand: return installVersionMismatch?.command ?? ""
+    case .skillsUpdateCommand: return skillsOverview.updateCommand ?? ""
     }
   }
 
@@ -1484,18 +1535,28 @@ final class SettingsModel {
     guard updateCheckPhase != .checking else { return }
     updateCheckPhase = .checking
     let outcome = await UpdateFetcher.fetch(currentVersion: CountersignVersion.current)
+    let file = environment.paths.updateCheckFile
+    if let recorded = UpdateCheckState.recording(
+      outcome, at: Date(), over: UpdateCheckStateStore.load(file: file))
+    {
+      try? UpdateCheckStateStore.save(recorded, to: file)
+    }
     updateCheckPhase = Self.phase(for: outcome)
   }
 
   private static func phase(for outcome: UpdateCheckOutcome) -> SettingsUpdateCheckPhase {
     switch outcome {
     case .newerAvailable(let version):
-      let resolvedExecutablePath =
-        Bundle.main.executableURL?.resolvingSymlinksInPath().path ?? "(unresolved)"
+      let resolvedPath = Bundle.main.executableURL?.resolvingSymlinksInPath().path
+      let stablePath = resolvedPath.map {
+        StableExecutablePath.stable(
+          forResolved: $0, home: FileManager.default.homeDirectoryForCurrentUser,
+          isExecutable: FileManager.default.isExecutableFile(atPath:))
+      }
       return .newerAvailable(
         UpdateAvailability(
           version: version,
-          upgradeCommand: UpdateCommand.upgrade(forResolvedExecutablePath: resolvedExecutablePath),
+          upgradeCommand: UpdateCommand.upgrade(forStablePath: stablePath ?? "(unresolved)"),
           releaseNotesURL: UpdateCommand.releaseNotesURL(version: version)))
     case .upToDate:
       return .upToDate

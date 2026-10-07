@@ -55,6 +55,38 @@ import Testing
         == cliPath)
   }
 
+  @Test func mapsACopiedAppToAppleSiliconHomebrewWhenThereIsNoUserCli() {
+    let path = "/Users/dev/Applications/Countersign.app/Contents/MacOS/countersign"
+    #expect(
+      StableExecutablePath.stable(
+        forResolved: path, home: home, isExecutable: { $0 == "/opt/homebrew/bin/countersign" })
+        == "/opt/homebrew/bin/countersign")
+  }
+
+  @Test func mapsACopiedAppToIntelHomebrewWhenItIsTheOnlyCli() {
+    let path = "/Users/dev/Applications/Countersign.app/Contents/MacOS/countersign"
+    #expect(
+      StableExecutablePath.stable(
+        forResolved: path, home: home, isExecutable: { $0 == "/usr/local/bin/countersign" })
+        == "/usr/local/bin/countersign")
+  }
+
+  @Test func keepsTheUserCliAheadOfHomebrewForACopiedApp() {
+    let path = "/Users/dev/Applications/Countersign.app/Contents/MacOS/countersign"
+    #expect(
+      StableExecutablePath.stable(
+        forResolved: path, home: home,
+        isExecutable: { $0 == cliPath || $0 == "/opt/homebrew/bin/countersign" })
+        == cliPath)
+  }
+
+  @Test func keepsTheCopiedAppWhenNoCliIsExecutable() {
+    let path = "/Users/dev/Applications/Countersign.app/Contents/MacOS/countersign"
+    #expect(
+      StableExecutablePath.stable(forResolved: path, home: home, isExecutable: { _ in false })
+        == path)
+  }
+
   @Test func keepsAnAppBundleOutsideACellarWhenTheCliIsMissingOrNotExecutable() {
     let path = "/Applications/Countersign.app/Contents/MacOS/countersign"
     #expect(

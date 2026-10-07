@@ -18,7 +18,7 @@ signed app, since only a browser download sets the quarantine flag Gatekeeper ch
 The curl installer asks whether to also install the optional [menu-bar app](menu-bar-app.md)
 (default yes); the CLI alone is fully usable, so put `COUNTERSIGN_APP=0` before `sh` to skip the
 app, or `COUNTERSIGN_APP=1` to install it without being asked. It then asks whether to open
-Countersign so you can set up your agents (default yes); put `COUNTERSIGN_SETUP=0` before `sh` to
+Countersign's setup window (default yes); put `COUNTERSIGN_SETUP=0` before `sh` to
 skip that without asking, or `COUNTERSIGN_SETUP=1` to open it without asking. For an older release, put
 `COUNTERSIGN_VERSION=<x.y.z>` before `sh` in the curl command; Homebrew always installs the latest.
 The full installer behaviour, including what each variable rejects and how it picks a default
@@ -27,14 +27,29 @@ without a terminal to ask in: [release.md](release.md#the-curl-installer).
 To build from source instead (Xcode 26 or later), clone the repository and run
 `scripts/install.sh`.
 
-## From the Settings window
+## From the setup window
 
-The curl installer asks at the end of a fresh install and opens this window for you unless you say
-no (see [release.md](release.md#the-curl-installer)); otherwise open Countersign.app from the Finder,
-Spotlight or Launchpad, or run `countersign setup` (`countersign settings` opens the same window).
-If you installed the CLI only, without the [menu-bar app](menu-bar-app.md), `countersign setup`
-still opens this same window from the terminal. Under **Agents**, each agent gets a row with one of
-these statuses:
+The curl installer asks at the end of an install and opens the setup window for you unless you say
+no (see [release.md](release.md#the-curl-installer)). The first time you open Countersign.app on a
+Mac with no Countersign state, it opens the setup window too. Otherwise run `countersign setup`, or
+choose **Set Up…** under **Help** in the menu bar or in Settings. Setup opens a small window with
+three steps:
+
+1. **Wire your agents.** Each agent Countersign found gets a row. **Wire** writes the hook into
+   every agent that is Not wired or Needs an update, and each row's change is behind its
+   **Show the change** line. Pressing **Wire** is the confirmation, so there is no popup. An agent
+   that can't be set up is shown with its reason and left alone.
+2. **Try it.** No panel shows on its own; you show one with **Show a Test Panel**. Nothing you
+   do in it reaches an agent, and the step lists its keys.
+3. **All set.** A summary, and **Open Settings** or **Done**.
+
+If a file can't be written, the window stays on step 1 and offers **Try Again**; Countersign leaves
+that file unchanged. Running setup when every agent is wired opens on **All set**.
+
+`countersign settings` opens the full window, and so does **Open Settings** in the setup window.
+If you installed the CLI only, without the [menu-bar app](menu-bar-app.md), both still open from
+the terminal. In the full window, under **Agents**, each agent gets a row with one of these
+statuses:
 
 | Status | What it means | What to do |
 | --- | --- | --- |
@@ -50,8 +65,9 @@ under `hosts`, that agent's row lists them too, with a link to open the file. On
 it may show one more line below it: a next step for Codex (see below), or a permanent good-to-know
 line for Cursor or Antigravity (see [agents.md](agents.md)).
 
-With a Homebrew install, the window's **App** group also offers to link Countersign.app into
-`~/Applications`, so Spotlight and Launchpad find it. The link follows Homebrew upgrades.
+With a Homebrew install, the window's **App** group also offers to copy Countersign.app into
+`~/Applications`, so Spotlight and Launchpad find it. The menu-bar app keeps it current at
+Homebrew's version after `brew upgrade`.
 
 ## From the terminal
 
@@ -59,11 +75,15 @@ With a Homebrew install, the window's **App** group also offers to link Counters
 countersign setup --cli [--yes] [--uninstall] [--host claude|codex|cursor|antigravity]
 ```
 
+`setup --cli` stays the terminal flow; plain `setup` opens the window above.
+
 For each agent it finds, setup prints the file's path and a diff of the change, then asks
 `Apply? [y/N]`. `--yes` applies without asking. Without a terminal to ask in, and without `--yes`,
 it only prints the diffs and applies nothing. `--host` limits the run to one agent. A file with
 nothing to change prints `already up to date`, so running setup twice is safe. When it finds no
-agent at all, it says so. It exits 1 when a file failed and 0 otherwise. `--yes`, `--uninstall` and `--host` work only together with `--cli`.
+agent at all, it says so. It exits 0 when you decline a change, or when there is no terminal and no `--yes` (nothing is
+applied, and it says so), and 1 when a file couldn't be read or written. `--yes`, `--uninstall` and `--host` work only together
+with `--cli`.
 
 ## What it changes
 
@@ -113,8 +133,9 @@ Settings ▸ Panels removes those entries and setup then leaves them out.
 
 Setup touches only its own entry. Everything else in the file, other hooks, key order,
 indentation, line endings, stays exactly as it was. Before it changes a file that already exists,
-it saves a copy next to it, `<file>.countersign-<yyyyMMdd-HHmmss>.bak`, and prints where. Only the
-newest three copies of each file are kept; saving a fourth removes the oldest. A file
+it saves a copy next to it, `<file>.countersign-<yyyyMMdd-HHmmss>.bak`, and prints where. Two copies in the same second
+get `-2`, `-3` and so on before `.bak`. Only the newest three copies of each file are kept; saving a
+fourth removes the oldest. A file
 that isn't valid JSON, including JSON with comments or trailing commas, is reported and left alone.
 Antigravity ignores its whole hooks file when any entry in it is invalid, so setup writes its entry
 in one exact shape, and replaces a `countersign` hook it finds in any other shape.

@@ -358,12 +358,18 @@ struct AppSection: View {
             }
             SettingsDivider()
             AccentColorRow(model: model)
+            SettingsDivider()
+            PreferenceRow(.showSkills, model: model, problem: model.writeErrors[.showSkills]) {
+              SettingsSwitch(
+                PreferenceName.showSkills.title,
+                isOn: Binding(get: { model.showSkills }, set: { model.setShowSkills($0) }))
+            }
           }
           .disabled(model.configProblem != nil)
         }
-        if model.appLinkOffer != nil || model.appLinkMessage != nil {
+        if model.appCopyOffer != nil || model.appCopyMessage != nil {
           SettingsBlock("Install") {
-            AppLinkRow(model: model)
+            AppCopyRow(model: model)
           }
         }
         AppFooterRow(model: model)
@@ -1050,7 +1056,7 @@ private struct LaunchAtLoginRow: View {
   }
 }
 
-private struct AppLinkRow: View {
+private struct AppCopyRow: View {
   let model: SettingsModel
 
   var body: some View {
@@ -1062,25 +1068,48 @@ private struct AppLinkRow: View {
           .frame(width: SettingsMetrics.glyphWidth)
           .accessibilityHidden(true)
         VStack(alignment: .leading, spacing: 2) {
-          Text(AppBundleLink.bundleName)
+          Text(AppBundleCopy.bundleName)
             .font(.system(size: 13, weight: .semibold))
-          Text("Found next to this countersign binary.")
-            .font(PanelTypography.secondary)
-            .foregroundStyle(.secondary)
-            .fixedSize(horizontal: false, vertical: true)
+          if let offer = model.appCopyOffer {
+            Text(Self.caption(for: offer))
+              .font(PanelTypography.secondary)
+              .foregroundStyle(.secondary)
+              .fixedSize(horizontal: false, vertical: true)
+          }
         }
         Spacer(minLength: 12)
-        if model.appLinkOffer != nil {
-          Button("Link Countersign.app into ~/Applications") { model.linkApp() }
+        if let offer = model.appCopyOffer {
+          Button(Self.buttonTitle(for: offer.kind)) { model.copyApp() }
             .buttonStyle(SecondaryButtonStyle())
             .fixedSize()
         }
       }
-      if let message = model.appLinkMessage {
-        InlineMessage(message, tone: model.appLinkFailed ? .problem : .done)
+      if let message = model.appCopyMessage {
+        InlineMessage(message, tone: model.appCopyFailed ? .problem : .done)
           .padding(.leading, SettingsMetrics.glyphWidth + 10)
       }
     }
     .padding(SettingsMetrics.rowPadding)
+  }
+
+  private static func caption(for offer: AppBundleCopyOffer) -> String {
+    switch offer.kind {
+    case .add:
+      return
+        "Found next to this countersign binary. A copy in ~/Applications shows in Spotlight and Launchpad."
+    case .replaceLink:
+      return
+        "~/Applications/Countersign.app is a link, which Spotlight and Launchpad don't show."
+    case .update(let from):
+      return "The copy in ~/Applications is \(from); this one is \(offer.version)."
+    }
+  }
+
+  private static func buttonTitle(for kind: AppBundleCopyOffer.Kind) -> String {
+    switch kind {
+    case .add: return "Copy into ~/Applications"
+    case .replaceLink: return "Replace the Link with a Copy"
+    case .update: return "Update the Copy"
+    }
   }
 }

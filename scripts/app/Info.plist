@@ -26,5 +26,15 @@
   <string>14.0</string>
   <key>NSHighResolutionCapable</key>
   <true/>
+  <key>NSDocumentsFolderUsageDescription</key>
+  <string>Countersign reads the skill folders you added, to list their skills in Settings.</string>
+  <key>NSDesktopFolderUsageDescription</key>
+  <string>Countersign reads the skill folders you added, to list their skills in Settings.</string>
+  <key>NSDownloadsFolderUsageDescription</key>
+  <string>Countersign reads the skill folders you added, to list their skills in Settings.</string>
+  <key>NSRemovableVolumesUsageDescription</key>
+  <string>Countersign reads the skill folders you added, to list their skills in Settings.</string>
+  <key>NSNetworkVolumesUsageDescription</key>
+  <string>Countersign reads the skill folders you added, to list their skills in Settings.</string>
 </dict>
 </plist>

@@ -22,7 +22,8 @@ paths:
   [answers](../../docs/design/answers.md), [setup](../../docs/design/setup.md),
   [settings](../../docs/design/settings.md), [doctor](../../docs/design/doctor.md),
   [app](../../docs/design/app.md),
-  [checkpoints](../../docs/design/checkpoints.md), [notice](../../docs/design/notice.md), [rules](../../docs/design/rules.md) —
+  [checkpoints](../../docs/design/checkpoints.md), [notice](../../docs/design/notice.md), [rules](../../docs/design/rules.md),
+  [skills](../../docs/design/skills.md) —
   user-facing pages in `docs/<topic>.md` —
   [setup](../../docs/setup.md), [configuration](../../docs/configuration.md),
   [agents](../../docs/agents.md), [menu-bar-app](../../docs/menu-bar-app.md),

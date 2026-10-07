@@ -37,6 +37,7 @@ public struct PreferenceValues: Sendable, Equatable {
   public var questionNotes: Bool
   public var appearance: AppearanceChoice
   public var accentColor: HexColor
+  public var showSkills: Bool
   public var editorApp: String?
   public var contextCheckpoints: ContextCheckpointSettings
 
@@ -60,6 +61,7 @@ public struct PreferenceValues: Sendable, Equatable {
     questionNotes: Bool = Settings.defaultQuestionNotes,
     appearance: AppearanceChoice = Settings.defaultAppearance,
     accentColor: HexColor = Settings.defaultAccentColor,
+    showSkills: Bool = Settings.defaultShowSkills,
     editorApp: String? = nil,
     contextCheckpoints: ContextCheckpointSettings = .default
   ) {
@@ -82,6 +84,7 @@ public struct PreferenceValues: Sendable, Equatable {
     self.questionNotes = questionNotes
     self.appearance = appearance
     self.accentColor = accentColor
+    self.showSkills = showSkills
     self.editorApp = editorApp
     self.contextCheckpoints = contextCheckpoints
   }
@@ -113,6 +116,7 @@ public struct PreferenceValues: Sendable, Equatable {
       questionNotes: file.questionNotes ?? Settings.defaultQuestionNotes,
       appearance: file.appearance ?? Settings.defaultAppearance,
       accentColor: file.accentColor ?? Settings.defaultAccentColor,
+      showSkills: file.showSkills ?? Settings.defaultShowSkills,
       editorApp: file.editorApp,
       contextCheckpoints: ContextCheckpointSettings.resolve(
         top: file.contextCheckpoints, host: nil, for: .claude))
@@ -163,6 +167,8 @@ public struct PreferenceValues: Sendable, Equatable {
       values.appearance = appearance
     case .accentColor(let color):
       values.accentColor = color
+    case .showSkills(let shown):
+      values.showSkills = shown
     case .addHandoffApp(let bundleID):
       if !values.handoffApps.contains(bundleID) {
         values.handoffApps.append(bundleID)
@@ -222,6 +228,7 @@ public struct PreferenceValues: Sendable, Equatable {
     case .questionNotes: values.questionNotes = Settings.defaultQuestionNotes
     case .appearance: values.appearance = Settings.defaultAppearance
     case .accentColor: values.accentColor = Settings.defaultAccentColor
+    case .showSkills: values.showSkills = Settings.defaultShowSkills
     case .editorApp: values.editorApp = nil
     case .contextCheckpointsEnabled:
       values.contextCheckpoints.enabled = ContextCheckpointSettings.defaultEnabled

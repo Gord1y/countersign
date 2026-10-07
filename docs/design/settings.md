@@ -76,7 +76,7 @@ minutes in seconds (`90 seconds`), because `DurationText.describe` rounds to the
   menu-bar companion's Snooze submenu offers the same presets with the same titles, but from the
   top-level value only: it acts for no single host, so the `hosts.*` blocks never apply to it.
 - **`checkForUpdates`** turns on the menu-bar companion's automatic release check, at most once
-  every 24 hours, on top-level `checkForUpdates: true` only. It has no per-host override, since the
+  every 24 hours (a failed check retries an hour later), on top-level `checkForUpdates: true` only. It has no per-host override, since the
   companion acts for no single host (see "Update check" in [app.md](app.md)). Choosing "Check for
   Updates…" in the menu always checks immediately regardless of this setting.
 - **`quitBehavior`** decides what the menu-bar companion's "Quit Countersign" does: `"ask"` (the
@@ -104,8 +104,8 @@ minutes in seconds (`90 seconds`), because `DurationText.describe` rounds to the
 ## Precedence
 
 For a hook of host X, in order: `hosts.X` in the config file beats the top-level value, which
-beats the built-in default. `checkForUpdates`, `questionNotes` and `quitBehavior` have no per-host
-value, so for them the order starts at the top level. A `hosts.X` list, such as `handoffApps`,
+beats the built-in default. `checkForUpdates`, `questionNotes`, `quitBehavior` and `showSkills` have no
+per-host value, so for them the order starts at the top level. A `hosts.X` list, such as `handoffApps`,
 replaces the top-level list for that host rather than adding to it.
 
 The config file is the only source. `countersign hook` takes `--host <host>` and nothing else:
@@ -151,6 +151,20 @@ this section covers its size, its groups and their layout, the header's status c
 controls, when each change is written, Advanced, and the notice about a second copy at the top of
 Agents.
 
+### Opening
+
+The model reads `config.json` before it derives any agent row. The window reads the hosts' files,
+the config file and the installed copies again before it is ordered in front, on a new window and
+on one reused from an earlier open, so the first frame shows the current state and never a verdict
+from defaults or from the last visit. It reads them once more whenever it becomes key.
+
+The group is chosen before the window is ordered in front. A new window starts on Agents; a caller
+that wants another group passes it to `show(pane:)`, and it is selected before the window shows. A
+reused window keeps its group, and a window that has closed (`isClosed`) is never reused, even in
+the moment before the companion drops it. After that only the person changes the group, apart from
+Context falling back to Panels when context checkpoints are turned off in the file, and Skills
+falling back to App when `showSkills` is turned off, since App is where its switch lives.
+
 ### Window size
 
 The window is resizable, with no maximum. Its content opens at 820 × 800 pt, shrunk to fit the
@@ -195,8 +209,9 @@ ends up.
 ### Groups and layout
 
 The header's pause and snooze controls (see "Status" below) sit at the top, outside every group:
-they are the state Countersign is in right now, not a setting. Below the header, a sidebar lists Agents, App, Panels, Rules (and Context while that feature is on) and Help,
-in that order, at every window width (`SettingsPane.sidebar`; `ApprovalCore.SettingsPane` also holds
+they are the state Countersign is in right now, not a setting. Below the header, a sidebar lists
+Agents, App, Panels, Rules, Skills (unless `showSkills` is off), Context (while that feature is on)
+and Help, in that order, at every window width (`SettingsPane.sidebar`; `ApprovalCore.SettingsPane` also holds
 each group's title and subtitle). The selected item is highlighted; the content area to its right
 shows that one group, scrolled to its top, with only its subtitle above it, not its title again,
 since the sidebar already names it:
@@ -205,9 +220,10 @@ since the sidebar already names it:
 | --- | --- | --- |
 | Agents | a row per agent (Wire, Update and Remove, each confirmed in a popup that shows its diff), the notice about a second copy, on each row the values `hosts.<agent>` sets, and, once wired, its follow-up line and Codex's "Mark as done" (`AgentFollowUp`; see "Follow-up lines" and "The Codex hook trust record" in [setup.md](setup.md)) | each agent's own hook file; the Codex hook trust record, never `config.json` |
 | Panels | five blocks: Delays (Same delays for all agents, then while it is off an Agent picker with the four agents, then Wait for idle, Grace period, Arm delay, Arm delay after an answer, Show card after), Interruptions (Hand off when frontmost, Snooze presets, Quiet hours, Sound), Corner cards (Waiting-agent notices, Notice after, Show notice for, Approval card with one checkbox per agent), Claude Code (Notes on answers, Mode after a plan, Context checkpoints) and Try it (Show a test panel, Show a test card), then Restore Defaults | `config.json`, for every agent, or under `hosts.<agent>` for the delays and the Approval card checkboxes |
-| App | General (Launch at login, Check for updates, When Countersign quits), Appearance (Appearance, Accent colour) and, while there is an offer to link Countersign.app, Install, then Advanced… and Restore Defaults | macOS's login items, `config.json`, `~/Applications` |
+| App | General (Launch at login, Check for updates, When Countersign quits), Appearance (Appearance, Accent colour, Skills in the sidebar) and, while there is an offer to copy Countersign.app, Install, then Advanced… and Restore Defaults | macOS's login items, `config.json`, `~/Applications` |
 | Rules | the intro line, one row per rule in file order with a remove button, the unreadable-entries notice (see "Rules" below) | `config.json`, the top-level `rules` array |
-| Help | the tour, documentation, ask a question, report a problem, contact the developer, updates, then support links | nothing in `config.json`; never `update-check.json` |
+| Skills | the source of the installed countersign-skills, the updates notice with its command, each skill with the agents it is installed for, the rules (see [skills.md](skills.md#the-overview)) | nothing; it only reads |
+| Help | set up, documentation, ask a question, report a problem, contact the developer, updates, then support links | nothing in `config.json`; `update-check.json` after Check for Updates |
 | Advanced | the config file's path, Open in Editor, Copy Path, Open with, the schema, what only the file can set, and the prompt for a coding agent | `config.json` for Open with; otherwise nothing beyond creating a missing `config.json` to open it |
 
 The groups follow what a control changes and where the change lands, so one subtitle can say it
@@ -249,12 +265,12 @@ App and Advanced as the same row). `SettingsPane.advanced` remains a real case: 
 `--tab` takes, just not listed in the sidebar.
 
 Every open starts on Agents (`SettingsPane.standard`). Each `SettingsWindowController` makes a new
-`SettingsModel`, and the menu-bar app makes a new controller whenever the window was closed, so
-closing Settings and opening it again lands on Agents; choosing Settings… while the window is still
-open keeps the group on screen. Agents is where an upgrade or a new agent needs attention, so a
+`SettingsModel`, and the menu-bar app makes a new controller whenever the window was closed or is
+closing, so closing Settings and opening it again lands on Agents; choosing Settings… while the
+window is still open keeps the group on screen. Agents is where an upgrade or a new agent needs attention, so a
 remembered group could hide it. Up to 0.1.0 the group was remembered under the user-defaults key
 `Countersign Settings Pane`; nothing reads that key any more. A caller that needs another group
-passes it to the companion's `openSettings(pane:)`, and `snapshot --settings` takes `--tab`.
+passes it to the companion's `openSettings(pane:)`, which hands it to `show(pane:)`, and `snapshot --settings` takes `--tab`.
 
 Switching group rebuilds the content area, so no view keeps its own state across it. What matters
 lives in `SettingsModel`: the text in the Snooze presets field and the add field for Hand off when
@@ -390,6 +406,7 @@ The window edits top-level keys only:
 | App | When Countersign quits, a menu | `quitBehavior` | "Ask", "Keep showing panels" or "Pause panels" |
 | App | Appearance, a segmented control | `appearance` | "System", "Light" or "Dark" |
 | App | Accent colour, six swatches and a color well | `accentColor` | Amber, Blue, Green, Purple, Pink, Graphite, or any color as `#RRGGBB` |
+| App | Skills in the sidebar, a switch | `showSkills` | on or off; top level only |
 
 Every one of these rows is a `PreferenceRow`, the one component that lays out a row's title, its
 caption, a trailing control, an optional detail below (Hand off when frontmost's list and add
@@ -675,7 +692,7 @@ file is written on blur, Return or disappearance; empty shows "Enter a file path
 showing a test panel never drops one.
 
 The notes are edited in a sheet (`ContextNotesSheet`, a SwiftUI view in an `NSHostingController`
-presented with `beginSheet`, the way the tour is), about 560 by 620, titled "Context notes", whose
+presented with `beginSheet`), about 560 by 620, titled "Context notes", whose
 caption names the `{tokens}` and `{handoffFile}` placeholders. It shows the five notes in order,
 each with its caption, an editor about five lines tall and a "Restore Default" button enabled only
 while the text differs from the default. The pending texts live in the sheet's own state, not in
@@ -697,7 +714,9 @@ The switch never writes `config.json` on its own. Changing it asks `SettingsMode
 `WaitingHookSetup.supportedHosts` names, shown by `WaitingHookPrompt` (a sibling of
 `ContextHookPrompt`, sharing `HookDiffPreview`) as "Turn on waiting-agent notices?" or "Turn off
 waiting-agent notices?", with "Countersign changes <paths> and keeps a backup." and the buttons Turn
-On / Turn Off and Cancel, or OK alone with the failure lines when a file cannot be changed. On
+On / Turn Off and Cancel, or OK alone with the failure lines when a file cannot be changed. The diff
+sits behind the same collapsed-by-default disclosure as the Agents popups and wraps long lines (see
+"Wire, Update and Remove" in [setup.md](setup.md)); failure lines show directly. On
 confirm, `WaitingHookRun.apply` writes the hook file with a backup and only then is `waitingNotices`
 written. It applies to the locations the popup previewed, which `WaitingHookChange` keeps, not to
 the wired agents at confirm time: the window rereads the agents when it becomes key, so an agent
@@ -809,8 +828,10 @@ the built-in defaults, never of a config file.
   selected under App, as it does visually. The row icons are hidden; the pane title names the row.
 - **Decorative glyphs and status rows.** Icons that repeat the text beside them are hidden from
   VoiceOver: the agent status glyph, the inline message, note and follow-up symbols, the
-  disclosure chevron, the app-link glyph and the installed-copy radio glyph (the row carries
-  `.isSelected` instead). An agent row reads its name and its status line as one element, and an
+  disclosure chevron, the app-copy glyph and the installed-copy radio glyph (the row carries
+  `.isSelected` instead). Each installed-copy row reads as one button whose label is the copy's
+  name, its chips and its paths, with `.isSelected` on the chosen one, so VoiceOver reads each copy
+  as one choice. An agent row reads its name and its status line as one element, and an
   inline message reads as one element.
 - **Increase Contrast.** The header rule, `SettingsDivider` and the `SettingsGroup` border use
   `SettingsHairline` and the group stroke, which switch from `Color.primary` at 8 to 12 percent
@@ -826,12 +847,13 @@ so it never appears in a Restore Defaults line or a reset button.
 The group holds three `SettingsGroup` cards, `HelpSection` in `SettingsHelpView.swift`, separated by
 `SettingsSection`'s own spacing rather than a metric of their own:
 
-1. Tour, Documentation, Ask a question, Report a problem, Contact the developer, each a
+1. Setup, Documentation, Ask a question, Report a problem, Contact the developer, each a
    `PreferenceRow` with a single trailing button and no `PreferenceName` behind it (like the Test
-   panel row and Advanced's rows, they carry no info button or reset). Show the Tour calls
-   `SettingsModel.requestTour`, a closure `SettingsWindowController.init` sets to
-   `presentTourIfNeeded(force: true)`, the same call the companion's own "Show the Tour" menu item
-   reaches through `openSettings(forceTour: true)`. Documentation, Ask a question and Contact the
+   panel row and Advanced's rows, they carry no info button or reset). Set Up… calls
+   `SettingsModel.requestSetup`, a closure the owner of the window sets. The companion sets it to
+   its `openSetup()`, the call its own Help ▸ Set Up… menu item reaches; the Settings window of a
+   `countersign settings` or `countersign setup` process sets it to close Settings and show the setup
+   window in the same process. Documentation, Ask a question and Contact the
    developer open `CompanionMenu.documentationURL`, `.askAQuestionURL` and `.contactDeveloperURL`
    the same way the companion's Help submenu does, skipping the button when the URL is `nil`, and
    Report a problem calls `ReportProblem.url()`. That type, in `ReportProblem.swift`, holds the body
@@ -846,8 +868,9 @@ The group holds three `SettingsGroup` cards, `HelpSection` in `SettingsHelpView.
    awaiting `UpdateFetcher.fetch(currentVersion:)` on the model, the same fetcher the companion's
    scheduled and manual checks use, and turning the outcome into a phase with the same
    `Bundle.main.executableURL`-derived upgrade command as `MenuBarCompanion.currentUpdateAvailability`.
-   Settings never reads or writes `update-check.json`: it has no scheduled check to persist a last
-   attempt for, and a person who wants that behaviour already has the companion running. Because a
+   Settings records its check's verdict in `update-check.json` under the same rule as the
+   companion (`UpdateCheckState.recording`: a failed check changes nothing), so the menu's "Update
+   available" line follows a check run from Settings. Because a
    fourth "Copy Upgrade Command" or "Release Notes" button next to "Check for Updates" can outgrow
    the row's width beside a short caption, the row's control is `EmptyView()` and its buttons live in
    `detail`, the same full-width slot Show a test panel's three buttons and Hand off when frontmost's
@@ -909,42 +932,17 @@ https://raw.githubusercontent.com/Gord1y/countersign/main/schema/config.schema.j
 other key as it is.
 ```
 
-### The first-run tour
+### The tour (removed in 0.3.0)
 
-The window shows a four-step tour the first time Settings opens: whenever
-`SettingsWindowController.show(forceTour:)` runs with `forceTour` false, which is every path that
-opens the window except the menu bar's Help ▸ Show the Tour, it presents the tour as a sheet
-(`window.beginSheet`, an `NSHostingController<FirstRunTourView>`) unless
-`AppPaths.tourShownFile` already exists. Skip or Done, on any step, creates that empty file and
-ends the sheet; Back and Next swap the hosting controller's `rootView` for the neighbouring step
-without tearing the sheet down. Closing the settings window while the tour is up ends the sheet
-without creating the file, so the tour is still owed next time.
+The setup window replaced the four-step first-run tour, and its sheet, copy and
+`countersign snapshot --tour` are gone. `AppPaths.tourShownFile` (`tour-shown` in the state folder)
+is still read, never written: `SetupLaunch.opensSetup` and `UpgradeNudge.isUpgrade` treat a Mac
+that saw the tour as not new, so a 0.2.0 user is not sent through setup as if freshly installed.
 
-The tour, the context notes sheet and the rule sheet all use `SettingsSheetWindow`: a borderless
-window whose `canBecomeKey` is overridden to true. AppKit lets a window become key only when it has
-a title bar or a resize bar, so a plain borderless sheet never became key: its text fields took no
-typing, and Return and Esc never reached its default and cancel buttons.
-
-The steps, their titles and bodies, and the count, live in `ApprovalCore` as `FirstRunTourStep`
-and `FirstRunTour`, so they're covered by `ApprovalCoreTests` like every other piece of copy; a
-body is a `[FirstRunTourSegment]` of `.text` and `.key` pieces rather than one string, so
-`FirstRunTourView` can render the three keys in "How a panel waits" as the same `KeyHint` keycaps
-the panel itself uses, in place of the raw ⏎, ⎋ and ⌫ glyphs, and a custom `Layout` flows text and
-keycaps together with normal word wrap.
-
-`AppPaths.tourShownFile` sits in the state folder, `~/Library/Application
-Support/Countersign/tour-shown`, next to `paused` and `quiet-until`, not in the config file and not
-in `UserDefaults`: it isn't a preference a person sets, it's "has this Mac seen the tour", and the
-state folder is the one place both Countersign.app and a `countersign settings` run from the
-terminal already read and write without disagreeing (see "What it writes" in
-[safety-and-privacy.md](../safety-and-privacy.md)). `UserDefaults` would tie it to
-`Countersign.app`'s bundle identifier alone and miss the CLI entirely.
-
-The menu bar's Help ▸ Show the Tour opens Settings and presents the tour with `forceTour: true`,
-skipping the `tourShownFile` check, so it always shows regardless of whether it's been seen.
-`countersign snapshot --tour 1|2|3|4` renders one step's `FirstRunTourView` alone, the same way
-`--quit-prompt` renders the quit question's content view (see "Snapshots" in
-[panel.md](panel.md)).
+The context notes sheet and the rule sheet use `SettingsSheetWindow`: a borderless window whose
+`canBecomeKey` is overridden to true. AppKit lets a window become key only when it has a title bar
+or a resize bar, so a plain borderless sheet never became key: its text fields took no typing, and
+Return and Esc never reached its default and cancel buttons.
 
 ### More than one copy
 

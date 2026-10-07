@@ -126,8 +126,11 @@ to open its settings window (see "Opening Countersign" below), logs `companion: 
 asked it to open Settings` and exits 0 at once, before creating `NSApplication`, so opening the app a
 second time, or opening it by hand after a login launch, never adds a second icon. A lock file that
 cannot be opened at all is logged (`companion: could not open companion.lock: <error>, exiting`)
-and also exits 0, asking nothing, since no companion is known to be running. Otherwise it keeps the
-descriptor for the rest of the process's life, runs `NSApplication` with the `.accessory`
+and also exits 0, asking nothing, since no companion is known to be running. A lock file replaced
+between opening and locking it is retried, up to three attempts in all, so a companion starting
+while the previous one quits does not exit thinking another instance runs. Otherwise it keeps the
+descriptor for the rest of the process's life, unless it hands over to a refreshed copy of itself
+(see "Keeping the ~/Applications copy current" below), runs `NSApplication` with the `.accessory`
 activation policy, and once launching has finished, before anything reads the pause switch, ends a
 pause that the last quit set until the app opens (see "Quit" below), logging `companion: resumed
 the pause set at quit`. It then creates one square `NSStatusItem` and logs `companion: started`, or
@@ -151,13 +154,31 @@ the same path.
 ### Opening Countersign
 
 Opening Countersign.app by hand, from the Finder, Spotlight, Launchpad or `open`, always ends with
-the settings window in front, so a person who never uses a terminal can reach setup and settings:
+a window in front, so a person who never uses a terminal can reach setup and settings:
 
 | Opened | What happens |
 | --- | --- |
-| Nothing running yet | The companion starts, adds its icon and opens the settings window |
+| Nothing running yet, on a Mac with no Countersign state | The companion starts, adds its icon and opens the setup window |
+| Nothing running yet, otherwise | The companion starts, adds its icon and opens the settings window |
+| Nothing running yet, with `--setup` | The companion starts, adds its icon and opens the setup window |
 | At login, by "Launch at Login" | The companion starts and stays in the menu bar, with no window |
 | The companion is already running | Its settings window opens, or comes to the front |
+| The companion is already running, and a second process starts with `--setup` (for example `open -n … --args --setup`) | Its setup window opens, or comes to the front |
+
+A Mac with no Countersign state is one where `SetupLaunch.opensSetup` is true: neither `setup-shown`
+nor `tour-shown` exists in the state folder. A 0.2.0 user has `tour-shown`, so an upgrade never
+shows setup unasked; the installer is the one caller that always wants it, so it opens the app with
+`open "$app_dir" --args --setup` (`CompanionLaunch.setupArgument`). The log says
+`companion: started, opening setup` for either route. If a copy refresh relaunches the app, the
+relaunch decides from the state files alone, since the argument does not survive it. A plain
+`open "$app_dir" --args --setup` on a running Countersign.app is a reopen, which opens Settings,
+because macOS drops the arguments when it does not start a new process.
+
+A second launch cannot show a window itself, so it posts a distributed notification to the running
+companion: `CompanionLaunch.openSettingsNotificationName`, or, when its arguments contain `--setup`,
+`CompanionLaunch.openSetupNotificationName`, and exits. The companion keeps one setup window, brings
+it to the front when it is already open, and drops it when it closes. Help ▸ Set Up… and Settings ▸
+Help ▸ Set Up… always show it.
 
 Telling a login launch apart: macOS starts every app with an "open application" Apple event
 (`kAEOpenApplication`), and for a login item that event carries `keyAEPropData` set to
@@ -185,9 +206,10 @@ default.
 login or manual branch. `UpgradeNudge.isUpgrade` compares `last-seen-version`
 (`AppPaths.lastSeenVersionFile`) with `CountersignVersion.current`, then the file is rewritten with
 the current version, so the nudge happens once per version. If writing the file fails, the log says
-`companion: could not record the version` and the next launch asks again. 0.1.0 wrote no version file, so without one the answer
-is whether `tour-shown` exists: a 0.1.0 user has it once they opened Settings, and a fresh install
-has neither file and gets the first-run tour instead, so it is not an upgrade. When it is an upgrade
+`companion: could not record the version` and the next launch asks again. 0.1.0 wrote no version
+file, so without one the answer is whether `tour-shown` (written by 0.2.0 and earlier) or
+`setup-shown` (written by the setup window since 0.3.0) exists. A fresh install has neither and
+gets the setup window instead, so it is not an upgrade. When it is an upgrade
 the companion computes every agent's `HostWiring.status` with the inputs `countersign setup` uses,
 and `UpgradeNudge.needsAgentUpdate` is true for any `needsUpdate`; not installed, not wired, wired
 and unusable never count. The Agents pane then replaces both the login and the manual branch for
@@ -199,7 +221,8 @@ When the companion is already running, there are two ways the second opening rea
 - LaunchServices usually finds the running app and sends it a reopen event instead of starting a
   second copy. `applicationShouldHandleReopen(_:hasVisibleWindows:)` opens the settings window,
   logs `companion: reopened, opening settings` and returns `false`, since there is no default
-  window to restore.
+  window to restore. When the copy in `~/Applications` is behind Homebrew's, it relaunches into the
+  refreshed copy instead, which opens the window (see below).
 - When a second process does start, for example with `open -n`, from another copy of the bundle, or
   by running the binary directly, it finds `companion.lock` taken and posts the distributed
   notification `dev.gord1y.countersign.openSettings`
@@ -210,6 +233,81 @@ When the companion is already running, there are two ways the second opening rea
 
 Either way the window opens exactly as "Settings…" opens it: one window at a time, brought to the
 front and activated when it is already open. No hook ever posts or observes the notification.
+
+#### Keeping the ~/Applications copy current
+
+Homebrew keeps the app at `<prefix>/opt/countersign/Countersign.app`, and Settings copies it into
+`~/Applications` so Spotlight and Launchpad find it (see "Copying Countersign.app" in
+[setup.md](setup.md)). `brew upgrade` replaces only the keg, so without help that copy stays on the
+old version. The companion running from the copy keeps it current itself, by the refresh rule in
+that section: `AppBundleCopy.refresh` reports a refresh only when the running bundle is
+`~/Applications/Countersign.app`, a real directory, and a Homebrew keg app is newer. A companion
+started from the keg or through a symbolic link never refreshes anything.
+
+It checks at three moments:
+
+- At launch, first thing in `applicationDidFinishLaunching`, before the status item exists: the
+  login-or-manual decision is computed first, since the launch Apple event is only current there,
+  and is carried over to the new instance. A launch that relaunches returns without building the
+  menu, resuming a pause set at quit or running the upgrade nudge; the new instance does all of
+  that.
+- On the hourly update-check tick, whether or not `checkForUpdates` is on; a tick that relaunches
+  skips the update check, since its answer would land in a process about to exit.
+- On a reopen, before opening Settings; the new instance opens Settings instead.
+
+Anything on screen defers it to the next moment: a settings window that is not closed (its sheets
+included), a running test panel (`TestPanelLauncher.shared.isRunning`), a
+modal alert (`NSApplication.shared.modalWindow`, which covers the quit question and the update
+check's answer, both run with `runModal` while the hourly timer still fires in the common run loop
+modes) or the open menu (`menuWillOpen` to `menuDidClose`). Approval panels never defer it: they
+run in hook processes, and a copied app's hooks point at `<prefix>/bin/countersign`, never into
+the copy, so relaunching the companion never takes a panel down.
+
+The order, and why:
+
+1. `AppBundleCopy.perform` copies the keg app to a hidden sibling and swaps it in with
+   `replaceItemAt`. Replacing the bundle under the running process is safe: its image stays mapped
+   until it exits. If it fails, the log says `companion: could not refresh
+   ~/Applications/Countersign.app from <from> to <to>: <error>`, once per target version per
+   process, and the companion keeps running; the next tick or reopen tries again.
+2. `relaunch-after-copy` (`AppPaths.copyRefreshRelaunchFile`) is written atomically with
+   `{"opensSettings":<bool>,"writtenAt":<seconds>}`. If that write fails, the log says
+   `companion: refreshed ~/Applications/Countersign.app from <from> to <to>, not relaunching:
+   <error>` and nothing relaunches: without the marker the new instance would fall back to its
+   own launch decision, which opens Settings, putting a window on screen unasked after an hourly
+   tick. The refreshed copy stays in place and the next launch runs it. Otherwise the log says
+   `companion: refreshed ~/Applications/Countersign.app from <from> to <to>, relaunching`.
+3. `instanceLock.release()` gives up `companion.lock`.
+4. `NSWorkspace.openApplication` opens the copy with `createsNewApplicationInstance`, without
+   adding it to recent items, activating only when Settings will open.
+5. Its completion, back on the main actor, calls `NSApplication.shared.terminate(nil)`, which
+   never asks the quit question and so never pauses panels.
+
+Releasing the lock before opening the new instance is the whole point of the order. The new
+process takes `companion.lock` before it builds anything; if the old one still held it, the new one
+would post the open-Settings notification and exit, and the old one would then terminate on the
+successful open, leaving no companion at all. Terminating before opening would leave nothing to
+open the copy. So for a moment both processes run, and the menu-bar icon can show twice for under a
+second. A menu or Settings window opened on the old instance between releasing the lock and
+terminating closes with it; that is accepted, since the gap is under a second and the new instance
+opens Settings itself when the relaunch came from a manual launch or a reopen.
+
+The new instance reads the marker right after the upgrade nudge, which runs first and unchanged.
+A marker written at most two minutes ago (`CopyRefreshRelaunch.freshness`, and never in the future)
+is deleted and replaces the launch Apple event's answer, which would otherwise always say "open
+Settings", since `openApplication` sends an ordinary open event; the log says `companion:
+relaunched after refreshing the copy`. A stale or unreadable marker is deleted and ignored, so a
+relaunch that died midway cannot steer a later launch. `writtenAt` is stored rounded down to the
+second, so a marker read within the same second never looks like it comes from the future.
+
+If opening the new instance fails, the log says `companion: could not relaunch
+~/Applications/Countersign.app: <error>`, the marker is deleted and the companion takes
+`companion.lock` again with `ExclusiveFileLock.acquire`. If another instance got it in between,
+the log says `companion: another instance holds companion.lock, quitting` and this one terminates.
+If the lock file cannot be opened, the log says `companion: could not open companion.lock again:
+<error>` and it keeps running without the lock. Either way a launch that had deferred building the
+menu now finishes it, and a reopen opens Settings. The copy on disk is already current then, so
+later ticks find nothing to refresh, and the new version runs from the next launch.
 
 ### The icon and the 2 s refresh
 
@@ -595,24 +693,36 @@ The check is opt-in: it only runs automatically when the top-level `checkForUpda
 config file is `true` (default `false`, see [settings.md](settings.md)), so nobody's companion
 talks to the network without asking first. When it is on, `CompanionController` evaluates
 `ApprovalCore.UpdateCheckSchedule.isDue` on launch and then every hour from a repeating `Timer`,
-the same pattern as the icon's 2 s refresh; the rule is at most one attempt per 24 hours, tracked by
+the same pattern as the icon's 2 s refresh; the rule is at most one answered check per 24 hours, tracked by
 the time of the last attempt in `<AppPaths.supportDirectory>/update-check.json`
 (`ApprovalCore.UpdateCheckStateStore`, written atomically the same way `QuietTime` writes
 `quiet-until`). A last-attempt stamp later than `now` can only come from a clock that was once set
 wrong, not from a real future check, so `isDue` treats it the same as no stamp at all and returns
 true rather than waiting out however long the clock was ahead; one extra check is harmless. The
-normal rule, at most one attempt per 24 hours, is unaffected. "Check for Updates…", right under
+normal rule, at most one answered check per 24 hours, is unaffected. "Check for Updates…", right under
 Help in the menu, is always present regardless of the setting and always checks immediately, since
 choosing it is itself the person's consent.
+
+A failed attempt is logged but never recorded (`UpdateCheckState.recording`), so the stored
+verdict and its time stay, a known update stays in the menu, and the hourly timer tries again on
+its next tick instead of waiting a day: the 24-hour rule counts checks that got an answer. A
+stored "Update available" is compared again with the running version
+(`UpdateCheckState.reevaluated`) whenever it is read, so it disappears once that version is
+installed. "Check for Updates…" while a scheduled check is running waits for it
+(`UpdateCheckRequests`) and answers with its result. The companion re-reads `update-check.json`
+each time the menu opens and before each scheduled check, so a check run from Settings, in this
+process or from `countersign settings`, shows in the menu.
 
 `ApprovalCore.UpdateCheck.evaluate` combines the parse and the comparison into one
 `ApprovalCore.UpdateCheckOutcome`, which is what gets persisted and shown. When it is
 `newerAvailable`, the menu (`CompanionMenu.items`) adds an "Update available: x.y.z" submenu above
 "Check for Updates…", with "Open Release Notes" opening
 `https://github.com/Gord1y/countersign/releases/tag/vx.y.z` and "Copy Upgrade Command" copying the
-command `ApprovalCore.UpdateCommand.upgrade(forResolvedExecutablePath:)` picks: `brew upgrade
-countersign` when the running binary resolves under a Homebrew Cellar (the same rule
-`StableExecutablePath` uses to find the stable link), otherwise the `curl | sh` installer. A manual
+command `ApprovalCore.UpdateCommand.upgrade(forStablePath:)` picks from the running binary's stable
+path (`StableExecutablePath.stable`, the one the hooks use): `brew upgrade countersign` when it
+is inside a Homebrew Cellar or is `<prefix>/bin/countersign` for a Homebrew prefix, which is what a
+copy of the app in `~/Applications` maps to on a Homebrew install, otherwise the `curl | sh`
+installer. A manual
 check ("Check for Updates…") that finds nothing newer instead shows a disabled "Countersign is up
 to date" line in that same spot, and a failed manual check shows "Couldn't check for updates"; both
 disappear the next time the menu closes, tracked in memory by `CompanionController`, never

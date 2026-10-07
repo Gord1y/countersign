@@ -9,23 +9,32 @@ public final class ExclusiveFileLock: Sendable {
     self.descriptor = OSAllocatedUnfairLock(initialState: descriptor)
   }
 
+  private static let maximumAttempts = 3
+
   public static func acquire(_ file: URL) throws -> ExclusiveFileLock? {
+    try acquire(file, afterOpen: {})
+  }
+
+  static func acquire(_ file: URL, afterOpen: () -> Void) throws -> ExclusiveFileLock? {
     try? FileManager.default.createDirectory(
       at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-    let fileDescriptor = open(file.path, O_RDWR | O_CREAT | O_CLOEXEC, 0o644)
-    guard fileDescriptor >= 0 else {
-      throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
-    }
-    guard flock(fileDescriptor, LOCK_EX | LOCK_NB) == 0 else {
-      close(fileDescriptor)
-      return nil
-    }
-    guard isStillLinked(fileDescriptor, at: file) else {
+    for _ in 0..<maximumAttempts {
+      let fileDescriptor = open(file.path, O_RDWR | O_CREAT | O_CLOEXEC, 0o644)
+      guard fileDescriptor >= 0 else {
+        throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+      }
+      afterOpen()
+      guard flock(fileDescriptor, LOCK_EX | LOCK_NB) == 0 else {
+        close(fileDescriptor)
+        return nil
+      }
+      if isStillLinked(fileDescriptor, at: file) {
+        return ExclusiveFileLock(descriptor: fileDescriptor)
+      }
       flock(fileDescriptor, LOCK_UN)
       close(fileDescriptor)
-      return nil
     }
-    return ExclusiveFileLock(descriptor: fileDescriptor)
+    return nil
   }
 
   static func isStillLinked(_ descriptor: Int32, at file: URL) -> Bool {

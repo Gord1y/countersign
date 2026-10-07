@@ -28,11 +28,42 @@ enum SettingsCommand {
 @MainActor
 private final class SettingsApplicationDelegate: NSObject, NSApplicationDelegate {
   private var controller: SettingsWindowController?
+  private var setupController: SetupWindowController?
+  private var isSwitchingToSetup = false
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     SettingsMenu.install()
     let controller = SettingsWindowController(
+      model: SettingsModel(environment: .current()),
+      onClose: { [weak self] in
+        guard self?.isSwitchingToSetup != true else { return }
+        exit(0)
+      })
+    controller.model.requestSetup = { [weak self] in self?.openSetup() }
+    self.controller = controller
+    controller.show()
+  }
+
+  private func openSetup() {
+    if let setupController {
+      setupController.show()
+      return
+    }
+    isSwitchingToSetup = true
+    controller?.model.requestClose?()
+    isSwitchingToSetup = false
+    let setupController = SetupWindowController(
+      model: SetupModel(settings: SettingsModel(environment: .current())),
+      onOpenSettings: { [weak self] in self?.reopenSettings() }, onClose: { exit(0) })
+    self.setupController = setupController
+    setupController.show()
+  }
+
+  private func reopenSettings() {
+    setupController = nil
+    let controller = SettingsWindowController(
       model: SettingsModel(environment: .current()), onClose: { exit(0) })
+    controller.model.requestSetup = { [weak self] in self?.openSetup() }
     self.controller = controller
     controller.show()
   }
@@ -51,10 +82,9 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
   let model: SettingsModel
   private let window: NSWindow
   private let onClose: @MainActor () -> Void
+  private(set) var isClosed = false
   private var statusTimer: Timer?
   private var screenObserver: (any NSObjectProtocol)?
-  private var tourWindow: NSWindow?
-  private var tourHostingController: NSHostingController<FirstRunTourView>?
 
   init(model: SettingsModel, onClose: @escaping @MainActor () -> Void) {
     self.model = model
@@ -73,7 +103,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     window.delegate = self
     placeWindow()
     model.requestClose = { [weak self] in self?.window.performClose(nil) }
-    model.requestTour = { [weak self] in self?.presentTourIfNeeded(force: true) }
     window.appearance = model.appearance.windowAppearance
     model.applyAppearance = { [weak self] appearance in
       guard let window = self?.window,
@@ -92,8 +121,10 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     model.refreshStatus()
   }
 
-  func show(forceTour: Bool = false) {
+  func show(pane: SettingsPane? = nil) {
     model.beginVisit()
+    model.refreshFromDisk()
+    if let pane { model.select(pane) }
     NSApplication.shared.setActivationPolicy(.regular)
     keepOnUsableScreen()
     observeScreenChanges()
@@ -102,55 +133,6 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
     window.makeKeyAndOrderFront(nil)
     window.orderFrontRegardless()
     NSApplication.shared.activate()
-    presentTourIfNeeded(force: forceTour)
-  }
-
-  private func presentTourIfNeeded(force: Bool) {
-    guard tourWindow == nil else { return }
-    let tourShownFile = model.environment.paths.tourShownFile
-    guard force || !FileManager.default.fileExists(atPath: tourShownFile.path) else { return }
-    presentTour(step: .wireAgents)
-  }
-
-  private func presentTour(step: FirstRunTourStep) {
-    let hostingController = NSHostingController(rootView: tourView(for: step))
-    let sheetWindow = SettingsSheetWindow()
-    sheetWindow.contentViewController = hostingController
-    tourWindow = sheetWindow
-    tourHostingController = hostingController
-    window.beginSheet(sheetWindow)
-  }
-
-  private func tourView(for step: FirstRunTourStep) -> FirstRunTourView {
-    FirstRunTourView(
-      step: step,
-      onSkip: { [weak self] in self?.finishTour() },
-      onBack: { [weak self] in self?.moveTour(from: step, forward: false) },
-      onNext: { [weak self] in self?.moveTour(from: step, forward: true) })
-  }
-
-  private func moveTour(from step: FirstRunTourStep, forward: Bool) {
-    let nextRawValue = step.rawValue + (forward ? 1 : -1)
-    guard let nextStep = FirstRunTourStep(rawValue: nextRawValue) else {
-      finishTour()
-      return
-    }
-    tourHostingController?.rootView = tourView(for: nextStep)
-  }
-
-  private func finishTour() {
-    markTourShown()
-    guard let tourWindow else { return }
-    window.endSheet(tourWindow)
-    self.tourWindow = nil
-    tourHostingController = nil
-  }
-
-  private func markTourShown() {
-    let tourShownFile = model.environment.paths.tourShownFile
-    try? FileManager.default.createDirectory(
-      at: tourShownFile.deletingLastPathComponent(), withIntermediateDirectories: true)
-    FileManager.default.createFile(atPath: tourShownFile.path, contents: nil)
   }
 
   func windowDidBecomeKey(_ notification: Notification) {
@@ -158,11 +140,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
   }
 
   func windowWillClose(_ notification: Notification) {
-    if let tourWindow {
-      window.endSheet(tourWindow)
-      self.tourWindow = nil
-      tourHostingController = nil
-    }
+    isClosed = true
     model.commitEditing()
     model.closeTestCards()
     statusTimer?.invalidate()

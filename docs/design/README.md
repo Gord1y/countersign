@@ -60,6 +60,9 @@ would appear, not when the request arrives (see "Handing off to the asking app" 
   hook writes a record and starts a detached `countersign notice` process. After a short delay
   (`waitingNoticeDelay`, 10 seconds by default) away from the agent's app, it shows a small corner
   card that never takes focus, and closes when the agent resumes or after `waitingNoticeDuration`. Details in [notice](notice.md).
+- **Skills.** Groundwork for a Skills pane that lists the shared agent setup's skills and rules:
+  reading its catalog, the installer's state and a release's checksum. Nothing uses it yet. Details
+  in [skills](skills.md).
 
 The app icon is outside this flow; how it was drawn, why its accent is amber and how the panel's
 header draws the same mark in code are in [icon](icon.md).

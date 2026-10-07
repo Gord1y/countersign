@@ -12,6 +12,7 @@ import Testing
     #expect(settings.handoffApps == Settings.defaultHandoffApps)
     #expect(settings.snoozePresets == Settings.defaultSnoozePresets)
     #expect(settings.checkForUpdates == Settings.defaultCheckForUpdates)
+    #expect(settings.showSkills == Settings.defaultShowSkills)
     #expect(settings.quitBehavior == .ask)
     #expect(settings.modeAfterPlan == Settings.defaultModeAfterPlan)
     #expect(settings.includeHeadlessSessions == Settings.defaultIncludeHeadlessSessions)
@@ -96,6 +97,12 @@ import Testing
     let file = ConfigFile(checkForUpdates: true)
     let settings = Settings.resolve(file: file, host: .claude)
     #expect(settings.checkForUpdates == true)
+  }
+
+  @Test func showSkillsIsTopLevelOnlyAndIgnoresHostOverrides() {
+    let file = ConfigFile(showSkills: false)
+    let settings = Settings.resolve(file: file, host: .claude)
+    #expect(settings.showSkills == false)
   }
 
   @Test func quitBehaviorIsTopLevelOnly() {

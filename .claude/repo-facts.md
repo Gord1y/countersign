@@ -28,6 +28,7 @@ them.
 | Commit type for release notes | `docs(release): add <x.y.z> notes`, committing the note and the regenerated `releases/index.json` together |
 | Version bump convention | `CountersignVersion.current` in `Sources/ApprovalCore/CountersignVersion.swift` and the version `CountersignVersionTests` expects, in one `chore: bump the version to <x.y.z>` commit |
 | Does the repo tag releases? | yes: the maintainer tags `main`'s release merge commit `v<x.y.z>` and pushes the tag, which starts `release.yml` |
+| Which note a hotfix's entry goes in | its own `releases/release-<x.y.z+1>.md` with `type: patch`; a hotfix is a patch release, see [docs/release.md](../docs/release.md#hotfixes) |
 
 ## feature-pr-description
 
@@ -44,13 +45,15 @@ them.
 
 | Fact | Countersign |
 | --- | --- |
-| Promotion PR contract (a doc the description must follow, if any) | [docs/release.md](../docs/release.md#cutting-a-release) steps 3 to 5; the release note `releases/release-<x.y.z>.md` is what readers get, so the description summarises it rather than repeating it |
+| Promotion contract for `staging` into `main` (a doc the body must follow, if any) | [docs/release.md](../docs/release.md#cutting-a-release) steps 3 to 5; the release note `releases/release-<x.y.z>.md` is what readers get, so the description summarises it rather than repeating it |
 | Branch flow | release branch → `chore: prepare release <x.y.z>` into `staging` (squash) → `chore: release countersign <x.y.z>` from `staging` into `main` (merge commit) |
-| Title convention for promotion PRs | `chore: prepare release <x.y.z>` into `staging`, `chore: release countersign <x.y.z>` into `main` |
+| Title convention for release PRs | `chore: prepare release <x.y.z>` into `staging`, `chore: release countersign <x.y.z>` into `main` |
+| Where release notes live | `releases/release-<x.y.z>.md`, contract in [`releases/README.md`](../releases/README.md) |
 | Does the repo tag releases? | yes: `v<x.y.z>` on `main`'s new merge commit, pushed by the maintainer; a pushed `v*` tag can never be moved or deleted |
-| CI checks that run only on promotion PRs | none: every pull request runs `gates`, `commits`, `release-index`, `lint` and `title`; `release.yml` runs only on the pushed tag |
-| Branch protection on the target branch | `main`: pull request only, no approving review required, merge commit only, the five checks above, no up-to-date requirement; `staging`: the same but squash only and up to date; committed in `.github/rulesets/`, applied and checked with `scripts/rulesets.sh` ([docs/tooling.md](../docs/tooling.md#branches-and-rulesets)) |
+| CI checks that run only on release PRs | none: every pull request runs `gates`, `commits`, `release-index`, `lint` and `title`; `release.yml` runs only on the pushed tag |
+| Branch protection and merge method on the target branch | `main`: pull request only, no approving review required, merge commit only, the five checks above, no up-to-date requirement; `staging`: the same but squash only and up to date; committed in `.github/rulesets/`, applied and checked with `scripts/rulesets.sh` ([docs/tooling.md](../docs/tooling.md#branches-and-rulesets)) |
 | Where uncommitted drafts go | `writeups/releases/<x.y.z>/` (`promotion-staging.md`, `promotion-main.md`) |
+| Hotfix flow: branch, target, title, and which note gets the entry | a patch release, cut the normal way ([docs/release.md](../docs/release.md#hotfixes)): branch `release-<x.y.z+1>` from `main`; the fix commits, `docs(release): add <x.y.z+1> notes`, `chore: bump the version to <x.y.z+1>`; `chore: prepare release <x.y.z+1>` into `staging`, then `chore: release countersign <x.y.z+1>` into `main`, tag `v<x.y.z+1>`; the entry goes in its own `releases/release-<x.y.z+1>.md` with `type: patch`; anything unreleased on `staging` ships with it |
 
 ## thorough-diff-review
 
@@ -108,9 +111,8 @@ them.
 | --- | --- |
 | The review workflow, and who posts the formal review and the tracking comment | none: there is no automated review and the rulesets require no approval; the maintainer reviews locally ([docs/review-checklist.md](../docs/review-checklist.md)) and reviews outside contributors' pull requests on GitHub |
 | The severity scale, and what is never reported | 🔴 Blocker (safety contract or hard rule; requests changes), 🟠 Major, 🟡 Minor, 🔵 Nit; unverified findings are questions, never invented ([docs/review-checklist.md](../docs/review-checklist.md#severity)) |
-| How to serve the PR head for a browser pass | no browser surface; build the PR head in a worktree and install it (`scripts/install.sh && scripts/build-app.sh`) after the maintainer quits the app |
+| The gates, and the command behind each CI job | `build` runs `scripts/check-build.sh`, `test` runs `scripts/check-test.sh`, `static` runs `scripts/check-lint.sh` and `scripts/check-scripts.sh`, `gates` passes only when those three do, `commits` runs `scripts/check-commits.sh`, `release-index` runs `swift scripts/release-index.swift --check`, `lint` runs actionlint, shellcheck and `scripts/rulesets.sh --check`, `title` checks the pull request title; locally all of it is `scripts/check.sh` |
 | Git commands the repo denies, so the person lands fixes themselves | `.claude/settings.json` denies force pushes, `git push --mirror` and `--delete`, `git reset --hard`, `git clean`, `git rebase`, `git filter-branch`, `git update-ref -d`, `git checkout -- …` and `git restore .`; no rule allows any other push |
-| Where uncommitted drafts go | `writeups/reviews/pr-<n>/` |
 
 ## writeups-cleanup
 
