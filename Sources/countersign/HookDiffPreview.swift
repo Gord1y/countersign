@@ -5,14 +5,13 @@ enum HookDiffPreview {
   static let lineCount: CGFloat = 12
   static let width: CGFloat = 520
   private static let inset: CGFloat = 6
-  private static let borderThickness: CGFloat = 2
 
   static func view(text: String, width: CGFloat = HookDiffPreview.width) -> NSView {
     let font = NSFont.monospacedSystemFont(ofSize: 12, weight: .regular)
-    let lineHeight = ceil(NSLayoutManager().defaultLineHeight(for: font))
-    let maxHeight = lineHeight * lineCount + inset * 2 + borderThickness
+    let lineHeight = NSLayoutManager().defaultLineHeight(for: font)
+    let maxContentHeight = lineHeight * lineCount + inset
     let scrollView = NSScrollView(
-      frame: NSRect(origin: .zero, size: NSSize(width: width, height: maxHeight)))
+      frame: NSRect(origin: .zero, size: NSSize(width: width, height: maxContentHeight)))
     scrollView.hasVerticalScroller = true
     scrollView.hasHorizontalScroller = false
     scrollView.borderType = .bezelBorder
@@ -20,7 +19,7 @@ enum HookDiffPreview {
 
     let contentWidth = scrollView.contentSize.width
     let textView = NSTextView(
-      frame: NSRect(origin: .zero, size: NSSize(width: contentWidth, height: maxHeight)))
+      frame: NSRect(origin: .zero, size: NSSize(width: contentWidth, height: maxContentHeight)))
     textView.isEditable = false
     textView.isSelectable = true
     textView.isRichText = false
@@ -35,8 +34,14 @@ enum HookDiffPreview {
     scrollView.documentView = textView
 
     let contentHeight = measuredHeight(of: textView, width: contentWidth)
-    let height = min(contentHeight + borderThickness, maxHeight)
-    scrollView.setFrameSize(NSSize(width: width, height: height))
+    let visibleContentHeight = min(contentHeight, maxContentHeight)
+    let framedHeight = NSScrollView.frameSize(
+      forContentSize: NSSize(width: contentWidth, height: visibleContentHeight),
+      horizontalScrollerClass: nil, verticalScrollerClass: nil,
+      borderType: scrollView.borderType, controlSize: .regular,
+      scrollerStyle: scrollView.scrollerStyle
+    ).height
+    scrollView.setFrameSize(NSSize(width: width, height: framedHeight))
     textView.setFrameSize(NSSize(width: scrollView.contentSize.width, height: contentHeight))
     return scrollView
   }
