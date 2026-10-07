@@ -147,9 +147,6 @@ import Testing
 
   @Test func timeKeysAcceptANumberOrADurationString() throws {
     let schema = try Self.loadSchema()
-    #expect(
-      schema["$defs"]?["durationText"]?["pattern"]?.stringValue
-        == "^[0-9]+(\\.[0-9]+)?(ms|s|m|h)$")
     for key in ["armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds"] {
       let topLevel = Self.alternatives(schema["properties"]?[key])
       #expect(topLevel.first?["type"]?.stringValue == "number")
@@ -160,6 +157,48 @@ import Testing
     #expect(
       Self.alternatives(schema["properties"]?["snoozeMinutes"]?["items"]).last?["$ref"]?
         .stringValue == "#/$defs/durationText")
+  }
+
+  private static func regexMatches(_ regex: NSRegularExpression, _ text: String) -> Bool {
+    regex.firstMatch(in: text, range: NSRange(text.startIndex..., in: text)) != nil
+  }
+
+  private static func compiledPattern(_ pattern: String?) throws -> NSRegularExpression {
+    let source = try #require(pattern)
+    return try NSRegularExpression(pattern: source)
+  }
+
+  @Test func quietHoursPatternMatchesExactlyWhatTheParserAccepts() throws {
+    let schema = try Self.loadSchema()
+    let properties = schema["properties"]?["quietHours"]?["items"]?["properties"]
+    let samples = [
+      "9", "09", "930", "0930", "9:30", "09:30", " 9:30 ", "\t9:30", "23:59", "24:00", "0", "00:00",
+      "9:3", "12:", ":30", "1960", "2400", "960", "12345", "1:2:3", "9:60", "abc", "", " ", "9 30",
+      "٩:٣٠",
+    ]
+    for key in ["from", "to"] {
+      let regex = try Self.compiledPattern(properties?[key]?["pattern"]?.stringValue)
+      for sample in samples {
+        #expect(
+          Self.regexMatches(regex, sample) == (QuietWindow.minute(from: sample) != nil),
+          "\(key) pattern disagrees with the parser on \"\(sample)\"")
+      }
+    }
+  }
+
+  @Test func durationPatternMatchesExactlyWhatTheParserAccepts() throws {
+    let schema = try Self.loadSchema()
+    let regex = try Self.compiledPattern(schema["$defs"]?["durationText"]?["pattern"]?.stringValue)
+    let samples = [
+      "90s", "15m", "1h", "250ms", "1.5h", "5", "5.5", ".5", "5.", "15M", "15MS", "2H", "15 m",
+      " 15m ", "15m ", "m", "ms", "-5m", "+5m", "1e3s", "1E3", "0", "0s", "1.2.3s", "5x", "", " ",
+      "1,5s",
+    ]
+    for sample in samples {
+      #expect(
+        Self.regexMatches(regex, sample) == (DurationText.parse(sample, bareUnit: 60) != nil),
+        "duration pattern disagrees with the parser on \"\(sample)\"")
+    }
   }
 
   @Test func topLevelAndHostBlocksForbidAdditionalProperties() throws {

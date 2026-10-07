@@ -45,6 +45,8 @@ public enum PreferenceReset {
       return changed(file.appearance, from: Settings.defaultAppearance)
     case .accentColor:
       return changed(file.accentColor, from: Settings.defaultAccentColor)
+    case .showSkills:
+      return changed(file.showSkills, from: Settings.defaultShowSkills)
     case .editorApp:
       return file.editorApp != nil
     case .contextCheckpointsEnabled:
@@ -126,6 +128,7 @@ public enum PreferenceReset {
     case .approvalCardDelay: return PreferenceRules.secondsText(values.approvalCardDelay)
     case .appearance: return values.appearance.title
     case .accentColor: return AccentPreset.name(of: values.accentColor)
+    case .showSkills: return values.showSkills ? "On" : "Off"
     case .editorApp: return values.editorApp ?? PreferenceName.editorApp.defaultText
     case .contextCheckpointsEnabled: return values.contextCheckpoints.enabled ? "On" : "Off"
     case .contextMode: return values.contextCheckpoints.mode.rawValue.capitalized
@@ -180,7 +183,7 @@ public enum PreferenceReset {
     case .handoffApps: return overrides.handoffApps != nil
     case .quietHours, .checkForUpdates, .questionNotes, .quitBehavior, .modeAfterPlan,
       .panelSound, .waitingNotices, .waitingNoticeDuration, .approvalCard, .appearance,
-      .accentColor,
+      .accentColor, .showSkills,
       .editorApp, .contextCheckpointsEnabled, .contextMode, .contextStandardThresholds,
       .contextMillionThresholds, .contextModelThresholds,
       .contextRearmBelow, .contextHandoffFile, .contextNoteSoft, .contextNoteStatus,

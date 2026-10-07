@@ -429,6 +429,24 @@ import Testing
     #expect(logLines == ["checkForUpdates: not a boolean, using default false"])
   }
 
+  @Test func readsShowSkills() {
+    let (file, logLines) = parse(#"{ "showSkills": false }"#)
+    #expect(file.showSkills == false)
+    #expect(logLines.isEmpty)
+  }
+
+  @Test func showSkillsIsAbsentWhenNotWritten() {
+    let (file, logLines) = parse("{}")
+    #expect(file.showSkills == nil)
+    #expect(logLines.isEmpty)
+  }
+
+  @Test func showSkillsWrongTypeFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "showSkills": "no" }"#)
+    #expect(file.showSkills == nil)
+    #expect(logLines == ["showSkills: not a boolean, using default true"])
+  }
+
   @Test func includeHeadlessSessionsWrongTypeFallsBackToDefault() {
     let (file, logLines) = parse(#"{ "includeHeadlessSessions": 1 }"#)
     #expect(file.includeHeadlessSessions == nil)

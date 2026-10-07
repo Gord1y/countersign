@@ -9,9 +9,9 @@ struct HelpSection: View {
     SettingsSection(.help) {
       SettingsGroup {
         PreferenceRow(
-          "Tour", caption: "The short introduction shown the first time Settings opened."
+          "Setup", caption: "Wire your agents and try a test panel."
         ) {
-          Button("Show the Tour") { model.requestTour?() }
+          Button("Set Up…") { model.requestSetup?() }
             .buttonStyle(SecondaryButtonStyle())
             .fixedSize()
         }

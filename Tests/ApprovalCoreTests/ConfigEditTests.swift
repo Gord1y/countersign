@@ -422,6 +422,17 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
     #expect(ConfigEdit.problem(in: Array("3".utf8)) == "the top level is not an object")
   }
 
+  @Test func writesTheSkillsGroupSwitch() throws {
+    #expect(
+      try editing("{\n  \"showSkills\": true\n}\n", .showSkills(false))
+        == "{\n  \"showSkills\": false\n}\n")
+    #expect(
+      try editing(" \n", .showSkills(false))
+        == "{\n  \"$schema\": \"\(schema)\",\n  \"showSkills\": false\n}\n")
+    #expect(
+      try editing("{\n  \"showSkills\": false\n}\n", .reset(.showSkills)) == "{}\n")
+  }
+
   @Test func namesTheKeyEachEditWrites() {
     #expect(PreferenceEdit.armDelay(1).key == .armDelay)
     #expect(PreferenceEdit.chainedArmDelay(1).key == .chainedArmDelay)
@@ -435,6 +446,7 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
     #expect(PreferenceEdit.questionNotes(true).key == .questionNotes)
     #expect(PreferenceEdit.appearance(.dark).key == .appearance)
     #expect(PreferenceEdit.accentColor(AccentPreset.blue.color).key == .accentColor)
+    #expect(PreferenceEdit.showSkills(false).key == .showSkills)
     #expect(PreferenceEdit.addHandoffApp("a").key == .handoffApps)
     #expect(PreferenceEdit.removeHandoffApp("a").key == .handoffApps)
     #expect(PreferenceEdit.editorApp("com.x").key == .editorApp)
@@ -443,13 +455,13 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
 
   @Test func eachPreferenceNameIsATopLevelKeyOfTheFile() {
     #expect(
-      PreferenceName.allCases.prefix(14).map(\.rawValue) == [
+      PreferenceName.allCases.prefix(15).map(\.rawValue) == [
         "armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds", "snoozeMinutes",
         "quietHours", "handoffApps", "checkForUpdates", "questionNotes", "quitBehavior",
-        "modeAfterPlan", "appearance", "accentColor", "editorApp",
+        "modeAfterPlan", "appearance", "accentColor", "showSkills", "editorApp",
       ])
     #expect(
-      PreferenceName.allCases.prefix(14).allSatisfy { $0.keyPath == [$0.rawValue] })
+      PreferenceName.allCases.prefix(15).allSatisfy { $0.keyPath == [$0.rawValue] })
     #expect(
       Set(PreferenceName.allCases.compactMap(\.keyPath.first)).isSubset(
         of: ConfigFileParser.topLevelKeys))

@@ -5,17 +5,18 @@ import Testing
 @Suite struct PreferenceNameTextTests {
   @Test func titlesEveryRow() {
     #expect(
-      PreferenceName.allCases.prefix(14).map(\.title) == [
+      PreferenceName.allCases.prefix(15).map(\.title) == [
         "Arm delay", "Arm delay after an answer", "Wait for idle", "Grace period",
         "Snooze presets", "Quiet hours", "Hand off when frontmost", "Check for updates",
         "Notes on answers",
-        "When Countersign quits", "Mode after a plan", "Appearance", "Accent colour", "Open with",
+        "When Countersign quits", "Mode after a plan", "Appearance", "Accent colour",
+        "Skills in the sidebar", "Open with",
       ])
   }
 
   @Test func captionsEveryRow() {
     #expect(
-      PreferenceName.allCases.prefix(14).map(\.caption) == [
+      PreferenceName.allCases.prefix(15).map(\.caption) == [
         "How long a new panel ignores keys and clicks.",
         "How long the next panel ignores keys and clicks.",
         "Quiet keyboard and mouse needed before a panel shows.",
@@ -29,6 +30,7 @@ import Testing
         "What Claude Code switches to when you approve its plan.",
         "Light or dark for panels and Settings, or follow macOS.",
         "The colour of Approve and highlights on panels and in Settings.",
+        "Show the Skills group in the sidebar.",
         "The app Open in Editor uses for config.json.",
       ])
   }
@@ -105,6 +107,12 @@ import Testing
     #expect(PreferenceName.snoozeMinutes.defaultText == "1, 5, 15 and 30 minutes")
     #expect(PreferenceName.handoffApps.defaultText == "No apps")
     #expect(PreferenceName.checkForUpdates.defaultText == "Off")
+    #expect(PreferenceName.showSkills.defaultText == "On")
+    #expect(PreferenceName.showSkills.title == "Skills in the sidebar")
+    #expect(
+      PreferenceName.showSkills.explanation
+        == "Show the Skills group, which lists what countersign-skills installed. Turn it off to"
+        + " hide the group.")
     #expect(PreferenceName.questionNotes.defaultText == "Off")
     #expect(PreferenceName.quitBehavior.defaultText == "Ask")
     #expect(PreferenceName.modeAfterPlan.defaultText == "Ask before edits")

@@ -147,17 +147,68 @@ private let moment = Date(timeIntervalSince1970: 1_790_000_000)
     #expect(try contents(of: file) == "v5")
   }
 
-  @Test func refusesToOverwriteAnExistingBackup() throws {
+  @Test func keepsBothBackupsWhenTwoWritesShareASecond() throws {
     let directory = try makeTempDirectory()
     defer { try? FileManager.default.removeItem(at: directory) }
     let file = directory.appendingPathComponent("settings.json")
-    try Data("old".utf8).write(to: file)
-    let name = ConfigFileStore.backupName(for: "settings.json", date: moment, timeZone: utc)
-    try Data("earlier".utf8).write(to: directory.appendingPathComponent(name))
-    #expect(throws: (any Error).self) {
-      try ConfigFileStore.write(Array("new".utf8), to: file, date: moment, timeZone: utc)
+    try Data("v0".utf8).write(to: file)
+    let first = try ConfigFileStore.write(Array("v1".utf8), to: file, date: moment, timeZone: utc)
+    let second = try ConfigFileStore.write(Array("v2".utf8), to: file, date: moment, timeZone: utc)
+    let third = try ConfigFileStore.write(Array("v3".utf8), to: file, date: moment, timeZone: utc)
+    #expect(first?.lastPathComponent == "settings.json.countersign-20260921-141320.bak")
+    #expect(second?.lastPathComponent == "settings.json.countersign-20260921-141320-2.bak")
+    #expect(third?.lastPathComponent == "settings.json.countersign-20260921-141320-3.bak")
+    #expect(try first.map(contents(of:)) == "v0")
+    #expect(try second.map(contents(of:)) == "v1")
+    #expect(try contents(of: file) == "v3")
+  }
+
+  @Test func neverReusesAPrunedNameWithinTheSameSecond() throws {
+    let directory = try makeTempDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let file = directory.appendingPathComponent("settings.json")
+    try Data("v0".utf8).write(to: file)
+    var written: [URL] = []
+    for index in 1...6 {
+      let backup = try #require(
+        try ConfigFileStore.write(
+          Array("v\(index)".utf8), to: file, date: moment, timeZone: utc))
+      #expect(FileManager.default.fileExists(atPath: backup.path))
+      written.append(backup)
     }
-    #expect(try contents(of: file) == "old")
+    let names = try FileManager.default.contentsOfDirectory(atPath: directory.path).sorted()
+    let kept = written.suffix(3).map(\.lastPathComponent)
+    #expect(
+      kept == [
+        "settings.json.countersign-20260921-141320-4.bak",
+        "settings.json.countersign-20260921-141320-5.bak",
+        "settings.json.countersign-20260921-141320-6.bak",
+      ])
+    #expect(names == (["settings.json"] + kept).sorted())
+  }
+
+  @Test func prunesSuffixedBackupsInWriteOrder() throws {
+    let directory = try makeTempDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let file = directory.appendingPathComponent("settings.json")
+    try Data("v0".utf8).write(to: file)
+    let later = moment.addingTimeInterval(60)
+    let dates = [moment, moment, moment, later, later]
+    var written: [URL] = []
+    for (index, date) in dates.enumerated() {
+      let backup = try ConfigFileStore.write(
+        Array("v\(index + 1)".utf8), to: file, date: date, timeZone: utc)
+      written.append(try #require(backup))
+    }
+    let names = try FileManager.default.contentsOfDirectory(atPath: directory.path).sorted()
+    let kept = written.suffix(3).map(\.lastPathComponent)
+    #expect(names == (["settings.json"] + kept).sorted())
+    #expect(
+      kept == [
+        "settings.json.countersign-20260921-141320-3.bak",
+        "settings.json.countersign-20260921-141420.bak",
+        "settings.json.countersign-20260921-141420-2.bak",
+      ])
   }
 
   @Test func failsWhenTheDirectoryIsMissing() throws {

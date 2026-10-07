@@ -21,6 +21,7 @@ public struct Settings: Sendable, Equatable {
   public var questionNotes: Bool
   public var appearance: AppearanceChoice
   public var accentColor: HexColor
+  public var showSkills: Bool
   public var contextCheckpoints: ContextCheckpointSettings
   public var rules: [ApprovalRule]
 
@@ -45,6 +46,7 @@ public struct Settings: Sendable, Equatable {
     questionNotes: Bool,
     appearance: AppearanceChoice,
     accentColor: HexColor,
+    showSkills: Bool = Settings.defaultShowSkills,
     contextCheckpoints: ContextCheckpointSettings = .default,
     rules: [ApprovalRule] = Settings.defaultRules
   ) {
@@ -68,6 +70,7 @@ public struct Settings: Sendable, Equatable {
     self.questionNotes = questionNotes
     self.appearance = appearance
     self.accentColor = accentColor
+    self.showSkills = showSkills
     self.contextCheckpoints = contextCheckpoints
     self.rules = rules
   }
@@ -85,6 +88,7 @@ public struct Settings: Sendable, Equatable {
   public static let defaultQuietHours: [QuietWindow] = []
   public static let defaultRules: [ApprovalRule] = []
   public static let defaultCheckForUpdates = false
+  public static let defaultShowSkills = true
   public static let defaultQuitBehavior = QuitBehavior.ask
   public static let defaultModeAfterPlan = PlanApprovalMode.default
   public static let defaultPanelSound = PanelSound.none
@@ -132,6 +136,7 @@ public struct Settings: Sendable, Equatable {
     let questionNotes = file.questionNotes ?? defaultQuestionNotes
     let appearance = file.appearance ?? defaultAppearance
     let accentColor = file.accentColor ?? defaultAccentColor
+    let showSkills = file.showSkills ?? defaultShowSkills
 
     return Settings(
       armDelay: armDelay,
@@ -154,6 +159,7 @@ public struct Settings: Sendable, Equatable {
       questionNotes: questionNotes,
       appearance: appearance,
       accentColor: accentColor,
+      showSkills: showSkills,
       contextCheckpoints: ContextCheckpointSettings.resolve(
         top: file.contextCheckpoints, host: file.contextCheckpointsClaude, for: host),
       rules: file.rules ?? defaultRules)

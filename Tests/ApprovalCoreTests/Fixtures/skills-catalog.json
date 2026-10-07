@@ -1,0 +1,329 @@
+{
+  "schemaVersion": 1,
+  "skills": [
+    {
+      "name": "orchestrate",
+      "version": "1.0.0",
+      "agents": [
+        "claude"
+      ],
+      "description": "Run work of 3+ independently verifiable commits as an orchestrator: split into units, brief one builder per unit in its own worktree, land and commit each unit, gate once.",
+      "whenToUse": "Use for a task of three or more independently verifiable commits, or on request at any size.",
+      "invocation": "model",
+      "path": "skills/orchestrate"
+    },
+    {
+      "name": "context-transfer",
+      "version": "1.0.0",
+      "agents": [
+        "claude",
+        "codex",
+        "antigravity"
+      ],
+      "description": "Package this conversation into one self-contained block for a new chat: goal, decisions with reasons, verified progress, next steps.",
+      "whenToUse": "Use for a handoff, a context transfer, or a next-session prompt.",
+      "invocation": "model",
+      "path": "skills/context-transfer"
+    },
+    {
+      "name": "human-voice-writing",
+      "version": "1.0.0",
+      "agents": [
+        "claude",
+        "codex",
+        "antigravity"
+      ],
+      "description": "Draft or revise longer text the user sends or publishes as their own, so it reads human, not AI-generated.",
+      "whenToUse": "Use for messages, emails, posts and articles the user will send or publish under their name.",
+      "invocation": "model",
+      "path": "skills/human-voice-writing"
+    },
+    {
+      "name": "memory-review",
+      "version": "1.0.0",
+      "agents": [
+        "claude"
+      ],
+      "description": "Sort Claude Code's auto memory by the memory rule - preferences into rules, project knowledge into repo docs, progress deleted. Read-only until approved. Run with /memory-review.",
+      "whenToUse": null,
+      "invocation": "manual",
+      "path": "skills/memory-review"
+    },
+    {
+      "name": "codebase-research",
+      "version": "1.0.0",
+      "agents": [
+        "claude",
+        "codex"
+      ],
+      "description": "Research code cheaply: skip agents when you know the file, pick researcher or general-purpose, always pass haiku or sonnet, cap reports at 30 lines.",
+      "whenToUse": "Use before spawning any agent to read or search code, or when a question needs several exploratory reads.",
+      "invocation": "model",
+      "path": "skills/codebase-research"
+    },
+    {
+      "name": "release-notes",
+      "version": "1.1.0",
+      "agents": [
+        "claude",
+        "codex",
+        "antigravity"
+      ],
+      "description": "Write or update a release note: entry format, required sections, the Fixed rule, and regenerating the release index.",
+      "whenToUse": "Use when asked to write or update a release note or changelog entry, and before reporting work on a release branch as done, so its open note covers every commit.",
+      "invocation": "model",
+      "path": "skills/release-notes"
+    },
+    {
+      "name": "feature-pr-description",
+      "version": "1.0.1",
+      "agents": [
+        "claude",
+        "codex",
+        "antigravity"
+      ],
+      "description": "Write the body of a feature or fix PR from the branch's real diff, following the repo's PR contract.",
+      "whenToUse": "Use when asked to write, draft or update a PR description for a feature or fix branch. A release, promotion or hotfix PR goes to promotion-pr-description.",
+      "invocation": "model",
+      "path": "skills/feature-pr-description"
+    },
+    {
+      "name": "promotion-pr-description",
+      "version": "2.0.0",
+      "agents": [
+        "claude",
+        "codex",
+        "antigravity"
+      ],
+      "description": "Write a release or hotfix PR body (into staging or main) from its release note, plus what developers need before and after the merge.",
+      "whenToUse": "Use when asked to write, draft or update the description of a release, promotion or hotfix PR: a release branch into staging, staging into main, or a hotfix branch into either.",
+      "invocation": "model",
+      "path": "skills/promotion-pr-description"
+    },
+    {
+      "name": "thorough-diff-review",
+      "version": "1.0.0",
+      "agents": [
+        "claude",
+        "codex",
+        "antigravity"
+      ],
+      "description": "Thorough local review of a diff: bugs, architecture boundaries, security, translations, conventions, reuse. Staged changes by default, or a branch, range or PR.",
+      "whenToUse": "Use before pushing, or when asked to review local changes, a branch or a PR.",
+      "invocation": "model",
+      "path": "skills/thorough-diff-review"
+    },
+    {
+      "name": "i18n-translate",
+      "version": "1.0.0",
+      "agents": [
+        "claude",
+        "codex"
+      ],
+      "description": "Translate added or changed source-locale message keys into every target locale, one haiku subagent per locale, then run the repo's translation check.",
+      "whenToUse": "Use before pushing a change that adds or edits user-facing strings.",
+      "invocation": "model",
+      "path": "skills/i18n-translate"
+    },
+    {
+      "name": "qa-tester",
+      "version": "1.0.0",
+      "agents": [
+        "claude",
+        "codex"
+      ],
+      "description": "QA a change in the running product on each surface it touched (web, API, CLI, native or mobile app, game, library): saved evidence, pass or fail per case, repro steps.",
+      "whenToUse": "Use after a change to prove it works in the running product, to reproduce a reported bug, or for a smoke pass.",
+      "invocation": "model",
+      "path": "skills/qa-tester"
+    },
+    {
+      "name": "impact-check",
+      "version": "1.0.0",
+      "agents": [
+        "claude",
+        "codex",
+        "antigravity"
+      ],
+      "description": "Check what a change could break outside its diff, name the premise it is safe because of, and prove that premise by running the real code.",
+      "whenToUse": "Use before merging a diff you don't fully trust, or for 'what could this break' and 'is this safe to merge'.",
+      "invocation": "model",
+      "path": "skills/impact-check"
+    },
+    {
+      "name": "how-it-works",
+      "version": "1.0.0",
+      "agents": [
+        "claude",
+        "codex",
+        "antigravity"
+      ],
+      "description": "Explain how a part of the codebase works for the person about to change it: what it is, its moving parts, the flow with file:line refs and a diagram, where to start, traps.",
+      "whenToUse": "Use for 'how does X work', 'explain this subsystem or flow', or getting oriented in unfamiliar code before changing it.",
+      "invocation": "model",
+      "path": "skills/how-it-works"
+    },
+    {
+      "name": "pr-review-triage",
+      "version": "2.0.0",
+      "agents": [
+        "claude",
+        "codex"
+      ],
+      "description": "Triage a PR: collect AI review findings, failed CI checks and open human threads, verify each at the PR head, and write a fix plan that proves every fix safe.",
+      "whenToUse": "Use when the message is a bare PR link, or when asked to triage a PR's review findings or failing checks.",
+      "invocation": "model",
+      "path": "skills/pr-review-triage"
+    },
+    {
+      "name": "walkthrough",
+      "version": "1.0.0",
+      "agents": [
+        "claude",
+        "codex",
+        "antigravity"
+      ],
+      "description": "Show what a finished change did and prove it works with its evidence: a short markdown note after any change, or a customer-facing HTML walkthrough of a release.",
+      "whenToUse": "Use when asked to walk through, recap or show what changed and the evidence it works ('walk me through the change', 'show me what changed', 'prove it works'), or for a customer release walkthrough.",
+      "invocation": "model",
+      "path": "skills/walkthrough"
+    },
+    {
+      "name": "writeups-cleanup",
+      "version": "1.0.1",
+      "agents": [
+        "claude",
+        "codex",
+        "antigravity"
+      ],
+      "description": "Propose what in a repo's writeups/ folder can go (merged and released changes, superseded releases, scratch) and delete only what the user approves. Run with /writeups-cleanup.",
+      "whenToUse": null,
+      "invocation": "manual",
+      "path": "skills/writeups-cleanup"
+    }
+  ],
+  "rules": [
+    {
+      "name": "responses",
+      "title": "Responses",
+      "agents": [
+        "claude",
+        "codex",
+        "antigravity"
+      ],
+      "path": "rules/responses.md"
+    },
+    {
+      "name": "code",
+      "title": "Code",
+      "agents": [
+        "claude",
+        "codex",
+        "antigravity"
+      ],
+      "path": "rules/code.md"
+    },
+    {
+      "name": "issues-found",
+      "title": "Issues found along the way",
+      "agents": [
+        "claude",
+        "codex",
+        "antigravity"
+      ],
+      "path": "rules/issues-found.md"
+    },
+    {
+      "name": "tooling",
+      "title": "Tooling",
+      "agents": [
+        "claude",
+        "codex",
+        "antigravity"
+      ],
+      "path": "rules/tooling.md"
+    },
+    {
+      "name": "orchestration",
+      "title": "Planning and orchestration",
+      "agents": [
+        "claude"
+      ],
+      "path": "rules/orchestration.md"
+    },
+    {
+      "name": "memory",
+      "title": "Memory",
+      "agents": [
+        "claude"
+      ],
+      "path": "rules/memory.md"
+    },
+    {
+      "name": "research",
+      "title": "Research",
+      "agents": [
+        "claude",
+        "codex",
+        "antigravity"
+      ],
+      "path": "rules/research.md"
+    },
+    {
+      "name": "commits",
+      "title": "Commits",
+      "agents": [
+        "claude",
+        "codex",
+        "antigravity"
+      ],
+      "path": "rules/commits.md"
+    },
+    {
+      "name": "safety",
+      "title": "Safety",
+      "agents": [
+        "claude",
+        "codex",
+        "antigravity"
+      ],
+      "path": "rules/safety.md"
+    },
+    {
+      "name": "trust",
+      "title": "Trust",
+      "agents": [
+        "claude",
+        "codex",
+        "antigravity"
+      ],
+      "path": "rules/trust.md"
+    }
+  ],
+  "agents": [
+    {
+      "name": "builder",
+      "description": "Implements one unit of an orchestrated run in its own git worktree, gated but never committed; the orchestrator lands and commits it. Spawned by the orchestrate skill with a pointer to the unit's brief.",
+      "model": "sonnet",
+      "path": "agents/builder.md"
+    },
+    {
+      "name": "qa",
+      "description": "QAs a finished change in the running product on every surface it touched, then writes the walkthrough; writes only evidence and notes into writeups/. Spawned by orchestrate after the gate.",
+      "model": "sonnet",
+      "path": "agents/qa.md"
+    },
+    {
+      "name": "researcher",
+      "description": "Read-only code research for one factual question; reports at most 30 lines of paths, line ranges and facts. Spawned by codebase-research and by orchestrate's fact-gathering step.",
+      "model": "haiku",
+      "path": "agents/researcher.md"
+    },
+    {
+      "name": "reviewer",
+      "description": "Read-only review of one orchestrated unit's worktree against its brief, with the thorough-diff-review checklist; reports at most 20 lines. Spawned by orchestrate for large units.",
+      "model": "sonnet",
+      "path": "agents/reviewer.md"
+    }
+  ]
+}

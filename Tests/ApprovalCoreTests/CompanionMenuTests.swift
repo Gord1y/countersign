@@ -205,7 +205,7 @@ import Testing
           CompanionMenuEntry(
             title: "Help",
             submenu: [
-              .entry(CompanionMenuEntry(title: "Show the Tour", action: .showTour)),
+              .entry(CompanionMenuEntry(title: "Set Up…", action: .setUp)),
               .entry(CompanionMenuEntry(title: "Documentation", action: .openURL(documentation))),
               .entry(CompanionMenuEntry(title: "Report a Problem…", action: .reportProblem)),
               .entry(
@@ -253,7 +253,7 @@ import Testing
     #expect(help.title == "Help")
     #expect(
       help.submenu == [
-        .entry(CompanionMenuEntry(title: "Show the Tour", action: .showTour)),
+        .entry(CompanionMenuEntry(title: "Set Up…", action: .setUp)),
         .entry(CompanionMenuEntry(title: "Documentation", action: .openURL(documentation))),
         .entry(CompanionMenuEntry(title: "Report a Problem…", action: .reportProblem)),
         .entry(CompanionMenuEntry(title: "Ask a Question…", action: .openURL(askAQuestion))),

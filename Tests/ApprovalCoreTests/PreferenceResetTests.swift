@@ -112,6 +112,12 @@ import Testing
   @Test func detectsAChangedBoolAndQuitBehavior() {
     #expect(PreferenceReset.isChanged(.checkForUpdates, in: ConfigFile(checkForUpdates: true)))
     #expect(!PreferenceReset.isChanged(.checkForUpdates, in: ConfigFile(checkForUpdates: false)))
+    #expect(PreferenceReset.isChanged(.showSkills, in: ConfigFile(showSkills: false)))
+    #expect(!PreferenceReset.isChanged(.showSkills, in: ConfigFile(showSkills: true)))
+    #expect(!PreferenceReset.isChanged(.showSkills, in: ConfigFile()))
+    #expect(
+      PreferenceReset.line(for: .showSkills, current: PreferenceValues(showSkills: false))
+        == "Skills in the sidebar: Off → On")
     #expect(PreferenceReset.isChanged(.quitBehavior, in: ConfigFile(quitBehavior: .pause)))
     #expect(!PreferenceReset.isChanged(.quitBehavior, in: ConfigFile(quitBehavior: .ask)))
     #expect(

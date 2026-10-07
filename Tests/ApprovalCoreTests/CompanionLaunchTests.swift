@@ -11,6 +11,11 @@ import Testing
     #expect(CompanionLaunch.openSettingsNotificationName == "dev.gord1y.countersign.openSettings")
   }
 
+  @Test func namesTheOpenSetupNotificationAndArgument() {
+    #expect(CompanionLaunch.openSetupNotificationName == "dev.gord1y.countersign.openSetup")
+    #expect(CompanionLaunch.setupArgument == "--setup")
+  }
+
   @Test func staysInTheMenuBarWhenLaunchedAsALoginItem() {
     #expect(
       !CompanionLaunch.opensSettings(

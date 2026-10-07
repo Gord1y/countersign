@@ -126,6 +126,21 @@ private struct InstalledCopyRow: View {
   let isSelected: Bool
   let select: () -> Void
 
+  private static let calledByHooksChip = "Hooks call this one"
+  private static let runningChip = "Running now"
+  private static let newestChip = "Newest"
+  private static let appChip = "Menu-bar app"
+
+  static func spokenLabel(for entry: DuplicateInstallEntry) -> String {
+    var parts = [entry.label]
+    if entry.isCalledByHooks { parts.append(calledByHooksChip) }
+    if entry.isRunning { parts.append(runningChip) }
+    if entry.isNewest { parts.append(newestChip) }
+    if entry.hasApp { parts.append(appChip) }
+    parts.append(contentsOf: entry.paths)
+    return parts.joined(separator: ", ")
+  }
+
   var body: some View {
     Button(action: select) {
       HStack(alignment: .firstTextBaseline, spacing: 8) {
@@ -138,16 +153,16 @@ private struct InstalledCopyRow: View {
             Text(entry.label)
               .font(.system(size: 13, weight: .semibold))
             if entry.isCalledByHooks {
-              Chip("Hooks call this one", tint: Color(nsColor: .systemGreen))
+              Chip(Self.calledByHooksChip, tint: Color(nsColor: .systemGreen))
             }
             if entry.isRunning {
-              Chip("Running now")
+              Chip(Self.runningChip)
             }
             if entry.isNewest {
-              Chip("Newest")
+              Chip(Self.newestChip)
             }
             if entry.hasApp {
-              Chip("Menu-bar app")
+              Chip(Self.appChip)
             }
           }
           Text(entry.paths.joined(separator: "\n"))
@@ -160,6 +175,8 @@ private struct InstalledCopyRow: View {
       .contentShape(Rectangle())
     }
     .buttonStyle(.plain)
+    .accessibilityElement(children: .combine)
+    .accessibilityLabel(Self.spokenLabel(for: entry))
     .accessibilityAddTraits(isSelected ? .isSelected : [])
   }
 }

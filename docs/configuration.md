@@ -42,7 +42,7 @@ row, even though the value still differs from the default. **Panels** and **App*
 confirm, whenever it was changed.
 
 Its settings are in a sidebar — Agents, App, Panels, Rules, Context while context checkpoints are
-on, and Help, the last holding the tour, documentation, questions and problem reports, updates,
+on, and Help, the last holding set up, documentation, questions and problem reports, updates,
 and support links — in that order at every window width, plus **Advanced**, opened through a button
 at the bottom of App. Drag the
 window's edges to resize it: the sidebar's order never changes. It opens again at the size and
@@ -88,11 +88,11 @@ range of each key applies after the unit is converted, so `"90s"` is a valid `wa
 and `"2m"` is out of range for `idleSeconds`. Settings writes a whole number of minutes back as a number, and anything
 shorter as a string, for example `["30s", 5, 15]`.
 
-All of these except **Quiet hours**, **Notes on answers**, **Mode after a plan**, **Sound** and
-**Waiting-agent notices** live at the top level of `config.json` and can
+All of these except **Quiet hours**, **Notes on answers**, **Mode after a plan**, **Sound**,
+**Waiting-agent notices** and **Show notice for** live at the top level of `config.json` and can
 also be set per agent, under `hosts.<agent>`. `quietHours`, `questionNotes`, `modeAfterPlan`,
-`panelSound` and `waitingNotices` are top-level only, like the App group's
-keys below.
+`panelSound`, `waitingNotices` and `waitingNoticeDuration` are top-level only, like the App
+group's keys below.
 
 - **Wait for idle** (`idleSeconds`): how long since your last keyboard, mouse or scroll input a
   panel needs before it appears — counted from that last input, not from when the request
@@ -217,6 +217,7 @@ What the menu-bar app does, and how panels and the Settings window look:
 | When Countersign quits | `quitBehavior` | `"ask"` |
 | Appearance | `appearance` | `"system"` |
 | Accent colour | `accentColor` | `"#E6B04A"` (Amber) |
+| Skills in the sidebar | `showSkills` | `true` |
 
 - **Launch at login**: registers Countersign as a macOS login item, so it starts automatically when
   you log in. macOS keeps this, not `config.json`. More in
@@ -238,6 +239,9 @@ What the menu-bar app does, and how panels and the Settings window look:
   it is easy to read, and a filled button's label is near-black or white, whichever reads better.
   Deny stays red, the mark in a panel's header keeps the app icon's amber, and the menu-bar icon
   stays monochrome.
+- **Skills in the sidebar** (`showSkills`): turn it off to hide the Skills group in Settings, the
+  one that lists what countersign-skills installed. Set from App, under Appearance. Top level
+  only.
 
 ### Advanced
 
@@ -295,9 +299,10 @@ profile. If you set `XDG_CONFIG_HOME` only there, its Settings window edits
 
 #### Settings for one agent
 
-Every key except `checkForUpdates`, `questionNotes`, `quitBehavior`, `modeAfterPlan`, `panelSound`,
-`waitingNotices`, `appearance`, `accentColor` and `editorApp` can also be set for one agent, under
-`hosts.claude`, `hosts.codex`, `hosts.cursor` or `hosts.antigravity`:
+Every key except `quietHours`, `checkForUpdates`, `quitBehavior`, `modeAfterPlan`, `panelSound`,
+`waitingNotices`, `waitingNoticeDuration`, `questionNotes`, `editorApp`, `appearance`, `accentColor`,
+`showSkills`, `contextCheckpoints`, `rules`, `hosts` and `$schema` can also be set for one agent,
+under `hosts.claude`, `hosts.codex`, `hosts.cursor` or `hosts.antigravity`:
 
 ```json
 {
@@ -324,8 +329,9 @@ A mistake never stops a panel and never answers anything; Countersign falls back
 - A file that can't be read or isn't a valid JSON object: every setting uses its default.
 - A key with the wrong type or a value outside its range: that key uses its default, and every
   other key is read as usual. `armDelay` and `chainedArmDelay` are the exception: a value outside
-  `0` to `3` seconds is moved to the nearest end instead. A string that isn't a number followed by
-  `ms`, `s`, `m` or `h` counts as the wrong type; the log line quotes a value as you wrote it.
+  `0` to `3` seconds is moved to the nearest end instead. A duration string counts as the wrong type
+  unless it is a number, optionally followed by `ms`, `s`, `m` or `h`; the unit may be in any
+  case, spaces around the value are fine, and a bare number is in the key's own unit; the log line quotes a value as you wrote it.
 - An unknown key: ignored.
 
 Each mistake is written to the log, `~/Library/Logs/Countersign/countersign.log`, on a line starting

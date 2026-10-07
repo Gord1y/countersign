@@ -11,10 +11,16 @@ enum MenuBarCompanion {
     let instanceLock: ExclusiveFileLock
     do {
       guard let acquired = try ExclusiveFileLock.acquire(paths.companionLockFile) else {
+        let asksForSetup = CommandLine.arguments.contains(CompanionLaunch.setupArgument)
         DistributedNotificationCenter.default().postNotificationName(
-          CompanionController.openSettingsNotification, object: nil, userInfo: nil,
-          deliverImmediately: true)
-        log.write("companion: already running, asked it to open Settings")
+          asksForSetup
+            ? CompanionController.openSetupNotification
+            : CompanionController.openSettingsNotification,
+          object: nil, userInfo: nil, deliverImmediately: true)
+        log.write(
+          asksForSetup
+            ? "companion: already running, asked it to open setup"
+            : "companion: already running, asked it to open Settings")
         exit(0)
       }
       instanceLock = acquired
@@ -38,12 +44,14 @@ enum MenuBarCompanion {
 private final class CompanionController: NSObject, NSApplicationDelegate, NSMenuDelegate {
   static let openSettingsNotification = Notification.Name(
     CompanionLaunch.openSettingsNotificationName)
+  static let openSetupNotification = Notification.Name(
+    CompanionLaunch.openSetupNotificationName)
   private static let refreshInterval: TimeInterval = 2
   private static let updateCheckInterval: TimeInterval = 3600
 
   private let paths: AppPaths
   private let log: EventLog
-  private let instanceLock: ExclusiveFileLock
+  private var instanceLock: ExclusiveFileLock
   private let pauseSwitch: PauseSwitch
   private let quietTime: QuietTime
   private let stateSwitches: StateSwitches
@@ -57,9 +65,12 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   private var lastConfigLogLines: [String] = []
   private var updateCheckState: UpdateCheckState?
   private var manualCheckResult: ManualUpdateCheckResult?
-  private var isUpdateCheckInFlight = false
+  private var updateCheckRequests = UpdateCheckRequests()
   private var settingsWindow: SettingsWindowController?
+  private var setupWindow: SetupWindowController?
   private var pendingQuit: QuitOutcome?
+  private var isMenuOpen = false
+  private var reportedCopyRefreshFailures: Set<String> = []
 
   init(paths: AppPaths, log: EventLog, instanceLock: ExclusiveFileLock) {
     self.paths = paths
@@ -69,11 +80,20 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     quietTime = QuietTime(file: paths.quietFile)
     stateSwitches = StateSwitches(pauseSwitch: pauseSwitch, quietTime: quietTime)
     queue = TicketQueue(directory: paths.queueDirectory, lockFile: paths.displayLockFile)
-    updateCheckState = UpdateCheckStateStore.load(file: paths.updateCheckFile)
     super.init()
+    reloadUpdateCheckState()
   }
 
   func applicationDidFinishLaunching(_ notification: Notification) {
+    let launchEvent = NSAppleEventManager.shared().currentAppleEvent
+    let opensSettings = CompanionLaunch.opensSettings(
+      launchEventID: launchEvent?.eventID,
+      launchedAs: launchEvent?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue)
+    if refreshApplicationsCopy(opensSettingsAfter: opensSettings) { return }
+    finishLaunching(opensSettings: opensSettings)
+  }
+
+  private func finishLaunching(opensSettings launchOpensSettings: Bool) {
     resumePauseSetAtQuit()
     let menu = NSMenu()
     menu.autoenablesItems = false
@@ -96,13 +116,34 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     DistributedNotificationCenter.default().addObserver(
       self, selector: #selector(openSettingsRequested(_:)), name: Self.openSettingsNotification,
       object: nil, suspensionBehavior: .deliverImmediately)
-    if opensSettingsAfterUpgrade() { return }
-    let launchEvent = NSAppleEventManager.shared().currentAppleEvent
-    let opensSettings = CompanionLaunch.opensSettings(
-      launchEventID: launchEvent?.eventID,
-      launchedAs: launchEvent?.paramDescriptor(forKeyword: keyAEPropData)?.enumCodeValue)
-    guard opensSettings else {
+    DistributedNotificationCenter.default().addObserver(
+      self, selector: #selector(openSetupRequested(_:)), name: Self.openSetupNotification,
+      object: nil, suspensionBehavior: .deliverImmediately)
+    let opensSettingsForUpgrade = opensSettingsAfterUpgrade()
+    let relaunch = takeFreshCopyRefreshRelaunch()
+    if opensSettingsForUpgrade { return }
+    if let relaunch {
+      if relaunch.opensSettings { openSetupOrSettings() }
+      return
+    }
+    guard launchOpensSettings else {
       log.write("companion: started at login")
+      return
+    }
+    openSetupOrSettings()
+  }
+
+  private var opensSetupAtLaunch: Bool {
+    CommandLine.arguments.contains(CompanionLaunch.setupArgument)
+      || SetupLaunch.opensSetup(
+        setupShown: FileManager.default.fileExists(atPath: paths.setupShownFile.path),
+        tourShown: FileManager.default.fileExists(atPath: paths.tourShownFile.path))
+  }
+
+  private func openSetupOrSettings() {
+    if opensSetupAtLaunch {
+      log.write("companion: started, opening setup")
+      openSetup()
       return
     }
     log.write("companion: started")
@@ -112,6 +153,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool)
     -> Bool
   {
+    if refreshApplicationsCopy(opensSettingsAfter: true) { return false }
     log.write("companion: reopened, opening settings")
     openSettings()
     return false
@@ -124,6 +166,13 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     }
   }
 
+  @objc nonisolated private func openSetupRequested(_ notification: Notification) {
+    Task { @MainActor [weak self] in
+      self?.log.write("companion: another launch asked to open setup")
+      self?.openSetup()
+    }
+  }
+
   func applicationWillTerminate(_ notification: Notification) {
     settingsWindow?.model.commitEditing()
     if let pendingQuit {
@@ -133,6 +182,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   }
 
   func menuNeedsUpdate(_ menu: NSMenu) {
+    reloadUpdateCheckState()
     menu.removeAllItems()
     menuActions = []
     for item in CompanionMenu.items(for: currentInput()) {
@@ -141,7 +191,12 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     refreshIcon()
   }
 
+  func menuWillOpen(_ menu: NSMenu) {
+    isMenuOpen = true
+  }
+
   func menuDidClose(_ menu: NSMenu) {
+    isMenuOpen = false
     manualCheckResult = nil
   }
 
@@ -150,7 +205,87 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   }
 
   @objc private func updateCheckTimerFired() {
+    if refreshApplicationsCopy(opensSettingsAfter: false) { return }
     performScheduledUpdateCheckIfNeeded()
+  }
+
+  private var isAnythingOnScreen: Bool {
+    if let settingsWindow, !settingsWindow.isClosed { return true }
+    if setupWindow?.window?.isVisible == true { return true }
+    return TestPanelLauncher.shared.isRunning || NSApplication.shared.modalWindow != nil
+      || isMenuOpen
+  }
+
+  private func refreshApplicationsCopy(opensSettingsAfter: Bool) -> Bool {
+    guard !isAnythingOnScreen,
+      let refresh = AppBundleCopy.refresh(
+        runningBundle: Bundle.main.bundlePath,
+        home: FileManager.default.homeDirectoryForCurrentUser, fileSystem: .local)
+    else { return false }
+    let change = "~/Applications/Countersign.app from \(refresh.from) to \(refresh.to)"
+    do {
+      try AppBundleCopy.perform(source: refresh.source, destination: refresh.destination)
+    } catch {
+      if reportedCopyRefreshFailures.insert(refresh.to).inserted {
+        log.write("companion: could not refresh \(change): \(error)")
+      }
+      return false
+    }
+    do {
+      try CopyRefreshRelaunch.write(
+        CopyRefreshRelaunch(opensSettings: opensSettingsAfter, writtenAt: Date()),
+        to: paths.copyRefreshRelaunchFile)
+    } catch {
+      log.write("companion: refreshed \(change), not relaunching: \(error)")
+      return false
+    }
+    log.write("companion: refreshed \(change), relaunching")
+    instanceLock.release()
+    let configuration = NSWorkspace.OpenConfiguration()
+    configuration.createsNewApplicationInstance = true
+    configuration.addsToRecentItems = false
+    configuration.activates = opensSettingsAfter
+    NSWorkspace.shared.openApplication(at: refresh.destination, configuration: configuration) {
+      @Sendable [weak self] _, error in
+      let failure = error.map { String(describing: $0) }
+      Task { @MainActor in
+        self?.finishRelaunch(failure: failure, opensSettingsAfter: opensSettingsAfter)
+      }
+    }
+    return true
+  }
+
+  private func finishRelaunch(failure: String?, opensSettingsAfter: Bool) {
+    guard let failure else {
+      NSApplication.shared.terminate(nil)
+      return
+    }
+    log.write("companion: could not relaunch ~/Applications/Countersign.app: \(failure)")
+    try? FileManager.default.removeItem(at: paths.copyRefreshRelaunchFile)
+    do {
+      guard let reacquired = try ExclusiveFileLock.acquire(paths.companionLockFile) else {
+        log.write("companion: another instance holds companion.lock, quitting")
+        NSApplication.shared.terminate(nil)
+        return
+      }
+      instanceLock = reacquired
+    } catch {
+      log.write("companion: could not open companion.lock again: \(error)")
+    }
+    if statusItem == nil {
+      finishLaunching(opensSettings: opensSettingsAfter)
+    } else if opensSettingsAfter {
+      openSettings()
+    }
+  }
+
+  private func takeFreshCopyRefreshRelaunch() -> CopyRefreshRelaunch? {
+    let file = paths.copyRefreshRelaunchFile
+    let marker = CopyRefreshRelaunch.read(file)
+    try? FileManager.default.removeItem(at: file)
+    guard let marker, marker.isFresh(now: Date()) else { return nil }
+    log.write("companion: relaunched after refreshing the copy")
+    return marker
   }
 
   @objc private func menuItemChosen(_ sender: NSMenuItem) {
@@ -203,17 +338,25 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     return configFile
   }
 
+  private func runningStablePath() -> String {
+    guard let resolved = Bundle.main.executableURL?.resolvingSymlinksInPath().path else {
+      return "(unresolved)"
+    }
+    return StableExecutablePath.stable(
+      forResolved: resolved, home: FileManager.default.homeDirectoryForCurrentUser,
+      isExecutable: FileManager.default.isExecutableFile(atPath:))
+  }
+
   private func currentUpdateAvailability() -> UpdateAvailability? {
     guard case .newerAvailable(let version)? = updateCheckState?.outcome else { return nil }
-    let resolvedExecutablePath =
-      Bundle.main.executableURL?.resolvingSymlinksInPath().path ?? "(unresolved)"
     return UpdateAvailability(
       version: version,
-      upgradeCommand: UpdateCommand.upgrade(forResolvedExecutablePath: resolvedExecutablePath),
+      upgradeCommand: UpdateCommand.upgrade(forStablePath: runningStablePath()),
       releaseNotesURL: UpdateCommand.releaseNotesURL(version: version))
   }
 
   private func performScheduledUpdateCheckIfNeeded() {
+    reloadUpdateCheckState()
     let configFile = loadConfigFile()
     guard configFile.checkForUpdates ?? Settings.defaultCheckForUpdates else { return }
     guard UpdateCheckSchedule.isDue(lastAttempt: updateCheckState?.lastAttempt, now: Date()) else {
@@ -222,9 +365,13 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     performUpdateCheck(manual: false)
   }
 
+  private func reloadUpdateCheckState() {
+    updateCheckState = UpdateCheckStateStore.load(file: paths.updateCheckFile)?
+      .reevaluated(currentVersion: CountersignVersion.current)
+  }
+
   private func performUpdateCheck(manual: Bool) {
-    guard !isUpdateCheckInFlight else { return }
-    isUpdateCheckInFlight = true
+    guard updateCheckRequests.begin(manual: manual) else { return }
     Task { [weak self] in
       guard let self else { return }
       let outcome = await UpdateFetcher.fetch(currentVersion: CountersignVersion.current)
@@ -233,18 +380,20 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   }
 
   private func applyUpdateCheckResult(_ outcome: UpdateCheckOutcome, manual: Bool) {
-    isUpdateCheckInFlight = false
-    let state = UpdateCheckState(lastAttempt: Date(), outcome: outcome)
-    updateCheckState = state
-    do {
-      try UpdateCheckStateStore.save(state, to: paths.updateCheckFile)
-    } catch {
-      log.write("companion: failed to save update-check.json: \(error)")
+    let answersWithAlert = updateCheckRequests.finish(manual: manual)
+    let state = UpdateCheckState.recording(outcome, at: Date(), over: updateCheckState)
+    if let state, state != updateCheckState {
+      updateCheckState = state
+      do {
+        try UpdateCheckStateStore.save(state, to: paths.updateCheckFile)
+      } catch {
+        log.write("companion: failed to save update-check.json: \(error)")
+      }
     }
     if case .unknown(let reason) = outcome {
       log.write("update check: \(reason)")
     }
-    guard manual else { return }
+    guard answersWithAlert else { return }
     switch outcome {
     case .newerAvailable:
       manualCheckResult = nil
@@ -257,9 +406,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   }
 
   private func showUpdateCheckAlert(for outcome: UpdateCheckOutcome) {
-    let resolvedExecutablePath =
-      Bundle.main.executableURL?.resolvingSymlinksInPath().path ?? "(unresolved)"
-    let upgradeCommand = UpdateCommand.upgrade(forResolvedExecutablePath: resolvedExecutablePath)
+    let upgradeCommand = UpdateCommand.upgrade(forStablePath: runningStablePath())
     let releaseNotesURL: URL?
     if case .newerAvailable(let version) = outcome {
       releaseNotesURL = UpdateCommand.releaseNotesURL(version: version)
@@ -349,8 +496,8 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
       log.write("companion: opened Login Items in System Settings")
     case .openURL(let url):
       openInDefaultApp(url)
-    case .showTour:
-      openSettings(forceTour: true)
+    case .setUp:
+      openSetup()
     case .reportProblem:
       openReportAProblem()
     case .checkForUpdatesNow:
@@ -456,6 +603,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     let isUpgrade = UpgradeNudge.isUpgrade(
       lastSeenVersion: UpgradeNudge.readLastSeenVersion(file: paths.lastSeenVersionFile),
       tourShown: FileManager.default.fileExists(atPath: paths.tourShownFile.path),
+      setupShown: FileManager.default.fileExists(atPath: paths.setupShownFile.path),
       currentVersion: current)
     do {
       try UpgradeNudge.recordVersion(current, file: paths.lastSeenVersionFile)
@@ -495,10 +643,9 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     }
   }
 
-  private func openSettings(forceTour: Bool = false, pane: SettingsPane? = nil) {
-    if let settingsWindow {
-      settingsWindow.show(forceTour: forceTour)
-      if let pane { settingsWindow.model.select(pane) }
+  private func openSettings(pane: SettingsPane? = nil) {
+    if let settingsWindow, !settingsWindow.isClosed {
+      settingsWindow.show(pane: pane)
       return
     }
     SettingsMenu.install()
@@ -507,10 +654,39 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
       onClose: { [weak self] in
         DispatchQueue.main.async { self?.settingsWindow = nil }
       })
+    controller.model.requestSetup = { [weak self] in
+      self?.settingsWindow?.model.requestClose?()
+      self?.openSetup()
+    }
     settingsWindow = controller
-    controller.show(forceTour: forceTour)
-    if let pane { controller.model.select(pane) }
+    controller.show(pane: pane)
     log.write("companion: opened settings")
+  }
+
+  private func openSetup() {
+    if let setupWindow {
+      setupWindow.show()
+      return
+    }
+    let controller = SetupWindowController(
+      model: SetupModel(settings: SettingsModel(environment: .current())),
+      onOpenSettings: { [weak self] in
+        self?.dropSetupWindow()
+        self?.openSettings()
+      },
+      onClose: { [weak self] in
+        self?.dropSetupWindow()
+        if self?.settingsWindow?.isClosed ?? true {
+          NSApplication.shared.setActivationPolicy(.accessory)
+        }
+      })
+    setupWindow = controller
+    controller.show()
+    log.write("companion: opened setup")
+  }
+
+  private func dropSetupWindow() {
+    DispatchQueue.main.async { [weak self] in self?.setupWindow = nil }
   }
 
   private func openReportAProblem() {

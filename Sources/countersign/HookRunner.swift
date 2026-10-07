@@ -4,6 +4,9 @@ import Foundation
 
 @MainActor
 enum HookRunner {
+  static let usage =
+    "usage: countersign hook --host claude|codex|cursor|antigravity [--event waiting]"
+
   static func run(_ arguments: [String]) -> Never {
     let startedAt = ContinuousClock.now
     signal(SIGPIPE, SIG_IGN)
@@ -350,8 +353,7 @@ enum HookRunner {
 
   static func writeReply(_ outcome: ApprovalOutcome, host: ApprovalCore.Host) {
     guard let data = host.encode(outcome) else { return }
-    FileHandle.standardOutput.write(data)
-    FileHandle.standardOutput.write(Data("\n".utf8))
+    ReplyWriter.write(data, to: .standardOutput)
   }
 
   private static func handBack(

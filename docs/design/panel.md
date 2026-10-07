@@ -1863,6 +1863,7 @@ CLAUDE_CONFIG_DIR=<dir> CODEX_HOME=<dir> XDG_CONFIG_HOME=<dir> \
   [--home <dir>] [--show-copies] \
   [--status active|paused|paused-until-open|quiet] [--size <width>x<height>] \
   [--tab agents|panels|app|advanced] [--restore-prompt panels|app] \
+  [--app-copy add|replace-link|update|copied|failed] \
   [--explanation <preferenceName>] [--editor-choice ask|missing] \
   [--appearance light|dark] -o <out.png>
 ```
@@ -1922,6 +1923,12 @@ is used, an agent's or a test panel's button is clicked, "Open in Editor" is cho
 disappears or the window closes, and offscreen nothing is clicked, typed, switched or closed. A snapshot's window is never
 key, so switches that are on and the slider's filled track draw in the inactive grey rather than the accent.
 
+`--app-copy add|replace-link|update|copied|failed`, only accepted with `--settings`, sets the
+App group's Install row after the model is built from `--home`: an offer to copy
+`/opt/homebrew/opt/countersign/Countersign.app` 0.3.0 into `--home`'s `~/Applications` (`add`,
+`replace-link`, or `update` from 0.2.0), the success message (`copied`), or the failure message
+`Couldn't copy Countersign.app: Permission denied.` (`failed`). Use it with `--tab app`.
+
 `--restore-prompt panels|app`, only accepted with `--settings`, renders the group's Restore
 Defaults confirmation instead of the window itself: it builds the model from `--home`'s config
 exactly as above, then draws `RestoreDefaultsPrompt.makeAlert(pane:lines:)`'s alert content view
@@ -1959,6 +1966,18 @@ folder holding the binary, and only the binary inside `Countersign.app`
 (`Countersign.app/Contents/MacOS/countersign snapshot --quit-prompt …`, which any argument keeps in
 CLI mode) draws the Countersign icon the companion shows. The image is the alert's own size.
 
+The Agents popup that asks before wiring, updating or removing a hook (see "Wire, Update and
+Remove" in [setup.md](setup.md)) has one too:
+
+```sh
+.build/debug/countersign snapshot --hook-prompt claude|codex|cursor|antigravity [--expanded] \
+  [--home <dir>] [--appearance light|dark] -o <out.png>
+```
+
+It builds a `SettingsModel` for `--home`, asks it for the host's change as a click on the row's
+button would, and draws `HostHookPrompt.makeAlert` the way `--quit-prompt` does. The diff is
+collapsed unless `--expanded` is given. It fails when the host's row has no action.
+
 The menu-bar companion's manual update check (see "Update check" in [app.md](app.md)) has one for
 each outcome it can answer:
 
@@ -1977,20 +1996,6 @@ version of the binary taking the snapshot, never the demo version. It calls `lay
 the alert window's content view the same way `--quit-prompt` does, never ordering the alert in and
 never running it, so nothing is written to disk and no window ever shows.
 
-The first-run tour (see "The first-run tour" in [settings.md](settings.md)) has one too:
-
-```sh
-.build/debug/countersign snapshot --tour 1|2|3|4 [--appearance light|dark] -o <out.png>
-```
-
-It draws `FirstRunTourView(step:)` alone, the same sheet content the Settings window presents,
-settled the same way `--quit-prompt` and `--settings --explanation` settle: run the main run loop
-in 20 ms turns until `fittingSize` stops changing, size the hosting view to that, then
-`cacheDisplay` it onto a bitmap filled with `windowBackgroundColor` first, since the real sheet
-draws no material of its own worth reproducing offscreen. It reads no config and needs no
-`--home`, since a step's title and body come from `FirstRunTourStep` alone; the buttons render but
-do nothing, since nothing here is wired to a `SettingsWindowController` to advance or dismiss.
-
 The menu-bar status item's icon (see "The icon and the 2 s refresh" in [app.md](app.md)) has one
 too:
 
@@ -2005,6 +2010,22 @@ and `#2B2B2B` for `--appearance dark`, tinted black or white to match: no `NSSta
 `NSWindow`, and no dependence on the real menu bar's own appearance, so the two states can be
 compared side by side without switching System Settings. Like the other snapshots, it renders at
 2×.
+
+The setup window (see "The setup window" in [setup.md](setup.md)) has `--setup`:
+
+```sh
+.build/debug/countersign snapshot --setup no-agents|needs-wiring|write-failed|done|all-set \
+  [--home <dir>] [--expanded] [--appearance light|dark] -o <out.png>
+```
+
+It builds a `SetupModel` over a `SettingsModel` for the home, as `--settings --home` does, so the
+rows, paths and reasons are the ones that home's files give. `no-agents`, `needs-wiring` and
+`all-set` render the home's real state and set nothing, so pass a home in that state (no agents,
+agents needing a change, every agent wired); they show the step the model opens on. `write-failed` and `done` need a state a read cannot
+reach, so a snapshot-only setter puts the model on step 1 with the failure
+`Couldn't write ~/.codex/hooks.json: Permission denied.` on Codex, or on step 2, without writing a
+file or showing a test panel. The disclosures render collapsed; `--expanded`, valid only with
+`needs-wiring`, opens every row's, to check the diff box against the window's width.
 
 The corner cards, the waiting notice and the approval card (see "The approval card"), have
 `--waiting-notice` and `--approval-card`, described in "Snapshots" in [notice.md](notice.md).

@@ -26,13 +26,13 @@ report. It exits with status 1 when any line is `fail`.
 It checks, in this order: which `countersign` is running and the path setup would write, and
 whether more than one copy of Countersign is installed, and whether the curl install's menu-bar
 app and command-line tool are on different versions; for each agent, its hook file and every
-Countersign entry in it; the config file; the queue; pause and quiet time; and the log file. The
+Countersign entry in it; the config file; the approval rules; the queue; pause and quiet time; and the log file. The
 lines worth acting on:
 
 | Doctor says | What to do |
 | --- | --- |
 | `copies: 2 copies of Countersign are installed; …` | Choose one to keep; see [below](#two-copies-of-countersign-are-installed) |
-| `versions: the menu-bar app is older than the command-line tool: …`, or the other way round | Run the command at the end of the line; see [below](#the-menu-bar-app-and-the-command-line-tool-are-on-different-versions) |
+| `versions: the menu-bar app is older than the command-line tool: …`, , the other way round, or `the copy of Countersign.app in ~/Applications is older than Homebrew's: …` | Run the command at the end of the line; see [below](#the-menu-bar-app-and-the-command-line-tool-are-on-different-versions) |
 | `no countersign entry in …`, or `… is missing` or `… is empty` | Connect that agent: `countersign setup`, or **Wire** in Settings |
 | `… differs from the stable path …` | `countersign setup`; an upgrade or a second install moved the binary |
 | `… does not exist or is not executable` | `countersign setup` from the copy you use now |
@@ -56,8 +56,8 @@ Go through these in order:
    that. If it says a panel is already on screen or a request is waiting for one, answer that
    first. If no panel appears either, keep going.
 2. **Paused or in quiet time?** `countersign status` prints `state: paused` or
-   `quiet: until <time>`. `countersign resume` or `countersign snooze off` ends them, and so does
-   the menu-bar app. `state: paused until Countersign opens` means you chose **Pause until I
+   `quiet: until <time>`. `countersign resume` ends a pause and `countersign snooze off` ends quiet
+   time, and so does the menu-bar app. `state: paused until Countersign opens` means you chose **Pause until I
    reopen** when you quit the menu-bar app, or its **When Countersign quits** setting is **Pause
    panels**: opening Countersign.app ends it (see [menu-bar-app.md](menu-bar-app.md#quit)).
 3. **Still waiting for a pause?** A panel appears only after you've stopped typing, clicking and
@@ -192,8 +192,9 @@ deleting or changing anything before you say so. Paste it into Claude Code, Code
 agent.
 
 `countersign doctor`'s `copies` line lists every copy and the command that removes each one; it
-doesn't pick one to keep. When Settings linked Countersign.app into `~/Applications` for the
-Homebrew copy, that copy's command also removes the link, which `brew uninstall` leaves behind. Old
+doesn't pick one to keep. When Settings copied Countersign.app into `~/Applications` for the
+Homebrew copy, that copy's command also removes the copy, and a link 0.2.0 made, which `brew
+uninstall` leaves behind. Old
 version folders Homebrew keeps are not copies; `brew cleanup` removes them.
 
 ### The menu-bar app and the command-line tool are on different versions
@@ -214,6 +215,10 @@ and when the command-line tool is older, which matters more because your agents'
 ```sh
 curl -fsSL https://raw.githubusercontent.com/Gord1y/countersign/main/install.sh | sh
 ```
+
+With Homebrew, Countersign keeps its own copy of the menu-bar app in `~/Applications`. When that copy
+is older than Homebrew's, `versions` says so; the menu-bar app updates its copy when it starts, and
+`countersign settings` opens Settings ▸ App to do it now.
 
 ## Codex shows no panel
 

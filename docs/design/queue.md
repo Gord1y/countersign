@@ -35,7 +35,9 @@ known, the start times match.
 
 Tickets are written atomically (a dotfile temp in the same directory, then `rename`), so readers
 only ever see complete content. Content that is still unreadable means outside damage, and
-liveness then falls back to `kill` alone.
+liveness then falls back to `kill` alone. A ticket whose file is gone by the time it is read (for
+example, removed by its own owner between the directory listing and the read) is skipped, not
+counted with no summary.
 
 A zombie does not count as live, even though `kill(pid, 0)` succeeds until the parent reaps it.
 `ProcessLiveness` reads `kp_proc.p_stat` from the same `sysctl(KERN_PROC_PID)` call that gives
@@ -488,7 +490,9 @@ hands off to its successor with the same `QueueHandoffChannel` the hook uses. It
 
 If the test runner dies, its probes must not linger or keep the lock. So a waiting probe gives up
 when its parent changes, a probe blocked on stdin finishes at EOF, and every probe ignores
-`SIGPIPE`, so a closed stdout cannot kill it while it still owns a ticket. The test harness reads
+`SIGPIPE`, so a closed stdout cannot kill it while it still owns a ticket. The hook ignores it too
+and writes its reply with the throwing `write(contentsOf:)`, since the legacy `write(_:)` raises an
+uncatchable exception on `EPIPE` and would abort the hook. The test harness reads
 a probe's exit status only after the probe has exited, because `Process` raises an Objective-C
 exception otherwise, and that exception would abort the runner and orphan every probe.
 

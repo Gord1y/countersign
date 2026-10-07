@@ -3,7 +3,7 @@ import ApprovalCore
 import SwiftUI
 
 enum SnapshotCommand {
-  private static let usage =
+  static let usage =
     "usage: countersign snapshot <request.json> --host claude|codex|cursor|antigravity"
     + " [--waiting N] [--appearance light|dark] [--accent #RRGGBB] [--unarmed] [--question-notes]"
     + " [--open-menu approve|snooze|mode] [--later] -o <out.png>\n"
@@ -14,13 +14,17 @@ enum SnapshotCommand {
     + "       countersign snapshot --settings"
     + " [--home <dir>] [--show-copies]"
     + " [--status active|paused|paused-until-open|quiet] [--size <width>x<height>]"
-    + " [--tab agents|panels|app|rules|context|help|advanced] [--restore-prompt panels|app]"
+    + " [--tab agents|panels|app|rules|skills|context|help|advanced] [--restore-prompt panels|app]"
+    + " [--app-copy add|replace-link|update|copied|failed]"
     + " [--explanation <preferenceName>] [--editor-choice ask|missing] [--rule-sheet new|edit]"
     + " [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --quit-prompt [--appearance light|dark] -o <out.png>\n"
+    + "       countersign snapshot --hook-prompt claude|codex|cursor|antigravity [--expanded]"
+    + " [--home <dir>] [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --update-answer up-to-date|available|failed"
     + " [--appearance light|dark] -o <out.png>\n"
-    + "       countersign snapshot --tour 1|2|3|4 [--appearance light|dark] -o <out.png>\n"
+    + "       countersign snapshot --setup no-agents|needs-wiring|write-failed|done|all-set"
+    + " [--home <dir>] [--expanded] [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --menu-bar-icon active|paused|quiet"
     + " [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --waiting-notice claude|codex|cursor|antigravity"
@@ -30,8 +34,9 @@ enum SnapshotCommand {
   private static let quietSnapshotMinutes: TimeInterval = 15
   private static let settingsFlag = "--settings"
   private static let quitPromptFlag = "--quit-prompt"
+  private static let hookPromptFlag = "--hook-prompt"
   private static let updateAnswerFlag = "--update-answer"
-  private static let tourFlag = "--tour"
+  private static let setupFlag = "--setup"
   private static let menuBarIconFlag = "--menu-bar-icon"
   private static let waitingNoticeFlag = "--waiting-notice"
   private static let approvalCardFlag = "--approval-card"
@@ -49,11 +54,14 @@ enum SnapshotCommand {
     if arguments.contains(quitPromptFlag) {
       runQuitPrompt(arguments)
     }
+    if arguments.contains(hookPromptFlag) {
+      runHookPrompt(arguments)
+    }
     if arguments.contains(updateAnswerFlag) {
       runUpdateAnswer(arguments)
     }
-    if arguments.contains(tourFlag) {
-      runTour(arguments)
+    if arguments.contains(setupFlag) {
+      runSetup(arguments)
     }
     if arguments.contains(menuBarIconFlag) {
       runMenuBarIcon(arguments)
@@ -173,6 +181,10 @@ enum SnapshotCommand {
     model.select(options.pane)
     if options.showsCopies, model.duplicateInstall != nil {
       model.toggleCopies()
+    }
+
+    if let appCopy = options.appCopy {
+      appCopy.apply(to: model, home: environment.home)
     }
 
     if let restorePane = options.restorePrompt {
@@ -334,6 +346,84 @@ enum SnapshotCommand {
   }
 
   @MainActor
+  private static func runHookPrompt(_ arguments: [String]) -> Never {
+    guard let options = parseHookPrompt(arguments) else { CommandLineOutput.fail(usage) }
+
+    NSApplication.shared.setActivationPolicy(.prohibited)
+
+    let home = options.home ?? FileManager.default.homeDirectoryForCurrentUser
+    let environment = SettingsEnvironment.current(home: home)
+    let model = SettingsModel(
+      environment: environment, status: .active, savesLearnedCodexTrust: false)
+    model.requestHostChange(options.host)
+    guard let change = model.hostChange else {
+      CommandLineOutput.fail("error: \(options.host.displayName) has no hook change to show")
+    }
+    let alert = HostHookPrompt.makeAlert(change: change, home: home, expanded: options.expanded)
+    alert.window.appearance = options.appearance?.appearance
+    alert.layout()
+    for _ in 0..<settleTurnLimit {
+      RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
+    }
+    guard let contentView = alert.window.contentView,
+      let png = render(contentView, background: .windowBackgroundColor)
+    else {
+      CommandLineOutput.fail("error: could not render the hook prompt")
+    }
+    write(png, to: options.outputPath)
+  }
+
+  private struct HookPromptOptions {
+    let host: ApprovalCore.Host
+    let expanded: Bool
+    let home: URL?
+    let outputPath: String
+    let appearance: Appearance?
+  }
+
+  private static func parseHookPrompt(_ arguments: [String]) -> HookPromptOptions? {
+    var host: ApprovalCore.Host?
+    var expanded = false
+    var home: URL?
+    var outputPath: String?
+    var appearance: Appearance?
+    var index = arguments.startIndex
+
+    while index < arguments.count {
+      switch arguments[index] {
+      case hookPromptFlag:
+        index += 1
+        guard index < arguments.count, let parsed = ApprovalCore.Host(rawValue: arguments[index])
+        else { return nil }
+        host = parsed
+      case "--expanded":
+        expanded = true
+      case "--home":
+        index += 1
+        guard index < arguments.count else { return nil }
+        home = URL(fileURLWithPath: arguments[index], isDirectory: true)
+      case "--appearance":
+        index += 1
+        guard index < arguments.count, let parsed = Appearance(rawValue: arguments[index]) else {
+          return nil
+        }
+        appearance = parsed
+      case "-o":
+        index += 1
+        guard index < arguments.count else { return nil }
+        outputPath = arguments[index]
+      default:
+        return nil
+      }
+      index += 1
+    }
+
+    guard let host, let outputPath else { return nil }
+    return HookPromptOptions(
+      host: host, expanded: expanded, home: home, outputPath: outputPath, appearance: appearance)
+  }
+
+  @MainActor
   private static func runUpdateAnswer(_ arguments: [String]) -> Never {
     guard let options = parseUpdateAnswer(arguments) else { CommandLineOutput.fail(usage) }
 
@@ -359,29 +449,6 @@ enum SnapshotCommand {
       let png = render(contentView, background: .windowBackgroundColor)
     else {
       CommandLineOutput.fail("error: could not render the update answer")
-    }
-    write(png, to: options.outputPath)
-  }
-
-  @MainActor
-  private static func runTour(_ arguments: [String]) -> Never {
-    guard let options = parseTour(arguments) else { CommandLineOutput.fail(usage) }
-
-    NSApplication.shared.setActivationPolicy(.prohibited)
-
-    let hostingView = NSHostingView(rootView: FirstRunTourView(step: options.step))
-    hostingView.appearance = options.appearance?.appearance
-    var size = hostingView.fittingSize
-    for _ in 0..<settleTurnLimit {
-      hostingView.layoutSubtreeIfNeeded()
-      RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
-      let measured = hostingView.fittingSize
-      if measured == size { break }
-      size = measured
-    }
-    hostingView.setFrameSize(size)
-    guard let png = render(hostingView, background: .windowBackgroundColor) else {
-      CommandLineOutput.fail("error: could not render the tour")
     }
     write(png, to: options.outputPath)
   }
@@ -853,26 +920,57 @@ enum SnapshotCommand {
       appearance: appearance)
   }
 
-  private struct TourOptions {
-    let step: FirstRunTourStep
+  private enum SetupSnapshotState: String {
+    case noAgents = "no-agents"
+    case needsWiring = "needs-wiring"
+    case writeFailed = "write-failed"
+    case done
+    case allSet = "all-set"
+
+    static let codexWriteFailure = "Couldn't write ~/.codex/hooks.json: Permission denied."
+
+    @MainActor
+    func apply(to model: SetupModel) {
+      switch self {
+      case .writeFailed:
+        model.showForSnapshot(step: 1, failures: [.codex: Self.codexWriteFailure])
+      case .done:
+        model.showForSnapshot(step: 2, failures: [:])
+      case .noAgents, .needsWiring, .allSet:
+        break
+      }
+    }
+  }
+
+  private struct SetupOptions {
+    let state: SetupSnapshotState
+    let home: URL?
+    let expanded: Bool
     let outputPath: String
     let appearance: Appearance?
   }
 
-  private static func parseTour(_ arguments: [String]) -> TourOptions? {
-    var step: FirstRunTourStep?
+  private static func parseSetup(_ arguments: [String]) -> SetupOptions? {
+    var state: SetupSnapshotState?
+    var expanded = false
+    var home: URL?
     var outputPath: String?
     var appearance: Appearance?
     var index = arguments.startIndex
 
     while index < arguments.count {
       switch arguments[index] {
-      case tourFlag:
+      case setupFlag:
         index += 1
-        guard index < arguments.count, let raw = Int(arguments[index]),
-          let parsed = FirstRunTourStep(rawValue: raw)
+        guard index < arguments.count, let parsed = SetupSnapshotState(rawValue: arguments[index])
         else { return nil }
-        step = parsed
+        state = parsed
+      case "--expanded":
+        expanded = true
+      case "--home":
+        index += 1
+        guard index < arguments.count else { return nil }
+        home = URL(fileURLWithPath: arguments[index], isDirectory: true)
       case "--appearance":
         index += 1
         guard index < arguments.count, let parsed = Appearance(rawValue: arguments[index]) else {
@@ -889,8 +987,76 @@ enum SnapshotCommand {
       index += 1
     }
 
-    guard let outputPath, let step else { return nil }
-    return TourOptions(step: step, outputPath: outputPath, appearance: appearance)
+    guard let outputPath, let state, !expanded || state == .needsWiring else { return nil }
+    return SetupOptions(
+      state: state, home: home, expanded: expanded, outputPath: outputPath,
+      appearance: appearance)
+  }
+
+  @MainActor
+  private static func runSetup(_ arguments: [String]) -> Never {
+    guard let options = parseSetup(arguments) else { CommandLineOutput.fail(usage) }
+
+    NSApplication.shared.setActivationPolicy(.prohibited)
+
+    let environment = options.home.map(SettingsEnvironment.current(home:)) ?? .current()
+    let model = SetupModel(
+      settings: SettingsModel(environment: environment, savesLearnedCodexTrust: false))
+    options.state.apply(to: model)
+    if options.expanded {
+      model.expandDisclosuresForSnapshot()
+    }
+    let hostingView = NSHostingView(rootView: SetupView(model: model))
+    hostingView.appearance = options.appearance?.appearance
+    var size = hostingView.fittingSize
+    for _ in 0..<settleTurnLimit {
+      hostingView.layoutSubtreeIfNeeded()
+      RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
+      let measured = hostingView.fittingSize
+      if measured == size { break }
+      size = measured
+    }
+    hostingView.setFrameSize(size)
+    guard let png = render(hostingView, background: .windowBackgroundColor) else {
+      CommandLineOutput.fail("error: could not render the setup window")
+    }
+    write(png, to: options.outputPath)
+  }
+
+  private enum AppCopySnapshot: String {
+    case add
+    case replaceLink = "replace-link"
+    case update
+    case copied
+    case failed
+
+    @MainActor
+    func apply(to model: SettingsModel, home: URL) {
+      let source = "/opt/homebrew/opt/countersign/Countersign.app"
+      let destination = AppBundleCopy.destination(home: home)
+      func offer(_ kind: AppBundleCopyOffer.Kind) -> AppBundleCopyOffer {
+        AppBundleCopyOffer(kind: kind, source: source, destination: destination, version: "0.3.0")
+      }
+      switch self {
+      case .add:
+        model.showAppCopyForSnapshot(offer: offer(.add), message: nil, failed: false)
+      case .replaceLink:
+        model.showAppCopyForSnapshot(offer: offer(.replaceLink), message: nil, failed: false)
+      case .update:
+        model.showAppCopyForSnapshot(
+          offer: offer(.update(from: "0.2.0")), message: nil, failed: false)
+      case .copied:
+        model.showAppCopyForSnapshot(
+          offer: nil,
+          message:
+            "Copied Countersign.app 0.3.0 into ~/Applications. Spotlight and Launchpad find it there.",
+          failed: false)
+      case .failed:
+        model.showAppCopyForSnapshot(
+          offer: offer(.add), message: "Couldn't copy Countersign.app: Permission denied.",
+          failed: true)
+      }
+    }
   }
 
   private struct SettingsOptions {
@@ -902,6 +1068,7 @@ enum SnapshotCommand {
     let size: CGSize?
     let pane: SettingsPane
     let restorePrompt: SettingsPane?
+    let appCopy: AppCopySnapshot?
     let explanation: PreferenceName?
     let editorChoice: EditorChoice?
     let ruleSheet: RuleSheetKind?
@@ -916,6 +1083,7 @@ enum SnapshotCommand {
     var size: CGSize?
     var pane = SettingsPane.standard
     var restorePrompt: SettingsPane?
+    var appCopy: AppCopySnapshot?
     var explanation: PreferenceName?
     var editorChoice: EditorChoice?
     var ruleSheet: RuleSheetKind?
@@ -959,6 +1127,11 @@ enum SnapshotCommand {
           parsed == .panels || parsed == .app
         else { return nil }
         restorePrompt = parsed
+      case "--app-copy":
+        index += 1
+        guard index < arguments.count, let parsed = AppCopySnapshot(rawValue: arguments[index])
+        else { return nil }
+        appCopy = parsed
       case "--explanation":
         index += 1
         guard index < arguments.count, let parsed = PreferenceName(rawValue: arguments[index])
@@ -994,7 +1167,8 @@ enum SnapshotCommand {
     return SettingsOptions(
       outputPath: outputPath, appearance: appearance, showsCopies: showsCopies, status: status,
       home: home, size: size, pane: pane,
-      restorePrompt: restorePrompt, explanation: explanation, editorChoice: editorChoice,
+      restorePrompt: restorePrompt, appCopy: appCopy, explanation: explanation,
+      editorChoice: editorChoice,
       ruleSheet: ruleSheet)
   }
 

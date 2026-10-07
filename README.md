@@ -41,11 +41,11 @@ Older versions, installs without questions and building from source:
 
 ## Set up
 
-The install script offers to open Countersign for you; after Homebrew, run `countersign setup`.
-Either way, wire the agents you use: the window shows each change before writing it and backs up
-every file it changes, and `countersign setup --cli` does the same in the terminal. Codex asks you
-to trust a new hook once: run `/hooks` in Codex and approve it. What setup changes and how to undo
-it: [docs/setup.md](docs/setup.md).
+The install script opens the setup window for you; after Homebrew, run `countersign setup`. It
+takes three steps: wire the agents it found (each change behind "Show the change", every changed
+file backed up), try a test panel, done. `countersign setup --cli` does it in the terminal. Codex
+asks you to trust a new hook once: run `/hooks` in Codex and approve it. What setup changes and how
+to undo it: [docs/setup.md](docs/setup.md).
 
 ---
 
@@ -218,16 +218,18 @@ it steps aside, swallowing that one key, until your next pause. ⌘ shortcuts su
 
 | Command | What it does |
 | --- | --- |
-| `countersign setup` | Opens the setup window; `setup --cli` does the same in the terminal |
-| `countersign settings` | Opens the same window |
+| `countersign setup` | Opens the setup window: wire your agents and try a test panel; `setup --cli` does it in the terminal |
+| `countersign settings` | Opens the Settings window |
 | `countersign doctor` | Checks your setup and prints a plain, pasteable report |
 | `countersign status` | Active or paused, queued requests, quiet time, log location |
 | `countersign pause` / `resume` | Turn the panel off and on. While paused, every prompt goes to its chat |
-| `countersign snooze 15m` | Quiet time for all prompts. Accepts `90s`, `15m`, `1h` or plain minutes |
+| `countersign snooze 15m` | Quiet time for all prompts. Accepts `90s`, `15m`, `1h` or plain minutes, up to 24 hours |
 | `countersign snooze off` | End quiet time early |
 | `countersign test-panel` | Shows a test panel with your settings; add `question`, `plan` or `context` for those. Nothing reaches an agent |
 | `countersign --version` | Prints the installed version |
 | `countersign help` | Lists every command, with the help and support links |
+
+Add `--help` to any command to print its usage.
 
 What each answer does in each agent: [docs/agents.md](docs/agents.md). `preview` and `snapshot`,
 for rendering a request without an agent, are covered in [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -249,6 +251,10 @@ default, and most can be set per agent. Every key: [docs/configuration.md](docs/
 - Everything else stays on your Mac: the config file, the request queue, the log and the agents'
   own hook files it edits (each backed up first). See what it reads and writes:
   [docs/safety-and-privacy.md](docs/safety-and-privacy.md).
+- Settings' Skills group reads the countersign-skills state folder, its catalogs and the agents'
+  skills folders to show what is installed, only while that pane is shown and, for a folder in
+  Documents, Desktop, Downloads, iCloud Drive or on an external drive, only after you choose Show
+  Skills from This Folder; nothing leaves your Mac, and its GitHub button only opens your browser.
 - Any error, crash or timeout means "no decision", never an approval.
 
 The CLI and app are only ad-hoc signed, not notarized: a `curl | sh` install never passes through a

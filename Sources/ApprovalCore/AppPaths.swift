@@ -83,8 +83,20 @@ public struct AppPaths: Sendable, Equatable {
     supportDirectory.appendingPathComponent("tour-shown")
   }
 
+  public var setupShownFile: URL {
+    supportDirectory.appendingPathComponent("setup-shown")
+  }
+
+  public var skillFolderApprovalsFile: URL {
+    supportDirectory.appendingPathComponent("skill-folders-shown")
+  }
+
   public var lastSeenVersionFile: URL {
     supportDirectory.appendingPathComponent("last-seen-version")
+  }
+
+  public var copyRefreshRelaunchFile: URL {
+    supportDirectory.appendingPathComponent("relaunch-after-copy")
   }
 
   public var companionLockFile: URL {
@@ -119,5 +131,36 @@ public struct AppPaths: Sendable, Equatable {
 
   public var configFile: URL {
     configDirectory.appendingPathComponent("config.json")
+  }
+
+  public var skillsStateDirectory: URL {
+    configDirectory.appendingPathComponent("skills")
+  }
+
+  public func agentSkillsDirectory(for agent: String) -> URL? {
+    switch agent {
+    case "claude":
+      return claudeConfigRoot.appendingPathComponent("skills")
+    case "codex":
+      return
+        home
+        .appendingPathComponent(".agents")
+        .appendingPathComponent("skills")
+    case "antigravity":
+      return
+        home
+        .appendingPathComponent(".gemini")
+        .appendingPathComponent("antigravity-cli")
+        .appendingPathComponent("skills")
+    default:
+      return nil
+    }
+  }
+
+  private var claudeConfigRoot: URL {
+    if let claudeConfigDir, !claudeConfigDir.isEmpty {
+      return URL(fileURLWithPath: claudeConfigDir)
+    }
+    return home.appendingPathComponent(".claude")
   }
 }

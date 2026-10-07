@@ -87,15 +87,18 @@ last step, right after it prints `installed countersign <version>`:
   no terminal is available to ask on (the same `/dev/tty` probe described above), it prints
   `next: countersign setup` instead, since there's nobody there to show a window to.
 - If `$HOME/Applications/Countersign.app` exists once the install is done, whether installed just
-  now or already there and left in place, it runs `open "$app_dir"`: an ordinary launch, which
-  starts the menu-bar app and opens its Settings window, and prints
+  now or already there and left in place, it runs `open "$app_dir" --args --setup`: a launch with `--setup`, which
+  starts the menu-bar app and opens its setup window even on a Mac that already has Countersign
+  state, as long as Countersign.app is not already running. When it is, macOS drops the arguments
+  and `open` only reopens it, which brings up Settings; after a reinstall the running copy is the
+  previous version anyway, which the installer tells you to quit and open again. It prints
   `opening Countersign to set up your agents`. If `open` itself fails, for example an SSH session
   with a terminal but no GUI login for LaunchServices to hand the app to, that failure doesn't fail
   the install: it's swallowed and `next: countersign setup` is printed instead, the same as when
   nothing is opened at all. Otherwise it starts `$HOME/.local/bin/countersign setup` in the
   background, detached from the installer (stdin from `/dev/null`, output to `/dev/null`,
-  backgrounded with `&`) so the installer exits at once rather than wait on the Settings window, and
-  prints `opening Countersign Settings to set up your agents`.
+  backgrounded with `&`) so the installer exits at once rather than wait on the setup window, and
+  prints `opening the Countersign setup window`.
 - If the app bundle already existed and this run just replaced it while a previous
   `Countersign.app` process was still running (`pgrep -f "$app_dir/Contents/MacOS/countersign"`),
   it also prints
@@ -156,11 +159,13 @@ directly into a `run:` script, so a crafted tag name can't inject shell syntax),
    [above](#the-curl-installer) with `COUNTERSIGN_VERSION` filled in to that release's own
    version, and a line noting that Homebrew installs the latest version only. A release note never
    repeats this command itself; the workflow is what adds it, for every release, so it can't go
-   stale. The four artifacts above are attached.
+   stale. The four artifacts above are attached, and the release opens its announcement in the
+   **Announcements** discussion category, with the release's title and body.
 
 `GH_TOKEN` is scoped to `${{ github.token }}` and only set in the release-creation step's own
-`env`, and the job's `permissions: contents: write` is likewise scoped to that one job, on top of
-the workflow's `permissions: {}` default.
+`env`, and the job's `permissions` (`contents: write` for the release, `discussions: write` for
+its announcement) are likewise scoped to that one job, on top of the workflow's
+`permissions: {}` default.
 
 ## Cutting a release
 
@@ -175,7 +180,7 @@ the workflow's `permissions: {}` default.
    file of `git diff origin/main...origin/staging`, after `git fetch origin`. Fix what it finds
    through pull requests into `staging` first. Then open a pull request from `staging` into `main`,
    titled `chore: release countersign <x.y.z>`, and merge it with a merge commit once its checks
-   pass.
+   pass. GitHub takes the merge commit's subject from that title.
 5. Tag `main`'s new merge commit and push the tag: `git fetch origin`, then
    `git tag v<x.y.z> origin/main` and `git push origin v<x.y.z>`. A pushed `v*` tag can never be
    moved or deleted, so check `git log -1 origin/main` first.
@@ -187,3 +192,19 @@ the workflow's `permissions: {}` default.
    no `brew pr-pull` step.
 
 The pushed tag is what starts the release workflow; merging into `main` on its own does not.
+
+### Hotfixes
+
+A hotfix is a patch release, cut the normal way. For a fix to the released `<x.y.z>`, with
+`<x.y.z+1>` as the next patch version:
+
+1. Branch `release-<x.y.z+1>` from `main`.
+2. Commit the fix, then `docs(release): add <x.y.z+1> notes` and `chore: bump the version to
+   <x.y.z+1>`. The entry goes in its own `releases/release-<x.y.z+1>.md` with `type: patch`.
+3. Open `chore: prepare release <x.y.z+1>` into `staging`, then `chore: release countersign
+   <x.y.z+1>` into `main`, and tag `v<x.y.z+1>` and update the tap as in steps 3 to 6.
+
+There is one path for every release, so the gates, the notes and the index check run the same way
+for a hotfix as for any other release.
+
+The hotfix reaches `main` through `staging`, so anything unreleased on `staging` ships with it.
