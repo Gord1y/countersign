@@ -81,8 +81,8 @@ For each agent it finds, setup prints the file's path and a diff of the change, 
 `Apply? [y/N]`. `--yes` applies without asking. Without a terminal to ask in, and without `--yes`,
 it only prints the diffs and applies nothing. `--host` limits the run to one agent. A file with
 nothing to change prints `already up to date`, so running setup twice is safe. When it finds no
-agent at all, it says so. It exits 1 when a file failed or a change was not applied (you answered N, or there was no
-terminal and no `--yes`), and 0 otherwise. `--yes`, `--uninstall` and `--host` work only together
+agent at all, it says so. It exits 0 when you decline a change, or when there is no terminal and no `--yes` (nothing is
+applied, and it says so), and 1 when a file couldn't be read or written. `--yes`, `--uninstall` and `--host` work only together
 with `--cli`.
 
 ## What it changes
@@ -133,8 +133,9 @@ Settings ▸ Panels removes those entries and setup then leaves them out.
 
 Setup touches only its own entry. Everything else in the file, other hooks, key order,
 indentation, line endings, stays exactly as it was. Before it changes a file that already exists,
-it saves a copy next to it, `<file>.countersign-<yyyyMMdd-HHmmss>.bak`, and prints where. Only the
-newest three copies of each file are kept; saving a fourth removes the oldest. A file
+it saves a copy next to it, `<file>.countersign-<yyyyMMdd-HHmmss>.bak`, and prints where. Two copies in the same second
+get `-2`, `-3` and so on before `.bak`. Only the newest three copies of each file are kept; saving a
+fourth removes the oldest. A file
 that isn't valid JSON, including JSON with comments or trailing commas, is reported and left alone.
 Antigravity ignores its whole hooks file when any entry in it is invalid, so setup writes its entry
 in one exact shape, and replaces a `countersign` hook it finds in any other shape.

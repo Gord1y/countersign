@@ -21,14 +21,27 @@ public enum ConfigFileStore {
     }
   }
 
-  public static func backupName(for fileName: String, date: Date, timeZone: TimeZone = .current)
-    -> String
-  {
+  public static func backupName(
+    for fileName: String, date: Date, timeZone: TimeZone = .current, sequence: Int = 1
+  ) -> String {
     let formatter = DateFormatter()
     formatter.locale = Locale(identifier: "en_US_POSIX")
     formatter.timeZone = timeZone
     formatter.dateFormat = "yyyyMMdd-HHmmss"
-    return "\(fileName).countersign-\(formatter.string(from: date)).bak"
+    let suffix = sequence > 1 ? "-\(sequence)" : ""
+    return "\(fileName).countersign-\(formatter.string(from: date))\(suffix).bak"
+  }
+
+  private static func freeBackupFile(
+    for fileName: String, in directory: URL, date: Date, timeZone: TimeZone
+  ) -> URL {
+    var sequence = 1
+    while true {
+      let candidate = directory.appendingPathComponent(
+        backupName(for: fileName, date: date, timeZone: timeZone, sequence: sequence))
+      if !FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+      sequence += 1
+    }
   }
 
   @discardableResult
@@ -44,8 +57,8 @@ public enum ConfigFileStore {
     if stat(target.path, &info) == 0 {
       permissions = info.st_mode & 0o7777
       if backingUp {
-        let backupFile = directory.appendingPathComponent(
-          backupName(for: target.lastPathComponent, date: date, timeZone: timeZone))
+        let backupFile = freeBackupFile(
+          for: target.lastPathComponent, in: directory, date: date, timeZone: timeZone)
         try FileManager.default.copyItem(at: target, to: backupFile)
         backup = backupFile
         pruneBackups(of: target.lastPathComponent, in: directory)
@@ -68,21 +81,42 @@ public enum ConfigFileStore {
     guard let names = try? FileManager.default.contentsOfDirectory(atPath: directory.path) else {
       return
     }
-    let backups = names.filter { isBackupName($0, of: fileName) }.sorted()
-    for name in backups.dropLast(keptBackups) {
-      try? FileManager.default.removeItem(at: directory.appendingPathComponent(name))
+    let backups = names.compactMap { name in
+      backupOrder(of: name, fileName: fileName).map { (name: name, order: $0) }
+    }
+    .sorted { $0.order < $1.order }
+    for backup in backups.dropLast(keptBackups) {
+      try? FileManager.default.removeItem(at: directory.appendingPathComponent(backup.name))
     }
   }
 
-  private static func isBackupName(_ name: String, of fileName: String) -> Bool {
+  private static func backupOrder(of name: String, fileName: String) -> BackupOrder? {
     let prefix = "\(fileName).countersign-"
     let suffix = ".bak"
-    guard name.hasPrefix(prefix), name.hasSuffix(suffix) else { return false }
-    let stamp = Array(name.dropFirst(prefix.count).dropLast(suffix.count))
-    return stamp.count == 15
-      && stamp.indices.allSatisfy { index in
-        index == 8 ? stamp[index] == "-" : stamp[index].isASCII && stamp[index].isNumber
-      }
+    guard name.hasPrefix(prefix), name.hasSuffix(suffix) else { return nil }
+    let middle = String(name.dropFirst(prefix.count).dropLast(suffix.count))
+    let parts = middle.split(separator: "-", maxSplits: 2, omittingEmptySubsequences: false)
+    guard parts.count >= 2, isDigits(parts[0], count: 8), isDigits(parts[1], count: 6) else {
+      return nil
+    }
+    guard parts.count == 3 else { return BackupOrder(stamp: middle, sequence: 1) }
+    guard let sequence = Int(parts[2]), sequence >= 2, parts[2].allSatisfy(\.isASCII) else {
+      return nil
+    }
+    return BackupOrder(stamp: "\(parts[0])-\(parts[1])", sequence: sequence)
+  }
+
+  private static func isDigits(_ text: Substring, count: Int) -> Bool {
+    text.count == count && text.allSatisfy { $0.isASCII && $0.isNumber }
+  }
+
+  private struct BackupOrder: Comparable {
+    let stamp: String
+    let sequence: Int
+
+    static func < (lhs: BackupOrder, rhs: BackupOrder) -> Bool {
+      (lhs.stamp, lhs.sequence) < (rhs.stamp, rhs.sequence)
+    }
   }
 
   private static func writeNewFile(_ bytes: [UInt8], at file: URL, permissions: mode_t?) throws {
