@@ -192,3 +192,19 @@ its announcement) are likewise scoped to that one job, on top of the workflow's
    no `brew pr-pull` step.
 
 The pushed tag is what starts the release workflow; merging into `main` on its own does not.
+
+### Hotfixes
+
+A hotfix is a patch release, cut the normal way. For a fix to the released `<x.y.z>`, with
+`<x.y.z+1>` as the next patch version:
+
+1. Branch `release-<x.y.z+1>` from `main`.
+2. Commit the fix, then `docs(release): add <x.y.z+1> notes` and `chore: bump the version to
+   <x.y.z+1>`. The entry goes in its own `releases/release-<x.y.z+1>.md` with `type: patch`.
+3. Open `chore: prepare release <x.y.z+1>` into `staging`, then `chore: release countersign
+   <x.y.z+1>` into `main`, and tag `v<x.y.z+1>` and update the tap as in steps 3 to 6.
+
+There is one path for every release, so the gates, the notes and the index check run the same way
+for a hotfix as for any other release.
+
+The hotfix reaches `main` through `staging`, so anything unreleased on `staging` ships with it.

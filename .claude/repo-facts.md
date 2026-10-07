@@ -28,7 +28,7 @@ them.
 | Commit type for release notes | `docs(release): add <x.y.z> notes`, committing the note and the regenerated `releases/index.json` together |
 | Version bump convention | `CountersignVersion.current` in `Sources/ApprovalCore/CountersignVersion.swift` and the version `CountersignVersionTests` expects, in one `chore: bump the version to <x.y.z>` commit |
 | Does the repo tag releases? | yes: the maintainer tags `main`'s release merge commit `v<x.y.z>` and pushes the tag, which starts `release.yml` |
-| Which note a hotfix's entry goes in | not defined yet |
+| Which note a hotfix's entry goes in | its own `releases/release-<x.y.z+1>.md` with `type: patch`; a hotfix is a patch release, see [docs/release.md](../docs/release.md#hotfixes) |
 
 ## feature-pr-description
 
@@ -53,7 +53,7 @@ them.
 | CI checks that run only on release PRs | none: every pull request runs `gates`, `commits`, `release-index`, `lint` and `title`; `release.yml` runs only on the pushed tag |
 | Branch protection and merge method on the target branch | `main`: pull request only, no approving review required, merge commit only, the five checks above, no up-to-date requirement; `staging`: the same but squash only and up to date; committed in `.github/rulesets/`, applied and checked with `scripts/rulesets.sh` ([docs/tooling.md](../docs/tooling.md#branches-and-rulesets)) |
 | Where uncommitted drafts go | `writeups/releases/<x.y.z>/` (`promotion-staging.md`, `promotion-main.md`) |
-| Hotfix flow: branch, target, title, and which note gets the entry | not defined yet |
+| Hotfix flow: branch, target, title, and which note gets the entry | a patch release, cut the normal way ([docs/release.md](../docs/release.md#hotfixes)): branch `release-<x.y.z+1>` from `main`; the fix commits, `docs(release): add <x.y.z+1> notes`, `chore: bump the version to <x.y.z+1>`; `chore: prepare release <x.y.z+1>` into `staging`, then `chore: release countersign <x.y.z+1>` into `main`, tag `v<x.y.z+1>`; the entry goes in its own `releases/release-<x.y.z+1>.md` with `type: patch`; anything unreleased on `staging` ships with it |
 
 ## thorough-diff-review
 
