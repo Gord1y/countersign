@@ -10,6 +10,16 @@ public enum SettingsWindowPlacement {
       height: max(minimumContentSize.height, min(defaultContentSize.height, available.height)))
   }
 
+  public static func centeredOrigin(frameSize: CGSize, visibleFrame: CGRect) -> CGPoint {
+    let x =
+      frameSize.width > visibleFrame.width
+      ? visibleFrame.minX : visibleFrame.midX - frameSize.width / 2
+    let y =
+      frameSize.height > visibleFrame.height
+      ? visibleFrame.maxY - frameSize.height : visibleFrame.midY - frameSize.height / 2
+    return CGPoint(x: x, y: y)
+  }
+
   public static func isUsable(frame: CGRect, contentSize: CGSize, visibleFrames: [CGRect]) -> Bool {
     contentSize.width >= minimumContentSize.width
       && contentSize.height >= minimumContentSize.height

@@ -86,6 +86,30 @@ import Testing
         contentSize: CGSize(width: 820, height: 790), visibleFrames: [laptop]))
   }
 
+  @Test func centersAFrameOnBothAxes() {
+    #expect(
+      SettingsWindowPlacement.centeredOrigin(
+        frameSize: CGSize(width: 400, height: 300),
+        visibleFrame: CGRect(x: 0, y: 25, width: 1440, height: 875))
+        == CGPoint(x: 520, y: 312.5))
+  }
+
+  @Test func pinsAFrameTallerThanTheVisibleFrameToItsTop() {
+    #expect(
+      SettingsWindowPlacement.centeredOrigin(
+        frameSize: CGSize(width: 400, height: 900),
+        visibleFrame: CGRect(x: 0, y: 25, width: 1440, height: 800))
+        == CGPoint(x: 520, y: -75))
+  }
+
+  @Test func pinsAFrameWiderThanTheVisibleFrameToItsLeft() {
+    #expect(
+      SettingsWindowPlacement.centeredOrigin(
+        frameSize: CGSize(width: 1600, height: 300),
+        visibleFrame: CGRect(x: 10, y: 25, width: 1440, height: 875))
+        == CGPoint(x: 10, y: 312.5))
+  }
+
   @Test func rejectsAnyFrameWhenThereIsNoScreen() {
     #expect(
       !SettingsWindowPlacement.isUsable(

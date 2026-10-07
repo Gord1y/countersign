@@ -354,12 +354,14 @@ the hosts, resolves the executable and answers the question from the terminal or
 ## The setup window
 
 Plain `countersign setup` opens a small window, "Set Up Countersign", 460 pt wide, not resizable,
-as tall as its step needs. The installer's last step and the first open of Countersign.app are
-meant to open the same window. `setup --cli` keeps the terminal flow, and `countersign settings`
-keeps the full window (see "The window"). The window is a `SetupModel`, which owns a
-`SettingsModel` and reads its `hostRows`, and a `SetupView`. The write path is the Settings
-window's own: `requestHostChange` and `confirmHostChange`, then `refreshFromDisk`. The window adds
-no wiring logic of its own.
+as tall as its step needs. It opens centered on both axes of the main screen's visible frame by
+`SettingsWindowPlacement.centeredOrigin`, because AppKit's `center()` puts a window above the
+middle. Later height changes keep the top edge. The installer's last step and the first open of
+Countersign.app are meant to open the same window. `setup --cli` keeps the terminal flow, and
+`countersign settings` keeps the full window (see "The window"). The window is a `SetupModel`,
+which owns a `SettingsModel` and reads its `hostRows`, and a `SetupView`. The write path is the
+Settings window's own: `requestHostChange` and `confirmHostChange`, then `refreshFromDisk`. The
+window adds no wiring logic of its own.
 
 It has three steps, each short enough to read at a glance. The user chose this layout over one
 long page from renders on 2026-10-07. The user asked for no panel they didn't request: a panel

@@ -41,7 +41,7 @@ final class SetupWindowController: NSWindowController, NSWindowDelegate {
     model.settings.refreshFromDisk()
     NSApplication.shared.setActivationPolicy(.regular)
     sizeWindowToContent()
-    window?.center()
+    centerWindowOnScreen()
     window?.makeKeyAndOrderFront(nil)
     window?.orderFrontRegardless()
     NSApplication.shared.activate()
@@ -49,6 +49,13 @@ final class SetupWindowController: NSWindowController, NSWindowDelegate {
 
   func windowWillClose(_ notification: Notification) {
     finish(then: onClose)
+  }
+
+  private func centerWindowOnScreen() {
+    guard let window, let screen = NSScreen.main ?? window.screen else { return }
+    window.setFrameOrigin(
+      SettingsWindowPlacement.centeredOrigin(
+        frameSize: window.frame.size, visibleFrame: screen.visibleFrame))
   }
 
   private func sizeWindowToContent() {
