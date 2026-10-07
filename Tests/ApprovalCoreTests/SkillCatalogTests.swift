@@ -243,7 +243,7 @@ import Testing
     #expect(catalog.skills.count == 16)
   }
 
-  @Test func readingAnEmptyFolderNamesTheFolder() throws {
+  @Test func readingAnEmptyFolderSaysTheFileIsMissing() throws {
     let folder = FileManager.default.temporaryDirectory
       .appendingPathComponent("qa-skill-catalog-\(UUID().uuidString)")
     try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
@@ -251,6 +251,26 @@ import Testing
 
     #expect(
       SkillCatalog.read(folder: folder)
-        == .failure(SkillCatalogError(reason: "catalog.json is missing in \(folder.path)")))
+        == .failure(SkillCatalogError(reason: "the file is missing", isPermissionDenied: false)))
+  }
+
+  @Test func anUnreadableCatalogFileIsReportedAsPermissionDenied() throws {
+    let folder = FileManager.default.temporaryDirectory
+      .appendingPathComponent("qa-skill-catalog-\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+    let file = folder.appendingPathComponent(SkillCatalog.fileName)
+    try FixtureLoader.data("skills-catalog").write(to: file)
+    try FileManager.default.setAttributes([.posixPermissions: 0o000], ofItemAtPath: file.path)
+    defer {
+      try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: file.path)
+      try? FileManager.default.removeItem(at: folder)
+    }
+
+    guard case .failure(let error) = SkillCatalog.read(folder: folder) else {
+      Issue.record("expected failure")
+      return
+    }
+    #expect(error.isPermissionDenied)
+    #expect(error.reason == "Countersign isn't allowed to read it")
   }
 }

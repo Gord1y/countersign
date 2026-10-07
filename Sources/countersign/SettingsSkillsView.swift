@@ -9,6 +9,18 @@ enum SkillsText {
   static let openRepositoryTitle = "Open countersign-skills on GitHub"
   static let repositoryAddress = "https://github.com/Gord1y/countersign-skills"
 
+  static let showFolderTitle = "Show Skills from This Folder"
+  static let openPrivacyTitle = "Open Privacy & Security"
+  static let privacyHint =
+    "If you didn't allow it when macOS asked, turn on Countersign in System Settings ▸ Privacy &"
+    + " Security ▸ Files & Folders."
+  static let privacyAddress =
+    "x-apple.systempreferences:com.apple.preference.security?Privacy_FilesAndFolders"
+
+  static func waitingCaption(place: String) -> String {
+    "This folder is in \(place), so macOS asks before Countersign reads it."
+  }
+
   static func agentName(_ agent: String) -> String {
     switch agent {
     case "claude": return "Claude Code"
@@ -52,23 +64,108 @@ private struct SkillsContent: View {
       .frame(maxWidth: .infinity, alignment: .leading)
       .modifier(SkillsSurface())
     case .catalogUnreadable(let folder, let reason):
-      HStack(alignment: .firstTextBaseline, spacing: 6) {
-        Image(systemName: "exclamationmark.triangle.fill")
-          .font(.system(size: 11))
-          .foregroundStyle(Color(nsColor: .systemOrange))
-          .accessibilityHidden(true)
-        Text("Couldn't read \(shown(folder))/catalog.json: \(reason)")
-          .font(PanelTypography.secondary)
-          .fixedSize(horizontal: false, vertical: true)
-          .textSelection(.enabled)
+      unreadableRow(UnreadableFolder(folder: folder, reason: reason))
+        .padding(SettingsMetrics.rowPadding)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .modifier(SkillsSurface())
+    case .waitingForAccess:
+      VStack(alignment: .leading, spacing: 12) {
+        ForEach(overview.waitingFolders, id: \.path) { folder in
+          waitingRow(folder)
+        }
+        skillsErrorRow
       }
-      .accessibilityElement(children: .combine)
       .padding(SettingsMetrics.rowPadding)
       .frame(maxWidth: .infinity, alignment: .leading)
       .modifier(SkillsSurface())
     case .ready(let setupFolder):
       ready(overview, setupFolder: setupFolder)
     }
+  }
+
+  private func actionRow<Content: View>(
+    buttonTitle: String?, action: @escaping () -> Void, @ViewBuilder content: () -> Content
+  ) -> some View {
+    HStack(alignment: .center, spacing: 16) {
+      VStack(alignment: .leading, spacing: 6) {
+        content()
+      }
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .layoutPriority(1)
+      if let buttonTitle {
+        Button(buttonTitle, action: action)
+          .buttonStyle(SecondaryButtonStyle())
+          .fixedSize()
+      }
+    }
+  }
+
+  private func unreadableRow(_ unreadable: UnreadableFolder) -> some View {
+    let showsPrivacyHint =
+      unreadable.isPermissionDenied
+      && GuardedFolder.isGuarded(unreadable.folder, home: model.homeDirectory)
+    return actionRow(
+      buttonTitle: showsPrivacyHint ? SkillsText.openPrivacyTitle : nil,
+      action: { openPrivacySettings() },
+      content: {
+        privacyDeniedText(unreadable, showsPrivacyHint: showsPrivacyHint)
+      })
+  }
+
+  @ViewBuilder
+  private func privacyDeniedText(_ unreadable: UnreadableFolder, showsPrivacyHint: Bool)
+    -> some View
+  {
+    Group {
+      HStack(alignment: .firstTextBaseline, spacing: 6) {
+        Image(systemName: "exclamationmark.triangle.fill")
+          .font(.system(size: 11))
+          .foregroundStyle(Color(nsColor: .systemOrange))
+          .accessibilityHidden(true)
+        Text("Couldn't read \(shown(unreadable.folder))/catalog.json: \(unreadable.reason)")
+          .font(PanelTypography.secondary)
+          .fixedSize(horizontal: false, vertical: true)
+          .textSelection(.enabled)
+      }
+      .accessibilityElement(children: .combine)
+      if showsPrivacyHint {
+        Text(SkillsText.privacyHint)
+          .font(PanelTypography.secondary)
+          .foregroundStyle(.secondary)
+          .fixedSize(horizontal: false, vertical: true)
+      }
+    }
+  }
+
+  private func waitingRow(_ folder: URL) -> some View {
+    actionRow(
+      buttonTitle: SkillsText.showFolderTitle, action: { model.showSkills(from: folder) },
+      content: {
+        Text(shown(folder))
+          .font(.system(size: 13, weight: .semibold))
+          .fixedSize(horizontal: false, vertical: true)
+        if let place = GuardedFolder.placeName(of: folder, home: model.homeDirectory) {
+          Text(SkillsText.waitingCaption(place: place))
+            .font(PanelTypography.secondary)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+      })
+  }
+
+  @ViewBuilder
+  private var skillsErrorRow: some View {
+    if let message = model.skillsError {
+      Text(message)
+        .font(PanelTypography.secondary)
+        .foregroundStyle(Color(nsColor: .systemRed))
+        .fixedSize(horizontal: false, vertical: true)
+    }
+  }
+
+  private func openPrivacySettings() {
+    guard let address = URL(string: SkillsText.privacyAddress) else { return }
+    NSWorkspace.shared.open(address)
   }
 
   private func openRepository() {
@@ -102,6 +199,21 @@ private struct SkillsContent: View {
       .foregroundStyle(.secondary)
       .padding(.horizontal, SettingsMetrics.rowPadding)
       .padding(.top, SettingsMetrics.rowPadding)
+      if !overview.waitingFolders.isEmpty || !overview.unreadableFolders.isEmpty
+        || model.skillsError != nil
+      {
+        VStack(alignment: .leading, spacing: 12) {
+          ForEach(overview.waitingFolders, id: \.path) { folder in
+            waitingRow(folder)
+          }
+          ForEach(overview.unreadableFolders, id: \.folder.path) { unreadable in
+            unreadableRow(unreadable)
+          }
+          skillsErrorRow
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, SettingsMetrics.rowPadding)
+      }
       if let command = overview.updateCommand {
         VStack(alignment: .leading, spacing: 8) {
           InlineMessage(

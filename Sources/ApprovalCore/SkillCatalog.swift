@@ -2,9 +2,11 @@ import Foundation
 
 public struct SkillCatalogError: Error, Equatable, Sendable {
   public let reason: String
+  public let isPermissionDenied: Bool
 
-  public init(reason: String) {
+  public init(reason: String, isPermissionDenied: Bool = false) {
     self.reason = reason
+    self.isPermissionDenied = isPermissionDenied
   }
 }
 
@@ -94,10 +96,25 @@ public struct SkillCatalog: Equatable, Sendable {
 
   public static func read(folder: URL) -> Result<SkillCatalog, SkillCatalogError> {
     let file = folder.appendingPathComponent(fileName)
-    guard let data = try? Data(contentsOf: file) else {
-      return .failure(SkillCatalogError(reason: "\(fileName) is missing in \(folder.path)"))
+    do {
+      return parse(try Data(contentsOf: file))
+    } catch {
+      return .failure(readFailure(error))
     }
-    return parse(data)
+  }
+
+  private static func readFailure(_ error: Error) -> SkillCatalogError {
+    let cocoa = error as? CocoaError
+    let posix = (error as NSError).userInfo[NSUnderlyingErrorKey] as? NSError
+    let posixCode = posix?.domain == NSPOSIXErrorDomain ? Int32(posix?.code ?? 0) : 0
+    if cocoa?.code == .fileReadNoSuchFile || cocoa?.code == .fileNoSuchFile || posixCode == ENOENT {
+      return SkillCatalogError(reason: "the file is missing")
+    }
+    if cocoa?.code == .fileReadNoPermission || posixCode == EPERM || posixCode == EACCES {
+      return SkillCatalogError(
+        reason: "Countersign isn't allowed to read it", isPermissionDenied: true)
+    }
+    return SkillCatalogError(reason: "it couldn't be read: \(error.localizedDescription)")
   }
 
   private static func decode(_ data: Data) throws -> SkillCatalog {

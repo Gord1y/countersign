@@ -60,9 +60,12 @@ How each answer plays out, agent by agent, is in [agents.md](agents.md); the des
 - Its own config file.
 - For the Settings window's Skills group, the countersign-skills state folder
   (`~/.config/countersign/skills`), the `catalog.json` of each folder it names, and the agents'
-  skills folders, to show which skills are installed and which have updates. It only reads them.
-  The **Open countersign-skills on GitHub** button only opens your browser; Countersign makes no
-  request of its own.
+  skills folders, to show which skills are installed and which have updates. It only reads them,
+  and only while the Skills pane is shown. A folder in Documents, Desktop, Downloads, iCloud Drive
+  or on an external drive is read only after you choose **Show Skills from This Folder**, and macOS
+  asks once per app build. The approval is remembered in `skill-folders-shown` in the support
+  folder. The **Open countersign-skills on GitHub** button only opens your browser; Countersign
+  makes no request of its own.
 
 None of this leaves your Mac, and none of it is written to the log.
 

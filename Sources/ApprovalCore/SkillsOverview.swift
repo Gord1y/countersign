@@ -1,8 +1,21 @@
 import Foundation
 
+public struct UnreadableFolder: Equatable, Sendable {
+  public let folder: URL
+  public let reason: String
+  public let isPermissionDenied: Bool
+
+  public init(folder: URL, reason: String, isPermissionDenied: Bool = false) {
+    self.folder = folder
+    self.reason = reason
+    self.isPermissionDenied = isPermissionDenied
+  }
+}
+
 public struct SkillsOverview: Equatable, Sendable {
   public enum Availability: Equatable, Sendable {
     case notInstalled
+    case waitingForAccess(setupFolder: URL)
     case catalogUnreadable(folder: URL, reason: String)
     case ready(setupFolder: URL)
   }
@@ -65,12 +78,19 @@ public struct SkillsOverview: Equatable, Sendable {
   public let skills: [Skill]
   public let rules: [Rule]
   public let additions: [URL]
+  public let waitingFolders: [URL]
+  public let unreadableFolders: [UnreadableFolder]
 
-  public init(availability: Availability, skills: [Skill], rules: [Rule], additions: [URL]) {
+  public init(
+    availability: Availability, skills: [Skill], rules: [Rule], additions: [URL],
+    waitingFolders: [URL] = [], unreadableFolders: [UnreadableFolder] = []
+  ) {
     self.availability = availability
     self.skills = skills
     self.rules = rules
     self.additions = additions
+    self.waitingFolders = waitingFolders
+    self.unreadableFolders = unreadableFolders
   }
 
   public var updateCommand: String? {
@@ -85,10 +105,21 @@ public struct SkillsOverview: Equatable, Sendable {
     return setupFolder.appendingPathComponent(Self.updateScriptName).path
   }
 
-  public static func read(paths: AppPaths, agentExists: (String) -> Bool) -> SkillsOverview {
+  public static func read(
+    paths: AppPaths, agentExists: (String) -> Bool, approved: Set<String> = []
+  ) -> SkillsOverview {
     let state = SkillsInstallState.read(directory: paths.skillsStateDirectory)
     guard let setupFolder = state.setupFolder else {
       return SkillsOverview(availability: .notInstalled, skills: [], rules: [], additions: [])
+    }
+    func waits(_ folder: URL) -> Bool {
+      GuardedFolder.isGuarded(folder, home: paths.home)
+        && !approved.contains(folder.standardizedFileURL.path)
+    }
+    if waits(setupFolder) {
+      return SkillsOverview(
+        availability: .waitingForAccess(setupFolder: setupFolder), skills: [], rules: [],
+        additions: [], waitingFolders: [setupFolder])
     }
     let setupCatalog: SkillCatalog
     switch SkillCatalog.read(folder: setupFolder) {
@@ -100,11 +131,23 @@ public struct SkillsOverview: Equatable, Sendable {
         skills: [], rules: [], additions: [])
     }
 
-    let additionFolders = Array(state.sources.dropFirst())
     var catalogs: [(folder: URL, catalog: SkillCatalog)] = [(setupFolder, setupCatalog)]
-    for folder in additionFolders {
-      if case .success(let catalog) = SkillCatalog.read(folder: folder) {
+    var additionFolders: [URL] = []
+    var waitingFolders: [URL] = []
+    var unreadableFolders: [UnreadableFolder] = []
+    for folder in state.sources.dropFirst() {
+      if waits(folder) {
+        waitingFolders.append(folder)
+        continue
+      }
+      switch SkillCatalog.read(folder: folder) {
+      case .success(let catalog):
         catalogs.append((folder, catalog))
+        additionFolders.append(folder)
+      case .failure(let error):
+        unreadableFolders.append(
+          UnreadableFolder(
+            folder: folder, reason: error.reason, isPermissionDenied: error.isPermissionDenied))
       }
     }
 
@@ -145,7 +188,8 @@ public struct SkillsOverview: Equatable, Sendable {
 
     return SkillsOverview(
       availability: .ready(setupFolder: setupFolder), skills: skills, rules: rules,
-      additions: additionFolders)
+      additions: additionFolders, waitingFolders: waitingFolders,
+      unreadableFolders: unreadableFolders)
   }
 
   public static func installerAgentExists(_ agent: String, paths: AppPaths) -> Bool {

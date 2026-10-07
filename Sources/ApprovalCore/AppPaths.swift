@@ -87,6 +87,10 @@ public struct AppPaths: Sendable, Equatable {
     supportDirectory.appendingPathComponent("setup-shown")
   }
 
+  public var skillFolderApprovalsFile: URL {
+    supportDirectory.appendingPathComponent("skill-folders-shown")
+  }
+
   public var lastSeenVersionFile: URL {
     supportDirectory.appendingPathComponent("last-seen-version")
   }

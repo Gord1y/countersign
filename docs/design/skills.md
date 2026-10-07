@@ -99,8 +99,8 @@ the network request together with the privacy docs: the README "Privacy" section
 
 ## The overview
 
-`SkillsOverview.read(paths:agentExists:)` compares what is installed with the catalog of the
-installed countersign-skills. It reads local files only: no network request, no new privacy
+`SkillsOverview.read(paths:agentExists:approved:)` compares what is installed with the catalog of
+the installed countersign-skills. It reads local files only: no network request, no new privacy
 promise.
 
 - **No `sources.tsv` means `notInstalled`.** The list of skills is empty.
@@ -108,7 +108,7 @@ promise.
   `SkillCatalogError` reason and no skills.
 - **Otherwise `ready`.** One entry per catalog skill of the setup folder, then those of each
   addition that has a readable `catalog.json`. An addition without one contributes nothing and is
-  still listed in `additions`. Rules come from the same catalogs; they carry no installed status,
+  listed in `unreadableFolders`. Rules come from the same catalogs; they carry no installed status,
   because that would mean reading the agent's `CLAUDE.md`.
 - **Status per agent the skill names.** `agentMissing` when the injected `agentExists` says the
   agent is absent, or when the agent has no skills folder. Otherwise the agent's skills folder is
@@ -124,11 +124,32 @@ promise.
 - **`installerAgentExists` is the installer's rule**: Claude when its config root exists, Codex
   when `$HOME/.codex` exists, Antigravity when `$HOME/.gemini/antigravity-cli` exists, any other
   agent never. The caller passes it as `agentExists`, so tests can inject their own.
+- **Guarded places wait for an in-app OK.** `GuardedFolder` names a source folder, as written or
+  after `resolvingSymlinksInPath()`, that is `~/Documents`, `~/Desktop`, `~/Downloads`,
+  `~/Library/Mobile Documents` (iCloud Drive), under `/Volumes/` (an external drive), or inside
+  one of them, matching whole path components. `read(paths:agentExists:approved:)` does not read
+  such a folder until its standardized path is in `approved`; it lands in `waitingFolders`. A
+  waiting setup folder is `waitingForAccess` with no skills, rules or additions.
+- **An addition that fails to read is `unreadableFolders`**, guarded or not, with the same
+  `SkillCatalogError` reason as `catalogUnreadable`; `additions` lists only those that were read.
+  `SkillCatalog.read` tells a missing file ("the file is missing") from a refusal ("Countersign
+  isn't allowed to read it", `isPermissionDenied`) and names neither folder, because every row
+  already shows it. Only a refusal in a guarded folder shows the Privacy & Security hint.
+- **The guarded check stats nothing it does not need.** The as-written path is checked first and
+  returns when guarded; `resolvingSymlinksInPath()` runs only for a path that is not, so an
+  unapproved guarded folder is never touched.
+- **Approvals live in `skill-folders-shown`** in the support folder, one absolute path per line,
+  written by `SkillFolderApprovals.add` when the user chooses Show Skills from This Folder. That
+  choice then reads the folder, which is what makes macOS ask.
+- **Why lazy and gated.** macOS ties a Files & Folders grant to the build's ad hoc signature, so
+  an eager read prompted on every Settings open after each upgrade, with only macOS's generic
+  line. The read now happens only while the Skills pane is shown, and a guarded folder is read
+  only after the in-app OK; `Info.plist` carries the reason line macOS shows.
 
 Settings shows the overview in its own sidebar group, Skills, after Rules and before Context. The
-model reads it in `refreshFromDisk()` and when it is created, so the first frame is current and
-never a verdict from the last visit; the view itself reads nothing. Top-level `showSkills: false`
-hides the group, and a window left on Skills falls back to App. An unreadable catalog's message
-wraps instead of truncating, because the folder path in it is long. The group holds the source
-lines, the updates notice with `updateCommand` and a Copy button, one row per skill with a chip per
-agent, and the rules; it changes nothing.
+model reads it when Skills is selected and in `refreshFromDisk()` only while Skills is the shown
+pane, so no other pane touches a skills folder and the first frame of Skills is current; the view
+itself reads nothing. Top-level `showSkills: false` hides the group, and a window left on Skills
+falls back to App. An unreadable catalog's message wraps instead of truncating, because the folder
+path in it is long. The group holds the source lines, the updates notice with `updateCommand` and a
+Copy button, one row per skill with a chip per agent, and the rules; it changes nothing.

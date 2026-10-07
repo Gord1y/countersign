@@ -164,7 +164,74 @@ import Testing
     #expect(current.updateCommand == nil)
   }
 
-  @Test func additionsFollowTheSetupFolderAndOneWithoutACatalogIsStillListed() throws {
+  @Test func aGuardedAdditionThatIsNotApprovedWaitsAndItsSkillsAreNotListed() throws {
+    let home = try Home()
+    defer { home.cleanUp() }
+    let profile = try Home.makeFolder(home.root.appendingPathComponent("Documents/profile"))
+    try home.writeCatalog(to: home.source)
+    try home.writeCatalog(to: profile)
+    try home.writeSources([home.source, profile])
+
+    let overview = SkillsOverview.read(paths: home.paths, agentExists: { _ in true })
+
+    #expect(overview.waitingFolders == [profile])
+    #expect(overview.skills.count == 16)
+    #expect(overview.skills.allSatisfy { $0.source == home.source })
+    #expect(overview.additions.isEmpty)
+  }
+
+  @Test func theSameAdditionApprovedIsReadAndNoLongerWaits() throws {
+    let home = try Home()
+    defer { home.cleanUp() }
+    let profile = try Home.makeFolder(home.root.appendingPathComponent("Documents/profile"))
+    try home.writeCatalog(to: home.source)
+    try home.writeCatalog(to: profile)
+    try home.writeSources([home.source, profile])
+
+    let overview = SkillsOverview.read(
+      paths: home.paths, agentExists: { _ in true }, approved: [profile.path])
+
+    #expect(overview.waitingFolders.isEmpty)
+    #expect(overview.skills.count == 32)
+    #expect(overview.additions == [profile])
+  }
+
+  @Test func anApprovedGuardedAdditionWithoutACatalogIsUnreadableNotAnAddition() throws {
+    let home = try Home()
+    defer { home.cleanUp() }
+    let profile = try Home.makeFolder(home.root.appendingPathComponent("Documents/profile"))
+    try home.writeCatalog(to: home.source)
+    try home.writeSources([home.source, profile])
+
+    let overview = SkillsOverview.read(
+      paths: home.paths, agentExists: { _ in true }, approved: [profile.path])
+
+    #expect(overview.additions.isEmpty)
+    #expect(overview.waitingFolders.isEmpty)
+    #expect(
+      overview.unreadableFolders == [
+        UnreadableFolder(
+          folder: profile, reason: "the file is missing", isPermissionDenied: false)
+      ])
+  }
+
+  @Test func aGuardedSetupFolderThatIsNotApprovedWaitsForAccess() throws {
+    let home = try Home()
+    defer { home.cleanUp() }
+    let setup = try Home.makeFolder(home.root.appendingPathComponent("Documents/skills"))
+    try home.writeCatalog(to: setup)
+    try home.writeSources([setup])
+
+    let overview = SkillsOverview.read(paths: home.paths, agentExists: { _ in true })
+
+    #expect(overview.availability == .waitingForAccess(setupFolder: setup))
+    #expect(overview.waitingFolders == [setup])
+    #expect(overview.skills.isEmpty)
+    #expect(overview.rules.isEmpty)
+    #expect(overview.additions.isEmpty)
+  }
+
+  @Test func additionsFollowTheSetupFolderAndOneWithoutACatalogIsUnreadable() throws {
     let home = try Home()
     defer { home.cleanUp() }
     let withCatalog = try Home.makeFolder(home.root.appendingPathComponent("addition-with"))
@@ -179,7 +246,8 @@ import Testing
     #expect(overview.skills.prefix(16).allSatisfy { $0.source == home.source })
     #expect(overview.skills.suffix(16).allSatisfy { $0.source == withCatalog })
     #expect(overview.rules.count == 20)
-    #expect(overview.additions == [withCatalog, withoutCatalog])
+    #expect(overview.additions == [withCatalog])
+    #expect(overview.unreadableFolders.map(\.folder) == [withoutCatalog])
   }
 
   @Test func installerAgentExistsFollowsTheInstallersFolders() throws {

@@ -236,6 +236,7 @@ final class SettingsModel {
   private(set) var copied: SettingsCopyTarget?
   private(set) var skillsOverview = SkillsOverview(
     availability: .notInstalled, skills: [], rules: [], additions: [])
+  private(set) var skillsError: String?
   private(set) var customAccentColor: HexColor?
   private(set) var updateCheckPhase = SettingsUpdateCheckPhase.idle
   var requestClose: (() -> Void)?
@@ -266,13 +267,28 @@ final class SettingsModel {
     }
     loadPreferences()
     refreshHosts()
-    refreshSkills()
+    if selectedPane == .skills {
+      refreshSkills()
+    }
   }
 
   func refreshSkills() {
+    skillsError = nil
     let paths = environment.paths
     skillsOverview = SkillsOverview.read(
-      paths: paths, agentExists: { SkillsOverview.installerAgentExists($0, paths: paths) })
+      paths: paths, agentExists: { SkillsOverview.installerAgentExists($0, paths: paths) },
+      approved: SkillFolderApprovals.read(paths.skillFolderApprovalsFile))
+  }
+
+  func showSkills(from folder: URL) {
+    var failure: String?
+    do {
+      try SkillFolderApprovals.add(folder, to: environment.paths.skillFolderApprovalsFile)
+    } catch {
+      failure = SetupRun.describe(error)
+    }
+    refreshSkills()
+    skillsError = failure
   }
 
   var configFile: URL {
@@ -366,6 +382,9 @@ final class SettingsModel {
     guard shown != selectedPane else { return }
     selectedPane = shown
     visit.begin()
+    if shown == .skills {
+      refreshSkills()
+    }
   }
 
   private func visiblePane(for pane: SettingsPane) -> SettingsPane {
@@ -456,7 +475,9 @@ final class SettingsModel {
   func refreshFromDisk() {
     refreshStatus()
     refreshHosts()
-    refreshSkills()
+    if selectedPane == .skills {
+      refreshSkills()
+    }
     if launchAtLoginAvailable {
       launchAtLogin = LaunchAtLogin.state
     }
