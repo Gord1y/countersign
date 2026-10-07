@@ -172,8 +172,9 @@ silent; a failed automatic check is only written to the log. The time of the las
 `~/Library/Application Support/Countersign/update-check.json`.
 
 Settings ▸ **Help** also has a **Check for Updates** button, for checking without the menu-bar app
-running at all. It runs the same check and shows the same release notes and upgrade command, but
-doesn't read or write `update-check.json` and doesn't affect the app's next scheduled check.
+running at all. It runs the same check and shows the same release notes and upgrade command. It records its
+result in `update-check.json`, and the menu-bar app rereads that file each time you open the menu,
+so a check started in Settings also updates the menu's update line.
 
 ## Help
 

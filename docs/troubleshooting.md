@@ -56,8 +56,8 @@ Go through these in order:
    that. If it says a panel is already on screen or a request is waiting for one, answer that
    first. If no panel appears either, keep going.
 2. **Paused or in quiet time?** `countersign status` prints `state: paused` or
-   `quiet: until <time>`. `countersign resume` or `countersign snooze off` ends them, and so does
-   the menu-bar app. `state: paused until Countersign opens` means you chose **Pause until I
+   `quiet: until <time>`. `countersign resume` ends a pause and `countersign snooze off` ends quiet
+   time, and so does the menu-bar app. `state: paused until Countersign opens` means you chose **Pause until I
    reopen** when you quit the menu-bar app, or its **When Countersign quits** setting is **Pause
    panels**: opening Countersign.app ends it (see [menu-bar-app.md](menu-bar-app.md#quit)).
 3. **Still waiting for a pause?** A panel appears only after you've stopped typing, clicking and

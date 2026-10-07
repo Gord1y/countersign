@@ -2020,7 +2020,8 @@ The setup window (see "The setup window" in [setup.md](setup.md)) has `--setup`:
 
 It builds a `SetupModel` over a `SettingsModel` for the home, as `--settings --home` does, so the
 rows, paths and reasons are the ones that home's files give. `no-agents`, `needs-wiring` and
-`all-set` show the step the model opens on. `write-failed` and `done` need a state a read cannot
+`all-set` render the home's real state and set nothing, so pass a home in that state (no agents,
+agents needing a change, every agent wired); they show the step the model opens on. `write-failed` and `done` need a state a read cannot
 reach, so a snapshot-only setter puts the model on step 1 with the failure
 `Couldn't write ~/.codex/hooks.json: Permission denied.` on Codex, or on step 2, without writing a
 file or showing a test panel. The disclosures render collapsed; `--expanded`, valid only with
