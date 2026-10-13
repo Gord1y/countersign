@@ -42,6 +42,8 @@ testedWith:
   reports, and a stop note at 80%, also checked after each tool call. They follow the same switch
   as Claude Code's and are on by default. `contextCheckpoints.hosts.codex` takes `enabled`,
   `rearmBelow`, `handoffFile` and `notes`.
+- `scripts/install.sh --app`, for an install from a clone: besides the CLI, it builds the menu-bar
+  app and puts it in `~/Applications`, replacing an older copy.
 
 ## Changed
 
