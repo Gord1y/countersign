@@ -472,10 +472,12 @@ Settings ▸ Rules lists every rule in the order of the file and removes one wit
 after asking you to confirm.
 Entries that couldn't be read aren't listed; the pane counts them and offers Open in Editor.
 
-## Context checkpoints (Claude Code)
+## Context checkpoints (Claude Code and Codex)
 
-On by default, and for Claude Code only. While on, Countersign watches how large a Claude Code
-session's context has grown and adds a note asking it to wrap up, compact or hand off. The
+On by default, for Claude Code and Codex. While on, Countersign watches how large a Claude Code
+or Codex session's context has grown and adds a note asking it to wrap up, compact or hand off.
+Codex gets notes only, never a panel, at 50, 60 and 70 % of its context window as reported by
+Codex, and the stop note at 80 %; the token ladders below are Claude Code's. The
 `contextCheckpoints` object takes these keys, all optional and all edited in the file only:
 
 - `enabled`: `true` or `false`. Default `true`.
@@ -498,7 +500,10 @@ session's context has grown and adds a note asking it to wrap up, compact or han
   10 minutes before an idle Claude Code session past its first checkpoint loses its 1-hour prompt
   cache.
 - `hosts.claude`: any of the keys above except `hosts`, winning over the top-level value, note by
-  note. `hosts.codex`, `hosts.cursor` and `hosts.antigravity` are ignored with a log line.
+  note.
+- `hosts.codex`: `enabled`, `rearmBelow`, `handoffFile` and `notes`, winning over the top-level
+  value. `mode`, `thresholds`, `modelThresholds`, `menuBarMeter` and `coldCacheCard` are logged and
+  ignored for Codex. `hosts.cursor` and `hosts.antigravity` are ignored with a log line.
 
 A key with a mistake uses its default and the rest of the block is read as usual, like every other
 key on this page.

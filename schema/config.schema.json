@@ -162,10 +162,14 @@
         "hosts": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Per-host overrides; context checkpoints support only Claude Code.",
+          "description": "Per-host overrides; context checkpoints support only Claude Code and Codex.",
           "properties": {
             "claude": {
               "$ref": "#/$defs/contextCheckpointValues"
+            },
+            "codex": {
+              "$ref": "#/$defs/contextCheckpointValues",
+              "description": "Codex reads only enabled, rearmBelow, handoffFile and notes; mode, thresholds, modelThresholds, menuBarMeter and coldCacheCard are logged and ignored."
             }
           }
         }
@@ -585,7 +589,7 @@
     },
     "contextCheckpoints": {
       "$ref": "#/$defs/contextCheckpoints",
-      "description": "Optional notes that ask Claude Code to wrap up, compact or hand off as its context grows; on by default, Claude Code only."
+      "description": "Optional notes that ask Claude Code to wrap up, compact or hand off as its context grows; on by default for Claude Code (panel or note) and Codex (notes only)."
     },
     "hosts": {
       "type": "object",

@@ -163,6 +163,38 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
     self.coldCacheCard = coldCacheCard
   }
 
+  public func forCodex(windowTokens: Int) -> ContextCheckpointSettings {
+    var settings = self
+    settings.mode = .silent
+    settings.standardThresholds = ContextLadder.codexThresholds(windowTokens: windowTokens)
+    settings.millionThresholds = settings.standardThresholds
+    settings.modelThresholds = [:]
+    return settings
+  }
+
+  private static func resolveCodex(
+    top: ContextCheckpointFileValues?, host hostValues: ContextCheckpointFileValues?
+  ) -> ContextCheckpointSettings {
+    func note(_ name: String) -> String {
+      hostValues?.notes[name] ?? top?.notes[name]
+        ?? ContextCheckpointNotes.default.text(named: name) ?? ""
+    }
+
+    return ContextCheckpointSettings(
+      enabled: hostValues?.enabled ?? top?.enabled ?? defaultEnabled,
+      mode: .silent,
+      standardThresholds: defaultStandardThresholds,
+      millionThresholds: defaultMillionThresholds,
+      modelThresholds: [:],
+      rearmBelow: hostValues?.rearmBelow ?? top?.rearmBelow ?? defaultRearmBelow,
+      handoffFile: hostValues?.handoffFile ?? top?.handoffFile ?? defaultHandoffFile,
+      notes: ContextCheckpointNotes(
+        soft: note("soft"), status: note("status"), insist: note("insist"),
+        stop: note("stop"), compact: note("compact"), handoff: note("handoff")),
+      menuBarMeter: false,
+      coldCacheCard: false)
+  }
+
   public static var off: ContextCheckpointSettings {
     var settings = ContextCheckpointSettings.default
     settings.enabled = false
@@ -173,7 +205,11 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
     top: ContextCheckpointFileValues?, host hostValues: ContextCheckpointFileValues?,
     for host: Host
   ) -> ContextCheckpointSettings {
-    guard host == .claude else { return .off }
+    switch host {
+    case .claude: break
+    case .codex: return resolveCodex(top: top, host: hostValues)
+    case .cursor, .antigravity: return .off
+    }
 
     func note(_ name: String) -> String {
       hostValues?.notes[name] ?? top?.notes[name]

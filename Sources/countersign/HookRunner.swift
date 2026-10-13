@@ -22,9 +22,13 @@ enum HookRunner {
 
     let input = FileHandle.standardInput.readDataToEndOfFile()
 
-    let isToolCallEvent =
+    let isClaudeToolCall =
       options.host == .claude
       && ClaudeAdapter.eventName(of: input) == ContextHookSetup.toolEventName
+    let isCodexToolCall =
+      options.host == .codex
+      && CodexAdapter.eventName(of: input) == ContextHookSetup.toolEventName
+    let isToolCallEvent = isClaudeToolCall || isCodexToolCall
 
     let (configFile, configLogLines) = ConfigFileLoader.load(
       paths: paths, soundNames: SystemSounds.installedNames)
@@ -40,9 +44,15 @@ enum HookRunner {
       exit(0)
     }
 
-    if isToolCallEvent {
+    if isClaudeToolCall {
       ContextCheckpointRunner.runAfterToolCall(
         input: input, settings: settings, paths: paths, log: log)
+    }
+
+    if isCodexToolCall {
+      CodexCheckpointRunner.run(
+        input: input, eventName: ContextHookSetup.toolEventName, settings: settings, paths: paths,
+        log: log)
     }
 
     if options.event == .waiting {
@@ -60,6 +70,12 @@ enum HookRunner {
     if options.host == .claude, ClaudeAdapter.eventName(of: input) == ContextHookSetup.eventName {
       ContextCheckpointRunner.run(
         input: input, settings: settings, paths: paths, log: log, startedAt: startedAt)
+    }
+
+    if options.host == .codex, CodexAdapter.eventName(of: input) == ContextHookSetup.eventName {
+      CodexCheckpointRunner.run(
+        input: input, eventName: ContextHookSetup.eventName, settings: settings, paths: paths,
+        log: log)
     }
 
     let request: ApprovalRequest

@@ -68,7 +68,7 @@ On by default for Claude Code; turn it off in Settings ▸ Panels ▸ Context ch
 Countersign reads the session's transcript on each prompt, estimates the context size, and at
 three checkpoints shows a panel, or in silent mode adds a note without one. A fourth, the stop
 checkpoint, sends its note without a panel in either mode. Thresholds, silent mode and
-the rest are in [configuration.md](configuration.md#context-checkpoints-claude-code); how the size
+the rest are in [configuration.md](configuration.md#context-checkpoints-claude-code-and-codex); how the size
 is measured is in [design/checkpoints.md](design/checkpoints.md).
 
 - **Continue** sends nothing. Esc or a click outside does the same.
@@ -106,6 +106,16 @@ calls, and `apply_patch` edits, shown against the real file like Claude Code's e
   holds its Codex turn until you answer. "Answer in chat" keeps that short. `handoffApps` hands it
   to Codex's own prompt only when its panel would appear, after the queue and the pause in your
   typing, so it holds the turn until then too.
+
+### Context checkpoints
+
+On by default, with the same switch as for Claude Code (Settings ▸ Panels ▸ Context checkpoints);
+the hook entries come with setup. Codex gets notes only, never a panel: on each prompt Countersign
+reads the size of the session's context from Codex's rollout file and adds a note at 50, 60 and
+70 % of the context window Codex reports, and a stop note at 80 %, which also arrives after a tool
+call. The keys that apply to Codex are in
+[configuration.md](configuration.md#context-checkpoints-claude-code-and-codex); how the size is
+measured is in [design/checkpoints.md](design/checkpoints.md).
 
 ### After wiring
 

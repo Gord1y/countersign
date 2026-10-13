@@ -261,6 +261,20 @@ took over), a reading that is unknown, a level that did not cross, a muted sessi
 feature. An async hook's `systemMessage` is never shown to the user, so this feature never prints
 one.
 
+## A context note for Codex (`UserPromptSubmit`, `PostToolUse`)
+
+Codex gets context checkpoints as notes only. `CodexCheckpointRunner` prints the same envelope as
+Claude Code's, through `CodexAdapter.encodeContext(_:eventName:)`, with the event it was called for:
+
+```json
+{"hookSpecificOutput":{"additionalContext":"<the rendered note>","hookEventName":"UserPromptSubmit"}}
+```
+
+On `PostToolUse` only the stop note is sent, with `"hookEventName":"PostToolUse"`. Codex inserts
+the text as a `developer` message. There is no panel and no choice, so nothing else is ever
+printed: no level that fired, a muted or disabled feature and an unknown reading all mean empty
+stdout and exit 0. The delivery evidence is in "Codex" in [checkpoints.md](checkpoints.md).
+
 ## No answer at all
 
 Every row here ends the hook process with nothing on stdout and exit 0, the same "no decision" the

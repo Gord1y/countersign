@@ -66,6 +66,7 @@ public struct ConfigFile: Sendable, Equatable {
   public var antigravity: HostOverrides?
   public var contextCheckpoints: ContextCheckpointFileValues?
   public var contextCheckpointsClaude: ContextCheckpointFileValues?
+  public var contextCheckpointsCodex: ContextCheckpointFileValues?
   public var rules: [ApprovalRule]?
 
   public init(
@@ -97,6 +98,7 @@ public struct ConfigFile: Sendable, Equatable {
     antigravity: HostOverrides? = nil,
     contextCheckpoints: ContextCheckpointFileValues? = nil,
     contextCheckpointsClaude: ContextCheckpointFileValues? = nil,
+    contextCheckpointsCodex: ContextCheckpointFileValues? = nil,
     rules: [ApprovalRule]? = nil
   ) {
     self.armDelay = armDelay
@@ -127,6 +129,7 @@ public struct ConfigFile: Sendable, Equatable {
     self.antigravity = antigravity
     self.contextCheckpoints = contextCheckpoints
     self.contextCheckpointsClaude = contextCheckpointsClaude
+    self.contextCheckpointsCodex = contextCheckpointsCodex
     self.rules = rules
   }
 
@@ -276,8 +279,9 @@ public enum ConfigFileParser {
       case .object(let object):
         file.contextCheckpoints = readContextCheckpointValues(
           object, path: path, allowsHosts: true, logLines: &logLines)
-        file.contextCheckpointsClaude = readContextCheckpointHosts(
-          object["hosts"], path: "\(path).hosts", logLines: &logLines)
+        (file.contextCheckpointsClaude, file.contextCheckpointsCodex) =
+          readContextCheckpointHosts(
+            object["hosts"], path: "\(path).hosts", logLines: &logLines)
       default:
         logLines.append("\(path): expected an object, ignored")
       }
@@ -286,28 +290,49 @@ public enum ConfigFileParser {
     return (file, logLines)
   }
 
+  private static let claudeOnlyContextCheckpointKeys = [
+    "mode", "thresholds", "modelThresholds", "menuBarMeter", "coldCacheCard",
+  ]
+
   private static func readContextCheckpointHosts(
     _ value: JSONValue?, path: String, logLines: inout [String]
-  ) -> ContextCheckpointFileValues? {
-    guard let value else { return nil }
+  ) -> (claude: ContextCheckpointFileValues?, codex: ContextCheckpointFileValues?) {
+    guard let value else { return (nil, nil) }
     guard case .object(let hostsObject) = value else {
       logLines.append("\(path): expected an object, ignored")
-      return nil
+      return (nil, nil)
     }
     for key in hostsObject.keys where Host(rawValue: key) == nil {
       logLines.append("unknown key \"\(path).\(key)\", ignored")
     }
-    for host in Host.allCases where host != .claude && hostsObject[host.rawValue] != nil {
+    for host in [Host.cursor, .antigravity] where hostsObject[host.rawValue] != nil {
       logLines.append(
-        "\(path).\(host.rawValue): context checkpoints support only Claude Code, ignored")
+        "\(path).\(host.rawValue): context checkpoints support only Claude Code and Codex, ignored"
+      )
     }
-    guard let claudeValue = hostsObject["claude"] else { return nil }
-    guard case .object(let claudeObject) = claudeValue else {
-      logLines.append("\(path).claude: expected an object, ignored")
-      return nil
+    var claude: ContextCheckpointFileValues?
+    if let claudeValue = hostsObject["claude"] {
+      if case .object(let claudeObject) = claudeValue {
+        claude = readContextCheckpointValues(
+          claudeObject, path: "\(path).claude", allowsHosts: false, logLines: &logLines)
+      } else {
+        logLines.append("\(path).claude: expected an object, ignored")
+      }
     }
-    return readContextCheckpointValues(
-      claudeObject, path: "\(path).claude", allowsHosts: false, logLines: &logLines)
+    var codex: ContextCheckpointFileValues?
+    if let codexValue = hostsObject["codex"] {
+      if case .object(var codexObject) = codexValue {
+        for key in claudeOnlyContextCheckpointKeys where codexObject[key] != nil {
+          logLines.append("\(path).codex.\(key): Claude Code only, ignored")
+          codexObject[key] = nil
+        }
+        codex = readContextCheckpointValues(
+          codexObject, path: "\(path).codex", allowsHosts: false, logLines: &logLines)
+      } else {
+        logLines.append("\(path).codex: expected an object, ignored")
+      }
+    }
+    return (claude, codex)
   }
 
   private static func readContextCheckpointValues(

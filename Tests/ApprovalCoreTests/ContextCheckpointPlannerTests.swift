@@ -30,6 +30,30 @@ import Testing
     #expect(plan.state.fired == [.soft])
   }
 
+  @Test func codexLadderFiresStatusAsAnInjectedNote() {
+    let settings = ContextCheckpointSettings.default.forCodex(windowTokens: 258_400)
+    let plan = ContextCheckpointPlanner.plan(
+      reading: reading(160_000), previous: .fresh(now: now), settings: settings,
+      transcriptPath: "/t.jsonl", project: "shop-api", now: now)
+    #expect(plan.state.fired.max() == .status)
+    guard case .inject = plan.decision else {
+      Issue.record("expected an injected note")
+      return
+    }
+  }
+
+  @Test func codexStopOnlyLevelsFireStopAt210000Tokens() {
+    let settings = ContextCheckpointSettings.default.forCodex(windowTokens: 258_400)
+    let plan = ContextCheckpointPlanner.plan(
+      reading: reading(210_000), previous: .fresh(now: now), settings: settings,
+      transcriptPath: "/t.jsonl", project: "shop-api", now: now, levels: [.stop])
+    #expect(plan.state.fired.max() == .stop)
+    guard case .inject = plan.decision else {
+      Issue.record("expected an injected note")
+      return
+    }
+  }
+
   @Test func panelModeAsksWithTheLevelAndTheLadderUsed() {
     let settings = settings(mode: .panel)
     let plan = ContextCheckpointPlanner.plan(

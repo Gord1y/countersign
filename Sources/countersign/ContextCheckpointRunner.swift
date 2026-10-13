@@ -168,7 +168,7 @@ enum ContextCheckpointRunner {
     exit(0)
   }
 
-  private static func firedLevel(in plan: ContextCheckpointPlan) -> ContextLevel? {
+  static func firedLevel(in plan: ContextCheckpointPlan) -> ContextLevel? {
     switch plan.decision {
     case .nothing: return nil
     case .inject: return plan.state.fired.max()
@@ -176,7 +176,7 @@ enum ContextCheckpointRunner {
     }
   }
 
-  private static func logName(of level: ContextLevel) -> String {
+  static func logName(of level: ContextLevel) -> String {
     switch level {
     case .soft: return "soft"
     case .status: return "status"

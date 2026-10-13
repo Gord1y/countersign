@@ -201,6 +201,25 @@ fixtures are `claude-post-tool-use.json` (a main-thread `Read`) and
 `claude-post-tool-use-subagent.json` (the same `Read` inside an `Explore` subagent), both with
 anonymized paths.
 
+## The Codex `UserPromptSubmit` and `PostToolUse` inputs
+
+`countersign hook --host codex` also serves these two events, which `HookRunner.run` routes to
+`CodexCheckpointRunner` (see "Codex" in [checkpoints.md](checkpoints.md)). It reads the event with
+`CodexAdapter.eventName(of:)`, the same top-level `hook_event_name` read as Claude's, and
+`CodexAdapter.parse` keeps rejecting any event but `PermissionRequest`.
+
+Real captures (Codex 0.162.0, `codex-tui`) carry exactly `session_id`, `turn_id`,
+`transcript_path` (the rollout file), `cwd`, `hook_event_name`, `model` and `permission_mode`,
+plus `prompt` on `UserPromptSubmit` and `tool_name`, `tool_input`, `tool_response` (a string) and
+`tool_use_id` on `PostToolUse`. No `agent_id` was captured; the parser still reads one when
+present, as `CodexAdapter.parse` does.
+
+`CodexAdapter.parseContextInput(_:eventName:)` requires `session_id`, `cwd` and the event name,
+and reads `transcript_path`, `permission_mode` and `agent_id` when they are strings. It never reads
+`prompt`, `tool_input` or `tool_response`, so what a person typed and what a tool did never leave
+the parser. The fixtures are `codex-user-prompt-submit.json` and `codex-post-tool-use.json`, with
+the working directory and rollout path anonymized and every key and type kept.
+
 ## Cursor payloads in Claude Code hooks
 
 Cursor also runs the hooks in `~/.claude/settings.json`, through its Claude Code compatibility, so

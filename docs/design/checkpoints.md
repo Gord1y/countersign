@@ -1,15 +1,15 @@
 # Context checkpoints
 
-How Countersign measures a Claude Code session's context and nudges it toward a deliberate
-compaction; read it before changing anything named `Context…`.
+How Countersign measures a Claude Code or Codex session's context and nudges it toward a
+deliberate compaction; read it before changing anything named `Context…`.
 
-## On by default, Claude Code only
+## On by default, Claude Code and Codex
 
-`ContextCheckpointSettings.defaultEnabled` is `true`, and `.default` carries it. Every host but
-Claude Code resolves to `.off`, `.default` with `enabled` false, so Codex, Cursor and Antigravity
-never get checkpoints. The hook is the `UserPromptSubmit` entry, plus the `PostToolUse` entry for
-the stop check (see "After a tool call"), in Claude Code's settings file: setup and Update add them
-while checkpoints are on (`addsContextEntry`, see "The context entry follows the setting" in
+`ContextCheckpointSettings.defaultEnabled` is `true`, and `.default` carries it. Claude Code and
+Codex resolve it; Cursor and Antigravity resolve to `.off`, `.default` with `enabled` false, so
+they never get checkpoints. The hook is the `UserPromptSubmit` entry, plus the `PostToolUse` entry
+for the stop check (see "After a tool call"), in Claude Code's settings file: setup and Update add
+them while checkpoints are on (`addsContextEntry`, see "The context entry follows the setting" in
 [setup.md](setup.md)), and the Settings toggle adds and removes them (`ContextHookRun`).
 
 ## Measuring context
@@ -337,3 +337,56 @@ that printed `hookSpecificOutput.additionalContext` reached the model at its nex
 first read the note as part of the tool's result and said it would ignore it, then followed it in its
 final reply. So delivery works, and a model may still distrust a note that arrives next to a tool
 result.
+
+## Codex
+
+**Notes only.** Codex gets context checkpoints as notes and never as a panel: the user chose it,
+and Codex has no way to answer this event with a panel's choice (the hook can only add context).
+`ContextCheckpointSettings.resolve` therefore forces `mode` to `.silent` for Codex, and `menuBarMeter`
+and `coldCacheCard` to false; `mode`, `thresholds`, `modelThresholds`, `menuBarMeter` and
+`coldCacheCard` under `hosts.codex` are logged `Claude Code only, ignored` and not stored.
+`enabled`, `rearmBelow`, `handoffFile` and `notes` resolve host over top over default as for
+Claude Code, and the same Context checkpoints switch covers both hosts.
+
+**A ladder of percents.** Codex reports its window (`model_context_window`) next to every usage
+row, and it differs by model, so token ladders do not fit. `ContextLadder.codexPercents` is
+`[50, 60, 70, 80]` and `ContextCheckpointSettings.forCodex(windowTokens:)` turns it into token
+thresholds with `ContextLadder.codexThresholds(windowTokens:)`, rounded to the nearest token, for
+`soft`, `status`, `insist` and `stop`. For the 258,400-token window of the captured session that is
+129,200, 155,040, 180,880 and 206,720. The runner plans with that copy, `mode` `.silent`, no model
+thresholds and a `ContextReading` with no model id, no million window and no compaction id, so
+every fired level is an injected note.
+
+**The reading.** `CodexUsageReader.read(rolloutURL:)` reads the rollout file named by the input's
+`transcript_path`: the latest `token_count` event's `last_token_usage.input_tokens` is the context
+size and `model_context_window` the window. Like every host file it is read defensively: a missing
+file or an unexpected row is "no reading".
+
+**Both events.** `HookRunner.run` hands a Codex `UserPromptSubmit` to `CodexCheckpointRunner` right
+after the pause check, with all levels and the logs `context: codex off`, `context: codex
+unparseable input`, `context: codex no reading`, `context: codex <tokens> tokens` and
+`context: codex <tokens> tokens, <level> fired`, then `outcome: context note (codex, <level>)`. A
+Codex `PostToolUse` goes there before `WaitingRecorder.clearRecord`, with the same quiet rules as
+"After a tool call" and only the stop rung: `context: codex <tokens> tokens after a tool call, stop
+fired` and `outcome: context note (codex, stop, after a tool call)`, and `context: unparseable codex
+tool call` for an input that does not parse. No headless gate runs, since the session registry only
+covers Claude Code.
+
+**Main thread only.** Both paths skip an input that carries `agent_id`: a note there would steer a
+subagent, which cannot hand off the session. The prompt path logs `context: codex subagent prompt,
+skipped`; the tool-call path exits quietly. The prompt path also logs
+`context: codex unusable session id`, `context: codex state busy` (a lock not won) and
+`context: codex state not saved: <error>`.
+
+**Re-arming.** Only the drop below `rearmBelow` of the session's peak re-arms the ladder. No Codex
+compaction marker has been captured, so there is no compaction id to compare.
+
+**Shared state.** The state files in `contextCheckpointsDirectory`, the per-session lock and the
+30-day prune (on the prompt path only) are the same as Claude Code's; Codex and Claude session ids
+do not collide.
+
+**Delivery.** A hook that printed `{"hookSpecificOutput":{"hookEventName":"<event>",
+"additionalContext":"<text>"}}` had the text inserted into the session as a `developer` message,
+and the model followed it every time it was tried (Codex 0.162.0, `UserPromptSubmit` and
+`PostToolUse`). The envelope is the one Claude Code takes, so `CodexAdapter.encodeContext` shares
+`ClaudeAdapter.encodeContext`.

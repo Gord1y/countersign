@@ -44,6 +44,14 @@ public struct ContextLadderStep: Sendable, Equatable {
 }
 
 public enum ContextLadder {
+  public static let codexPercents = [50, 60, 70, 80]
+
+  public static func codexThresholds(windowTokens: Int) -> [Int] {
+    codexPercents.map { percent in
+      Int((Double(windowTokens) * Double(percent) / 100).rounded())
+    }
+  }
+
   public static func thresholds(
     modelID: String?, hasMillionTokenWindow: Bool, settings: ContextLadderSettings
   ) -> [Int] {

@@ -16,6 +16,11 @@ import Testing
       compactionID: compactionID, previous: previous, settings: settings)
   }
 
+  @Test func codexThresholdsArePercentsOfTheWindow() {
+    #expect(
+      ContextLadder.codexThresholds(windowTokens: 258_400) == [129_200, 155_040, 180_880, 206_720])
+  }
+
   @Test func picksThresholdsByModelAndWindow() {
     var settings = ContextLadderSettings.default
     settings.modelThresholds = [

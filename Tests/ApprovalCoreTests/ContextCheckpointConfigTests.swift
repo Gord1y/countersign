@@ -8,7 +8,7 @@ import Testing
     ConfigFileParser.parse(Data(json.utf8))
   }
 
-  @Test func absentKeyResolvesToTheEnabledDefaultForClaudeOnly() {
+  @Test func absentKeyResolvesToTheEnabledDefaultForClaudeAndCodex() {
     let (file, logLines) = parse("{}")
     #expect(logLines.isEmpty)
     #expect(file.contextCheckpoints == nil)
@@ -16,7 +16,8 @@ import Testing
     let settings = Settings.resolve(file: file, host: .claude)
     #expect(settings.contextCheckpoints == .default)
     #expect(settings.contextCheckpoints.enabled == true)
-    for host in [Host.codex, .cursor, .antigravity] {
+    #expect(Settings.resolve(file: file, host: .codex).contextCheckpoints.enabled == true)
+    for host in [Host.cursor, .antigravity] {
       #expect(Settings.resolve(file: file, host: host).contextCheckpoints.enabled == false)
     }
   }
@@ -162,14 +163,15 @@ import Testing
         "contextCheckpoints": {
           "foo": 1,
           "enabled": true,
-          "hosts": { "codex": { "enabled": true }, "claude": { "hosts": {}, "bar": 2 } }
+          "hosts": { "cursor": { "enabled": true }, "claude": { "hosts": {}, "bar": 2 } }
         }
       }
       """)
     #expect(logLines.contains("unknown key \"contextCheckpoints.foo\", ignored"))
     #expect(
       logLines.contains(
-        "contextCheckpoints.hosts.codex: context checkpoints support only Claude Code, ignored"))
+        "contextCheckpoints.hosts.cursor: context checkpoints support only Claude Code and Codex, ignored"
+      ))
     #expect(logLines.contains("unknown key \"contextCheckpoints.hosts.claude.hosts\", ignored"))
     #expect(logLines.contains("unknown key \"contextCheckpoints.hosts.claude.bar\", ignored"))
     #expect(logLines.count == 4)
@@ -186,15 +188,65 @@ import Testing
     #expect(hostsFile.contextCheckpointsClaude == nil)
   }
 
-  @Test func otherHostsNeverEnableCheckpoints() {
+  @Test func cursorAndAntigravityNeverEnableCheckpoints() {
     let (file, _) = parse(
       #"{"contextCheckpoints": {"enabled": true, "hosts": {"claude": {"enabled": true}}}}"#)
-    for host in [Host.codex, .cursor, .antigravity] {
+    for host in [Host.cursor, .antigravity] {
       let settings = Settings.resolve(file: file, host: host).contextCheckpoints
       #expect(settings.enabled == false)
       #expect(settings == .off)
     }
     #expect(Settings.resolve(file: file, host: .claude).contextCheckpoints.enabled)
+  }
+
+  @Test func codexIsEnabledByDefaultAndTheTopSwitchTurnsItOff() {
+    let (defaults, _) = parse("{}")
+    #expect(Settings.resolve(file: defaults, host: .codex).contextCheckpoints.enabled)
+    let (off, _) = parse(#"{"contextCheckpoints": {"enabled": false}}"#)
+    #expect(Settings.resolve(file: off, host: .codex).contextCheckpoints.enabled == false)
+  }
+
+  @Test func codexHostSwitchWinsOverTheTopSwitch() {
+    let (file, logLines) = parse(
+      #"{"contextCheckpoints": {"enabled": true, "hosts": {"codex": {"enabled": false}}}}"#)
+    #expect(logLines.isEmpty)
+    #expect(Settings.resolve(file: file, host: .codex).contextCheckpoints.enabled == false)
+    #expect(Settings.resolve(file: file, host: .claude).contextCheckpoints.enabled)
+  }
+
+  @Test func codexIsSilentWhateverTheTopModeSays() {
+    let (file, _) = parse(#"{"contextCheckpoints": {"mode": "panel"}}"#)
+    let settings = Settings.resolve(file: file, host: .codex).contextCheckpoints
+    #expect(settings.mode == .silent)
+    #expect(settings.menuBarMeter == false)
+    #expect(settings.coldCacheCard == false)
+    #expect(Settings.resolve(file: file, host: .claude).contextCheckpoints.mode == .panel)
+  }
+
+  @Test func codexNoteWinsOverTheTopNote() {
+    let (file, _) = parse(
+      """
+      {"contextCheckpoints": {"notes": {"soft": "top soft", "stop": "top stop"},
+        "hosts": {"codex": {"notes": {"soft": "codex soft"}}}}}
+      """)
+    let notes = Settings.resolve(file: file, host: .codex).contextCheckpoints.notes
+    #expect(notes.soft == "codex soft")
+    #expect(notes.stop == "top stop")
+  }
+
+  @Test func codexReadsTheBlockWithoutALogLine() {
+    let (file, logLines) = parse(
+      #"{"contextCheckpoints": {"hosts": {"codex": {"enabled": false, "rearmBelow": 0.5}}}}"#)
+    #expect(logLines.isEmpty)
+    #expect(file.contextCheckpointsCodex?.enabled == false)
+    #expect(file.contextCheckpointsCodex?.rearmBelow == 0.5)
+  }
+
+  @Test func codexLogsAndDropsTheClaudeOnlyKeys() {
+    let (file, logLines) = parse(
+      #"{"contextCheckpoints": {"hosts": {"codex": {"thresholds": {"200k": [1, 2, 3, 4]}}}}}"#)
+    #expect(logLines == ["contextCheckpoints.hosts.codex.thresholds: Claude Code only, ignored"])
+    #expect(file.contextCheckpointsCodex?.standardThresholds == nil)
   }
 
   @Test func tokenTextRoundsToThousandsThenMillions() {

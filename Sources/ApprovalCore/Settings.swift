@@ -161,7 +161,9 @@ public struct Settings: Sendable, Equatable {
       accentColor: accentColor,
       showSkills: showSkills,
       contextCheckpoints: ContextCheckpointSettings.resolve(
-        top: file.contextCheckpoints, host: file.contextCheckpointsClaude, for: host),
+        top: file.contextCheckpoints,
+        host: host == .codex ? file.contextCheckpointsCodex : file.contextCheckpointsClaude,
+        for: host),
       rules: file.rules ?? defaultRules)
   }
 }
