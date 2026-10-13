@@ -1239,6 +1239,10 @@ final class SettingsModel {
     write(.contextMenuBarMeter(enabled))
   }
 
+  func setContextColdCacheCard(_ enabled: Bool) {
+    write(.contextColdCacheCard(enabled))
+  }
+
   func setNewContextModelPrefix(_ text: String) {
     newContextModelPrefix = text
     contextErrors[.contextModelThresholds] = nil

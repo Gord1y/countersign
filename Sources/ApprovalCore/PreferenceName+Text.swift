@@ -38,6 +38,7 @@ extension PreferenceName {
     case .contextNoteCompact: return "Compact note"
     case .contextNoteHandoff: return "Handoff note"
     case .contextMenuBarMeter: return "Context in the menu bar"
+    case .contextColdCacheCard: return "Warn before the cache goes cold"
     }
   }
 
@@ -83,6 +84,8 @@ extension PreferenceName {
     case .contextNoteCompact: return "Sent when you choose Compact after this step."
     case .contextNoteHandoff: return "Sent when you choose Hand off & start fresh."
     case .contextMenuBarMeter: return "List each live session's context in the menu."
+    case .contextColdCacheCard:
+      return "Show a card 10 minutes before an idle session's cache expires."
     }
   }
 
@@ -316,6 +319,13 @@ extension PreferenceName {
         "Adds each live Claude Code session's context size to the menu-bar menu, so you can see"
         + " which one is growing. The meter reads each session's transcript when the menu opens,"
         + " so a reading can lag a turn behind, and it costs nothing while the menu is closed."
+    case .contextColdCacheCard:
+      return
+        "Shows a card in the top-right corner 10 minutes before an idle Claude Code session past"
+        + " its first checkpoint loses its 1-hour prompt cache. After that, the next message,"
+        + " /compact or handoff re-reads the whole context at full price. Copy handoff prompt"
+        + " copies the handoff note, ready to paste into that session. The menu-bar app checks"
+        + " every 30 seconds while it runs."
     }
   }
 
@@ -360,6 +370,8 @@ extension PreferenceName {
       .contextNoteHandoff:
       return "Built-in wording"
     case .contextMenuBarMeter: return Self.boolText(ContextCheckpointSettings.default.menuBarMeter)
+    case .contextColdCacheCard:
+      return Self.boolText(ContextCheckpointSettings.default.coldCacheCard)
     }
   }
 

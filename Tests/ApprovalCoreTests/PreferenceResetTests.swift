@@ -76,6 +76,9 @@ import Testing
         .contextMenuBarMeter, in: file(ContextCheckpointFileValues(menuBarMeter: true))))
     #expect(
       PreferenceReset.isChanged(
+        .contextColdCacheCard, in: file(ContextCheckpointFileValues(coldCacheCard: false))))
+    #expect(
+      PreferenceReset.isChanged(
         .contextMillionThresholds,
         in: file(ContextCheckpointFileValues(millionThresholds: [1, 2, 3]))))
   }
@@ -98,6 +101,7 @@ import Testing
     #expect(PreferenceReset.valueText(.contextHandoffFile, in: values) == "notes/handoff.md")
     #expect(PreferenceReset.valueText(.contextNoteSoft, in: values) == "Default")
     #expect(PreferenceReset.valueText(.contextMenuBarMeter, in: values) == "Off")
+    #expect(PreferenceReset.valueText(.contextColdCacheCard, in: values) == "On")
     values = values.applying(.contextCheckpointsEnabled(true)).applying(.contextMode(.silent))
     values = values.applying(.contextNote(.contextNoteSoft, "mine"))
     values = values.applying(.setContextModelThresholds(prefix: "a", ladder: [1]))

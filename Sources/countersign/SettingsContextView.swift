@@ -60,6 +60,19 @@ struct ContextSection: View {
           }
           .disabled(model.configProblem != nil)
         }
+        SettingsBlock("Cold cache") {
+          PreferenceRow(
+            .contextColdCacheCard, model: model,
+            problem: model.writeErrors[.contextColdCacheCard]
+          ) {
+            SettingsSwitch(
+              PreferenceName.contextColdCacheCard.title,
+              isOn: Binding(
+                get: { model.contextCheckpoints.coldCacheCard },
+                set: { model.setContextColdCacheCard($0) }))
+          }
+          .disabled(model.configProblem != nil)
+        }
         SettingsBlock("Menu bar") {
           PreferenceRow(
             .contextMenuBarMeter, model: model, problem: model.writeErrors[.contextMenuBarMeter]

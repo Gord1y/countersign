@@ -82,6 +82,7 @@ public enum SettingsPane: String, CaseIterable, Sendable {
         .contextNoteStatus, .contextNoteInsist, .contextNoteStop, .contextNoteCompact,
         .contextNoteHandoff,
         .contextMenuBarMeter,
+        .contextColdCacheCard,
       ]
     }
   }

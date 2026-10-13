@@ -169,7 +169,7 @@ public enum ConfigFileParser {
   ]
   static let contextCheckpointKeys: Set<String> = [
     "enabled", "mode", "thresholds", "modelThresholds", "rearmBelow", "handoffFile", "notes",
-    "menuBarMeter", "hosts",
+    "menuBarMeter", "coldCacheCard", "hosts",
   ]
   static let hostKeys: Set<String> = [
     "armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds", "handoffApps",
@@ -352,6 +352,9 @@ public enum ConfigFileParser {
       object["notes"], path: "\(path).notes", logLines: &logLines)
     values.menuBarMeter = readBool(
       object["menuBarMeter"], path: "\(path).menuBarMeter", defaultValue: false,
+      logLines: &logLines)
+    values.coldCacheCard = readBool(
+      object["coldCacheCard"], path: "\(path).coldCacheCard", defaultValue: true,
       logLines: &logLines)
     return values
   }

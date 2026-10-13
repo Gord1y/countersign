@@ -95,6 +95,12 @@ panel shows up in the icon within two seconds.
   history. With nothing recorded, the submenu shows a single `No decisions yet`. What is stored,
   and for how long, is in [safety-and-privacy.md](safety-and-privacy.md#what-it-writes).
 
+While the menu-bar app runs, a card appears in the top-right corner 10 minutes before an idle Claude
+Code session past its first context checkpoint loses its prompt cache. **Copy handoff prompt**
+copies the handoff note, so you can paste it into that session and hand off while the cache is still
+warm. It shows once per idle stretch, and pause and quiet time hold it. Turn it off in Settings,
+Context.
+
 ## Settings
 
 **Settings…** (<kbd>⌘</kbd><kbd>,</kbd> while the menu is open) opens the Settings window. Under

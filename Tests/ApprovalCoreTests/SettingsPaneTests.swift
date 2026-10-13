@@ -115,6 +115,7 @@ import Testing
         .contextNoteStatus, .contextNoteInsist, .contextNoteStop, .contextNoteCompact,
         .contextNoteHandoff,
         .contextMenuBarMeter,
+        .contextColdCacheCard,
       ])
     #expect(
       Set(

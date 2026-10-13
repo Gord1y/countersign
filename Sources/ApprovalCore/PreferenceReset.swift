@@ -79,6 +79,10 @@ public enum PreferenceReset {
     case .contextMenuBarMeter:
       return changed(
         file.contextCheckpoints?.menuBarMeter, from: ContextCheckpointSettings.default.menuBarMeter)
+    case .contextColdCacheCard:
+      return changed(
+        file.contextCheckpoints?.coldCacheCard,
+        from: ContextCheckpointSettings.default.coldCacheCard)
     }
   }
 
@@ -145,6 +149,7 @@ public enum PreferenceReset {
       let text = values.contextCheckpoints.notes.text(for: name)
       return text == ContextCheckpointNotes.default.text(for: name) ? "Default" : "Custom"
     case .contextMenuBarMeter: return values.contextCheckpoints.menuBarMeter ? "On" : "Off"
+    case .contextColdCacheCard: return values.contextCheckpoints.coldCacheCard ? "On" : "Off"
     }
   }
 
@@ -190,7 +195,7 @@ public enum PreferenceReset {
       .contextMillionThresholds, .contextModelThresholds,
       .contextRearmBelow, .contextHandoffFile, .contextNoteSoft, .contextNoteStatus,
       .contextNoteInsist, .contextNoteStop, .contextNoteCompact, .contextNoteHandoff,
-      .contextMenuBarMeter:
+      .contextMenuBarMeter, .contextColdCacheCard:
       return false
     }
   }

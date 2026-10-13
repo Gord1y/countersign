@@ -172,6 +172,41 @@ reading), `cold` from the expiry instant on, otherwise `warm(secondsLeft:)`. The
 minute left` below 60 seconds, ` · cold`, or nothing for `unknown`. The value is computed when
 the menu opens and is not refreshed while it is open.
 
+## The cold-cache card
+
+The meter only helps when the menu is open, so the menu-bar app also checks on its own: a timer of
+30 seconds in `CompanionController` calls `ColdCacheCardController.tick`, which asks
+`ColdCacheWarning.candidates` for sessions whose cache is about to go cold and shows a corner card
+for the first one. Nothing checks while the menu-bar app is not running, and the hook path never
+shows this card.
+
+A session is a candidate when all of these hold, tested cheapest first. A fresh transcript reading
+is required; `lastTokens` from the stored state is never used, because a stale size must not warn.
+
+- Checkpoints and `coldCacheCard` are both on.
+- The session is idle: its Claude Code process is alive and its registry `status` is `idle`. A
+  busy or waiting session is about to refresh its cache or is in front of the user.
+- The cache lifetime is 1 hour. A 5-minute cache would warn after every short pause.
+- The context is at or past the first rung of the session's ladder (`ContextGauge.ladder`). A small
+  context is cheap to re-read.
+- The cache is warm with 600 seconds or less left (`ColdCacheWarning.leadTime`), and more than 0.
+  Ten minutes is enough time to paste the handoff prompt and let the handoff finish while the cache
+  is still warm.
+
+Candidates are sorted by seconds left, then session id. `ColdCacheWarningLedger` keeps one
+`lastActivity` per session and the card shows at most once per value, so one idle stretch never
+warns twice; a new turn changes `lastActivity` and re-arms the session. A card that is dismissed,
+actioned or closed because the session stopped being a candidate keeps its ledger entry. A card
+hidden for an approval claim, or for pause or quiet time, forgets it, so it shows again once the
+hold is over if the session is still due.
+
+The card reads `N tokens go cold in M min` with the minutes rounded up, refreshed every tick, and
+closes when the session stops being a candidate (it got busy, or its cache expired). Its action,
+Copy handoff prompt, puts the rendered handoff note on the general pasteboard, with `{tokens}` and
+`{handoffFile}` filled in as for a checkpoint, ready to paste into that session. Pause and quiet
+time hold the card: nothing shows and an open card closes (logged as hidden). The card is a
+`CornerCard`; see "The shared corner card" in [notice.md](notice.md).
+
 ## Choices and what Claude receives
 
 A panel offers four choices. **Continue** and **Not this session** send nothing; the second also

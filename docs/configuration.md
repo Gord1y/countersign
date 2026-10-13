@@ -494,6 +494,9 @@ session's context has grown and adds a note asking it to wrap up, compact or han
   characters. Two placeholders work in every note: `{tokens}` becomes the context size (`212K`, or
   `1.3M` from 999,500 tokens up) and `{handoffFile}` becomes `handoffFile`.
 - `menuBarMeter`: `true` or `false`. Default `false`.
+- `coldCacheCard`: `true` or `false`. Default `true`. While the menu-bar app runs, shows a card
+  10 minutes before an idle Claude Code session past its first checkpoint loses its 1-hour prompt
+  cache.
 - `hosts.claude`: any of the keys above except `hosts`, winning over the top-level value, note by
   note. `hosts.codex`, `hosts.cursor` and `hosts.antigravity` are ignored with a log line.
 

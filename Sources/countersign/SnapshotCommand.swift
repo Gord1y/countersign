@@ -32,6 +32,8 @@ enum SnapshotCommand {
     + "       countersign snapshot --waiting-notice claude|codex|cursor|antigravity"
     + " [--project <name>] [--no-app] [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --approval-card claude|codex|cursor|antigravity"
+    + " [--project <name>] [--appearance light|dark] -o <out.png>\n"
+    + "       countersign snapshot --cold-cache-card"
     + " [--project <name>] [--appearance light|dark] -o <out.png>"
   private static let quietSnapshotMinutes: TimeInterval = 15
   private static let settingsFlag = "--settings"
@@ -42,6 +44,7 @@ enum SnapshotCommand {
   private static let menuBarIconFlag = "--menu-bar-icon"
   private static let waitingNoticeFlag = "--waiting-notice"
   private static let approvalCardFlag = "--approval-card"
+  private static let coldCacheCardFlag = "--cold-cache-card"
   private static let waitingNoticeSampleProject = "shop-api"
   private static let menuBarIconStripPadding: CGFloat = 6
   private static let scale: CGFloat = 2
@@ -73,6 +76,9 @@ enum SnapshotCommand {
     }
     if arguments.contains(approvalCardFlag) {
       runCornerCard(arguments, flag: approvalCardFlag)
+    }
+    if arguments.contains(coldCacheCardFlag) {
+      runCornerCard(arguments, flag: coldCacheCardFlag)
     }
     guard let options = parse(arguments) else { CommandLineOutput.fail(usage) }
 
@@ -472,21 +478,30 @@ enum SnapshotCommand {
 
     NSApplication.shared.setActivationPolicy(.prohibited)
 
-    let isApprovalCard = flag == approvalCardFlag
-    let model =
-      isApprovalCard
-      ? CornerCardModel.approval(hostName: options.host.displayName, projectName: options.project)
-      : CornerCardModel.waitingNotice(
+    let model: CornerCardModel
+    let cardName: String
+    switch flag {
+    case approvalCardFlag:
+      model = CornerCardModel.approval(
+        hostName: options.host.displayName, projectName: options.project)
+      cardName = "approval card"
+    case coldCacheCardFlag:
+      model = CornerCardModel.coldCache(
+        tokens: 640_000, secondsLeft: 540, projectName: options.project)
+      cardName = "cold-cache card"
+    default:
+      model = CornerCardModel.waitingNotice(
         hostName: options.host.displayName, projectName: options.project,
         offersGoThere: options.offersGoThere)
+      cardName = "waiting notice"
+    }
     let hostingView = NSHostingView(
       rootView: CornerCardView(model: model).environment(\.panelSurface, .solid))
     hostingView.appearance = options.appearance?.appearance
     let height = settledHeight(of: hostingView, maxHeight: .greatestFiniteMagnitude)
     hostingView.setFrameSize(NSSize(width: CornerCardView.width, height: height))
     guard let png = render(hostingView) else {
-      CommandLineOutput.fail(
-        "error: could not render the \(isApprovalCard ? "approval card" : "waiting notice")")
+      CommandLineOutput.fail("error: could not render the \(cardName)")
     }
     write(png, to: options.outputPath)
   }
@@ -905,6 +920,8 @@ enum SnapshotCommand {
 
     while index < arguments.count {
       switch arguments[index] {
+      case coldCacheCardFlag:
+        host = .claude
       case flag:
         index += 1
         guard index < arguments.count, let parsed = ApprovalCore.Host(rawValue: arguments[index])

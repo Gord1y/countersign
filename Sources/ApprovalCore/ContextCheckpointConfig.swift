@@ -80,6 +80,7 @@ public struct ContextCheckpointFileValues: Sendable, Equatable {
   public var handoffFile: String?
   public var notes: [String: String]
   public var menuBarMeter: Bool?
+  public var coldCacheCard: Bool?
 
   public init(
     enabled: Bool? = nil,
@@ -90,7 +91,8 @@ public struct ContextCheckpointFileValues: Sendable, Equatable {
     rearmBelow: Double? = nil,
     handoffFile: String? = nil,
     notes: [String: String] = [:],
-    menuBarMeter: Bool? = nil
+    menuBarMeter: Bool? = nil,
+    coldCacheCard: Bool? = nil
   ) {
     self.enabled = enabled
     self.mode = mode
@@ -101,6 +103,7 @@ public struct ContextCheckpointFileValues: Sendable, Equatable {
     self.handoffFile = handoffFile
     self.notes = notes
     self.menuBarMeter = menuBarMeter
+    self.coldCacheCard = coldCacheCard
   }
 }
 
@@ -114,6 +117,7 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
   public var handoffFile: String
   public var notes: ContextCheckpointNotes
   public var menuBarMeter: Bool
+  public var coldCacheCard: Bool
 
   public static let defaultStandardThresholds: [Int] = [100_000, 120_000, 140_000, 160_000]
   public static let defaultMillionThresholds: [Int] = [200_000, 300_000, 400_000, 600_000]
@@ -132,7 +136,8 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
     rearmBelow: defaultRearmBelow,
     handoffFile: defaultHandoffFile,
     notes: .default,
-    menuBarMeter: false)
+    menuBarMeter: false,
+    coldCacheCard: true)
 
   public init(
     enabled: Bool,
@@ -143,7 +148,8 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
     rearmBelow: Double,
     handoffFile: String,
     notes: ContextCheckpointNotes,
-    menuBarMeter: Bool
+    menuBarMeter: Bool,
+    coldCacheCard: Bool
   ) {
     self.enabled = enabled
     self.mode = mode
@@ -154,6 +160,7 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
     self.handoffFile = handoffFile
     self.notes = notes
     self.menuBarMeter = menuBarMeter
+    self.coldCacheCard = coldCacheCard
   }
 
   public static var off: ContextCheckpointSettings {
@@ -186,6 +193,7 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
       notes: ContextCheckpointNotes(
         soft: note("soft"), status: note("status"), insist: note("insist"),
         stop: note("stop"), compact: note("compact"), handoff: note("handoff")),
-      menuBarMeter: hostValues?.menuBarMeter ?? top?.menuBarMeter ?? false)
+      menuBarMeter: hostValues?.menuBarMeter ?? top?.menuBarMeter ?? false,
+      coldCacheCard: hostValues?.coldCacheCard ?? top?.coldCacheCard ?? true)
   }
 }

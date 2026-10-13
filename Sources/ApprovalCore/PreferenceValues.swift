@@ -200,6 +200,8 @@ public struct PreferenceValues: Sendable, Equatable {
       values.contextCheckpoints.notes.set(text, named: name)
     case .contextMenuBarMeter(let enabled):
       values.contextCheckpoints.menuBarMeter = enabled
+    case .contextColdCacheCard(let enabled):
+      values.contextCheckpoints.coldCacheCard = enabled
     case .reset(let name):
       values = values.applyingDefault(of: name)
     }
@@ -252,6 +254,8 @@ public struct PreferenceValues: Sendable, Equatable {
         ContextCheckpointNotes.default.text(for: name) ?? "", named: name)
     case .contextMenuBarMeter:
       values.contextCheckpoints.menuBarMeter = ContextCheckpointSettings.default.menuBarMeter
+    case .contextColdCacheCard:
+      values.contextCheckpoints.coldCacheCard = ContextCheckpointSettings.default.coldCacheCard
     }
     return values
   }

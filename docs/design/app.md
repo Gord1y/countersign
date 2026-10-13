@@ -348,6 +348,10 @@ non-empty list into a "Context in live sessions" submenu of disabled rows right 
 entry. Nothing refreshes it while the menu is closed, and the icon's 2 s timer never touches
 transcripts. See [checkpoints.md](checkpoints.md#the-menu-bar-meter).
 
+A third timer, every 30 s and separate from the 2 s icon timer, runs the cold-cache check. It reads
+transcripts only while context checkpoints and `coldCacheCard` are on, and it is held by pause and
+quiet time. See [checkpoints.md](checkpoints.md#the-cold-cache-card).
+
 | Item | What it does | File |
 | --- | --- | --- |
 | "Countersign is on", "Paused" or "Quiet until 14:05" | Disabled status line; paused wins over quiet time. The time is local, `HH:mm`, from `TimeOfDayText`, the same formatter `countersign status` uses | reads `paused`, `quiet-until` |

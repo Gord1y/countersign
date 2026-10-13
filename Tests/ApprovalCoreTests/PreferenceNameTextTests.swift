@@ -37,17 +37,17 @@ import Testing
 
   @Test func titlesEveryContextRow() {
     #expect(
-      PreferenceName.allCases.suffix(14).map(\.title) == [
+      PreferenceName.allCases.suffix(15).map(\.title) == [
         "Context checkpoints (Claude Code)", "Checkpoint style", "Checkpoints, 200K window",
         "Checkpoints, 1M window", "Checkpoints for one model", "Start over below", "Handoff file",
         "Soft note", "Status note", "Insist note", "Stop note", "Compact note", "Handoff note",
-        "Context in the menu bar",
+        "Context in the menu bar", "Warn before the cache goes cold",
       ])
   }
 
   @Test func captionsEveryContextRow() {
     #expect(
-      PreferenceName.allCases.suffix(14).map(\.caption) == [
+      PreferenceName.allCases.suffix(15).map(\.caption) == [
         "Nudge long Claude Code sessions toward a deliberate compaction.",
         "Show a panel, or add the note silently.",
         "Soft, status, insist and an optional stop, in tokens.",
@@ -62,6 +62,7 @@ import Testing
         "Sent when you choose Compact after this step.",
         "Sent when you choose Hand off & start fresh.",
         "List each live session's context in the menu.",
+        "Show a card 10 minutes before an idle session's cache expires.",
       ])
   }
 
@@ -80,6 +81,7 @@ import Testing
     #expect(PreferenceName.contextRearmBelow.defaultText == "60%")
     #expect(PreferenceName.contextHandoffFile.defaultText == "notes/handoff.md")
     #expect(PreferenceName.contextMenuBarMeter.defaultText == "Off")
+    #expect(PreferenceName.contextColdCacheCard.defaultText == "On")
   }
 
   @Test func givesEveryRowItsOwnTitle() {

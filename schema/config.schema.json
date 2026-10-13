@@ -120,6 +120,11 @@
           "type": "boolean",
           "default": false,
           "description": "Whether the menu-bar companion shows the context size of the active Claude Code session."
+        },
+        "coldCacheCard": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether the menu-bar companion shows a card 10 minutes before an idle Claude Code session's 1-hour prompt cache expires."
         }
       }
     },
@@ -150,6 +155,9 @@
         },
         "menuBarMeter": {
           "$ref": "#/$defs/contextCheckpointValues/properties/menuBarMeter"
+        },
+        "coldCacheCard": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/coldCacheCard"
         },
         "hosts": {
           "type": "object",

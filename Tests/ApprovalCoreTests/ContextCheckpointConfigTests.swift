@@ -52,6 +52,7 @@ import Testing
             "handoff": "top handoff"
           },
           "menuBarMeter": true,
+          "coldCacheCard": false,
           "hosts": {
             "claude": { "mode": "silent", "notes": { "soft": "host soft" } }
           }
@@ -68,6 +69,7 @@ import Testing
     #expect(top?.rearmBelow == 0.5)
     #expect(top?.handoffFile == "docs/handoff.md")
     #expect(top?.menuBarMeter == true)
+    #expect(top?.coldCacheCard == false)
     #expect(top?.notes.count == 6)
 
     let resolved = Settings.resolve(file: file, host: .claude).contextCheckpoints
@@ -82,6 +84,7 @@ import Testing
     #expect(resolved.rearmBelow == 0.5)
     #expect(resolved.handoffFile == "docs/handoff.md")
     #expect(resolved.menuBarMeter)
+    #expect(!resolved.coldCacheCard)
   }
 
   @Test func threeValueLaddersStillParse() {
