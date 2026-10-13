@@ -689,8 +689,8 @@ showing Wired, Not wired or Needs an update from `ContextHookRun.status`, with "
 two; the Claude row's Update covers Claude Code's file only, the Codex row's Codex's file only, and
 neither touches the config; only the switch writes every location in `contextLocations`), Checkpoints
 (Checkpoint style, the 200K and 1M ladders, the per-model ladders, Start over below), Notes and
-handoff (Notes, one row with an "Edit Notes…" button, then Handoff file), Menu bar (Context in the
-menu bar) and Try it (a button that shows a context test panel), then a footer with "Turn Off
+handoff (Notes, one row with an "Edit Notes…" button, then Handoff file), Cold cache (Warn before
+the cache goes cold), Menu bar (Context in the menu bar) and Try it (a button that shows a context test panel), then a footer with "Turn Off
 Context Checkpoints" left of Restore Defaults. That button calls `requestContextCheckpoints(false)` and so shows the same "Turn off context checkpoints?" popup as the Panels switch (the row presents it for the `.toggle` origin, and only one tab is on screen at a time, so one `contextChange` shows one alert); it is disabled while a change is pending or neither Claude Code nor Codex is installed.
 
 Write rules follow the table above. The two ladder fields take three or four ascending whole numbers of

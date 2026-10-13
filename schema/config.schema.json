@@ -28,7 +28,7 @@
         "enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Whether Countersign adds context checkpoint notes to a Claude Code session as its context grows."
+          "description": "Whether Countersign adds context checkpoint notes to Claude Code and Codex sessions as their context grows."
         },
         "mode": {
           "type": "string",

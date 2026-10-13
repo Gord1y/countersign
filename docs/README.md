@@ -49,8 +49,8 @@ for what you want to do; each line says when that page is the one to open.
     CLI, the companion's single instance, menu, test panel launch and update check.
   - [The app icon](design/icon.md): the app icon: what it is, why amber, and the copy of its mark
     the panel's header draws in code.
-  - [Context checkpoints](design/checkpoints.md): how a Claude Code session's context size is
-    measured from its transcript.
+  - [Context checkpoints](design/checkpoints.md): how a Claude Code or Codex session's context
+    size is measured from its transcript or rollout.
   - [Waiting notices](design/notice.md): how an agent that ended its turn is recorded, how the
     corner card decides when to show and when to close, and what it never does.
 - [Roadmap](../ROADMAP.md): read it for the ideas under consideration and what would move each one

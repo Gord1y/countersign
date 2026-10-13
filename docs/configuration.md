@@ -478,7 +478,8 @@ On by default, for Claude Code and Codex. While on, Countersign watches how larg
 or Codex session's context has grown and adds a note asking it to wrap up, compact or hand off.
 Codex gets notes only, never a panel, at 50, 60 and 70 % of its context window as reported by
 Codex, and the stop note at 80 %; the token ladders below are Claude Code's. The
-`contextCheckpoints` object takes these keys, all optional and all edited in the file only:
+`contextCheckpoints` object takes these keys, all optional. Settings ▸ Context edits all of them
+but two: `enabled` is the switch in Settings ▸ Panels, and `hosts` is set in the file only.
 
 - `enabled`: `true` or `false`. Default `true`.
 - `mode`: `"panel"` asks you in a panel, `"silent"` only adds the note. Default `"panel"`.

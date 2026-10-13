@@ -24,8 +24,9 @@ which removes a builder's landed worktrees and branches; `scripts/test-release-i
 `scripts/test-run-quietly.sh` covers `scripts/run-quietly.sh`, which shapes what the gates print;
 and `scripts/test-rulesets.sh` covers `scripts/rulesets.sh` against a fake `gh` that serves the
 committed rulesets, so it runs offline.
-`scripts/build-app.sh`, `scripts/package-release.sh` and `scripts/screenshots/render.sh` have no
-test script; they are checked by running them.
+`scripts/build-app.sh`, `scripts/install.sh`, `scripts/package-release.sh` and
+`scripts/screenshots/render.sh` have no test script; they are checked by running them.
+`scripts/install.sh` changes only the machine of the maintainer who runs it from a clone.
 
 `scripts/check.sh` runs four parts in order, and each also runs on its own:
 `scripts/check-build.sh` runs `swift build`, which compiles every target except the tests;

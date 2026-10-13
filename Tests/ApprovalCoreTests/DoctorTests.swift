@@ -1003,6 +1003,22 @@ private func cursorWaitingLines(stop: String?, enabled: Bool) -> [DoctorLine] {
       ])
   }
 
+  @Test func codexCannotTellWhenTheStopEntrysHashIsUnchangedSinceTheWrite() {
+    let key = "\(codexFilePath):stop:0:0"
+    let lines = codexWaitingLines(
+      trust: CodexHookTrustRecord(
+        hookKey: key, command: "\(stablePath) hook --host codex --event waiting",
+        hashAtWrite: .stored("sha256:same")),
+      config: .bytes(Array("[hooks.state.\"\(key)\"]\ntrusted_hash = \"sha256:same\"\n".utf8)))
+    #expect(
+      lines.last
+        == DoctorLine(
+          status: .info, check: "codex waiting",
+          detail:
+            "cannot tell whether Codex trusts Countersign's Stop entry; run /hooks in a Codex session to check"
+        ))
+  }
+
   @Test func codexSaysNothingExtraOnceCodexTrustsTheStopEntry() {
     let key = "\(codexFilePath):stop:0:0"
     let lines = codexWaitingLines(
@@ -1117,6 +1133,29 @@ private func codexContextHook() -> String {
         DoctorLine(
           status: .ok, check: "codex context", detail: "PostToolUse entry in \(codexFilePath)"),
       ])
+  }
+
+  @Test func cannotTellWhenThePostToolUseEntrysHashIsUnchangedSinceTheWrite() {
+    let promptKey = "\(codexFilePath):user_prompt_submit:0:0"
+    let toolKey = "\(codexFilePath):post_tool_use:0:0"
+    let command = "\(stablePath) hook --host codex"
+    let lines = codexContextLines(
+      promptEntry: codexContextHook(), toolEntry: codexContextHook(),
+      promptTrust: CodexHookTrustRecord(
+        hookKey: promptKey, command: command, learnedHash: "sha256:prompt"),
+      toolTrust: CodexHookTrustRecord(
+        hookKey: toolKey, command: command, hashAtWrite: .stored("sha256:tool")),
+      config: .bytes(
+        Array(
+          "[hooks.state.\"\(promptKey)\"]\ntrusted_hash = \"sha256:prompt\"\n[hooks.state.\"\(toolKey)\"]\ntrusted_hash = \"sha256:tool\"\n"
+            .utf8)))
+    #expect(
+      lines.last
+        == DoctorLine(
+          status: .info, check: "codex context",
+          detail:
+            "cannot tell whether Codex trusts Countersign's PostToolUse entry; run /hooks in a Codex session to check"
+        ))
   }
 
   @Test func warnsWhileCodexHasNotTrustedThePostToolUseEntry() {

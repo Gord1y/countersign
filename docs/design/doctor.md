@@ -120,10 +120,14 @@ or config file's content, only paths and our own hook entry's command.
    is async. For Codex, while the notices are on and the entry exists, one more line is the trust
    verdict for the `Stop` entry, judged from `Doctor.Input.codexWaitingHookTrustRecord`
    (`codex-waiting-hook-trust.json`) the way the approval entry is (see "The verdict" in
-   [setup.md](setup.md)): pending is a `warn`, `Codex has not trusted Countersign's Stop entry yet;
-   run /hooks in a Codex session and trust it`; unknown is an `info`, `cannot tell whether Codex
-   trusts Countersign's Stop entry; run /hooks in a Codex session to check`; trusted or marked as
-   done adds nothing.
+   [setup.md](setup.md)): pending with a reason, or pending where the verdict offers no "Mark as
+   done", is a `warn`, `Codex has not trusted Countersign's Stop entry yet; run /hooks in a Codex
+   session and trust it`; pending where it would offer "Mark as done", and unknown, are an `info`,
+   `cannot tell whether Codex trusts Countersign's Stop entry; run /hooks in a Codex session to
+   check`, as the approval entry's table below splits them; trusted or marked as done adds nothing.
+   The split matters because neither record learns a hash: an entry Codex trusted, then removed
+   and wired again unchanged, still holds the value it held at the write, so Codex trusts it
+   without asking and the record cannot tell that from no trust at all.
    Lines named **`codex context`** cover Codex's `hooks.UserPromptSubmit` and `hooks.PostToolUse`
    entries (see "The context entries of Codex" in [setup.md](setup.md)), driven by Codex's own
    place in `Doctor.Input.contextCheckpointHosts`, with the three cases and the path, executable and
@@ -133,8 +137,8 @@ or config file's content, only paths and our own hook entry's command.
    entries of ours), followed by ` in <path>`, as for `claude context` but without `, async`. While the checkpoints are on and an entry exists,
    one more line per event is its trust verdict, judged from
    `Doctor.Input.codexContextHookTrustRecord` or `codexContextToolHookTrustRecord` the way the
-   `Stop` entry is: pending is a `warn`, `Codex has not trusted Countersign's <event> entry yet; run
-   /hooks in a Codex session and trust it`; unknown is an `info`, `cannot tell whether Codex trusts
+   `Stop` entry is, with the same split: a `warn`, `Codex has not trusted Countersign's <event> entry
+   yet; run /hooks in a Codex session and trust it`, or an `info`, `cannot tell whether Codex trusts
    Countersign's <event> entry; run /hooks in a Codex session to check`; trusted or marked as done
    adds nothing.
 3. Right after each host's lines, only when that host ends up wired and up to date (the same gate
