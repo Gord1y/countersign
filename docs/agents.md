@@ -98,8 +98,9 @@ calls, and `apply_patch` edits, shown against the real file like Claude Code's e
   a shell command it saves the exact command, or each distinct part of a compound command; for
   anything else, such as an `apply_patch` edit or an MCP call, it saves the tool. See and remove it
   in Settings ▸ Rules, or in `config.json`.
-- Codex asks you to trust Countersign's hooks once in `/hooks`: the permission hook and, while
-  waiting-agent notices are on, the Stop hook. See "After wiring" below.
+- Codex asks you to trust Countersign's hooks once in `/hooks`: the permission hook, the Stop hook
+  while waiting-agent notices are on, and the `UserPromptSubmit` and `PostToolUse` hooks while
+  context checkpoints are on. See "After wiring" below.
 - Countersign can't see a Codex chat, so answering there doesn't close the panel. It goes away when
   you answer it, or when the Codex process that asked is gone.
 - Codex asks its hooks before it shows its own prompt, so a Codex request waiting in the queue

@@ -19,8 +19,11 @@ public enum ContextHookSetup {
   public static let toolEventName = "PostToolUse"
   public static let eventNames = [eventName, toolEventName]
   public static let timeoutSeconds = HookSetup.timeoutSeconds
+  public static let codexTimeoutSeconds = 30
 
-  public static func install(into original: [UInt8]?, executablePath: String) throws -> [UInt8] {
+  public static func install(
+    into original: [UInt8]?, executablePath: String, host: Host = .claude
+  ) throws -> [UInt8] {
     guard HookCommand.isCountersignExecutable(executablePath) else {
       throw HookSetupError.unrecognizableExecutable(executablePath)
     }
@@ -30,15 +33,15 @@ public enum ContextHookSetup {
       throw HookSetupError.unexpectedType(key: "the top level", expected: "an object")
     }
     for event in eventNames {
-      try install(event: event, into: &document, executablePath: executablePath)
+      try install(event: event, into: &document, executablePath: executablePath, host: host)
     }
     return document.bytes
   }
 
   private static func install(
-    event: String, into document: inout JSONSourceDocument, executablePath: String
+    event: String, into document: inout JSONSourceDocument, executablePath: String, host: Host
   ) throws {
-    let group = groupFragment(executablePath: executablePath)
+    let group = groupFragment(executablePath: executablePath, host: host)
     guard let hooks = try HookSetup.hooksObject(in: document.root) else {
       let member = JSONFragmentMember(key: event, value: .array([group]))
       try document.appendMember(
@@ -53,14 +56,16 @@ public enum ContextHookSetup {
       try document.appendElement(group, to: groups)
       return
     }
-    try refreshEntries(event: event, in: &document, executablePath: executablePath)
+    try refreshEntries(event: event, in: &document, executablePath: executablePath, host: host)
   }
 
-  public static func refresh(into original: [UInt8], executablePath: String) throws -> [UInt8] {
+  public static func refresh(
+    into original: [UInt8], executablePath: String, host: Host = .claude
+  ) throws -> [UInt8] {
     guard !HookSetup.isBlank(original) else { return original }
     var document = try JSONSourceDocument(bytes: original)
     for event in eventNames {
-      try refreshEntries(event: event, in: &document, executablePath: executablePath)
+      try refreshEntries(event: event, in: &document, executablePath: executablePath, host: host)
     }
     return document.bytes
   }
@@ -86,35 +91,50 @@ public enum ContextHookSetup {
     hook.member(named: "async")?.value.content == .bool(true)
   }
 
-  static func hookFragment(executablePath: String) -> JSONFragment {
-    .object([
+  static func hookFragment(executablePath: String, host: Host = .claude) -> JSONFragment {
+    var members = [
       JSONFragmentMember(key: "type", value: .string("command")),
       JSONFragmentMember(
         key: "command",
-        value: .string(HookCommand.command(host: .claude, executablePath: executablePath))),
-      JSONFragmentMember(key: "async", value: .bool(true)),
-      JSONFragmentMember(key: "timeout", value: .integer(timeoutSeconds)),
+        value: .string(HookCommand.command(host: host, executablePath: executablePath))),
+    ]
+    if host == .claude {
+      members.append(JSONFragmentMember(key: "async", value: .bool(true)))
+    }
+    members.append(
+      JSONFragmentMember(key: "timeout", value: .integer(timeoutSeconds(for: host))))
+    return .object(members)
+  }
+
+  static func groupFragment(executablePath: String, host: Host = .claude) -> JSONFragment {
+    .object([
+      JSONFragmentMember(
+        key: "hooks",
+        value: .array([hookFragment(executablePath: executablePath, host: host)]))
     ])
   }
 
-  static func groupFragment(executablePath: String) -> JSONFragment {
-    .object([
-      JSONFragmentMember(
-        key: "hooks", value: .array([hookFragment(executablePath: executablePath)]))
-    ])
+  private static func timeoutSeconds(for host: Host) -> Int {
+    host == .codex ? codexTimeoutSeconds : timeoutSeconds
   }
 
   private static func refreshEntries(
-    event: String, in document: inout JSONSourceDocument, executablePath: String
+    event: String, in document: inout JSONSourceDocument, executablePath: String, host: Host
   ) throws {
+    let timeout = timeoutSeconds(for: host)
     for index in 0..<HookSetup.sites(in: document.root, event: event).count {
-      try updateCommand(ofHook: index, event: event, in: &document, executablePath: executablePath)
-      try ensureMember("async", ofHook: index, event: event, in: &document, fragment: .bool(true)) {
-        $0.content == .bool(true)
+      try updateCommand(
+        ofHook: index, event: event, in: &document, executablePath: executablePath, host: host)
+      if host == .claude {
+        try ensureMember(
+          "async", ofHook: index, event: event, in: &document, fragment: .bool(true)
+        ) {
+          $0.content == .bool(true)
+        }
       }
       try ensureMember(
-        "timeout", ofHook: index, event: event, in: &document, fragment: .integer(timeoutSeconds)
-      ) { $0.numberValue == Double(timeoutSeconds) }
+        "timeout", ofHook: index, event: event, in: &document, fragment: .integer(timeout)
+      ) { $0.numberValue == Double(timeout) }
     }
   }
 
@@ -126,15 +146,16 @@ public enum ContextHookSetup {
   }
 
   private static func updateCommand(
-    ofHook index: Int, event: String, in document: inout JSONSourceDocument, executablePath: String
+    ofHook index: Int, event: String, in document: inout JSONSourceDocument, executablePath: String,
+    host: Host
   ) throws {
     guard
       let command = hookNode(index, event: event, in: document)?.member(named: "command")?.value,
       let text = command.stringValue,
-      !HookCommand.isCommand(text, running: executablePath, for: .claude)
+      !HookCommand.isCommand(text, running: executablePath, for: host)
     else { return }
     try document.replaceValue(
-      command, with: .string(HookCommand.command(host: .claude, executablePath: executablePath)))
+      command, with: .string(HookCommand.command(host: host, executablePath: executablePath)))
   }
 
   private static func ensureMember(

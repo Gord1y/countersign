@@ -160,7 +160,8 @@ has the same switch under **App** when it runs from Countersign.app.
 
 The first time a new version starts, if an agent's hooks need an update, Settings opens on Agents,
 once per version. 0.2.0 adds the hook entries for waiting-agent notices and context checkpoints,
-and 0.4.0 adds the `PostToolUse` entry for context checkpoints. Each Update shows its change before
+and 0.4.0 adds the `PostToolUse` entry for context checkpoints, and for Codex both context
+entries. Each Update shows its change before
 it writes anything. `countersign setup` does the same from a terminal.
 
 ## Check for updates

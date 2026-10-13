@@ -652,13 +652,14 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     let (configFile, _) = ConfigFileLoader.load(
       paths: paths, soundNames: SystemSounds.installedNames)
     let settings = Settings.resolve(file: configFile, host: .claude)
+    let contextCheckpointHosts = Settings.contextCheckpointHosts(file: configFile)
     return ApprovalCore.Host.allCases.map { host in
       let location = HookConfigLocation.location(for: host, environment: environment, home: home)
       return HostWiring.status(
         host: host, directoryExists: DoctorCommand.isInstalled(location),
         file: ConfigFileStore.fileState(location.file), stablePath: stablePath,
         addsWaitingEntry: settings.waitingNotices,
-        addsContextEntry: settings.contextCheckpoints.enabled)
+        addsContextEntry: contextCheckpointHosts.contains(host))
     }
   }
 

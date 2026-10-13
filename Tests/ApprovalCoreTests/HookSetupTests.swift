@@ -616,7 +616,26 @@ private let otherPermissionHook = """
     #expect(added.components(separatedBy: "countersign hook --host claude").count == 4)
     #expect(try install(added, addsContextEntry: true) == added)
     #expect(try install(permissionOnly, addsContextEntry: false) == permissionOnly)
-    #expect(!(try install(nil, host: .codex, addsContextEntry: true)).contains("UserPromptSubmit"))
+  }
+
+  @Test func codexInstallAddsBothContextGroupsOnlyWhenAskedTo() throws {
+    let permissionOnly = try install(nil, host: .codex)
+    #expect(!permissionOnly.contains("UserPromptSubmit"))
+    let added = try install(permissionOnly, host: .codex, addsContextEntry: true)
+    #expect(added.components(separatedBy: "UserPromptSubmit").count == 2)
+    #expect(added.components(separatedBy: "PostToolUse").count == 2)
+    #expect(!added.contains("async"))
+    #expect(added.components(separatedBy: "countersign hook --host codex").count == 4)
+    #expect(try install(added, host: .codex, addsContextEntry: true) == added)
+    #expect(try install(permissionOnly, host: .codex, addsContextEntry: false) == permissionOnly)
+  }
+
+  @Test func codexUninstallRemovesTheContextGroupsToo() throws {
+    let added = try install(nil, host: .codex, addsContextEntry: true)
+    let removed = try #require(try uninstall(added, host: .codex))
+    #expect(!removed.contains("UserPromptSubmit"))
+    #expect(!removed.contains("PostToolUse"))
+    #expect(!removed.contains("countersign"))
   }
 
   @Test func claudeUninstallRemovesTheEntriesOfBothEvents() throws {
@@ -637,8 +656,8 @@ private let otherPermissionHook = """
       "{\"hooks\": {\"UserPromptSubmit\": [{\"hooks\": [{\"type\": \"command\", \"command\": \"countersign hook\"}]}]}}"
     #expect(try uninstall(onlyPrompt) == "{\"hooks\": {}}")
     let codex = try #require(try uninstall(settings, host: .codex))
-    #expect(codex.contains("UserPromptSubmit"))
-    #expect(codex.contains("countersign hook --host claude\", \"async\""))
+    #expect(codex.contains("~/bin/prompt-log.sh"))
+    #expect(!codex.contains("countersign hook --host claude\", \"async\""))
   }
 
   @Test func addsTheStopEntryForEachHostWhenAskedTo() throws {

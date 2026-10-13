@@ -325,6 +325,9 @@ final class SettingsModel {
 
   var contextCheckpoints: ContextCheckpointSettings { preferences.contextCheckpoints }
   var contextCheckpointsEnabled: Bool { contextCheckpoints.enabled }
+  private var contextCheckpointHosts: Set<ApprovalCore.Host> {
+    Settings.contextCheckpointHosts(file: configFileContents)
+  }
 
   var claudeLocation: HookConfigLocation? {
     environment.locations.first { $0.host == .claude }
@@ -498,7 +501,7 @@ final class SettingsModel {
       row.followUp = AgentFollowUps.current(
         host: location.host, wiringStatus: row.status,
         codexTrust: location.host == .codex ? codexHookTrustState(at: location) : .unknown,
-        codexHasWaitingEntry: AgentFollowUps.codexHasWaitingEntry(
+        codexHasOtherEntries: AgentFollowUps.codexHasOtherEntries(
           in: ConfigFileStore.fileState(location.file)))
       return row
     }
@@ -567,9 +570,11 @@ final class SettingsModel {
     guard let index = hostRows.firstIndex(where: { $0.id == host }) else { return }
     var run = SetupRun(
       executablePath: stablePath ?? "", uninstall: action.uninstalls,
-      addsWaitingEntry: waitingNotices, addsContextEntry: contextCheckpointsEnabled,
+      addsWaitingEntry: waitingNotices, contextCheckpointHosts: contextCheckpointHosts,
       codexHookTrustFile: environment.paths.codexHookTrustFile,
-      codexWaitingHookTrustFile: environment.paths.codexWaitingHookTrustFile, now: now,
+      codexWaitingHookTrustFile: environment.paths.codexWaitingHookTrustFile,
+      codexContextHookTrustFile: environment.paths.codexContextHookTrustFile,
+      codexContextToolHookTrustFile: environment.paths.codexContextToolHookTrustFile, now: now,
       output: { _ in }, confirm: { _ in true })
     _ = run.apply(hostRows[index].location)
     hostRows[index].error = run.failures.first
@@ -1579,7 +1584,8 @@ final class SettingsModel {
     return HostWiring.status(
       host: location.host, directoryExists: DoctorCommand.isInstalled(location),
       file: ConfigFileStore.fileState(location.file), stablePath: stablePath,
-      addsWaitingEntry: waitingNotices, addsContextEntry: contextCheckpointsEnabled)
+      addsWaitingEntry: waitingNotices,
+      addsContextEntry: contextCheckpointHosts.contains(location.host))
   }
 
   private func preview(of location: HookConfigLocation, action: HostWiringAction)
@@ -1587,7 +1593,7 @@ final class SettingsModel {
   {
     SetupRun.preview(
       location, executablePath: stablePath ?? "", uninstall: action.uninstalls,
-      addsWaitingEntry: waitingNotices, addsContextEntry: contextCheckpointsEnabled)
+      addsWaitingEntry: waitingNotices, contextCheckpointHosts: contextCheckpointHosts)
   }
 
   private func codexHookTrustState(at location: HookConfigLocation) -> CodexHookTrustState {

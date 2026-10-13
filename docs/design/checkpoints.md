@@ -8,8 +8,9 @@ deliberate compaction; read it before changing anything named `Context…`.
 `ContextCheckpointSettings.defaultEnabled` is `true`, and `.default` carries it. Claude Code and
 Codex resolve it; Cursor and Antigravity resolve to `.off`, `.default` with `enabled` false, so
 they never get checkpoints. The hook is the `UserPromptSubmit` entry, plus the `PostToolUse` entry
-for the stop check (see "After a tool call"), in Claude Code's settings file: setup and Update add
-them while checkpoints are on (`addsContextEntry`, see "The context entry follows the setting" in
+for the stop check (see "After a tool call"), in Claude Code's settings file and, as synchronous
+entries with a 30 second timeout, in Codex's `hooks.json`: setup and Update add them while
+checkpoints are on for that host (`addsContextEntry`, see "The context entry follows the setting" in
 [setup.md](setup.md)), and the Settings toggle adds and removes them (`ContextHookRun`).
 
 ## Measuring context

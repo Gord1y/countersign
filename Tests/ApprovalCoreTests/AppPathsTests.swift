@@ -38,6 +38,14 @@ import Testing
         == "/Users/dev/Library/Application Support/Countersign/codex-hook-trust.json"
     )
     #expect(
+      paths.codexContextHookTrustFile.path
+        == "/Users/dev/Library/Application Support/Countersign/codex-context-hook-trust.json"
+    )
+    #expect(
+      paths.codexContextToolHookTrustFile.path
+        == "/Users/dev/Library/Application Support/Countersign/codex-context-tool-hook-trust.json"
+    )
+    #expect(
       paths.tourShownFile.path
         == "/Users/dev/Library/Application Support/Countersign/tour-shown"
     )

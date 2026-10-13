@@ -126,10 +126,20 @@ private func status(
           HostWiringUpdate(
             otherExecutablePaths: [], missingContextEvents: ["UserPromptSubmit", "PostToolUse"])))
     #expect(status(withWaiting, addsWaitingEntry: true, addsContextEntry: false) == .wired)
+  }
+
+  @Test func needsAnUpdateForCodexWhenCheckpointsAreOnAndItsContextEntriesAreMissing() {
+    let permission = entry("\(stablePath) hook --host codex", codex: true)
+    let update = status(permission, host: .codex, addsContextEntry: true)
     #expect(
-      status(
-        entry("\(stablePath) hook --host codex", codex: true), host: .codex,
-        addsContextEntry: true) == .wired)
+      update
+        == .needsUpdate(
+          HostWiringUpdate(
+            otherExecutablePaths: [], missingContextEvents: ["UserPromptSubmit", "PostToolUse"])))
+    #expect(
+      HostWiring.detail(for: update, host: .codex)
+        == "Adds the UserPromptSubmit and PostToolUse entries for context checkpoints")
+    #expect(status(permission, host: .codex, addsContextEntry: false) == .wired)
   }
 
   @Test func needsAnUpdateForTheToolEntryWhenOnlyThePromptEntryIsThere() throws {

@@ -45,7 +45,10 @@ shape, with a made-up path and hash. From the openai/codex source:
 
 - The key is `<absolute hooks.json path>:<event label>:<group index>:<handler index>` (`hook_key` in
   `codex-rs/hooks/src/lib.rs`). For `PermissionRequest` the label is `permission_request`, and the
-  indexes are zero-based positions in `hooks.PermissionRequest[group].hooks[handler]`.
+  indexes are zero-based positions in `hooks.PermissionRequest[group].hooks[handler]`. The other
+  labels are the snake_case of the event name: `stop`, and, confirmed in a real `config.toml` on
+  Codex 0.162.0 beside `permission_request` and `stop`, `user_prompt_submit` and `post_tool_use`
+  (`CodexHookTrust.contextEventLabel` and `contextToolEventLabel`).
 - `trusted_hash` is `hook_hash` in `codex-rs/hooks/src/engine/discovery.rs`: a SHA-256 over Codex's
   normalized TOML encoding of the entry (`command`, `command_windows`, `timeout`, `async`,
   `statusMessage`, `additionalContextLimit`, `type` and the group's `matcher`), not over the file's

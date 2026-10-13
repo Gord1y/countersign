@@ -315,4 +315,39 @@ private let staleEntry = """
       try install(nil, path: path)
     }
   }
+
+  @Test func codexRefreshUpdatesTheTimeoutAndLeavesAnExistingAsyncMemberAlone() throws {
+    let stale = """
+      {"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": "\(brewPath) hook --host codex", "async": true, "timeout": 3600}]}], "PostToolUse": [{"hooks": [{"type": "command", "command": "\(brewPath) hook --host codex", "async": true, "timeout": 3600}]}]}}
+      """
+    let refreshed = try ContextHookSetup.refresh(
+      into: Array(stale.utf8), executablePath: brewPath, host: .codex)
+    let expected = stale.replacingOccurrences(of: "\"timeout\": 3600", with: "\"timeout\": 30")
+    #expect(String(decoding: refreshed, as: UTF8.self) == expected)
+    #expect(String(decoding: refreshed, as: UTF8.self).contains("\"async\": true, \"timeout\": 30"))
+  }
+
+  @Test func codexInstallAddsBothGroupsWithoutMatcherOrAsyncAndATimeoutOf30() throws {
+    let permission = Array(
+      #"{"hooks": {"PermissionRequest": [{"matcher": "", "hooks": [{"type": "command", "command": "/opt/homebrew/bin/countersign hook --host codex", "timeout": 3600}]}]}}"#
+        .utf8)
+    let installed = try ContextHookSetup.install(
+      into: permission, executablePath: brewPath, host: .codex)
+    let entries = ContextHookSetup.entries(in: installed)
+    #expect(entries.map(\.event) == ["UserPromptSubmit", "PostToolUse"])
+    #expect(entries.allSatisfy { $0.command == "\(brewPath) hook --host codex" })
+    #expect(entries.allSatisfy { !$0.isAsync && $0.timeoutSeconds == 30 })
+    let text = String(decoding: installed, as: UTF8.self)
+    #expect(!text.contains("async"))
+    #expect(text.components(separatedBy: "matcher").count == 2)
+    #expect(
+      try ContextHookSetup.refresh(into: installed, executablePath: brewPath, host: .codex)
+        == installed)
+    #expect(
+      try ContextHookSetup.refresh(into: permission, executablePath: brewPath, host: .codex)
+        == permission)
+    let removed = try #require(try ContextHookSetup.uninstall(from: installed))
+    #expect(ContextHookSetup.entries(in: removed).isEmpty)
+    #expect(String(decoding: removed, as: UTF8.self).contains("PermissionRequest"))
+  }
 }

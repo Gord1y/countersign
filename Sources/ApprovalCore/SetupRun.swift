@@ -20,10 +20,12 @@ public struct SetupRun {
   private let executablePath: String
   private let uninstall: Bool
   private let addsWaitingEntry: Bool
-  private let addsContextEntry: Bool
+  private let contextCheckpointHosts: Set<Host>
   private let writesFiles: Bool
   private let codexHookTrustFile: URL?
   private let codexWaitingHookTrustFile: URL?
+  private let codexContextHookTrustFile: URL?
+  private let codexContextToolHookTrustFile: URL?
   private let now: () -> Date
   private let output: (String) -> Void
   private let confirm: (String) -> Bool
@@ -32,18 +34,21 @@ public struct SetupRun {
 
   public init(
     executablePath: String, uninstall: Bool, addsWaitingEntry: Bool,
-    addsContextEntry: Bool = false, writesFiles: Bool = true,
+    contextCheckpointHosts: Set<Host> = [], writesFiles: Bool = true,
     codexHookTrustFile: URL? = nil, codexWaitingHookTrustFile: URL? = nil,
+    codexContextHookTrustFile: URL? = nil, codexContextToolHookTrustFile: URL? = nil,
     now: @escaping () -> Date = { Date() },
     output: @escaping (String) -> Void, confirm: @escaping (String) -> Bool
   ) {
     self.executablePath = executablePath
     self.uninstall = uninstall
     self.addsWaitingEntry = addsWaitingEntry
-    self.addsContextEntry = addsContextEntry
+    self.contextCheckpointHosts = contextCheckpointHosts
     self.writesFiles = writesFiles
     self.codexHookTrustFile = codexHookTrustFile
     self.codexWaitingHookTrustFile = codexWaitingHookTrustFile
+    self.codexContextHookTrustFile = codexContextHookTrustFile
+    self.codexContextToolHookTrustFile = codexContextToolHookTrustFile
     self.now = now
     self.output = output
     self.confirm = confirm
@@ -51,12 +56,12 @@ public struct SetupRun {
 
   public static func preview(
     _ location: HookConfigLocation, executablePath: String, uninstall: Bool,
-    addsWaitingEntry: Bool, addsContextEntry: Bool = false
+    addsWaitingEntry: Bool, contextCheckpointHosts: Set<Host> = []
   ) -> SetupPreview {
     var text = ""
     var run = SetupRun(
       executablePath: executablePath, uninstall: uninstall, addsWaitingEntry: addsWaitingEntry,
-      addsContextEntry: addsContextEntry, writesFiles: false,
+      contextCheckpointHosts: contextCheckpointHosts, writesFiles: false,
       output: { text += $0 }, confirm: { _ in true })
     _ = run.apply(location)
     return SetupPreview(text: text, failures: run.failures, changedFiles: run.changedFiles)
@@ -72,7 +77,8 @@ public struct SetupRun {
         ? try HookSetup.uninstall(from: original, host: location.host)
         : try HookSetup.install(
           into: original, host: location.host, executablePath: executablePath,
-          addsWaitingEntry: addsWaitingEntry, addsContextEntry: addsContextEntry)
+          addsWaitingEntry: addsWaitingEntry,
+          addsContextEntry: contextCheckpointHosts.contains(location.host))
       guard try offer(updated, replacing: original, in: file) else { return true }
     } catch {
       report(error, in: file)
@@ -85,6 +91,11 @@ public struct SetupRun {
       }
       if let codexWaitingHookTrustFile {
         CodexHookTrust.recordWrittenWaiting(written, at: location, in: codexWaitingHookTrustFile)
+      }
+      if let codexContextHookTrustFile, let codexContextToolHookTrustFile {
+        CodexHookTrust.recordWrittenContext(
+          written, at: location, promptRecordFile: codexContextHookTrustFile,
+          toolRecordFile: codexContextToolHookTrustFile)
       }
     }
     return true

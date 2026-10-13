@@ -62,6 +62,8 @@ public struct CodexHookTrustCurrent: Sendable, Equatable {
 public enum CodexHookTrust {
   public static let eventLabel = "permission_request"
   public static let waitingEventLabel = "stop"
+  public static let contextEventLabel = "user_prompt_submit"
+  public static let contextToolEventLabel = "post_tool_use"
   static let configFileName = "config.toml"
 
   public static func current(
@@ -136,6 +138,26 @@ public enum CodexHookTrust {
     current(
       hooksFileBytes: hooksFileBytes, hooksFilePath: hooksFilePath,
       event: WaitingHookSetup.eventName, label: waitingEventLabel)
+  }
+
+  public static func currentContext(
+    hooksFileBytes: [UInt8], hooksFilePath: String, event: String
+  ) -> CodexHookTrustCurrent? {
+    current(
+      hooksFileBytes: hooksFileBytes, hooksFilePath: hooksFilePath, event: event,
+      label: event == ContextHookSetup.toolEventName ? contextToolEventLabel : contextEventLabel)
+  }
+
+  public static func recordWrittenContext(
+    _ written: [UInt8]?, at location: HookConfigLocation, promptRecordFile: URL,
+    toolRecordFile: URL
+  ) {
+    recordWritten(
+      written, at: location, in: promptRecordFile, event: ContextHookSetup.eventName,
+      label: contextEventLabel)
+    recordWritten(
+      written, at: location, in: toolRecordFile, event: ContextHookSetup.toolEventName,
+      label: contextToolEventLabel)
   }
 
   public static func markedRecord(

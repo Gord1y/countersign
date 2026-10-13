@@ -83,8 +83,8 @@ or config file's content, only paths and our own hook entry's command.
    After the lines above, for Claude Code's file only, when it is valid JSON, lines with the check
    name **`claude context`** cover the `hooks.UserPromptSubmit` and `hooks.PostToolUse` entries
    that Context checkpoints need (see "The Context checkpoints entry" in [setup.md](setup.md)).
-   Each check below runs once per event. They depend on `Doctor.Input.contextCheckpointsEnabled`,
-   which the caller fills from `config.json`:
+   Each check below runs once per event. They depend on Claude Code's place in
+   `Doctor.Input.contextCheckpointHosts`, which the caller fills from `config.json`:
    - enabled (the default) and no entry of ours: `warn`, since the feature is on and nothing calls
      the hook; `countersign setup`, or Update in Settings ▸ Agents, adds the entry. The line reads
      "context checkpoints are on, but <file> has no <event> entry of Countersign's; run
@@ -124,6 +124,19 @@ or config file's content, only paths and our own hook entry's command.
    run /hooks in a Codex session and trust it`; unknown is an `info`, `cannot tell whether Codex
    trusts Countersign's Stop entry; run /hooks in a Codex session to check`; trusted or marked as
    done adds nothing.
+   Lines named **`codex context`** cover Codex's `hooks.UserPromptSubmit` and `hooks.PostToolUse`
+   entries (see "The context entries of Codex" in [setup.md](setup.md)), driven by Codex's own
+   place in `Doctor.Input.contextCheckpointHosts`, with the three cases and the path, executable and
+   arguments checks of `claude context`. Codex's entries are synchronous, so there is no not-async
+   warning, the 600 second minimum timeout does not apply to their 30 seconds, and the `ok` line is
+   the entry's label, `<event> entry` (`<event> entry 2` and so on when an event has several
+   entries of ours), followed by ` in <path>`, as for `claude context` but without `, async`. While the checkpoints are on and an entry exists,
+   one more line per event is its trust verdict, judged from
+   `Doctor.Input.codexContextHookTrustRecord` or `codexContextToolHookTrustRecord` the way the
+   `Stop` entry is: pending is a `warn`, `Codex has not trusted Countersign's <event> entry yet; run
+   /hooks in a Codex session and trust it`; unknown is an `info`, `cannot tell whether Codex trusts
+   Countersign's <event> entry; run /hooks in a Codex session to check`; trusted or marked as done
+   adds nothing.
 3. Right after each host's lines, only when that host ends up wired and up to date (the same gate
    the Agents rows use for "Wired"; see "Follow-up lines" in [setup.md](setup.md)): for Codex, one
    line for the state `CodexTrustVerdict.judge` gives (see "The verdict" in [setup.md](setup.md)),

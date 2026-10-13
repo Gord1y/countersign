@@ -108,6 +108,11 @@ public struct Settings: Sendable, Equatable {
     host != .claude
   }
 
+  public static func contextCheckpointHosts(file: ConfigFile) -> Set<Host> {
+    Set(
+      [Host.claude, Host.codex].filter { resolve(file: file, host: $0).contextCheckpoints.enabled })
+  }
+
   public static func resolve(file: ConfigFile, host: Host) -> Settings {
     let hostOverrides = file.overrides(for: host)
     let idleSeconds = hostOverrides?.idleSeconds ?? file.idleSeconds ?? defaultIdleSeconds

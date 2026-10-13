@@ -509,7 +509,8 @@ A key with a mistake uses its default and the rest of the block is read as usual
 key on this page.
 
 `countersign setup`, and Update in Settings > Agents, add Countersign's `UserPromptSubmit` and
-`PostToolUse` entries to Claude Code's settings while checkpoints are on (the second one checks the
+`PostToolUse` entries to Claude Code's settings and to Codex's `hooks.json` while checkpoints are
+on for that agent (the second one checks the
 stop checkpoint after each tool call); turning them off in Settings removes both.
 
 To turn the feature off, use the "Context checkpoints (Claude Code)" switch in Settings > Panels or

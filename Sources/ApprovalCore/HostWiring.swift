@@ -92,7 +92,7 @@ public enum HostWiring {
     let missingWaitingEntry =
       addsWaitingEntry && WaitingHookSetup.hookNodes(in: root, host: host).isEmpty
     let missingContextEvents =
-      host == .claude && addsContextEntry
+      (host == .claude || host == .codex) && addsContextEntry
       ? ContextHookSetup.eventNames.filter { HookSetup.sites(in: root, event: $0).isEmpty } : []
     return .needsUpdate(
       HostWiringUpdate(
