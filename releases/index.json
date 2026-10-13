@@ -2,6 +2,31 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.4.0",
+      "date": "2026-10-13",
+      "title": "Countersign 0.4.0: a stop checkpoint, cache warnings and checkpoints for Codex",
+      "summary": "Context checkpoints gain a fourth rung that asks Claude to stop and write a handoff, also checked after each tool call. A corner card warns 10 minutes before a large idle session's cache goes cold, approval panels show the session's context size, and Codex gets checkpoint notes at 50, 60 and 70% of its window with a stop at 80%. Copy and cut work in the panel's fields.",
+      "type": "minor",
+      "breaking": false,
+      "highlights": [
+        "A stop checkpoint that asks Claude to collect its subagents' findings and write a handoff",
+        "A corner card 10 minutes before a large idle session's prompt cache goes cold",
+        "Context checkpoints for Codex: notes at 50, 60 and 70% of its window, a stop at 80%"
+      ],
+      "tags": [
+        "claude-code",
+        "codex",
+        "context",
+        "panel",
+        "setup"
+      ],
+      "testedWith": {
+        "claudeCode": "2.1.296",
+        "codex": "0.159.3"
+      },
+      "notes": "releases/release-0.4.0.md"
+    },
+    {
       "version": "0.3.1",
       "date": "2026-10-07",
       "title": "Countersign 0.3.1: the copied app keeps your hooks on Homebrew's countersign",
