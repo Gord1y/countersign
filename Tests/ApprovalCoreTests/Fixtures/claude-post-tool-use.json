@@ -1,0 +1,27 @@
+{
+  "session_id": "df40b0b1-b0c6-41be-a7b1-c8930a0bfdf3",
+  "transcript_path": "/Users/dev/.claude/projects/shop-api/df40b0b1-b0c6-41be-a7b1-c8930a0bfdf3.jsonl",
+  "cwd": "/Users/dev/Projects/shop-api",
+  "prompt_id": "a9abaf69-ff75-4368-8d7e-15904a39d625",
+  "permission_mode": "default",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Read",
+  "tool_input": {
+    "file_path": "/Users/dev/Projects/shop-api/qa-note.txt"
+  },
+  "tool_response": {
+    "type": "text",
+    "file": {
+      "filePath": "/Users/dev/Projects/shop-api/qa-note.txt",
+      "content": "qa-note: capture fixture\n",
+      "numLines": 2,
+      "startLine": 1,
+      "totalLines": 2
+    }
+  },
+  "tool_use_id": "toolu_01FgvuwLjSLnZr7SfUxoJ3eX",
+  "duration_ms": 11
+}

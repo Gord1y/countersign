@@ -8,7 +8,7 @@ import Testing
     ConfigFileParser.parse(Data(json.utf8))
   }
 
-  @Test func absentKeyResolvesToTheEnabledDefaultForClaudeOnly() {
+  @Test func absentKeyResolvesToTheEnabledDefaultForClaudeAndCodex() {
     let (file, logLines) = parse("{}")
     #expect(logLines.isEmpty)
     #expect(file.contextCheckpoints == nil)
@@ -16,7 +16,8 @@ import Testing
     let settings = Settings.resolve(file: file, host: .claude)
     #expect(settings.contextCheckpoints == .default)
     #expect(settings.contextCheckpoints.enabled == true)
-    for host in [Host.codex, .cursor, .antigravity] {
+    #expect(Settings.resolve(file: file, host: .codex).contextCheckpoints.enabled == true)
+    for host in [Host.cursor, .antigravity] {
       #expect(Settings.resolve(file: file, host: host).contextCheckpoints.enabled == false)
     }
   }
@@ -39,18 +40,20 @@ import Testing
         "contextCheckpoints": {
           "enabled": true,
           "mode": "panel",
-          "thresholds": { "200k": [1000, 2000, 3000], "1m": [10, 20, 30] },
-          "modelThresholds": { "claude-opus-5-5[1m]": [250000, 350000, 450000] },
+          "thresholds": { "200k": [1000, 2000, 3000, 4000], "1m": [10, 20, 30, 40] },
+          "modelThresholds": { "claude-opus-5-5[1m]": [250000, 350000, 450000, 650000] },
           "rearmBelow": 0.5,
           "handoffFile": "docs/handoff.md",
           "notes": {
             "soft": "top soft",
             "status": "top status",
             "insist": "top insist",
+            "stop": "top stop",
             "compact": "top compact",
             "handoff": "top handoff"
           },
           "menuBarMeter": true,
+          "coldCacheCard": false,
           "hosts": {
             "claude": { "mode": "silent", "notes": { "soft": "host soft" } }
           }
@@ -61,13 +64,14 @@ import Testing
     let top = file.contextCheckpoints
     #expect(top?.enabled == true)
     #expect(top?.mode == .panel)
-    #expect(top?.standardThresholds == [1000, 2000, 3000])
-    #expect(top?.millionThresholds == [10, 20, 30])
-    #expect(top?.modelThresholds == ["claude-opus-5-5[1m]": [250_000, 350_000, 450_000]])
+    #expect(top?.standardThresholds == [1000, 2000, 3000, 4000])
+    #expect(top?.millionThresholds == [10, 20, 30, 40])
+    #expect(top?.modelThresholds == ["claude-opus-5-5[1m]": [250_000, 350_000, 450_000, 650_000]])
     #expect(top?.rearmBelow == 0.5)
     #expect(top?.handoffFile == "docs/handoff.md")
     #expect(top?.menuBarMeter == true)
-    #expect(top?.notes.count == 5)
+    #expect(top?.coldCacheCard == false)
+    #expect(top?.notes.count == 6)
 
     let resolved = Settings.resolve(file: file, host: .claude).contextCheckpoints
     #expect(resolved.enabled)
@@ -75,11 +79,27 @@ import Testing
     #expect(resolved.notes.soft == "host soft")
     #expect(resolved.notes.status == "top status")
     #expect(resolved.notes.insist == "top insist")
+    #expect(resolved.notes.stop == "top stop")
     #expect(resolved.notes.compact == "top compact")
     #expect(resolved.notes.handoff == "top handoff")
     #expect(resolved.rearmBelow == 0.5)
     #expect(resolved.handoffFile == "docs/handoff.md")
     #expect(resolved.menuBarMeter)
+    #expect(!resolved.coldCacheCard)
+  }
+
+  @Test func threeValueLaddersStillParse() {
+    let (file, logLines) = parse(
+      #"{"contextCheckpoints": {"thresholds": {"200k": [1, 2, 3]}}}"#)
+    #expect(logLines.isEmpty)
+    #expect(file.contextCheckpoints?.standardThresholds == [1, 2, 3])
+  }
+
+  @Test func hostStopNoteBeatsTheTopOne() {
+    let (file, _) = parse(
+      #"{"contextCheckpoints": {"notes": {"stop": "top"}, "hosts": {"claude": {"notes": {"stop": "host"}}}}}"#
+    )
+    #expect(Settings.resolve(file: file, host: .claude).contextCheckpoints.notes.stop == "host")
   }
 
   @Test func partialNotesKeepTheDefaultsForTheRest() {
@@ -99,7 +119,7 @@ import Testing
           "enabled": true,
           "mode": "x",
           "thresholds": { "200k": [3, 2, 1], "1m": [10, 20, 30] },
-          "modelThresholds": { "good": [1, 2, 3], "bad": [1, 2] },
+          "modelThresholds": { "good": [1, 2, 3], "bad": [1, 2], "long": [1, 2, 3, 4, 5] },
           "rearmBelow": 2,
           "handoffFile": "",
           "notes": { "soft": "\(longNote)", "status": "kept" }
@@ -109,8 +129,9 @@ import Testing
     #expect(
       logLines == [
         "contextCheckpoints.mode: expected \"panel\" or \"silent\", using default \"panel\"",
-        "contextCheckpoints.thresholds.200k: expected 3 ascending whole numbers of tokens, using default [100000, 130000, 160000]",
-        "contextCheckpoints.modelThresholds.bad: expected 3 ascending whole numbers of tokens, ignored",
+        "contextCheckpoints.thresholds.200k: expected 3 or 4 ascending whole numbers of tokens, using default [100000, 120000, 140000, 160000]",
+        "contextCheckpoints.modelThresholds.bad: expected 3 or 4 ascending whole numbers of tokens, ignored",
+        "contextCheckpoints.modelThresholds.long: expected 3 or 4 ascending whole numbers of tokens, ignored",
         "contextCheckpoints.rearmBelow: expected a number from 0.1 to 0.95, using default 0.6",
         "contextCheckpoints.handoffFile: expected a non-empty string, using default \"notes/handoff.md\"",
         "contextCheckpoints.notes.soft: expected text of 1 to 4000 characters, using the default",
@@ -131,7 +152,7 @@ import Testing
       #"{"contextCheckpoints": {"thresholds": {"1m": [5, 5, 6]}}}"#)
     #expect(
       logLines == [
-        "contextCheckpoints.thresholds.1m: expected 3 ascending whole numbers of tokens, using default [200000, 300000, 400000]"
+        "contextCheckpoints.thresholds.1m: expected 3 or 4 ascending whole numbers of tokens, using default [200000, 300000, 400000, 600000]"
       ])
   }
 
@@ -142,14 +163,15 @@ import Testing
         "contextCheckpoints": {
           "foo": 1,
           "enabled": true,
-          "hosts": { "codex": { "enabled": true }, "claude": { "hosts": {}, "bar": 2 } }
+          "hosts": { "cursor": { "enabled": true }, "claude": { "hosts": {}, "bar": 2 } }
         }
       }
       """)
     #expect(logLines.contains("unknown key \"contextCheckpoints.foo\", ignored"))
     #expect(
       logLines.contains(
-        "contextCheckpoints.hosts.codex: context checkpoints support only Claude Code, ignored"))
+        "contextCheckpoints.hosts.cursor: context checkpoints support only Claude Code and Codex, ignored"
+      ))
     #expect(logLines.contains("unknown key \"contextCheckpoints.hosts.claude.hosts\", ignored"))
     #expect(logLines.contains("unknown key \"contextCheckpoints.hosts.claude.bar\", ignored"))
     #expect(logLines.count == 4)
@@ -166,15 +188,65 @@ import Testing
     #expect(hostsFile.contextCheckpointsClaude == nil)
   }
 
-  @Test func otherHostsNeverEnableCheckpoints() {
+  @Test func cursorAndAntigravityNeverEnableCheckpoints() {
     let (file, _) = parse(
       #"{"contextCheckpoints": {"enabled": true, "hosts": {"claude": {"enabled": true}}}}"#)
-    for host in [Host.codex, .cursor, .antigravity] {
+    for host in [Host.cursor, .antigravity] {
       let settings = Settings.resolve(file: file, host: host).contextCheckpoints
       #expect(settings.enabled == false)
       #expect(settings == .off)
     }
     #expect(Settings.resolve(file: file, host: .claude).contextCheckpoints.enabled)
+  }
+
+  @Test func codexIsEnabledByDefaultAndTheTopSwitchTurnsItOff() {
+    let (defaults, _) = parse("{}")
+    #expect(Settings.resolve(file: defaults, host: .codex).contextCheckpoints.enabled)
+    let (off, _) = parse(#"{"contextCheckpoints": {"enabled": false}}"#)
+    #expect(Settings.resolve(file: off, host: .codex).contextCheckpoints.enabled == false)
+  }
+
+  @Test func codexHostSwitchWinsOverTheTopSwitch() {
+    let (file, logLines) = parse(
+      #"{"contextCheckpoints": {"enabled": true, "hosts": {"codex": {"enabled": false}}}}"#)
+    #expect(logLines.isEmpty)
+    #expect(Settings.resolve(file: file, host: .codex).contextCheckpoints.enabled == false)
+    #expect(Settings.resolve(file: file, host: .claude).contextCheckpoints.enabled)
+  }
+
+  @Test func codexIsSilentWhateverTheTopModeSays() {
+    let (file, _) = parse(#"{"contextCheckpoints": {"mode": "panel"}}"#)
+    let settings = Settings.resolve(file: file, host: .codex).contextCheckpoints
+    #expect(settings.mode == .silent)
+    #expect(settings.menuBarMeter == false)
+    #expect(settings.coldCacheCard == false)
+    #expect(Settings.resolve(file: file, host: .claude).contextCheckpoints.mode == .panel)
+  }
+
+  @Test func codexNoteWinsOverTheTopNote() {
+    let (file, _) = parse(
+      """
+      {"contextCheckpoints": {"notes": {"soft": "top soft", "stop": "top stop"},
+        "hosts": {"codex": {"notes": {"soft": "codex soft"}}}}}
+      """)
+    let notes = Settings.resolve(file: file, host: .codex).contextCheckpoints.notes
+    #expect(notes.soft == "codex soft")
+    #expect(notes.stop == "top stop")
+  }
+
+  @Test func codexReadsTheBlockWithoutALogLine() {
+    let (file, logLines) = parse(
+      #"{"contextCheckpoints": {"hosts": {"codex": {"enabled": false, "rearmBelow": 0.5}}}}"#)
+    #expect(logLines.isEmpty)
+    #expect(file.contextCheckpointsCodex?.enabled == false)
+    #expect(file.contextCheckpointsCodex?.rearmBelow == 0.5)
+  }
+
+  @Test func codexLogsAndDropsTheClaudeOnlyKeys() {
+    let (file, logLines) = parse(
+      #"{"contextCheckpoints": {"hosts": {"codex": {"thresholds": {"200k": [1, 2, 3, 4]}}}}}"#)
+    #expect(logLines == ["contextCheckpoints.hosts.codex.thresholds: Claude Code only, ignored"])
+    #expect(file.contextCheckpointsCodex?.standardThresholds == nil)
   }
 
   @Test func tokenTextRoundsToThousandsThenMillions() {

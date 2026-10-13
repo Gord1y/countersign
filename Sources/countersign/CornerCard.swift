@@ -5,7 +5,7 @@ import SwiftUI
 @MainActor
 @Observable
 final class CornerCardModel {
-  let leadText: String
+  var leadText: String
   let projectName: String
   let actionTitle: String?
   var onAction: (() -> Void)?
@@ -37,6 +37,14 @@ final class CornerCardModel {
     CornerCardModel(
       leadText: "\(hostName) needs your approval · ", projectName: projectName,
       actionTitle: "Show")
+  }
+
+  static func coldCache(tokens: Int, secondsLeft: TimeInterval, projectName: String)
+    -> CornerCardModel
+  {
+    CornerCardModel(
+      leadText: ColdCacheWarning.leadText(tokens: tokens, secondsLeft: secondsLeft),
+      projectName: projectName, actionTitle: "Copy handoff prompt")
   }
 
   var line: String {

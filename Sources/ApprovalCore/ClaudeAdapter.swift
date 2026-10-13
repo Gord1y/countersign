@@ -89,6 +89,16 @@ public enum ClaudeAdapter {
   }
 
   public static func parseUserPromptSubmit(_ data: Data) throws -> ContextCheckpointInput {
+    try parseContextCheckpointInput(data, eventName: ContextHookSetup.eventName)
+  }
+
+  public static func parsePostToolUse(_ data: Data) throws -> ContextCheckpointInput {
+    try parseContextCheckpointInput(data, eventName: ContextHookSetup.toolEventName)
+  }
+
+  private static func parseContextCheckpointInput(
+    _ data: Data, eventName: String
+  ) throws -> ContextCheckpointInput {
     let decoded: JSONValue
     do {
       decoded = try JSONDecoder().decode(JSONValue.self, from: data)
@@ -104,14 +114,15 @@ public enum ClaudeAdapter {
     guard let cwd = root["cwd"]?.stringValue else {
       throw AdapterError.malformedInput("missing cwd")
     }
-    guard root["hook_event_name"]?.stringValue == "UserPromptSubmit" else {
+    guard root["hook_event_name"]?.stringValue == eventName else {
       throw AdapterError.malformedInput("unexpected hook_event_name")
     }
     return ContextCheckpointInput(
       sessionID: sessionID,
       cwd: cwd,
       transcriptPath: root["transcript_path"]?.stringValue,
-      permissionMode: root["permission_mode"]?.stringValue)
+      permissionMode: root["permission_mode"]?.stringValue,
+      agentID: root["agent_id"]?.stringValue)
   }
 
   public static func encode(_ outcome: ApprovalOutcome) -> Data? {
@@ -119,7 +130,7 @@ public enum ClaudeAdapter {
     case .noDecision:
       return nil
     case .addContext(let text):
-      return encodeContextEnvelope(text)
+      return encodeContext(text, eventName: ContextHookSetup.eventName)
     case .allow(let updatedInput, let updatedPermissions):
       var decision: [String: JSONValue] = ["behavior": .string("allow")]
       if let updatedInput {
@@ -299,11 +310,11 @@ public enum ClaudeAdapter {
       ]))
   }
 
-  private static func encodeContextEnvelope(_ text: String) -> Data? {
+  public static func encodeContext(_ text: String, eventName: String) -> Data? {
     encodeOutput(
       .object([
         "hookSpecificOutput": .object([
-          "hookEventName": .string("UserPromptSubmit"),
+          "hookEventName": .string(eventName),
           "additionalContext": .string(text),
         ])
       ]))

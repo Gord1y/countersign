@@ -4,6 +4,7 @@ public enum ContextLevel: Int, Sendable, Codable, CaseIterable, Comparable {
   case soft = 1
   case status
   case insist
+  case stop
 
   public static func < (lhs: ContextLevel, rhs: ContextLevel) -> Bool {
     lhs.rawValue < rhs.rawValue
@@ -43,6 +44,14 @@ public struct ContextLadderStep: Sendable, Equatable {
 }
 
 public enum ContextLadder {
+  public static let codexPercents = [50, 60, 70, 80]
+
+  public static func codexThresholds(windowTokens: Int) -> [Int] {
+    codexPercents.map { percent in
+      Int((Double(windowTokens) * Double(percent) / 100).rounded())
+    }
+  }
+
   public static func thresholds(
     modelID: String?, hasMillionTokenWindow: Bool, settings: ContextLadderSettings
   ) -> [Int] {
@@ -58,7 +67,8 @@ public enum ContextLadder {
 
   public static func step(
     tokens: Int, modelID: String?, hasMillionTokenWindow: Bool, compactionID: String?,
-    previous: ContextCheckpointState, settings: ContextLadderSettings
+    previous: ContextCheckpointState, settings: ContextLadderSettings,
+    levels: [ContextLevel] = ContextLevel.allCases
   ) -> ContextLadderStep {
     var state = previous
     let compacted = compactionID != nil && compactionID != previous.compactionID
@@ -76,7 +86,8 @@ public enum ContextLadder {
 
     let ladder = thresholds(
       modelID: state.modelID, hasMillionTokenWindow: hasMillionTokenWindow, settings: settings)
-    let crossed = zip(ContextLevel.allCases, ladder).filter { tokens >= $0.1 }.map(\.0).max()
+    let crossed = zip(ContextLevel.allCases, ladder)
+      .filter { levels.contains($0.0) && tokens >= $0.1 }.map(\.0).max()
     guard let crossed, state.fired.allSatisfy({ $0 < crossed }) else {
       return ContextLadderStep(state: state, fire: nil)
     }

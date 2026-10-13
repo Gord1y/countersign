@@ -32,9 +32,11 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
   case contextNoteSoft
   case contextNoteStatus
   case contextNoteInsist
+  case contextNoteStop
   case contextNoteCompact
   case contextNoteHandoff
   case contextMenuBarMeter
+  case contextColdCacheCard
 
   public var keyPath: [String] {
     switch self {
@@ -48,9 +50,11 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
     case .contextNoteSoft: return ["contextCheckpoints", "notes", "soft"]
     case .contextNoteStatus: return ["contextCheckpoints", "notes", "status"]
     case .contextNoteInsist: return ["contextCheckpoints", "notes", "insist"]
+    case .contextNoteStop: return ["contextCheckpoints", "notes", "stop"]
     case .contextNoteCompact: return ["contextCheckpoints", "notes", "compact"]
     case .contextNoteHandoff: return ["contextCheckpoints", "notes", "handoff"]
     case .contextMenuBarMeter: return ["contextCheckpoints", "menuBarMeter"]
+    case .contextColdCacheCard: return ["contextCheckpoints", "coldCacheCard"]
     default: return [rawValue]
     }
   }
@@ -61,7 +65,8 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
 
   public var noteName: String? {
     switch self {
-    case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteCompact,
+    case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteStop,
+      .contextNoteCompact,
       .contextNoteHandoff:
       return keyPath.last
     default:
@@ -106,6 +111,7 @@ public enum PreferenceEdit: Sendable, Equatable {
   case contextHandoffFile(String)
   case contextNote(PreferenceName, String)
   case contextMenuBarMeter(Bool)
+  case contextColdCacheCard(Bool)
   case reset(PreferenceName)
   indirect case forAgent(Host, PreferenceEdit)
 
@@ -143,6 +149,7 @@ public enum PreferenceEdit: Sendable, Equatable {
     case .contextHandoffFile: return .contextHandoffFile
     case .contextNote(let name, _): return name
     case .contextMenuBarMeter: return .contextMenuBarMeter
+    case .contextColdCacheCard: return .contextColdCacheCard
     case .reset(let name): return name
     case .forAgent(_, let inner): return inner.key
     }
@@ -329,7 +336,8 @@ public enum ConfigEdit {
       return
     case .editorApp(let bundleID):
       try set(path, to: .string(bundleID), in: &document) { $0.stringValue == bundleID }
-    case .contextCheckpointsEnabled(let enabled), .contextMenuBarMeter(let enabled):
+    case .contextCheckpointsEnabled(let enabled), .contextMenuBarMeter(let enabled),
+      .contextColdCacheCard(let enabled):
       try set(path, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
     case .contextMode(let mode):
       try set(path, to: .string(mode.rawValue), in: &document) {

@@ -25,7 +25,10 @@ The full installer behaviour, including what each variable rejects and how it pi
 without a terminal to ask in: [release.md](release.md#the-curl-installer).
 
 To build from source instead (Xcode 26 or later), clone the repository and run
-`scripts/install.sh`.
+`scripts/install.sh`, which installs the CLI into `~/.local/bin`. `scripts/install.sh --app` also
+builds the menu-bar app and puts it in `~/Applications`, replacing an older copy; quit the app
+first. To move to a newer release, check out its tag (`git switch --detach v<x.y.z>`) and run it
+again.
 
 ## From the setup window
 
@@ -90,7 +93,7 @@ with `--cli`.
 | Agent | File | Set up when | The entry |
 | --- | --- | --- | --- |
 | Claude Code | `$CLAUDE_CONFIG_DIR/settings.json`, else `~/.claude/settings.json` | that directory exists | under `hooks.PermissionRequest` |
-| Codex | `$CODEX_HOME/hooks.json`, else `~/.codex/hooks.json` | that directory exists | under `hooks.PermissionRequest` |
+| Codex | `$CODEX_HOME/hooks.json`, else `~/.codex/hooks.json` | that directory exists | under `hooks.PermissionRequest`, and under `hooks.UserPromptSubmit` and `hooks.PostToolUse` while Context checkpoints are on |
 | Cursor | `~/.cursor/hooks.json` | `~/.cursor` exists | under `hooks.beforeShellExecution` and `hooks.beforeMCPExecution` |
 | Antigravity | `~/.gemini/config/hooks.json` | `~/.gemini/antigravity-cli`, `~/.gemini/antigravity` or `~/.gemini/antigravity-ide` exists | a named hook `countersign` with one `PreToolUse` entry |
 
@@ -121,9 +124,12 @@ can wait up to an hour for you. The hook takes nothing else: every setting lives
 Countersign's with any other arguments is rewritten to this command. The exact shape for each
 agent is in [design/setup.md](design/setup.md).
 
-Turning on Context checkpoints in the Settings window adds a second entry to Claude Code's file,
-under `hooks.UserPromptSubmit`. It runs the same command and is marked `"async": true`, so your
-prompts never wait for it. Remove takes out both entries.
+Turning on Context checkpoints in the Settings window adds two entries to Claude Code's file,
+under `hooks.UserPromptSubmit` and `hooks.PostToolUse`. Both run the same command and are marked
+`"async": true`, so your prompts and tool calls never wait for them. The second one lets a
+checkpoint that a long autonomous run would otherwise never reach fire after a tool call. Codex's
+file gets the same two entries without `"async"`, since Codex runs them to completion, with a
+30-second timeout. Remove takes out every entry of ours.
 
 [Waiting-agent notices](agents.md#the-waiting-agent-notice) are on by default, so setup's diff also
 includes a second entry for each agent, for the end of a turn (`hooks.Stop`; `hooks.stop` for
@@ -178,7 +184,10 @@ Do that once. Sessions you already have open pick up the trust as soon as you ru
 needing to restart them. Countersign reads the trust Codex stores in `config.toml`, next to its
 `hooks.json`, so the step goes away by itself; `countersign doctor` then says
 `ok codex: Codex trusts Countersign's hook`. Wiring or updating Codex's entry again (an upgrade, a
-new install path) brings the step back, since Codex asks about the new entry too.
+new install path) brings the step back, since Codex asks about the new entry too. Codex asks for
+each new entry: the permission hook, the `Stop` hook of waiting-agent notices and the two context
+hooks each need trusting once in `/hooks`, and switching Context checkpoints on later adds two
+more to trust.
 
 Adding another hook to Codex's `hooks.json` after Countersign's, or for another event, never brings
 it back. Adding one before Countersign's, or removing one that came before it, moves Countersign's

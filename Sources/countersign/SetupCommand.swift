@@ -42,12 +42,14 @@ enum SetupCommand {
     }
     let interactive = isatty(STDIN_FILENO) == 1
     let waitingNotices = waitingNoticesEnabled(home: home)
-    let contextCheckpoints = contextCheckpointsEnabled(home: home)
+    let contextCheckpointHosts = contextCheckpointHosts(home: home)
     var setup = SetupRun(
       executablePath: executablePath, uninstall: options.uninstall,
-      addsWaitingEntry: waitingNotices, addsContextEntry: contextCheckpoints,
+      addsWaitingEntry: waitingNotices, contextCheckpointHosts: contextCheckpointHosts,
       codexHookTrustFile: AppPaths(home: home).codexHookTrustFile,
       codexWaitingHookTrustFile: AppPaths(home: home).codexWaitingHookTrustFile,
+      codexContextHookTrustFile: AppPaths(home: home).codexContextHookTrustFile,
+      codexContextToolHookTrustFile: AppPaths(home: home).codexContextToolHookTrustFile,
       output: { print($0, terminator: "") },
       confirm: { confirmed(options: options, interactive: interactive, path: $0) })
     var failed = false
@@ -57,7 +59,7 @@ enum SetupCommand {
     }
     printFollowUps(
       uninstall: options.uninstall, addsWaitingEntry: waitingNotices,
-      addsContextEntry: contextCheckpoints, changedFiles: setup.changedFiles,
+      contextCheckpointHosts: contextCheckpointHosts, changedFiles: setup.changedFiles,
       environment: environment, home: home)
     printDuplicateInstall(environment: environment, home: home)
     exit(failed ? 1 : 0)
@@ -69,14 +71,15 @@ enum SetupCommand {
     return Settings.resolve(file: configFile, host: .claude).waitingNotices
   }
 
-  private static func contextCheckpointsEnabled(home: URL) -> Bool {
+  private static func contextCheckpointHosts(home: URL) -> Set<ApprovalCore.Host> {
     let (configFile, _) = ConfigFileLoader.load(
       paths: AppPaths(home: home), soundNames: SystemSounds.installedNames)
-    return Settings.resolve(file: configFile, host: .claude).contextCheckpoints.enabled
+    return Settings.contextCheckpointHosts(file: configFile)
   }
 
   private static func printFollowUps(
-    uninstall: Bool, addsWaitingEntry: Bool, addsContextEntry: Bool, changedFiles: [URL],
+    uninstall: Bool, addsWaitingEntry: Bool, contextCheckpointHosts: Set<ApprovalCore.Host>,
+    changedFiles: [URL],
     environment: [String: String], home: URL
   ) {
     guard let resolved = Bundle.main.executableURL?.resolvingSymlinksInPath().path else { return }
@@ -88,16 +91,16 @@ enum SetupCommand {
     }
     var wiring: [ApprovalCore.Host: HostWiringStatus] = [:]
     var codexTrust = CodexHookTrustState.unknown
-    var codexHasWaitingEntry = false
+    var codexHasOtherEntries = false
     for location in locations {
       let fileState = ConfigFileStore.fileState(location.file)
       let status = HostWiring.status(
         host: location.host, directoryExists: DoctorCommand.isInstalled(location),
         file: fileState, stablePath: stablePath, addsWaitingEntry: addsWaitingEntry,
-        addsContextEntry: addsContextEntry)
+        addsContextEntry: contextCheckpointHosts.contains(location.host))
       wiring[location.host] = status
       if location.host == .codex {
-        codexHasWaitingEntry = AgentFollowUps.codexHasWaitingEntry(in: fileState)
+        codexHasOtherEntries = AgentFollowUps.codexHasOtherEntries(in: fileState)
       }
       if location.host == .codex, status == .wired {
         codexTrust = CodexHookTrust.check(
@@ -107,7 +110,7 @@ enum SetupCommand {
     let changedHosts = Set(locations.filter { changedFiles.contains($0.file) }.map(\.host))
     for line in AgentFollowUps.setupLines(
       wiring: wiring, codexTrust: codexTrust, changedHosts: changedHosts, uninstall: uninstall,
-      codexHasWaitingEntry: codexHasWaitingEntry)
+      codexHasOtherEntries: codexHasOtherEntries)
     {
       print(line)
     }

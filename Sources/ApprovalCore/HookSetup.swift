@@ -50,8 +50,15 @@ public enum HookSetup {
         installed = try ContextHookSetup.refresh(into: permission, executablePath: executablePath)
       }
     case .codex:
-      installed = try installPermissionEntry(
+      let permission = try installPermissionEntry(
         into: original, host: host, executablePath: executablePath)
+      if addsContextEntry {
+        installed = try ContextHookSetup.install(
+          into: permission, executablePath: executablePath, host: .codex)
+      } else {
+        installed = try ContextHookSetup.refresh(
+          into: permission, executablePath: executablePath, host: .codex)
+      }
     case .cursor:
       installed = try CursorHookSetup.install(into: original, executablePath: executablePath)
     case .antigravity:
@@ -117,7 +124,8 @@ public enum HookSetup {
       let removed = try removeEntries(from: original, event: eventName)
       withoutPermission = try ContextHookSetup.uninstall(from: removed)
     case .codex:
-      withoutPermission = try removeEntries(from: original, event: eventName)
+      let removed = try removeEntries(from: original, event: eventName)
+      withoutPermission = try ContextHookSetup.uninstall(from: removed)
     case .cursor:
       withoutPermission = try CursorHookSetup.uninstall(from: original)
     case .antigravity:

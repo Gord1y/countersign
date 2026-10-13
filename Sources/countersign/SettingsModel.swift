@@ -123,15 +123,24 @@ struct EditorChoice: Identifiable, Equatable {
 enum ContextHookChangeOrigin: Equatable {
   case toggle
   case hookStatus
+  case codexHookStatus
 }
 
 struct ContextHookChange {
   let origin: ContextHookChangeOrigin
   let enable: Bool
+  let locations: [HookConfigLocation]
   let preview: SetupPreview
 
   var canApply: Bool {
     preview.failures.isEmpty
+  }
+
+  var asksCodexTrust: Bool {
+    guard enable, let codexFile = locations.first(where: { $0.host == .codex })?.file else {
+      return false
+    }
+    return preview.changedFiles.contains(codexFile)
   }
 
   var confirmTitle: String {
@@ -220,6 +229,7 @@ final class SettingsModel {
   private(set) var contextChange: ContextHookChange?
   private(set) var contextHookFailure: ContextHookFailure?
   private(set) var contextHookStatus = ContextHookStatus.notWired
+  private(set) var codexContextHookStatus: ContextHookStatus?
   private(set) var waitingChange: WaitingHookChange?
   private(set) var hostChange: HostHookChange?
   private(set) var waitingHookFailure: String?
@@ -325,6 +335,9 @@ final class SettingsModel {
 
   var contextCheckpoints: ContextCheckpointSettings { preferences.contextCheckpoints }
   var contextCheckpointsEnabled: Bool { contextCheckpoints.enabled }
+  private var contextCheckpointHosts: Set<ApprovalCore.Host> {
+    Settings.contextCheckpointHosts(file: configFileContents)
+  }
 
   var claudeLocation: HookConfigLocation? {
     environment.locations.first { $0.host == .claude }
@@ -332,6 +345,32 @@ final class SettingsModel {
 
   var claudeIsInstalled: Bool {
     claudeLocation.map { DoctorCommand.isInstalled($0) } ?? false
+  }
+
+  var codexLocation: HookConfigLocation? {
+    environment.locations.first { $0.host == .codex }
+  }
+
+  var codexIsInstalled: Bool {
+    codexLocation.map { DoctorCommand.isInstalled($0) } ?? false
+  }
+
+  var contextAgentIsInstalled: Bool {
+    claudeIsInstalled || codexIsInstalled
+  }
+
+  var contextLocations: [HookConfigLocation] {
+    var locations: [HookConfigLocation] = []
+    if claudeIsInstalled, let claudeLocation {
+      locations.append(claudeLocation)
+    }
+    let codexSetsItsOwn = configFileContents.contextCheckpointsCodex?.enabled != nil
+    if !codexSetsItsOwn, let codexLocation,
+      hostRows.contains(where: { $0.id == .codex && $0.isWiredOrStale })
+    {
+      locations.append(codexLocation)
+    }
+    return locations
   }
 
   var contextToggleProblem: String? {
@@ -498,7 +537,7 @@ final class SettingsModel {
       row.followUp = AgentFollowUps.current(
         host: location.host, wiringStatus: row.status,
         codexTrust: location.host == .codex ? codexHookTrustState(at: location) : .unknown,
-        codexHasWaitingEntry: AgentFollowUps.codexHasWaitingEntry(
+        codexHasOtherEntries: AgentFollowUps.codexHasOtherEntries(
           in: ConfigFileStore.fileState(location.file)))
       return row
     }
@@ -521,6 +560,7 @@ final class SettingsModel {
       home: environment.home, root: environment.installRoot,
       probesVersions: environment.probesInstallVersions)
     contextHookStatus = currentContextHookStatus()
+    codexContextHookStatus = currentCodexContextHookStatus()
   }
 
   private static let unresolvedExecutable = "the countersign executable could not be resolved"
@@ -528,7 +568,13 @@ final class SettingsModel {
   private func currentContextHookStatus() -> ContextHookStatus {
     guard let location = claudeLocation else { return .notWired }
     guard let stablePath else { return .unusable(Self.unresolvedExecutable) }
-    return ContextHookRun.status(file: location.file, executablePath: stablePath)
+    return ContextHookRun.status(location: location, executablePath: stablePath)
+  }
+
+  private func currentCodexContextHookStatus() -> ContextHookStatus? {
+    guard let location = contextLocations.first(where: { $0.host == .codex }) else { return nil }
+    guard let stablePath else { return .unusable(Self.unresolvedExecutable) }
+    return ContextHookRun.status(location: location, executablePath: stablePath)
   }
 
   func toggleCopies() {
@@ -567,9 +613,11 @@ final class SettingsModel {
     guard let index = hostRows.firstIndex(where: { $0.id == host }) else { return }
     var run = SetupRun(
       executablePath: stablePath ?? "", uninstall: action.uninstalls,
-      addsWaitingEntry: waitingNotices, addsContextEntry: contextCheckpointsEnabled,
+      addsWaitingEntry: waitingNotices, contextCheckpointHosts: contextCheckpointHosts,
       codexHookTrustFile: environment.paths.codexHookTrustFile,
-      codexWaitingHookTrustFile: environment.paths.codexWaitingHookTrustFile, now: now,
+      codexWaitingHookTrustFile: environment.paths.codexWaitingHookTrustFile,
+      codexContextHookTrustFile: environment.paths.codexContextHookTrustFile,
+      codexContextToolHookTrustFile: environment.paths.codexContextToolHookTrustFile, now: now,
       output: { _ in }, confirm: { _ in true })
     _ = run.apply(hostRows[index].location)
     hostRows[index].error = run.failures.first
@@ -1076,12 +1124,16 @@ final class SettingsModel {
   ]
 
   static let contextNoteNames: [PreferenceName] = [
-    .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteCompact,
+    .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteStop, .contextNoteCompact,
     .contextNoteHandoff,
   ]
 
   var contextHookFileText: String? {
     claudeLocation.map { HomePath.abbreviating($0.file.path, relativeTo: environment.home) }
+  }
+
+  var codexContextHookFileText: String? {
+    codexLocation.map { HomePath.abbreviating($0.file.path, relativeTo: environment.home) }
   }
 
   func saveContextNotes(_ drafts: [PreferenceName: String]) -> Bool {
@@ -1121,51 +1173,69 @@ final class SettingsModel {
   }
 
   func requestContextHookUpdate() {
-    requestContextHookChange(origin: .hookStatus, enable: true)
+    guard let location = claudeLocation else { return }
+    requestContextHookChange(origin: .hookStatus, enable: true, locations: [location])
   }
 
-  private func requestContextHookChange(origin: ContextHookChangeOrigin, enable: Bool) {
-    guard let location = claudeLocation else { return }
+  func requestCodexContextHookUpdate() {
+    guard let location = contextLocations.first(where: { $0.host == .codex }) else { return }
+    requestContextHookChange(origin: .codexHookStatus, enable: true, locations: [location])
+  }
+
+  private func requestContextHookChange(
+    origin: ContextHookChangeOrigin, enable: Bool, locations: [HookConfigLocation]? = nil
+  ) {
+    let locations = locations ?? contextLocations
     contextHookFailure = nil
+    if locations.isEmpty {
+      if origin == .toggle { finishContextToggle(enable: enable) }
+      return
+    }
     if enable, stablePath == nil {
       contextChange = nil
       contextHookFailure = ContextHookFailure(origin: origin, message: Self.unresolvedExecutable)
       return
     }
     contextChange = ContextHookChange(
-      origin: origin, enable: enable,
+      origin: origin, enable: enable, locations: locations,
       preview: ContextHookRun.preview(
-        file: location.file, executablePath: stablePath ?? "", enable: enable))
+        locations: locations, executablePath: stablePath ?? "", enable: enable))
   }
 
   func cancelContextChange() {
-    if let change = contextChange, let line = change.preview.failures.first {
-      contextHookFailure = ContextHookFailure(origin: change.origin, message: line)
+    if let change = contextChange, !change.preview.failures.isEmpty {
+      contextHookFailure = ContextHookFailure(
+        origin: change.origin, message: change.preview.failures.joined(separator: "\n"))
     }
     contextChange = nil
   }
 
   func confirmContextChange() {
-    guard let change = contextChange, change.canApply, let location = claudeLocation else {
-      return
-    }
+    guard let change = contextChange, change.canApply else { return }
     contextChange = nil
-    if let line = ContextHookRun.apply(
-      file: location.file, executablePath: stablePath ?? "", enable: change.enable, now: now())
-    {
-      contextHookFailure = ContextHookFailure(origin: change.origin, message: line)
+    let failures = ContextHookRun.apply(
+      locations: change.locations, executablePath: stablePath ?? "", enable: change.enable,
+      now: now(), codexPromptTrustFile: environment.paths.codexContextHookTrustFile,
+      codexToolTrustFile: environment.paths.codexContextToolHookTrustFile)
+    if !failures.isEmpty {
+      contextHookFailure = ContextHookFailure(
+        origin: change.origin, message: failures.joined(separator: "\n"))
       refreshHosts()
       return
     }
     contextHookFailure = nil
     if change.origin == .toggle {
-      if !change.enable {
-        ContextCheckpointStore(directory: environment.paths.contextCheckpointsDirectory)
-          .removeAll()
-      }
-      write(.contextCheckpointsEnabled(change.enable))
+      finishContextToggle(enable: change.enable)
     }
     refreshHosts()
+  }
+
+  private func finishContextToggle(enable: Bool) {
+    if !enable {
+      ContextCheckpointStore(directory: environment.paths.contextCheckpointsDirectory)
+        .removeAll()
+    }
+    write(.contextCheckpointsEnabled(enable))
   }
 
   func contextText(for name: PreferenceName) -> String {
@@ -1180,6 +1250,7 @@ final class SettingsModel {
     case .contextNoteSoft: return values.notes.soft
     case .contextNoteStatus: return values.notes.status
     case .contextNoteInsist: return values.notes.insist
+    case .contextNoteStop: return values.notes.stop
     case .contextNoteCompact: return values.notes.compact
     case .contextNoteHandoff: return values.notes.handoff
     default: return ""
@@ -1236,6 +1307,10 @@ final class SettingsModel {
 
   func setContextMenuBarMeter(_ enabled: Bool) {
     write(.contextMenuBarMeter(enabled))
+  }
+
+  func setContextColdCacheCard(_ enabled: Bool) {
+    write(.contextColdCacheCard(enabled))
   }
 
   func setNewContextModelPrefix(_ text: String) {
@@ -1574,7 +1649,8 @@ final class SettingsModel {
     return HostWiring.status(
       host: location.host, directoryExists: DoctorCommand.isInstalled(location),
       file: ConfigFileStore.fileState(location.file), stablePath: stablePath,
-      addsWaitingEntry: waitingNotices, addsContextEntry: contextCheckpointsEnabled)
+      addsWaitingEntry: waitingNotices,
+      addsContextEntry: contextCheckpointHosts.contains(location.host))
   }
 
   private func preview(of location: HookConfigLocation, action: HostWiringAction)
@@ -1582,7 +1658,7 @@ final class SettingsModel {
   {
     SetupRun.preview(
       location, executablePath: stablePath ?? "", uninstall: action.uninstalls,
-      addsWaitingEntry: waitingNotices, addsContextEntry: contextCheckpointsEnabled)
+      addsWaitingEntry: waitingNotices, contextCheckpointHosts: contextCheckpointHosts)
   }
 
   private func codexHookTrustState(at location: HookConfigLocation) -> CodexHookTrustState {

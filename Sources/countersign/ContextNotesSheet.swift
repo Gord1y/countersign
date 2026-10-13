@@ -25,6 +25,7 @@ enum ContextNotesSheet {
     case .contextNoteSoft: return notes.soft
     case .contextNoteStatus: return notes.status
     case .contextNoteInsist: return notes.insist
+    case .contextNoteStop: return notes.stop
     case .contextNoteCompact: return notes.compact
     case .contextNoteHandoff: return notes.handoff
     default: return ""

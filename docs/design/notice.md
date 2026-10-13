@@ -267,25 +267,32 @@ follows (see "The result card" in [panel.md](panel.md)).
 
 ### The shared corner card
 
-The waiting notice and the approval card (see "The approval card" in [panel.md](panel.md)) are
-the same `CornerCard` with different content, so they look alike, stack in one column and never
-overlap. Everything above is the shared part: the panel, the view, the fade, the announcement,
-the placement, following screen changes and the slots. `CornerCard.inFreeSlot(of:...)` takes the
-lowest free `slot-<n>.lock` in `AppPaths.waitingDirectory` and returns nil when both are taken;
-the card owns that lock and releases it in `close()`, so closing a card always frees its slot and
-an exiting process frees it with its file descriptor. `CornerCard.slot` is the slot it holds. The
-slots are shared across every notice process and every hook process, so a notice and an approval
-card on screen at once take different slots. The test cards of Settings (see "Show a test card" in
-[settings.md](settings.md)) are corner cards too and take real slots the same way, so a test card
-counts toward the limit and can leave no room for a real notice while it is up. A test card does
-not step back for an approval claim (below); it closes by itself instead: a test notice after Show notice for, a test approval card after 20
-seconds.
+The waiting notice, the approval card (see "The approval card" in [panel.md](panel.md)) and the
+cold-cache card (see "The cold-cache card" in [checkpoints.md](checkpoints.md)) are the same
+`CornerCard` with different content, so they look alike, stack in one column and never overlap. The
+cold-cache card is `CornerCardModel.coldCache`, shown by the menu-bar app's
+`ColdCacheCardController` with the accessibility title `Countersign cache warning`. Everything above
+is the shared part: the panel, the view, the fade, the announcement, the placement, following screen
+changes and the slots. `CornerCard.inFreeSlot(of:...)` takes the lowest free `slot-<n>.lock` in
+`AppPaths.waitingDirectory` and returns nil when both are taken; the card owns that lock and
+releases it in `close()`, so closing a card always frees its slot and an exiting process frees it
+with its file descriptor. `CornerCard.slot` is the slot it holds. The slots are shared across every
+notice process and every hook process, so a notice and an approval card on screen at once take
+different slots. The test cards of Settings (see "Show a test card" in [settings.md](settings.md))
+are corner cards too and take real slots the same way, so a test card counts toward the limit and
+can leave no room for a real notice while it is up. A test card does not step back for an approval
+claim (below); it closes by itself instead: a test notice after Show notice for, a test approval
+card after 20 seconds.
 
 ### Two corner cards at most
 
 Two slots, not four: the person asked for no more than two cards in the top right at once, after
 three notices showed together beside a test panel. A taller column covers more of whatever they are
 working in. A third waiting notice stays unshown, retries each tick, and shows when a slot frees.
+
+The cold-cache card yields like a notice: when an approval claim is live and the card holds the last
+slot, `ColdCacheCardController` closes it and forgets its ledger entry, so it shows again after the
+claim is gone. With no free slot it shows nothing and retries on the next 30-second tick.
 
 When both slots hold cards and an approval card is due, the approval goes first: an approval blocks
 its agent until someone answers, a waiting notice is only a reminder. The hook cannot take a slot
@@ -373,3 +380,11 @@ the card without `Go there`, as for a record with no app.
 ```
 
 draws the approval card the same way, with `Show`.
+
+```sh
+.build/debug/countersign snapshot --cold-cache-card \
+  [--project <name>] [--appearance light|dark] -o <out.png>
+```
+
+draws the cold-cache card the same way, for 640K tokens and 9 minutes left, with `Copy handoff
+prompt`.

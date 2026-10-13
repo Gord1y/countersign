@@ -24,7 +24,7 @@ extension PreferenceName {
     case .accentColor: return "Accent colour"
     case .showSkills: return "Skills in the sidebar"
     case .editorApp: return "Open with"
-    case .contextCheckpointsEnabled: return "Context checkpoints (Claude Code)"
+    case .contextCheckpointsEnabled: return "Context checkpoints (Claude Code and Codex)"
     case .contextMode: return "Checkpoint style"
     case .contextStandardThresholds: return "Checkpoints, 200K window"
     case .contextMillionThresholds: return "Checkpoints, 1M window"
@@ -34,9 +34,11 @@ extension PreferenceName {
     case .contextNoteSoft: return "Soft note"
     case .contextNoteStatus: return "Status note"
     case .contextNoteInsist: return "Insist note"
+    case .contextNoteStop: return "Stop note"
     case .contextNoteCompact: return "Compact note"
     case .contextNoteHandoff: return "Handoff note"
     case .contextMenuBarMeter: return "Context in the menu bar"
+    case .contextColdCacheCard: return "Warn before the cache goes cold"
     }
   }
 
@@ -68,19 +70,22 @@ extension PreferenceName {
     case .showSkills: return "Show the Skills group in the sidebar."
     case .editorApp: return "The app Open in Editor uses for config.json."
     case .contextCheckpointsEnabled:
-      return "Nudge long Claude Code sessions toward a deliberate compaction."
+      return "Nudge long Claude Code and Codex sessions toward a deliberate compaction."
     case .contextMode: return "Show a panel, or add the note silently."
-    case .contextStandardThresholds: return "Soft, status and insist, in tokens."
-    case .contextMillionThresholds: return "Soft, status and insist, in tokens."
+    case .contextStandardThresholds: return "Soft, status, insist and an optional stop, in tokens."
+    case .contextMillionThresholds: return "Soft, status, insist and an optional stop, in tokens."
     case .contextModelThresholds: return "A ladder for model IDs starting with a prefix."
     case .contextRearmBelow: return "A drop this far below the peak counts as a fresh start."
-    case .contextHandoffFile: return "Where Claude writes a handoff, relative to the project."
+    case .contextHandoffFile: return "Where the agent writes a handoff, relative to the project."
     case .contextNoteSoft: return "Sent in silent mode at the first checkpoint."
     case .contextNoteStatus: return "Sent in silent mode at the second checkpoint."
     case .contextNoteInsist: return "Sent in silent mode at the third checkpoint."
+    case .contextNoteStop: return "Sent without asking at the stop checkpoint."
     case .contextNoteCompact: return "Sent when you choose Compact after this step."
     case .contextNoteHandoff: return "Sent when you choose Hand off & start fresh."
     case .contextMenuBarMeter: return "List each live session's context in the menu."
+    case .contextColdCacheCard:
+      return "Show a card 10 minutes before an idle session's cache expires."
     }
   }
 
@@ -235,10 +240,11 @@ extension PreferenceName {
         + " menu, and \"Other…\" if that editor isn't offered."
     case .contextCheckpointsEnabled:
       return
-        "Watches how large each Claude Code session's context has grown and steers Claude toward"
-        + " a deliberate compaction at a natural breakpoint, instead of letting auto-compact"
-        + " interrupt a task. It reads the session's transcript, so a reading can lag a turn"
-        + " behind. Countersign only steers Claude; it cannot run /compact itself."
+        "Watches how large each Claude Code or Codex session's context has grown and steers the"
+        + " agent toward a deliberate compaction at a natural breakpoint, instead of letting"
+        + " auto-compact interrupt a task. It reads the session's transcript or rollout, so a"
+        + " reading can lag a turn behind. Claude Code gets a panel or a note; Codex gets notes"
+        + " only. Countersign only steers the agent; it cannot run /compact itself."
     case .contextMode:
       return
         "Panel shows a checkpoint panel where you choose what happens next; Silent skips the"
@@ -248,14 +254,18 @@ extension PreferenceName {
     case .contextStandardThresholds:
       return
         "The context sizes, in tokens, at which the soft, status and insist checkpoints fire for"
-        + " a session on the 200K window, lowest first. A session is counted as 1M only when its"
+        + " a session on the 200K window, lowest first, and an optional fourth, the stop: there"
+        + " Countersign tells Claude, without asking, to stop and write the handoff file. Leave"
+        + " out the fourth number to turn the stop off. A session is counted as 1M only when its"
         + " model ID carries the [1m] tag, so anything else uses this ladder. A ladder for one"
         + " model beats both window ladders."
     case .contextMillionThresholds:
       return
         "The context sizes, in tokens, at which the soft, status and insist checkpoints fire for"
-        + " a session on the 1M window, lowest first. Countersign tells 1M from 200K by the [1m]"
-        + " tag in the model ID. A ladder for one model beats both window ladders."
+        + " a session on the 1M window, lowest first, and an optional fourth, the stop: there"
+        + " Countersign tells Claude, without asking, to stop and write the handoff file. Leave"
+        + " out the fourth number to turn the stop off. Countersign tells 1M from 200K by the"
+        + " [1m] tag in the model ID. A ladder for one model beats both window ladders."
     case .contextModelThresholds:
       return
         "A checkpoint ladder for every model whose ID starts with a prefix you give, such as"
@@ -289,6 +299,12 @@ extension PreferenceName {
         + " asking Claude to stop after the current step. {tokens} is filled in with the"
         + " session's current context size and {handoffFile} with the handoff file. Reset it to"
         + " get the built-in wording back."
+    case .contextNoteStop:
+      return
+        "The note Countersign sends on its own when a session reaches the stop checkpoint, the"
+        + " optional fourth number of a ladder. It asks Claude to stop starting new work, gather"
+        + " what its running subagents have, write the handoff file and tell you it is ready for"
+        + " /clear. Use {tokens} for the context size and {handoffFile} for the handoff file."
     case .contextNoteCompact:
       return
         "The text sent to Claude when you choose Compact after this step on a checkpoint panel."
@@ -304,6 +320,13 @@ extension PreferenceName {
         "Adds each live Claude Code session's context size to the menu-bar menu, so you can see"
         + " which one is growing. The meter reads each session's transcript when the menu opens,"
         + " so a reading can lag a turn behind, and it costs nothing while the menu is closed."
+    case .contextColdCacheCard:
+      return
+        "Shows a card in the top-right corner 10 minutes before an idle Claude Code session past"
+        + " its first checkpoint loses its 1-hour prompt cache. After that, the next message,"
+        + " /compact or handoff re-reads the whole context at full price. Copy handoff prompt"
+        + " copies the handoff note, ready to paste into that session. The menu-bar app checks"
+        + " every 30 seconds while it runs."
     }
   }
 
@@ -343,10 +366,13 @@ extension PreferenceName {
     case .contextRearmBelow:
       return PreferenceReset.percentText(ContextCheckpointSettings.defaultRearmBelow)
     case .contextHandoffFile: return ContextCheckpointSettings.defaultHandoffFile
-    case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteCompact,
+    case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteStop,
+      .contextNoteCompact,
       .contextNoteHandoff:
       return "Built-in wording"
     case .contextMenuBarMeter: return Self.boolText(ContextCheckpointSettings.default.menuBarMeter)
+    case .contextColdCacheCard:
+      return Self.boolText(ContextCheckpointSettings.default.coldCacheCard)
     }
   }
 

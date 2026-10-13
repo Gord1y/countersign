@@ -22,10 +22,13 @@ public enum ContextHookRun {
     let updated: [UInt8]
   }
 
-  public static func status(file: URL, executablePath: String) -> ContextHookStatus {
+  public static func status(location: HookConfigLocation, executablePath: String)
+    -> ContextHookStatus
+  {
     do {
-      let original = try ConfigFileStore.read(file)
-      let installed = try ContextHookSetup.install(into: original, executablePath: executablePath)
+      let original = try ConfigFileStore.read(location.file)
+      let installed = try ContextHookSetup.install(
+        into: original, executablePath: executablePath, host: location.host)
       guard let original, !ContextHookSetup.entries(in: original).isEmpty else {
         return .notWired
       }
@@ -35,51 +38,73 @@ public enum ContextHookRun {
     }
   }
 
-  public static func preview(file: URL, executablePath: String, enable: Bool) -> SetupPreview {
-    let change: Change?
-    do {
-      change = try pendingChange(file: file, executablePath: executablePath, enable: enable)
-    } catch {
-      let line = errorLine(error, in: file)
-      return SetupPreview(text: line + "\n", failures: [line], changedFiles: [])
+  public static func preview(
+    locations: [HookConfigLocation], executablePath: String, enable: Bool
+  ) -> SetupPreview {
+    var text = ""
+    var failures: [String] = []
+    var changedFiles: [URL] = []
+    for location in locations {
+      let file = location.file
+      do {
+        guard
+          let change = try pendingChange(
+            location: location, executablePath: executablePath, enable: enable)
+        else {
+          text += "\(file.path): already up to date\n"
+          continue
+        }
+        text +=
+          file.path + "\n"
+          + UnifiedDiff.render(
+            old: String(decoding: change.original ?? [], as: UTF8.self),
+            new: String(decoding: change.updated, as: UTF8.self),
+            oldLabel: change.original == nil ? "/dev/null" : file.path, newLabel: file.path)
+        changedFiles.append(file)
+      } catch {
+        let line = errorLine(error, in: file)
+        text += line + "\n"
+        failures.append(line)
+      }
     }
-    guard let change else {
-      return SetupPreview(
-        text: "\(file.path): already up to date\n", failures: [], changedFiles: [])
-    }
-    let text =
-      file.path + "\n"
-      + UnifiedDiff.render(
-        old: String(decoding: change.original ?? [], as: UTF8.self),
-        new: String(decoding: change.updated, as: UTF8.self),
-        oldLabel: change.original == nil ? "/dev/null" : file.path, newLabel: file.path)
-    return SetupPreview(text: text, failures: [], changedFiles: [file])
+    return SetupPreview(text: text, failures: failures, changedFiles: changedFiles)
   }
 
   public static func apply(
-    file: URL, executablePath: String, enable: Bool, now: Date
-  ) -> String? {
-    do {
-      guard
-        let change = try pendingChange(
-          file: file, executablePath: executablePath, enable: enable)
-      else { return nil }
-      try FileManager.default.createDirectory(
-        at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
-      _ = try ConfigFileStore.write(change.updated, to: file, date: now, backingUp: true)
-      return nil
-    } catch {
-      return errorLine(error, in: file)
+    locations: [HookConfigLocation], executablePath: String, enable: Bool, now: Date,
+    codexPromptTrustFile: URL? = nil, codexToolTrustFile: URL? = nil
+  ) -> [String] {
+    var failures: [String] = []
+    for location in locations {
+      let file = location.file
+      do {
+        guard
+          let change = try pendingChange(
+            location: location, executablePath: executablePath, enable: enable)
+        else { continue }
+        try FileManager.default.createDirectory(
+          at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
+        _ = try ConfigFileStore.write(change.updated, to: file, date: now, backingUp: true)
+        if location.host == .codex, let codexPromptTrustFile, let codexToolTrustFile {
+          CodexHookTrust.recordWrittenContext(
+            change.updated, at: location, promptRecordFile: codexPromptTrustFile,
+            toolRecordFile: codexToolTrustFile)
+        }
+      } catch {
+        failures.append(errorLine(error, in: file))
+      }
     }
+    return failures
   }
 
-  private static func pendingChange(file: URL, executablePath: String, enable: Bool) throws
-    -> Change?
-  {
-    let original = try ConfigFileStore.read(file)
+  private static func pendingChange(
+    location: HookConfigLocation, executablePath: String, enable: Bool
+  ) throws -> Change? {
+    let original = try ConfigFileStore.read(location.file)
     let updated: [UInt8]?
     if enable {
-      updated = try ContextHookSetup.install(into: original, executablePath: executablePath)
+      updated = try ContextHookSetup.install(
+        into: original, executablePath: executablePath, host: location.host)
     } else {
       updated = try ContextHookSetup.uninstall(from: original)
     }

@@ -120,6 +120,9 @@ struct PanelRootView: View {
           Text(modeDisplay.tooltip)
         }
       }
+      if let contextGauge = model.contextGauge {
+        ContextChip(gauge: contextGauge, cardOpenOnAppear: model.opensContextCardOnAppear)
+      }
 
       Spacer()
 

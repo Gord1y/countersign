@@ -20,18 +20,39 @@ enum HookRunner {
       exit(0)
     }
 
+    let input = FileHandle.standardInput.readDataToEndOfFile()
+
+    let isClaudeToolCall =
+      options.host == .claude
+      && ClaudeAdapter.eventName(of: input) == ContextHookSetup.toolEventName
+    let isCodexToolCall =
+      options.host == .codex
+      && CodexAdapter.eventName(of: input) == ContextHookSetup.toolEventName
+    let isToolCallEvent = isClaudeToolCall || isCodexToolCall
+
     let (configFile, configLogLines) = ConfigFileLoader.load(
       paths: paths, soundNames: SystemSounds.installedNames)
-    for line in configLogLines {
-      log.write("config: \(line)")
+    if !isToolCallEvent {
+      for line in configLogLines {
+        log.write("config: \(line)")
+      }
     }
     let settings = Settings.resolve(file: configFile, host: options.host)
-
-    let input = FileHandle.standardInput.readDataToEndOfFile()
 
     if options.host == .claude, ClaudeAdapter.isCursorPayload(input) {
       log.write("ignored: a Cursor payload in a Claude Code hook")
       exit(0)
+    }
+
+    if isClaudeToolCall {
+      ContextCheckpointRunner.runAfterToolCall(
+        input: input, settings: settings, paths: paths, log: log)
+    }
+
+    if isCodexToolCall {
+      CodexCheckpointRunner.run(
+        input: input, eventName: ContextHookSetup.toolEventName, settings: settings, paths: paths,
+        log: log)
     }
 
     if options.event == .waiting {
@@ -49,6 +70,12 @@ enum HookRunner {
     if options.host == .claude, ClaudeAdapter.eventName(of: input) == ContextHookSetup.eventName {
       ContextCheckpointRunner.run(
         input: input, settings: settings, paths: paths, log: log, startedAt: startedAt)
+    }
+
+    if options.host == .codex, CodexAdapter.eventName(of: input) == ContextHookSetup.eventName {
+      CodexCheckpointRunner.run(
+        input: input, eventName: ContextHookSetup.eventName, settings: settings, paths: paths,
+        log: log)
     }
 
     let request: ApprovalRequest
@@ -468,6 +495,8 @@ private final class DisplayWatch: NSObject {
   private var hasEvaluatedChatTracking = false
   private var chatTrackingDrift: ChatTrackingDrift?
   private let subagentChain: [SubagentChainLink]?
+  private var contextGauge: ContextGauge?
+  private var hasReadContextGauge = false
   private let paths: AppPaths
 
   init(
@@ -774,6 +803,14 @@ private final class DisplayWatch: NSObject {
         log.write("chat tracking: \(chatTrackingDrift.reason)")
       }
     }
+    if !hasReadContextGauge {
+      hasReadContextGauge = true
+      contextGauge =
+        mode.isTest
+        ? nil
+        : PanelContextGauge.make(
+          for: request, settings: settings.contextCheckpoints, paths: paths, now: Date())
+    }
     let waitingEntries = queue.waitingEntries(excluding: ticket)
     lastWaitingEntries = waitingEntries
     return PanelController(
@@ -783,7 +820,8 @@ private final class DisplayWatch: NSObject {
       modeAfterPlan: settings.modeAfterPlan, panelSound: settings.panelSound,
       appearance: settings.appearance, accentColor: settings.accentColor,
       chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
-      isTestPanel: mode.isTest, handoffBackdrop: handoffBackdrop, afterHandoff: afterHandoff,
+      contextGauge: contextGauge, isTestPanel: mode.isTest, handoffBackdrop: handoffBackdrop,
+      afterHandoff: afterHandoff,
       onFinish: { [weak self] outcome in self?.finish(outcome) },
       onSnooze: { [weak self] seconds in self?.handleSnooze(seconds) },
       onStepAside: { [weak self] reason in self?.handleStepAside(reason) },

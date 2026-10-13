@@ -45,7 +45,10 @@ shape, with a made-up path and hash. From the openai/codex source:
 
 - The key is `<absolute hooks.json path>:<event label>:<group index>:<handler index>` (`hook_key` in
   `codex-rs/hooks/src/lib.rs`). For `PermissionRequest` the label is `permission_request`, and the
-  indexes are zero-based positions in `hooks.PermissionRequest[group].hooks[handler]`.
+  indexes are zero-based positions in `hooks.PermissionRequest[group].hooks[handler]`. The other
+  labels are the snake_case of the event name: `stop`, and, confirmed in a real `config.toml` on
+  Codex 0.162.0 beside `permission_request` and `stop`, `user_prompt_submit` and `post_tool_use`
+  (`CodexHookTrust.contextEventLabel` and `contextToolEventLabel`).
 - `trusted_hash` is `hook_hash` in `codex-rs/hooks/src/engine/discovery.rs`: a SHA-256 over Codex's
   normalized TOML encoding of the entry (`command`, `command_windows`, `timeout`, `async`,
   `statusMessage`, `additionalContextLimit`, `type` and the group's `matcher`), not over the file's
@@ -73,6 +76,25 @@ twice. So do a file that is not UTF-8 and one that is not valid TOML anywhere, s
 to load such a file too. A missing file is "cannot tell" for the verdict; for the record `SetupRun`
 writes, it means no hash was stored yet, while a file that cannot be read or understood leaves the
 record's hash at write unknown (`CodexHashAtWrite.unread`).
+
+## Codex rollout usage
+
+Codex hooks pass `transcript_path`, the session's rollout file
+(`~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`). After each model request the rollout records an
+`event_msg` line whose payload is a `token_count` event, carrying `info.total_token_usage`,
+`info.last_token_usage` and `info.model_context_window`. `CodexUsageReader` walks the tail of the
+file backwards and takes the latest such line.
+
+The context size is `info.last_token_usage.input_tokens`, what the latest request sent, so it lags
+one reply like the Claude reading. It is not `total_token_usage.total_tokens`: that total is
+cumulative. Over the captured session's five requests it grew from 20,045 to 101,308 while each
+request's `last_token_usage.input_tokens` stayed about 20,000. The window is
+`info.model_context_window` (258,400 in the capture); a missing or non-positive window means no
+reading.
+
+Captured on Codex 0.162.0 (`codex-tui`); the fixture `codex-rollout-token-count.jsonl` holds two
+of its `token_count` lines unchanged. What a rollout records when Codex compacts the context has
+not been captured yet, so the reader does not handle compaction.
 
 ## Stop hooks
 
@@ -164,6 +186,42 @@ the text a person typed never leaves the parser. It returns a `ContextCheckpoint
 `ApprovalRequest.contextCheckpoint(_:prompt:)` turns into a request with tool name
 `Context checkpoint` and an empty tool input, so the panel and the queue treat it like any other
 request.
+
+## The Claude `PostToolUse` input
+
+The same command also serves `PostToolUse`, which `HookRunner.run` routes to
+`ContextCheckpointRunner.runAfterToolCall` (see "After a tool call" in
+[checkpoints.md](checkpoints.md)). A main-thread call carries exactly `cwd`, `duration_ms`,
+`effort`, `hook_event_name`, `permission_mode`, `prompt_id`, `session_id`, `tool_input`,
+`tool_name`, `tool_response`, `tool_use_id` and `transcript_path` (real captures, Claude Code
+2.1.296). A call made inside a subagent adds `agent_id` and `agent_type`; the main thread's own
+`Agent` call, which starts the subagent, has neither.
+
+`ClaudeAdapter.parsePostToolUse` requires `session_id`, `cwd` and the event name, and reads
+`transcript_path`, `permission_mode` and `agent_id` when they are strings. It never reads
+`tool_input` or `tool_response`, so what a tool was given or returned never leaves the parser. The
+fixtures are `claude-post-tool-use.json` (a main-thread `Read`) and
+`claude-post-tool-use-subagent.json` (the same `Read` inside an `Explore` subagent), both with
+anonymized paths.
+
+## The Codex `UserPromptSubmit` and `PostToolUse` inputs
+
+`countersign hook --host codex` also serves these two events, which `HookRunner.run` routes to
+`CodexCheckpointRunner` (see "Codex" in [checkpoints.md](checkpoints.md)). It reads the event with
+`CodexAdapter.eventName(of:)`, the same top-level `hook_event_name` read as Claude's, and
+`CodexAdapter.parse` keeps rejecting any event but `PermissionRequest`.
+
+Real captures (Codex 0.162.0, `codex-tui`) carry exactly `session_id`, `turn_id`,
+`transcript_path` (the rollout file), `cwd`, `hook_event_name`, `model` and `permission_mode`,
+plus `prompt` on `UserPromptSubmit` and `tool_name`, `tool_input`, `tool_response` (a string) and
+`tool_use_id` on `PostToolUse`. No `agent_id` was captured; the parser still reads one when
+present, as `CodexAdapter.parse` does.
+
+`CodexAdapter.parseContextInput(_:eventName:)` requires `session_id`, `cwd` and the event name,
+and reads `transcript_path`, `permission_mode` and `agent_id` when they are strings. It never reads
+`prompt`, `tool_input` or `tool_response`, so what a person typed and what a tool did never leave
+the parser. The fixtures are `codex-user-prompt-submit.json` and `codex-post-tool-use.json`, with
+the working directory and rollout path anonymized and every key and type kept.
 
 ## Cursor payloads in Claude Code hooks
 

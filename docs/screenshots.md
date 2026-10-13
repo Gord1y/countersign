@@ -102,7 +102,8 @@ rendered against a made-up setup. `demo/home/` holds that made-up setup: each ho
 (`.claude/settings.json`, `.codex/hooks.json`, `.cursor/hooks.json`, `.gemini/config/hooks.json`),
 already containing every entry setup writes by default in 0.2.0: the permission hook, the `Stop`
 entry of the waiting-agent notices (Antigravity's is the flat `countersign-waiting` object, and
-Claude Code's carries `"async": true`) and Claude Code's async `UserPromptSubmit` checkpoint entry.
+Claude Code's carries `"async": true`) and Claude Code's async `UserPromptSubmit` and `PostToolUse` checkpoint entries and Codex's two
+synchronous ones.
 A file missing one of them would read "Needs an update" instead of "Wired". The home also holds
 `.config/countersign/config.json`, a `rules` list of three rules: Allow `swift test` for Codex in
 `~/Projects/shop-api`, Allow `swift build` for any agent there, and the "Deny sudo" suggestion's

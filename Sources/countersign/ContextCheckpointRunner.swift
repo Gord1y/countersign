@@ -84,7 +84,11 @@ enum ContextCheckpointRunner {
       exit(0)
     case .inject(let text):
       HookRunner.writeReply(.addContext(text), host: .claude)
-      log.write("outcome: context note (silent, \(firedLevelName ?? "unknown"))")
+      if firedLevel(in: plan) == .stop {
+        log.write("outcome: context note (stop)")
+      } else {
+        log.write("outcome: context note (silent, \(firedLevelName ?? "unknown"))")
+      }
       exit(0)
     case .panel(let prompt):
       let session = ContextCheckpointSession(
@@ -100,7 +104,71 @@ enum ContextCheckpointRunner {
     }
   }
 
-  private static func firedLevel(in plan: ContextCheckpointPlan) -> ContextLevel? {
+  static func runAfterToolCall(
+    input: Data, settings: Settings, paths: AppPaths, log: EventLog
+  ) -> Never {
+    if PauseSwitch(file: paths.pauseFile).isPaused {
+      exit(0)
+    }
+    let checkpointInput: ContextCheckpointInput
+    do {
+      checkpointInput = try ClaudeAdapter.parsePostToolUse(input)
+    } catch {
+      log.write("context: unparseable tool call")
+      exit(0)
+    }
+    guard checkpointInput.agentID == nil, settings.contextCheckpoints.enabled else {
+      exit(0)
+    }
+    let registryEntry = SessionRegistry.findEntry(
+      sessionID: checkpointInput.sessionID, in: paths.claudeSessionsDirectory)
+    if case .skip = HeadlessSessionGate.decide(
+      registryEntry: registryEntry, includeHeadlessSessions: settings.includeHeadlessSessions)
+    {
+      exit(0)
+    }
+    let sessionID = checkpointInput.sessionID
+    guard ContextCheckpointStore.isValidSessionID(sessionID) else {
+      exit(0)
+    }
+    let store = ContextCheckpointStore(directory: paths.contextCheckpointsDirectory)
+    guard let transcriptPath = checkpointInput.transcriptPath,
+      let (reading, modelIdentity) = ContextUsageReader.read(
+        transcriptURL: URL(fileURLWithPath: transcriptPath),
+        identity: store.load(sessionID: sessionID)?.modelIdentity)
+    else {
+      exit(0)
+    }
+    let now = Date()
+    let lockedPlan: ContextCheckpointPlan?
+    do {
+      lockedPlan = try store.withLock(sessionID: sessionID) {
+        let previous = store.load(sessionID: sessionID) ?? .fresh(now: now)
+        var plan = ContextCheckpointPlanner.plan(
+          reading: reading, previous: previous, settings: settings.contextCheckpoints,
+          transcriptPath: transcriptPath,
+          project: ApprovalRequest.projectName(cwd: checkpointInput.cwd), now: now,
+          levels: [.stop])
+        plan.state.modelIdentity = modelIdentity
+        try store.save(plan.state, sessionID: sessionID)
+        return plan
+      }
+    } catch {
+      log.write("context: state not saved: \(error)")
+      exit(0)
+    }
+    guard let plan = lockedPlan, case .inject(let text) = plan.decision else {
+      exit(0)
+    }
+    if let data = ClaudeAdapter.encodeContext(text, eventName: ContextHookSetup.toolEventName) {
+      ReplyWriter.write(data, to: .standardOutput)
+    }
+    log.write("context: \(reading.tokens) tokens after a tool call, stop fired")
+    log.write("outcome: context note (stop, after a tool call)")
+    exit(0)
+  }
+
+  static func firedLevel(in plan: ContextCheckpointPlan) -> ContextLevel? {
     switch plan.decision {
     case .nothing: return nil
     case .inject: return plan.state.fired.max()
@@ -108,11 +176,12 @@ enum ContextCheckpointRunner {
     }
   }
 
-  private static func logName(of level: ContextLevel) -> String {
+  static func logName(of level: ContextLevel) -> String {
     switch level {
     case .soft: return "soft"
     case .status: return "status"
     case .insist: return "insist"
+    case .stop: return "stop"
     }
   }
 }

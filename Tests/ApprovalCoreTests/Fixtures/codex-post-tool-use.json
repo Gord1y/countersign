@@ -1,0 +1,15 @@
+{
+  "session_id": "01a134cd-564a-7481-8dbe-80176e769b0c",
+  "turn_id": "01a134cd-5dc4-7c31-aaae-89a24ed6095d",
+  "transcript_path": "/Users/dev/.codex/sessions/2026/10/13/rollout-2026-10-13T13-27-14-01a134cd-564a-7481-8dbe-80176e769b0c.jsonl",
+  "cwd": "/Users/dev/Projects/shop-api",
+  "hook_event_name": "PostToolUse",
+  "model": "gpt-6-astra",
+  "permission_mode": "default",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "cat qa-note.txt"
+  },
+  "tool_response": "qa-note: capture fixture\n",
+  "tool_use_id": "exec-acd51b93-76bf-4e97-9e96-46e5b41b8329"
+}

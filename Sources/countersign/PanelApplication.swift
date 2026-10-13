@@ -51,6 +51,7 @@ final class PanelApplication: NSObject, NSApplicationDelegate {
   }
 
   func applicationDidFinishLaunching(_ notification: Notification) {
+    EditMenu.installAsMainMenu()
     hasFinishedLaunching = true
     let actions = launchActions
     launchActions = []

@@ -1,16 +1,17 @@
 # Context checkpoints
 
-How Countersign measures a Claude Code session's context and nudges it toward a deliberate
-compaction; read it before changing anything named `Context…`.
+How Countersign measures a Claude Code or Codex session's context and nudges it toward a
+deliberate compaction; read it before changing anything named `Context…`.
 
-## On by default, Claude Code only
+## On by default, Claude Code and Codex
 
-`ContextCheckpointSettings.defaultEnabled` is `true`, and `.default` carries it. Every host but
-Claude Code resolves to `.off`, `.default` with `enabled` false, so Codex, Cursor and Antigravity
-never get checkpoints. The hook is the `UserPromptSubmit` entry in Claude Code's settings file:
-setup and Update add it while checkpoints are on (`addsContextEntry`, see "The context entry
-follows the setting" in [setup.md](setup.md)), and the Settings toggle adds and removes it
-(`ContextHookRun`).
+`ContextCheckpointSettings.defaultEnabled` is `true`, and `.default` carries it. Claude Code and
+Codex resolve it; Cursor and Antigravity resolve to `.off`, `.default` with `enabled` false, so
+they never get checkpoints. The hook is the `UserPromptSubmit` entry, plus the `PostToolUse` entry
+for the stop check (see "After a tool call"), in Claude Code's settings file and, as synchronous
+entries with a 30 second timeout, in Codex's `hooks.json`: setup and Update add them while
+checkpoints are on for that host (`addsContextEntry`, see "The context entry follows the setting" in
+[setup.md](setup.md)), and the Settings toggle adds and removes them (`ContextHookRun`).
 
 ## Measuring context
 
@@ -40,6 +41,21 @@ A compaction writes a `system` row with `subtype: "compact_boundary"`, a `uuid` 
 row has not been written yet, so `postTokens` is the best available size. A `postTokens` that is
 missing or not an integer is not used as a source. The `uuid` of the latest boundary is reported
 as the compaction id, so a caller can tell one compaction from another.
+
+The reading also carries `lastActivity` and `cacheLifetime`, which say whether the prompt cache is
+still warm. `lastActivity` is the `timestamp` of the same row the size comes from; a missing or
+unparseable timestamp (ISO 8601, with or without fractional seconds) gives `nil`. `cacheLifetime`
+comes from `message.usage.cache_creation`: walking back from the end, the first main-thread
+`assistant` row with a positive `ephemeral_5m_input_tokens` or `ephemeral_1h_input_tokens` decides
+it. When both are positive, 5 minutes wins, because the part of the context written with the
+shorter lifetime goes cold first and the next request re-reads it at full price. A row with no
+positive write is skipped: a cache read refreshes the lifetime the cache was written with, so the
+last write still names it. An ephemeral field that is absent counts as 0; one that is present but
+not an integer makes that row unusable. Sidechain rows never count. The search never crosses a
+`compact_boundary`: rows before it describe a context that no longer exists, so when no row after
+the boundary wrote the cache, the lifetime is `nil`. When the boundary follows the latest usage
+row, both `lastActivity` and `cacheLifetime` are `nil`: the compacted context has not been cached
+yet as far as the transcript shows.
 
 The model comes from the latest `attachment` row whose `attachment.type` is `model`, read from
 `attachment.identity.modelId`. A `[1m]` suffix on that id means a 1M-token window. Assistant rows
@@ -71,18 +87,24 @@ reading as an estimate that is at most one turn old, never as the exact state.
 
 ## Levels and re-arming
 
-A checkpoint ladder has three levels, `soft`, `status` and `insist`, each tied to a token count.
-A ladder is exactly three ascending positive token counts.
+A checkpoint ladder has four levels, `soft`, `status`, `insist` and `stop`, each tied to a token
+count. A ladder is three or four ascending positive token counts, and the fourth is the stop rung.
+A ladder of three has no stop: the planner zips the levels with the ladder, so a level without a
+count can never be crossed.
 
 Defaults:
 
-| Window | soft | status | insist |
-| --- | --- | --- | --- |
-| Standard (200K) | 100,000 | 130,000 | 160,000 |
-| 1M | 200,000 | 300,000 | 400,000 |
+| Window | soft | status | insist | stop |
+| --- | --- | --- | --- | --- |
+| Standard (200K) | 100,000 | 120,000 | 140,000 | 160,000 |
+| 1M | 200,000 | 300,000 | 400,000 | 600,000 |
 
-The 200K window gets its own ladder because Claude Code auto-compacts before a 200K session
-reaches the first step of the 1M ladder (200,000), so that ladder would never fire there.
+The stop exists because long sessions grow huge and then sit idle. Once the prompt cache has
+expired, a `/compact` or a handoff re-reads the whole context uncached, which is slow and costly.
+The stop rung makes Countersign tell Claude, without asking, to stop, gather what its running
+subagents have found, write the handoff file and wait for `/clear`, while the cache is still warm.
+The user chose these ladders on 2026-10-13: the 1M stop sits at 60% of the window, and the 200K
+ladder was re-spaced (it used to be 100,000 / 130,000 / 160,000) so that all four rungs fit.
 
 A `modelThresholds` entry maps a model-id prefix to a ladder. The longest matching prefix wins,
 and it beats both defaults. Model ids may carry a `[1m]` suffix (`claude-opus-5-5[1m]`), and a
@@ -124,11 +146,67 @@ files the hook keeps. A session counts only while it is live: the Claude Code se
 (`~/.claude/sessions/*.json`) has an entry with its id and that entry's `pid` is a running process.
 Files outlive their process, so anything unknown, such as a missing entry or pid, means "not live".
 
+Rows are built through `ContextGauge.make`, shared with the context chip on approval panels (see
+"The context chip" in [panel.md](panel.md)), so the two always agree about the window.
+
 Each live session is read fresh from its stored `transcriptPath` with `ContextUsageReader`, because
 the stored `lastTokens` is only as new as the last prompt. If the transcript cannot be read, the
-row falls back to `lastTokens`. The row title is `<project> · <size> tokens`, with `Claude Code`
-when no project was stored. Rows are sorted by tokens, largest first, capped at eight. The read
-happens only when the menu opens; nothing polls, and the icon timer never reads transcripts.
+row falls back to `lastTokens`. The row title is `<project> · <size> tokens · <percent>%`, with
+`Claude Code` when no project was stored, followed by the cache warmth (see "Cache warmth"). The
+percent is the size over the window: 1M when the fresh reading says so, when the stored `modelID`
+carries `[1m]` (the hook keeps the identity-resolved id, which the tail read alone can miss) or
+when the size is above 200,000; otherwise 200K. Rows are sorted by tokens, largest first, capped
+at eight. The read happens only when the menu opens; nothing polls, and the icon timer never
+reads transcripts.
+
+## Cache warmth
+
+A session left idle loses its prompt cache after the cache's lifetime, 5 minutes or 1 hour. The
+next request, a `/compact` or a handoff then re-reads the whole context at full price, so the
+meter says, per session, whether the cache is still warm and for how long, and the user can act
+before it goes cold.
+
+`ContextWarmth.of(reading, now:)` compares `lastActivity + cacheLifetime` with `now`: `unknown`
+when either is missing (also when the transcript could not be read, so there is no fresh
+reading), `cold` from the expiry instant on, otherwise `warm(secondsLeft:)`. The title suffix is
+` · warm, N min left` with the remaining time rounded up to whole minutes, ` · warm, under a
+minute left` below 60 seconds, ` · cold`, or nothing for `unknown`. The value is computed when
+the menu opens and is not refreshed while it is open.
+
+## The cold-cache card
+
+The meter only helps when the menu is open, so the menu-bar app also checks on its own: a timer of
+30 seconds in `CompanionController` calls `ColdCacheCardController.tick`, which asks
+`ColdCacheWarning.candidates` for sessions whose cache is about to go cold and shows a corner card
+for the first one. Nothing checks while the menu-bar app is not running, and the hook path never
+shows this card.
+
+A session is a candidate when all of these hold, tested cheapest first. A fresh transcript reading
+is required; `lastTokens` from the stored state is never used, because a stale size must not warn.
+
+- Checkpoints and `coldCacheCard` are both on.
+- The session is idle: its Claude Code process is alive and its registry `status` is `idle`. A
+  busy or waiting session is about to refresh its cache or is in front of the user.
+- The cache lifetime is 1 hour. A 5-minute cache would warn after every short pause.
+- The context is at or past the first rung of the session's ladder (`ContextGauge.ladder`). A small
+  context is cheap to re-read.
+- The cache is warm with 600 seconds or less left (`ColdCacheWarning.leadTime`), and more than 0.
+  Ten minutes is enough time to paste the handoff prompt and let the handoff finish while the cache
+  is still warm.
+
+Candidates are sorted by seconds left, then session id. `ColdCacheWarningLedger` keeps one
+`lastActivity` per session and the card shows at most once per value, so one idle stretch never
+warns twice; a new turn changes `lastActivity` and re-arms the session. A card that is dismissed,
+actioned or closed because the session stopped being a candidate keeps its ledger entry. A card
+hidden for an approval claim, or for pause or quiet time, forgets it, so it shows again once the
+hold is over if the session is still due.
+
+The card reads `N tokens go cold in M min` with the minutes rounded up, refreshed every tick, and
+closes when the session stops being a candidate (it got busy, or its cache expired). Its action,
+Copy handoff prompt, puts the rendered handoff note on the general pasteboard, with `{tokens}` and
+`{handoffFile}` filled in as for a checkpoint, ready to paste into that session. Pause and quiet
+time hold the card: nothing shows and an open card closes (logged as hidden). The card is a
+`CornerCard`; see "The shared corner card" in [notice.md](notice.md).
 
 ## Choices and what Claude receives
 
@@ -140,8 +218,17 @@ highlighted choice follows the level: `soft` and `status` highlight **Compact af
 `insist` highlights **Hand off & start fresh**. Esc, a click outside, and a closed or abandoned
 panel send nothing.
 
-`silent` mode skips the panel and sends the note of the level that fired (`soft`, `status` or
-`insist`) straight away.
+`silent` mode skips the panel and sends the note of the level that fired (`soft`, `status`,
+`insist` or `stop`) straight away.
+
+The `stop` level never shows a panel. In both modes it sends the `stop` note as
+`additionalContext`, and the hook logs `outcome: context note (stop)` instead of
+`outcome: context note (silent, <level>)`. Its highlighted choice (**Hand off & start fresh**)
+exists only because the mapping is an exhaustive switch.
+
+`ContextCheckpointPlanner.plan` and `ContextLadder.step` take a `levels` parameter that limits
+which levels can count as crossed; everything else, including the fired set, behaves as before.
+The prompt hook passes all levels.
 
 The hook entry is async, so Claude Code runs it in the background and delivers its
 `additionalContext` at Claude's next request. Its `systemMessage` would never be shown to the user,
@@ -212,3 +299,95 @@ moment the panel is built; a panel prepared in warm standby reads it then. A cho
 `context: mute not saved: <reason>` when that fails. The outcome is written like a permission
 panel's answer, and `outcome: context <choice>` is logged, or `outcome: context dismissed` when the
 panel closed with no choice (Esc or a click outside). Logs name the choice, never the note text.
+
+### After a tool call
+
+An autonomous run never submits a prompt, so a checkpoint checked only on `UserPromptSubmit` sails
+past the stop rung. `HookRunner.run` therefore also hands a Claude Code input whose `hook_event_name`
+is `PostToolUse` to `ContextCheckpointRunner.runAfterToolCall`, right after the Cursor-payload check.
+The hook entry is async and is installed together with the `UserPromptSubmit` one, as one feature:
+both entries or neither. Update adds the `PostToolUse` entry to a file that has only the prompt
+entry; refresh never adds it.
+
+**Only the stop rung.** The planner runs with `levels: [.stop]`, so firing it marks every lower rung
+fired. The lower rungs ask for a status or a compact at a natural breakpoint, which the next prompt
+gives; the stop rung is the one that must not wait. The stop note is injected in both modes, never a
+panel.
+
+**Main thread only.** A subagent's call carries `agent_id`, and a note there would steer the
+subagent, which cannot hand off the session. Such a call exits quietly.
+
+**Quiet.** This runs after every tool call, so every stop exits 0 with empty stdout and no log line,
+except `context: unparseable tool call` and `context: state not saved: <error>`. The stops, in
+order: paused, unparseable, a subagent's call, `contextCheckpoints.enabled` false, the headless gate
+skipping the session, an unusable session id, no `transcript_path` or no reading, a lock not won.
+The config warnings are not logged for this event either, so one warning does not repeat on every
+tool call. When the stop rung fires, the runner writes the note and logs
+`context: <tokens> tokens after a tool call, stop fired` and
+`outcome: context note (stop, after a tool call)`.
+
+**No waiting-record clear.** `WaitingRecorder.clearRecord` deletes the session's waiting record as
+"working again". An async `PostToolUse` that finishes after the `Stop` hook would delete the record
+that hook just wrote, so this event is routed before the clear.
+
+**Shared with the prompt path.** The pause switch, the headless gate, the per-session lock and the
+state file. The tool-call path does not prune old state files and never sets `pendingProcessID`.
+
+**Delivery.** In a real run (Claude Code 2.1.296, `claude -p`, Haiku) an async `PostToolUse` hook
+that printed `hookSpecificOutput.additionalContext` reached the model at its next request. The model
+first read the note as part of the tool's result and said it would ignore it, then followed it in its
+final reply. So delivery works, and a model may still distrust a note that arrives next to a tool
+result.
+
+## Codex
+
+**Notes only.** Codex gets context checkpoints as notes and never as a panel: the user chose it,
+and Codex has no way to answer this event with a panel's choice (the hook can only add context).
+`ContextCheckpointSettings.resolve` therefore forces `mode` to `.silent` for Codex, and `menuBarMeter`
+and `coldCacheCard` to false; `mode`, `thresholds`, `modelThresholds`, `menuBarMeter` and
+`coldCacheCard` under `hosts.codex` are logged `Claude Code only, ignored` and not stored.
+`enabled`, `rearmBelow`, `handoffFile` and `notes` resolve host over top over default as for
+Claude Code, and the same Context checkpoints switch covers both hosts.
+
+**A ladder of percents.** Codex reports its window (`model_context_window`) next to every usage
+row, and it differs by model, so token ladders do not fit. `ContextLadder.codexPercents` is
+`[50, 60, 70, 80]` and `ContextCheckpointSettings.forCodex(windowTokens:)` turns it into token
+thresholds with `ContextLadder.codexThresholds(windowTokens:)`, rounded to the nearest token, for
+`soft`, `status`, `insist` and `stop`. For the 258,400-token window of the captured session that is
+129,200, 155,040, 180,880 and 206,720. The runner plans with that copy, `mode` `.silent`, no model
+thresholds and a `ContextReading` with no model id, no million window and no compaction id, so
+every fired level is an injected note.
+
+**The reading.** `CodexUsageReader.read(rolloutURL:)` reads the rollout file named by the input's
+`transcript_path`: the latest `token_count` event's `last_token_usage.input_tokens` is the context
+size and `model_context_window` the window. Like every host file it is read defensively: a missing
+file or an unexpected row is "no reading".
+
+**Both events.** `HookRunner.run` hands a Codex `UserPromptSubmit` to `CodexCheckpointRunner` right
+after the pause check, with all levels and the logs `context: codex off`, `context: codex
+unparseable input`, `context: codex no reading`, `context: codex <tokens> tokens` and
+`context: codex <tokens> tokens, <level> fired`, then `outcome: context note (codex, <level>)`. A
+Codex `PostToolUse` goes there before `WaitingRecorder.clearRecord`, with the same quiet rules as
+"After a tool call" and only the stop rung: `context: codex <tokens> tokens after a tool call, stop
+fired` and `outcome: context note (codex, stop, after a tool call)`, and `context: unparseable codex
+tool call` for an input that does not parse. No headless gate runs, since the session registry only
+covers Claude Code.
+
+**Main thread only.** Both paths skip an input that carries `agent_id`: a note there would steer a
+subagent, which cannot hand off the session. The prompt path logs `context: codex subagent prompt,
+skipped`; the tool-call path exits quietly. The prompt path also logs
+`context: codex unusable session id`, `context: codex state busy` (a lock not won) and
+`context: codex state not saved: <error>`.
+
+**Re-arming.** Only the drop below `rearmBelow` of the session's peak re-arms the ladder. No Codex
+compaction marker has been captured, so there is no compaction id to compare.
+
+**Shared state.** The state files in `contextCheckpointsDirectory`, the per-session lock and the
+30-day prune (on the prompt path only) are the same as Claude Code's; Codex and Claude session ids
+do not collide.
+
+**Delivery.** A hook that printed `{"hookSpecificOutput":{"hookEventName":"<event>",
+"additionalContext":"<text>"}}` had the text inserted into the session as a `developer` message,
+and the model followed it every time it was tried (Codex 0.162.0, `UserPromptSubmit` and
+`PostToolUse`). The envelope is the one Claude Code takes, so `CodexAdapter.encodeContext` shares
+`ClaudeAdapter.encodeContext`.

@@ -36,7 +36,7 @@ import Testing
   @Test func saysWhatTheContextGroupChanges() {
     #expect(
       SettingsPane.context.subtitle
-        == "Context checkpoints for Claude Code sessions. Saved to config.json as soon as you"
+        == "Context checkpoints for Claude Code and Codex sessions. Saved to config.json as soon as you"
         + " change them.")
   }
 
@@ -112,8 +112,10 @@ import Testing
       SettingsPane.context.preferenceNames == [
         .contextMode, .contextStandardThresholds, .contextMillionThresholds,
         .contextModelThresholds, .contextRearmBelow, .contextHandoffFile, .contextNoteSoft,
-        .contextNoteStatus, .contextNoteInsist, .contextNoteCompact, .contextNoteHandoff,
+        .contextNoteStatus, .contextNoteInsist, .contextNoteStop, .contextNoteCompact,
+        .contextNoteHandoff,
         .contextMenuBarMeter,
+        .contextColdCacheCard,
       ])
     #expect(
       Set(

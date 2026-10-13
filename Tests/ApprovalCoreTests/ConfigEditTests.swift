@@ -469,14 +469,15 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
 
   @Test func namesTheKeyPathOfEveryContextRow() {
     #expect(
-      PreferenceName.allCases.suffix(13).map { $0.keyPath.joined(separator: ".") } == [
+      PreferenceName.allCases.suffix(15).map { $0.keyPath.joined(separator: ".") } == [
         "contextCheckpoints.enabled", "contextCheckpoints.mode",
         "contextCheckpoints.thresholds.200k", "contextCheckpoints.thresholds.1m",
         "contextCheckpoints.modelThresholds", "contextCheckpoints.rearmBelow",
         "contextCheckpoints.handoffFile", "contextCheckpoints.notes.soft",
         "contextCheckpoints.notes.status", "contextCheckpoints.notes.insist",
+        "contextCheckpoints.notes.stop",
         "contextCheckpoints.notes.compact", "contextCheckpoints.notes.handoff",
-        "contextCheckpoints.menuBarMeter",
+        "contextCheckpoints.menuBarMeter", "contextCheckpoints.coldCacheCard",
       ])
   }
 

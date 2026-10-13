@@ -259,7 +259,9 @@ private func userEntryBesideOurs(_ host: ApprovalCore.Host) -> (shared: String, 
   func listsTheEntryItWrote(host: ApprovalCore.Host) {
     #expect(
       WaitingHookSetup.entries(in: Array(freshWaiting(host).utf8), host: host) == [
-        ContextHookEntry(command: waitingCommand(host), isAsync: false, timeoutSeconds: 30)
+        ContextHookEntry(
+          event: WaitingHookSetup.eventName(for: host), command: waitingCommand(host),
+          isAsync: false, timeoutSeconds: 30)
       ])
     #expect(WaitingHookSetup.entries(in: Array("nope".utf8), host: host).isEmpty)
   }

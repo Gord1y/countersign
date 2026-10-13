@@ -20,7 +20,7 @@ private func baseInput(
   pauseState: PauseState = .active,
   quietUntilDescription: String? = nil,
   logFileSize: Int? = nil,
-  contextCheckpointsEnabled: Bool = false
+  contextCheckpointHosts: Set<ApprovalCore.Host> = []
 ) -> Doctor.Input {
   Doctor.Input(
     version: "0.1.0",
@@ -35,7 +35,7 @@ private func baseInput(
     pauseState: pauseState,
     quietUntilDescription: quietUntilDescription,
     logFilePath: "/logs/countersign.log",
-    logFileSize: logFileSize, contextCheckpointsEnabled: contextCheckpointsEnabled)
+    logFileSize: logFileSize, contextCheckpointHosts: contextCheckpointHosts)
 }
 
 private func codexEntryJSON(command: String) -> [UInt8] {
@@ -740,20 +740,22 @@ private func cursorHost(_ bytes: [UInt8], checks: [String: Bool] = [stablePath: 
 private let claudeFilePath = "/missing/claude/file.json"
 
 private func claudeContextLines(
-  promptEntry: String?, enabled: Bool, checks: [String: Bool] = [stablePath: true]
+  promptEntry: String?, toolEntry: String? = nil, enabled: Bool,
+  checks: [String: Bool] = [stablePath: true]
 )
   -> [DoctorLine]
 {
   let prompt = promptEntry.map { ", \"UserPromptSubmit\": [{\"hooks\": [\($0)]}]" } ?? ""
+  let tool = toolEntry.map { ", \"PostToolUse\": [{\"hooks\": [\($0)]}]" } ?? ""
   let text = """
-    {"hooks": {"PermissionRequest": [{"matcher": "", "hooks": [{"type": "command", "command": "\(stablePath) hook --host claude", "timeout": 3600}]}]\(prompt)}}
+    {"hooks": {"PermissionRequest": [{"matcher": "", "hooks": [{"type": "command", "command": "\(stablePath) hook --host claude", "timeout": 3600}]}]\(prompt)\(tool)}}
     """
   var host = missingHost(.claude)
   host.directoryExists = true
   host.fileState = .bytes(Array(text.utf8))
   host.executableChecks = checks
   return Doctor.report(
-    baseInput(hosts: [host, missingHost(.codex)], contextCheckpointsEnabled: enabled)
+    baseInput(hosts: [host, missingHost(.codex)], contextCheckpointHosts: enabled ? [.claude] : [])
   ).filter { $0.check == "claude context" }
 }
 
@@ -775,8 +777,45 @@ private func promptHook(
           status: .warn, check: "claude context",
           detail:
             "context checkpoints are on, but \(claudeFilePath) has no UserPromptSubmit entry of Countersign's; run countersign setup, or choose Update in Settings ▸ Agents"
-        )
+        ),
+        DoctorLine(
+          status: .warn, check: "claude context",
+          detail:
+            "context checkpoints are on, but \(claudeFilePath) has no PostToolUse entry of Countersign's; run countersign setup, or choose Update in Settings ▸ Agents"
+        ),
       ])
+  }
+
+  @Test func warnsWhenTheToolEntryIsMissingAndReportsBothEntriesWhenPresent() {
+    #expect(
+      claudeContextLines(promptEntry: promptHook(), enabled: true) == [
+        DoctorLine(
+          status: .ok, check: "claude context",
+          detail: "UserPromptSubmit entry in \(claudeFilePath), async"),
+        DoctorLine(
+          status: .warn, check: "claude context",
+          detail:
+            "context checkpoints are on, but \(claudeFilePath) has no PostToolUse entry of Countersign's; run countersign setup, or choose Update in Settings ▸ Agents"
+        ),
+      ])
+    #expect(
+      claudeContextLines(promptEntry: promptHook(), toolEntry: promptHook(), enabled: true) == [
+        DoctorLine(
+          status: .ok, check: "claude context",
+          detail: "UserPromptSubmit entry in \(claudeFilePath), async"),
+        DoctorLine(
+          status: .ok, check: "claude context",
+          detail: "PostToolUse entry in \(claudeFilePath), async"),
+      ])
+    #expect(
+      claudeContextLines(
+        promptEntry: promptHook(), toolEntry: promptHook(async: nil), enabled: true
+      ).last
+        == DoctorLine(
+          status: .warn, check: "claude context",
+          detail:
+            "Countersign's PostToolUse entry in \(claudeFilePath) is not async, so every tool call waits for the checkpoint check; run countersign setup"
+        ))
   }
 
   @Test func warnsWhenCheckpointsAreOffButTheEntryRemains() {
@@ -793,23 +832,19 @@ private func promptHook(
   @Test func warnsWhenTheEntryIsNotAsync() {
     for async in [nil, "false", "\"true\""] {
       #expect(
-        claudeContextLines(promptEntry: promptHook(async: async), enabled: true) == [
+        claudeContextLines(
+          promptEntry: promptHook(async: async), toolEntry: promptHook(), enabled: true
+        ) == [
           DoctorLine(
             status: .warn, check: "claude context",
             detail:
               "Countersign's UserPromptSubmit entry in \(claudeFilePath) is not async, so every prompt waits for the checkpoint panel; run countersign setup"
-          )
+          ),
+          DoctorLine(
+            status: .ok, check: "claude context",
+            detail: "PostToolUse entry in \(claudeFilePath), async"),
         ])
     }
-  }
-
-  @Test func reportsOKWhenEnabledAndTheEntryIsFine() {
-    #expect(
-      claudeContextLines(promptEntry: promptHook(), enabled: true) == [
-        DoctorLine(
-          status: .ok, check: "claude context",
-          detail: "UserPromptSubmit entry in \(claudeFilePath), async")
-      ])
   }
 
   @Test func staysSilentWhenDisabledWithoutAnEntry() {
@@ -819,12 +854,13 @@ private func promptHook(
   @Test func reusesTheEntryChecksWithTheUserPromptSubmitLabel() {
     let lines = claudeContextLines(
       promptEntry: promptHook(command: "/x/countersign hook --host claude", timeout: nil),
-      enabled: true, checks: [stablePath: true, "/x/countersign": false])
+      toolEntry: promptHook(), enabled: true, checks: [stablePath: true, "/x/countersign": false])
     #expect(
       lines.map(\.detail) == [
         "UserPromptSubmit entry: /x/countersign differs from the stable path \(stablePath), run countersign setup",
         "UserPromptSubmit entry: /x/countersign does not exist or is not executable",
         "UserPromptSubmit entry: timeout is not set, below 600s; a short hook timeout can kill the wait for a person",
+        "PostToolUse entry in \(claudeFilePath), async",
       ])
   }
 }
@@ -1011,5 +1047,95 @@ private func cursorWaitingLines(stop: String?, enabled: Bool) -> [DoctorLine] {
             "waiting-agent notices are on, but \(cursorFilePath) has no stop entry of Countersign's; run countersign setup, or Update in Settings ▸ Agents"
         )
       ])
+  }
+}
+
+private func codexContextLines(
+  promptEntry: String?, toolEntry: String? = nil, enabled: Bool = true,
+  promptTrust: CodexHookTrustRecord? = nil, toolTrust: CodexHookTrustRecord? = nil,
+  config: Doctor.FileState = .missing
+) -> [DoctorLine] {
+  let prompt = promptEntry.map { ", \"UserPromptSubmit\": [{\"hooks\": [\($0)]}]" } ?? ""
+  let tool = toolEntry.map { ", \"PostToolUse\": [{\"hooks\": [\($0)]}]" } ?? ""
+  let text = """
+    {"hooks": {"PermissionRequest": [{"matcher": "", "hooks": [{"type": "command", "command": "\(stablePath) hook --host codex", "timeout": 3600}]}]\(prompt)\(tool)}}
+    """
+  var host = missingHost(.codex)
+  host.directoryExists = true
+  host.fileState = .bytes(Array(text.utf8))
+  host.executableChecks = [stablePath: true]
+  var input = baseInput(
+    hosts: [missingHost(.claude), host], contextCheckpointHosts: enabled ? [.codex] : [])
+  input.codexContextHookTrustRecord = promptTrust
+  input.codexContextToolHookTrustRecord = toolTrust
+  input.codexConfigFile = config
+  return Doctor.report(input).filter { $0.check == "codex context" }
+}
+
+private func codexContextHook() -> String {
+  "{\"type\": \"command\", \"command\": \"\(stablePath) hook --host codex\", \"timeout\": 30}"
+}
+
+@Suite struct DoctorCodexContextTests {
+  private let codexFilePath = "/missing/codex/file.json"
+
+  @Test func warnsWhenCheckpointsAreOnAndTheEntriesAreMissing() {
+    #expect(
+      codexContextLines(promptEntry: nil) == [
+        DoctorLine(
+          status: .warn, check: "codex context",
+          detail:
+            "context checkpoints are on, but \(codexFilePath) has no UserPromptSubmit entry of Countersign's; run countersign setup, or choose Update in Settings ▸ Agents"
+        ),
+        DoctorLine(
+          status: .warn, check: "codex context",
+          detail:
+            "context checkpoints are on, but \(codexFilePath) has no PostToolUse entry of Countersign's; run countersign setup, or choose Update in Settings ▸ Agents"
+        ),
+      ])
+  }
+
+  @Test func reportsBothTrustedEntriesWithoutAsyncOrANotAsyncWarning() {
+    let promptKey = "\(codexFilePath):user_prompt_submit:0:0"
+    let toolKey = "\(codexFilePath):post_tool_use:0:0"
+    let command = "\(stablePath) hook --host codex"
+    let lines = codexContextLines(
+      promptEntry: codexContextHook(), toolEntry: codexContextHook(),
+      promptTrust: CodexHookTrustRecord(
+        hookKey: promptKey, command: command, learnedHash: "sha256:prompt"),
+      toolTrust: CodexHookTrustRecord(
+        hookKey: toolKey, command: command, learnedHash: "sha256:tool"),
+      config: .bytes(
+        Array(
+          "[hooks.state.\"\(promptKey)\"]\ntrusted_hash = \"sha256:prompt\"\n[hooks.state.\"\(toolKey)\"]\ntrusted_hash = \"sha256:tool\"\n"
+            .utf8)))
+    #expect(
+      lines == [
+        DoctorLine(
+          status: .ok, check: "codex context",
+          detail: "UserPromptSubmit entry in \(codexFilePath)"),
+        DoctorLine(
+          status: .ok, check: "codex context", detail: "PostToolUse entry in \(codexFilePath)"),
+      ])
+  }
+
+  @Test func warnsWhileCodexHasNotTrustedThePostToolUseEntry() {
+    let promptKey = "\(codexFilePath):user_prompt_submit:0:0"
+    let command = "\(stablePath) hook --host codex"
+    let lines = codexContextLines(
+      promptEntry: codexContextHook(), toolEntry: codexContextHook(),
+      promptTrust: CodexHookTrustRecord(
+        hookKey: promptKey, command: command, learnedHash: "sha256:prompt"),
+      toolTrust: CodexHookTrustRecord(
+        hookKey: "\(codexFilePath):post_tool_use:0:0", command: command, hashAtWrite: .absent),
+      config: .bytes(
+        Array("[hooks.state.\"\(promptKey)\"]\ntrusted_hash = \"sha256:prompt\"\n".utf8)))
+    #expect(
+      lines.last
+        == DoctorLine(
+          status: .warn, check: "codex context",
+          detail:
+            "Codex has not trusted Countersign's PostToolUse entry yet; run /hooks in a Codex session and trust it"
+        ))
   }
 }

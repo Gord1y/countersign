@@ -455,4 +455,47 @@ private func codexHooksJSON(groups: [[String]]) -> [UInt8] {
   func refusesAFieldOfTheWrongType(json: String) {
     #expect(CodexHookTrustRecordStore.decode(Data(json.utf8)) == nil)
   }
+
+  @Test func currentContextBuildsTheKeysOfBothContextEvents() {
+    let command = "\(brewPath) hook --host codex"
+    let bytes = Array(
+      """
+      { "hooks": {
+        "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "\(command)", "timeout": 30 }] }],
+        "PostToolUse": [{ "hooks": [{ "type": "command", "command": "\(command)", "timeout": 30 }] }]
+      } }
+      """.utf8)
+    #expect(
+      CodexHookTrust.currentContext(
+        hooksFileBytes: bytes, hooksFilePath: hooksPath, event: "UserPromptSubmit")?.hookKey
+        == "\(hooksPath):user_prompt_submit:0:0")
+    #expect(
+      CodexHookTrust.currentContext(
+        hooksFileBytes: bytes, hooksFilePath: hooksPath, event: "PostToolUse")?.hookKey
+        == "\(hooksPath):post_tool_use:0:0")
+  }
+
+  @Test func recordWrittenContextSavesBothRecordsAndDeletesThemWithNothingWritten() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "qa-" + UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let location = HookConfigLocation.location(
+      for: .codex, environment: ["CODEX_HOME": directory.path], home: directory)
+    let promptFile = directory.appendingPathComponent("prompt.json")
+    let toolFile = directory.appendingPathComponent("tool.json")
+    let written = try ContextHookSetup.install(
+      into: nil, executablePath: brewPath, host: .codex)
+    CodexHookTrust.recordWrittenContext(
+      written, at: location, promptRecordFile: promptFile, toolRecordFile: toolFile)
+    #expect(
+      CodexHookTrustRecordStore.load(file: promptFile)?.hookKey
+        == "\(location.file.path):user_prompt_submit:0:0")
+    #expect(
+      CodexHookTrustRecordStore.load(file: toolFile)?.hookKey
+        == "\(location.file.path):post_tool_use:0:0")
+    CodexHookTrust.recordWrittenContext(
+      nil, at: location, promptRecordFile: promptFile, toolRecordFile: toolFile)
+    #expect(CodexHookTrustRecordStore.load(file: promptFile) == nil)
+    #expect(CodexHookTrustRecordStore.load(file: toolFile) == nil)
+  }
 }
