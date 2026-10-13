@@ -41,6 +41,21 @@ row has not been written yet, so `postTokens` is the best available size. A `pos
 missing or not an integer is not used as a source. The `uuid` of the latest boundary is reported
 as the compaction id, so a caller can tell one compaction from another.
 
+The reading also carries `lastActivity` and `cacheLifetime`, which say whether the prompt cache is
+still warm. `lastActivity` is the `timestamp` of the same row the size comes from; a missing or
+unparseable timestamp (ISO 8601, with or without fractional seconds) gives `nil`. `cacheLifetime`
+comes from `message.usage.cache_creation`: walking back from the end, the first main-thread
+`assistant` row with a positive `ephemeral_5m_input_tokens` or `ephemeral_1h_input_tokens` decides
+it. When both are positive, 5 minutes wins, because the part of the context written with the
+shorter lifetime goes cold first and the next request re-reads it at full price. A row with no
+positive write is skipped: a cache read refreshes the lifetime the cache was written with, so the
+last write still names it. An ephemeral field that is absent counts as 0; one that is present but
+not an integer makes that row unusable. Sidechain rows never count. The search never crosses a
+`compact_boundary`: rows before it describe a context that no longer exists, so when no row after
+the boundary wrote the cache, the lifetime is `nil`. When the boundary follows the latest usage
+row, both `lastActivity` and `cacheLifetime` are `nil`: the compacted context has not been cached
+yet as far as the transcript shows.
+
 The model comes from the latest `attachment` row whose `attachment.type` is `model`, read from
 `attachment.identity.modelId`. A `[1m]` suffix on that id means a 1M-token window. Assistant rows
 carry `message.model` without the suffix, so it is only a fallback for the name and never proves
@@ -132,9 +147,27 @@ Files outlive their process, so anything unknown, such as a missing entry or pid
 
 Each live session is read fresh from its stored `transcriptPath` with `ContextUsageReader`, because
 the stored `lastTokens` is only as new as the last prompt. If the transcript cannot be read, the
-row falls back to `lastTokens`. The row title is `<project> · <size> tokens`, with `Claude Code`
-when no project was stored. Rows are sorted by tokens, largest first, capped at eight. The read
-happens only when the menu opens; nothing polls, and the icon timer never reads transcripts.
+row falls back to `lastTokens`. The row title is `<project> · <size> tokens · <percent>%`, with
+`Claude Code` when no project was stored, followed by the cache warmth (see "Cache warmth"). The
+percent is the size over the window: 1M when the fresh reading says so, when the stored `modelID`
+carries `[1m]` (the hook keeps the identity-resolved id, which the tail read alone can miss) or
+when the size is above 200,000; otherwise 200K. Rows are sorted by tokens, largest first, capped
+at eight. The read happens only when the menu opens; nothing polls, and the icon timer never
+reads transcripts.
+
+## Cache warmth
+
+A session left idle loses its prompt cache after the cache's lifetime, 5 minutes or 1 hour. The
+next request, a `/compact` or a handoff then re-reads the whole context at full price, so the
+meter says, per session, whether the cache is still warm and for how long, and the user can act
+before it goes cold.
+
+`ContextWarmth.of(reading, now:)` compares `lastActivity + cacheLifetime` with `now`: `unknown`
+when either is missing (also when the transcript could not be read, so there is no fresh
+reading), `cold` from the expiry instant on, otherwise `warm(secondsLeft:)`. The title suffix is
+` · warm, N min left` with the remaining time rounded up to whole minutes, ` · warm, under a
+minute left` below 60 seconds, ` · cold`, or nothing for `unknown`. The value is computed when
+the menu opens and is not refreshed while it is open.
 
 ## Choices and what Claude receives
 

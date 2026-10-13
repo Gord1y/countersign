@@ -152,9 +152,11 @@ import Testing
   @Test func contextEntryAppearsAfterPendingWithDisabledRowsOnlyWhenRowsExist() throws {
     let rows = [
       ContextMeterRow(
-        sessionID: "a", project: "shop-api", tokens: 212_000, title: "shop-api · 212K tokens"),
+        sessionID: "a", project: "shop-api", tokens: 212_000, windowPercent: 21, warmth: .unknown,
+        title: "shop-api · 212K tokens"),
       ContextMeterRow(
-        sessionID: "b", project: "web", tokens: 90_000, title: "web · 90K tokens"),
+        sessionID: "b", project: "web", tokens: 90_000, windowPercent: 45, warmth: .unknown,
+        title: "web · 90K tokens"),
     ]
     var withRows = input()
     withRows.contextRows = rows

@@ -25,7 +25,8 @@ import Testing
       reading
         == ContextReading(
           tokens: 34400, modelID: "claude-haiku-4-5", hasMillionTokenWindow: false,
-          compactionID: nil))
+          compactionID: nil, lastActivity: try isoDate("2026-09-29T20:35:25.411Z"),
+          cacheLifetime: .oneHour))
   }
 
   @Test func laterMillionTokenIdentityMarksTheWindow() throws {
@@ -49,6 +50,114 @@ import Testing
     let reading = ContextUsageReader.reading(fromLines: lines)
     #expect(reading?.tokens == 26309)
     #expect(reading?.compactionID == Self.boundaryID)
+  }
+
+  private static let oneHourWrite =
+    "\"cache_creation\":{\"ephemeral_1h_input_tokens\":12421,\"ephemeral_5m_input_tokens\":0}"
+
+  private func mainRow(replacingWrite write: String) throws -> Substring {
+    let row = try fixtureLines("claude-transcript-usage")[1]
+    let changed = row.replacingOccurrences(of: Self.oneHourWrite, with: write)
+    #expect(changed != String(row))
+    return Substring(changed)
+  }
+
+  private func isoDate(_ text: String) throws -> Date {
+    let formatter = ISO8601DateFormatter()
+    formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+    return try #require(formatter.date(from: text))
+  }
+
+  @Test func usageFixtureGivesLastActivityAndOneHourLifetime() throws {
+    let reading = ContextUsageReader.reading(fromLines: try fixtureLines("claude-transcript-usage"))
+    #expect(reading?.lastActivity == (try isoDate("2026-09-29T20:35:25.411Z")))
+    #expect(reading?.cacheLifetime == .oneHour)
+  }
+
+  @Test func fiveMinuteWriteGivesFiveMinuteLifetime() throws {
+    let row = try mainRow(
+      replacingWrite:
+        "\"cache_creation\":{\"ephemeral_1h_input_tokens\":0,\"ephemeral_5m_input_tokens\":12421}")
+    #expect(ContextUsageReader.reading(fromLines: [row])?.cacheLifetime == .fiveMinutes)
+  }
+
+  @Test func shorterLifetimeWinsWhenBothAreWritten() throws {
+    let row = try mainRow(
+      replacingWrite:
+        "\"cache_creation\":{\"ephemeral_1h_input_tokens\":12421,\"ephemeral_5m_input_tokens\":300}"
+    )
+    #expect(ContextUsageReader.reading(fromLines: [row])?.cacheLifetime == .fiveMinutes)
+  }
+
+  @Test func rowWithoutAWriteTakesTheLifetimeOfAnEarlierWrite() throws {
+    let earlier = try mainRow(
+      replacingWrite:
+        "\"cache_creation\":{\"ephemeral_1h_input_tokens\":0,\"ephemeral_5m_input_tokens\":12421}")
+    let later = try mainRow(
+      replacingWrite:
+        "\"cache_creation\":{\"ephemeral_1h_input_tokens\":0,\"ephemeral_5m_input_tokens\":0}")
+    let reading = ContextUsageReader.reading(fromLines: [earlier, later])
+    #expect(reading?.cacheLifetime == .fiveMinutes)
+    #expect(reading?.tokens == 34400)
+  }
+
+  @Test func sidechainWriteIsIgnoredForTheLifetime() throws {
+    let usageLines = try fixtureLines("claude-transcript-usage")
+    let reading = ContextUsageReader.reading(fromLines: [usageLines[1], usageLines[3]])
+    #expect(reading?.cacheLifetime == .oneHour)
+  }
+
+  @Test func nonIntegerEphemeralFieldMakesTheRowUnusableForTheLifetime() throws {
+    let earlier = try fixtureLines("claude-transcript-usage")[1]
+    let later = try mainRow(
+      replacingWrite:
+        "\"cache_creation\":{\"ephemeral_1h_input_tokens\":0,\"ephemeral_5m_input_tokens\":\"5\"}")
+    #expect(ContextUsageReader.reading(fromLines: [earlier, later])?.cacheLifetime == .oneHour)
+    #expect(ContextUsageReader.reading(fromLines: [later])?.cacheLifetime == nil)
+  }
+
+  @Test func lifetimeWalkStopsAtACompactBoundary() throws {
+    var lines = try fixtureLines("claude-transcript-compacted")
+    let changed = lines[2].replacingOccurrences(
+      of:
+        "\"cache_creation\":{\"ephemeral_1h_input_tokens\":62501,\"ephemeral_5m_input_tokens\":0}",
+      with: "\"cache_creation\":{\"ephemeral_1h_input_tokens\":0,\"ephemeral_5m_input_tokens\":0}")
+    #expect(changed != String(lines[2]))
+    lines[2] = Substring(changed)
+    let reading = ContextUsageReader.reading(fromLines: lines)
+    #expect(reading?.tokens == 87997)
+    #expect(reading?.cacheLifetime == nil)
+  }
+
+  @Test func absentEphemeralFieldCountsAsZero() throws {
+    let row = try mainRow(
+      replacingWrite: "\"cache_creation\":{\"ephemeral_1h_input_tokens\":12421}")
+    #expect(ContextUsageReader.reading(fromLines: [row])?.cacheLifetime == .oneHour)
+  }
+
+  @Test func timestampWithoutMillisecondsParses() throws {
+    let row = try fixtureLines("claude-transcript-usage")[1]
+    let changed = row.replacingOccurrences(
+      of: "2026-09-29T20:35:25.411Z", with: "2026-09-29T20:35:25Z")
+    #expect(changed != String(row))
+    let reading = ContextUsageReader.reading(fromLines: [Substring(changed)])
+    #expect(reading?.lastActivity == (try isoDate("2026-09-29T20:35:25.000Z")))
+  }
+
+  @Test func garbageTimestampGivesNoLastActivity() throws {
+    let row = try fixtureLines("claude-transcript-usage")[1]
+    let changed = row.replacingOccurrences(of: "2026-09-29T20:35:25.411Z", with: "yesterday")
+    #expect(changed != String(row))
+    let reading = ContextUsageReader.reading(fromLines: [Substring(changed)])
+    #expect(reading?.lastActivity == nil)
+    #expect(reading?.tokens == 34400)
+  }
+
+  @Test func boundaryAfterLatestUsageClearsLastActivityAndLifetime() throws {
+    let lines = Array(try fixtureLines("claude-transcript-compacted").prefix(2))
+    let reading = ContextUsageReader.reading(fromLines: lines)
+    #expect(reading?.lastActivity == nil)
+    #expect(reading?.cacheLifetime == nil)
   }
 
   @Test func skipsNonJSONLinesAndCutOffFinalLine() throws {

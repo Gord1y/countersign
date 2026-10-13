@@ -77,10 +77,15 @@ panel shows up in the icon within two seconds.
   Decisions** like any other.
 - **Context in live sessions** appears right below it, only when context checkpoints and the
   menu-bar meter are both on and at least one Claude Code session is running. Its submenu has one
-  read-only line per session, such as `shop-api · 212K tokens`, largest first, up to eight. Sessions
-  whose Claude Code process has ended are left out. Countersign reads each session's transcript
-  when you open the menu, not in the background; if a transcript cannot be read, the size from that
-  session's last prompt is shown.
+  read-only line per session, such as `shop-api · 212K tokens · 21% · warm, 4 min left`, largest
+  first, up to eight. The percent is how full the session's context window is. After it, the line
+  says whether the session's prompt cache is still warm and for about how many minutes, or
+  `cold`: a cold cache means the next message, a `/compact` or a handoff re-reads the whole
+  conversation at full price, so act while it is warm. The warmth part is left off when it can't
+  be told, for example right after a compaction. Sessions whose Claude Code process has ended are
+  left out. Countersign reads each session's transcript when you open the menu, not in the
+  background; if a transcript cannot be read, the size from that session's last prompt is shown
+  without the warmth.
 - **Recent Decisions** lists your last ten answers, newest first, one read-only line each, such as
   `✓ Bash · shop-api · 14:05 — git status`. The mark says what happened: ✓ approved, ✕ denied,
   ↩ answered in the chat or resolved there before you got to it, • a choice on a context
