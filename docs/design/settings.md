@@ -664,7 +664,7 @@ failure lines and only "OK"; dismissing it changes nothing and leaves the failur
 line. The primary button applies the hook change through
 `ContextHookRun.apply` (a backup of the file, like every hook-file write), and only then the
 config and state change: on, it writes `contextCheckpoints.enabled: true`; off, it removes the
-`UserPromptSubmit` entry, deletes the files in `AppPaths.contextCheckpointsDirectory`
+`UserPromptSubmit` and `PostToolUse` entries, deletes the files in `AppPaths.contextCheckpointsDirectory`
 (`ContextCheckpointStore.removeAll()`) and writes `enabled: false`. Everything else in
 `contextCheckpoints` is kept, so turning it on again finds the thresholds and notes as they were.
 A failure in the hook step shows one red line on the row and changes nothing else. The order

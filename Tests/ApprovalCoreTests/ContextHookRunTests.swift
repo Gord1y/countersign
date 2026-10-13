@@ -137,7 +137,7 @@ private struct Sandbox {
       ContextHookRun.apply(
         file: sandbox.file, executablePath: brewPath, enable: true, now: firstMoment) == nil)
     let written = try #require(sandbox.text)
-    #expect(ContextHookSetup.entries(in: Array(written.utf8)).count == 1)
+    #expect(ContextHookSetup.entries(in: Array(written.utf8)).count == 2)
     #expect(sandbox.names == ["settings.json"])
   }
 
@@ -161,6 +161,12 @@ private struct Sandbox {
     let stale = try #require(sandbox.text).replacingOccurrences(
       of: "\"async\": true,", with: "\"async\": false,")
     try Data(stale.utf8).write(to: sandbox.file)
+    #expect(ContextHookRun.status(file: sandbox.file, executablePath: brewPath) == .needsUpdate)
+    let both = try #require(sandbox.text)
+    let promptOnly = try #require(
+      try HookSetup.removeEntries(
+        from: Array(both.utf8), event: ContextHookSetup.toolEventName))
+    try Data(promptOnly).write(to: sandbox.file)
     #expect(ContextHookRun.status(file: sandbox.file, executablePath: brewPath) == .needsUpdate)
     try Data("{ nope".utf8).write(to: sandbox.file)
     guard
@@ -221,6 +227,18 @@ private let demoSettings = """
         }
       ],
       "UserPromptSubmit": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "/opt/homebrew/bin/countersign hook --host claude",
+              "async": true,
+              "timeout": 3600
+            }
+          ]
+        }
+      ],
+      "PostToolUse": [
         {
           "hooks": [
             {

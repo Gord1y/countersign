@@ -7,10 +7,10 @@ compaction; read it before changing anything named `Context…`.
 
 `ContextCheckpointSettings.defaultEnabled` is `true`, and `.default` carries it. Every host but
 Claude Code resolves to `.off`, `.default` with `enabled` false, so Codex, Cursor and Antigravity
-never get checkpoints. The hook is the `UserPromptSubmit` entry in Claude Code's settings file:
-setup and Update add it while checkpoints are on (`addsContextEntry`, see "The context entry
-follows the setting" in [setup.md](setup.md)), and the Settings toggle adds and removes it
-(`ContextHookRun`).
+never get checkpoints. The hook is the `UserPromptSubmit` entry, plus the `PostToolUse` entry for
+the stop check (see "After a tool call"), in Claude Code's settings file: setup and Update add them
+while checkpoints are on (`addsContextEntry`, see "The context entry follows the setting" in
+[setup.md](setup.md)), and the Settings toggle adds and removes them (`ContextHookRun`).
 
 ## Measuring context
 
@@ -304,7 +304,9 @@ panel closed with no choice (Esc or a click outside). Logs name the choice, neve
 An autonomous run never submits a prompt, so a checkpoint checked only on `UserPromptSubmit` sails
 past the stop rung. `HookRunner.run` therefore also hands a Claude Code input whose `hook_event_name`
 is `PostToolUse` to `ContextCheckpointRunner.runAfterToolCall`, right after the Cursor-payload check.
-The hook entry is async, installed separately from the `UserPromptSubmit` one.
+The hook entry is async and is installed together with the `UserPromptSubmit` one, as one feature:
+both entries or neither. Update adds the `PostToolUse` entry to a file that has only the prompt
+entry; refresh never adds it.
 
 **Only the stop rung.** The planner runs with `levels: [.stop]`, so firing it marks every lower rung
 fired. The lower rungs ask for a status or a compact at a natural breakpoint, which the next prompt

@@ -35,12 +35,27 @@ Codex's `hooks.json` gets the same shape with `--host codex` and one more field,
 
 ### The Context checkpoints entry
 
-While Context checkpoints are on, which is the default, Claude Code's file gets a second entry,
-under `hooks.UserPromptSubmit`, in one group without a `matcher` (the event has none):
+While Context checkpoints are on, which is the default, Claude Code's file gets two more entries,
+under `hooks.UserPromptSubmit` and `hooks.PostToolUse`, each in one group without a `matcher`. The
+prompt event has none, and a `PostToolUse` group without one fires for every tool (verified on
+Claude Code 2.1.296). The second entry is the stop check after a tool call (see "After a tool
+call" in [checkpoints.md](checkpoints.md)):
 
 ```json
 "hooks": {
   "UserPromptSubmit": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "/opt/homebrew/bin/countersign hook --host claude",
+          "async": true,
+          "timeout": 3600
+        }
+      ]
+    }
+  ],
+  "PostToolUse": [
     {
       "hooks": [
         {
@@ -65,26 +80,29 @@ apart by `hook_event_name` in its input. Three facts decide the shape:
 - `timeout: 3600` covers a Claude Code that ignores `async`: the prompt then waits for the panel
   instead of being blocked at the 30 second default.
 - Recognition is the same as for the `PermissionRequest` entry (see "How our entry is
-  recognised"), searched under `hooks.UserPromptSubmit`. Anyone else's hooks under the event are
-  never touched.
+  recognised"), searched under `hooks.UserPromptSubmit` and `hooks.PostToolUse`. Anyone else's
+  hooks under those events are never touched.
 
-`ContextHookSetup.install` adds the entry, or refreshes it when one of ours already exists under
-the event: the `command`, `async` and `timeout` are set with the same rules as "Install" (a value
-that is already right, however it is spelled, is left as written). The Settings toggle
-(`ContextHookRun`) calls it when the feature is turned on, and `HookSetup.install` calls it for
-Claude Code when `addsContextEntry` is true, which is what Wire, Update and `countersign setup` pass
-while checkpoints are on (see "The context entry follows the setting" below). With
-`addsContextEntry` false, `HookSetup.install` only refreshes an existing `UserPromptSubmit` entry
-of ours and never adds one, so a person who has turned the feature off never gets an entry, and one
-who has it on never keeps a stale one. A stale entry shows as "Needs an update" in the Agents rows.
+`ContextHookSetup.install` adds each entry, or refreshes it when one of ours already exists under
+its event (`ContextHookSetup.eventNames`): the `command`, `async` and `timeout` are set with the
+same rules as "Install" (a value that is already right, however it is spelled, is left as
+written). The Settings toggle (`ContextHookRun`) calls it when the feature is turned on, and
+`HookSetup.install` calls it for Claude Code when `addsContextEntry` is true, which is what Wire,
+Update and `countersign setup` pass while checkpoints are on (see "The context entry follows the
+setting" below). With `addsContextEntry` false, `HookSetup.install` only refreshes existing
+`UserPromptSubmit` and `PostToolUse` entries of ours and never adds one, so a person who has turned
+the feature off never gets an entry, and one who has it on never keeps a stale one. A stale entry
+shows as "Needs an update" in the Agents rows.
 
 ### The context entry follows the setting
 
-Setup and Update add Claude Code's async `UserPromptSubmit` context entry while checkpoints are on,
-which is the default, and only refresh it while they are off. `HookSetup.install` takes
-`addsContextEntry` beside `addsWaitingEntry`, and `HostWiring.status` reports a missing entry as an
-update (`HostWiringUpdate.addsContextEntry`) only for Claude Code. `countersign setup` and Settings
-pass the resolved `contextCheckpoints.enabled`; `Doctor` does the same so its wiring check agrees.
+Setup and Update add Claude Code's async `UserPromptSubmit` and `PostToolUse` context entries while
+checkpoints are on, which is the default, and only refresh them while they are off.
+`HookSetup.install` takes `addsContextEntry` beside `addsWaitingEntry`, and `HostWiring.status`
+reports a missing entry as an update (`HostWiringUpdate.missingContextEvents` names the events with
+none) only for Claude Code. A file wired before 0.4.0 has the prompt entry only, so it shows "Needs
+an update" and Update adds the `PostToolUse` one; refresh never adds an entry. `countersign setup`
+and Settings pass the resolved `contextCheckpoints.enabled`; `Doctor` does the same so its wiring check agrees.
 The Settings toggle still adds and removes the entry itself (`ContextHookRun`).
 
 Why: checkpoints became on by default in 0.2.0, and before this only the toggle wrote the entry,
@@ -246,8 +264,9 @@ then asks you to trust the new Stop hook, in `/hooks` in a Codex session.
 Our entry is a hook object whose `type` is `command` and whose `command` has, as its first word,
 an executable path named `countersign` and, as its second word, `hook`. A first word in single or
 double quotes counts as one word, so a path with spaces is still found. Only
-`hooks.PermissionRequest` is searched, and for Claude Code also `hooks.UserPromptSubmit` (see "The
-Context checkpoints entry"); an entry of ours under any other event is left alone. Only
+`hooks.PermissionRequest` is searched, and for Claude Code also `hooks.UserPromptSubmit` and
+`hooks.PostToolUse` (see "The Context checkpoints entry"); an entry of ours under any other event
+is left alone. Only
 those two words count: an entry of ours with anything else after `hook`, another host, no
 `--host` or an extra word, is still ours, and install rewrites its command (see "Install").
 
@@ -607,9 +626,9 @@ nothing ends up as `{}`, and a file install appended the named hook to is back t
 bytes. Every other named hook, including one that runs countersign, is left alone.
 
 In Claude Code's file, uninstall (Remove, and `setup --cli --uninstall`) removes every entry of
-ours under both `hooks.PermissionRequest` and `hooks.UserPromptSubmit`, with the same rules for a
-group or an event left empty. `hooks` stays. Someone else's hooks under `UserPromptSubmit` are
-left alone.
+ours under `hooks.PermissionRequest`, `hooks.UserPromptSubmit` and `hooks.PostToolUse`, with the
+same rules for a group or an event left empty. `hooks` stays. Someone else's hooks under
+`UserPromptSubmit` or `PostToolUse` are left alone.
 
 ## The stable path
 

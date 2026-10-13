@@ -103,28 +103,51 @@ private func status(
         into: Array(permission.utf8), host: .claude, executablePath: stablePath,
         addsWaitingEntry: true)) ?? [], as: UTF8.self)
     let context = HostWiringStatus.needsUpdate(
-      HostWiringUpdate(otherExecutablePaths: [], addsContextEntry: true))
+      HostWiringUpdate(
+        otherExecutablePaths: [], missingContextEvents: ["UserPromptSubmit", "PostToolUse"]))
     #expect(status(permission, addsContextEntry: true) == context)
     #expect(status(permission, addsContextEntry: false) == .wired)
     let both = HostWiringStatus.needsUpdate(
-      HostWiringUpdate(otherExecutablePaths: [], addsWaitingEntry: true, addsContextEntry: true))
+      HostWiringUpdate(
+        otherExecutablePaths: [], addsWaitingEntry: true,
+        missingContextEvents: ["UserPromptSubmit", "PostToolUse"]))
     #expect(status(permission, addsWaitingEntry: true, addsContextEntry: true) == both)
     #expect(
       HostWiring.detail(for: both, host: .claude)
-        == "Adds the Stop entry for waiting-agent notices; adds the UserPromptSubmit entry for context checkpoints"
+        == "Adds the Stop entry for waiting-agent notices; adds the UserPromptSubmit and PostToolUse entries for context checkpoints"
     )
     #expect(
       HostWiring.detail(for: context, host: .claude)
-        == "Adds the UserPromptSubmit entry for context checkpoints")
+        == "Adds the UserPromptSubmit and PostToolUse entries for context checkpoints")
     #expect(withWaiting.contains("Stop"))
     #expect(
       status(withWaiting, addsWaitingEntry: true, addsContextEntry: true)
-        == .needsUpdate(HostWiringUpdate(otherExecutablePaths: [], addsContextEntry: true)))
+        == .needsUpdate(
+          HostWiringUpdate(
+            otherExecutablePaths: [], missingContextEvents: ["UserPromptSubmit", "PostToolUse"])))
     #expect(status(withWaiting, addsWaitingEntry: true, addsContextEntry: false) == .wired)
     #expect(
       status(
         entry("\(stablePath) hook --host codex", codex: true), host: .codex,
         addsContextEntry: true) == .wired)
+  }
+
+  @Test func needsAnUpdateForTheToolEntryWhenOnlyThePromptEntryIsThere() throws {
+    let permission = entry("\(stablePath) hook --host claude")
+    let full = try HookSetup.install(
+      into: Array(permission.utf8), host: .claude, executablePath: stablePath,
+      addsWaitingEntry: false, addsContextEntry: true)
+    let promptOnly = try #require(
+      try HookSetup.removeEntries(from: full, event: ContextHookSetup.toolEventName))
+    let update = status(String(decoding: promptOnly, as: UTF8.self), addsContextEntry: true)
+    #expect(
+      update
+        == .needsUpdate(
+          HostWiringUpdate(otherExecutablePaths: [], missingContextEvents: ["PostToolUse"])))
+    #expect(
+      HostWiring.detail(for: update, host: .claude)
+        == "Adds the PostToolUse entry for context checkpoints")
+    #expect(status(String(decoding: full, as: UTF8.self), addsContextEntry: true) == .wired)
   }
 
   @Test func staysWiredWhenNoticesAreOffAndTheStopEntryIsMissing() {

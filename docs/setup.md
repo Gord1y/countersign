@@ -121,9 +121,11 @@ can wait up to an hour for you. The hook takes nothing else: every setting lives
 Countersign's with any other arguments is rewritten to this command. The exact shape for each
 agent is in [design/setup.md](design/setup.md).
 
-Turning on Context checkpoints in the Settings window adds a second entry to Claude Code's file,
-under `hooks.UserPromptSubmit`. It runs the same command and is marked `"async": true`, so your
-prompts never wait for it. Remove takes out both entries.
+Turning on Context checkpoints in the Settings window adds two entries to Claude Code's file,
+under `hooks.UserPromptSubmit` and `hooks.PostToolUse`. Both run the same command and are marked
+`"async": true`, so your prompts and tool calls never wait for them. The second one lets a
+checkpoint that a long autonomous run would otherwise never reach fire after a tool call. Remove
+takes out every entry of ours.
 
 [Waiting-agent notices](agents.md#the-waiting-agent-notice) are on by default, so setup's diff also
 includes a second entry for each agent, for the end of a turn (`hooks.Stop`; `hooks.stop` for

@@ -314,12 +314,19 @@ public enum Doctor {
   }
 
   private static func contextLines(_ hostInput: HostInput, input: Input) -> [DoctorLine] {
-    let check = "claude context"
     guard case .bytes(let bytes) = hostInput.fileState, !HookSetup.isBlank(bytes),
       let root = try? JSONSpanReader.parse(bytes)
     else { return [] }
-    let sites = HookSetup.sites(in: root, event: ContextHookSetup.eventName)
-    let event = ContextHookSetup.eventName
+    return ContextHookSetup.eventNames.flatMap {
+      contextLines(event: $0, root: root, hostInput, input: input)
+    }
+  }
+
+  private static func contextLines(
+    event: String, root: JSONSpanNode, _ hostInput: HostInput, input: Input
+  ) -> [DoctorLine] {
+    let check = "claude context"
+    let sites = HookSetup.sites(in: root, event: event)
     guard !sites.isEmpty else {
       guard input.contextCheckpointsEnabled else { return [] }
       return [
@@ -340,6 +347,9 @@ public enum Doctor {
         ))
     }
     let entries = sites.map { entry(for: $0.hook, event: event) }
+    let waitsFor = event == ContextHookSetup.toolEventName ? "tool call" : "prompt"
+    let waitedOn =
+      event == ContextHookSetup.toolEventName ? "the checkpoint check" : "the checkpoint panel"
     for (offset, site) in sites.enumerated() {
       let label = label(for: entries[offset], at: offset, in: entries)
       var issues = issueLines(
@@ -350,7 +360,7 @@ public enum Doctor {
           DoctorLine(
             status: .warn, check: check,
             detail:
-              "Countersign's \(event) entry in \(hostInput.filePath) is not async, so every prompt waits for the checkpoint panel; run countersign setup"
+              "Countersign's \(event) entry in \(hostInput.filePath) is not async, so every \(waitsFor) waits for \(waitedOn); run countersign setup"
           ))
       }
       if issues.isEmpty, input.contextCheckpointsEnabled {

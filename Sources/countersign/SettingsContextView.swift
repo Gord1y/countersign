@@ -187,7 +187,7 @@ private struct ContextHookRow: View {
   }
 
   private var caption: String {
-    "Countersign's UserPromptSubmit entry in \(model.contextHookFileText ?? "Claude Code's settings")."
+    "Countersign's UserPromptSubmit and PostToolUse entries in \(model.contextHookFileText ?? "Claude Code's settings")."
   }
 
   private var offersUpdate: Bool {

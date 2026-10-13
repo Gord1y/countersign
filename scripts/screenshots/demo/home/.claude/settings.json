@@ -35,6 +35,18 @@
           }
         ]
       }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "{{EXECUTABLE}} hook --host claude",
+            "async": true,
+            "timeout": 3600
+          }
+        ]
+      }
     ]
   }
 }

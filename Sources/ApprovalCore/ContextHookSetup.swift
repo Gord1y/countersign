@@ -1,11 +1,13 @@
 import Foundation
 
 public struct ContextHookEntry: Sendable, Equatable {
+  public var event: String
   public var command: String
   public var isAsync: Bool
   public var timeoutSeconds: Double?
 
-  public init(command: String, isAsync: Bool, timeoutSeconds: Double?) {
+  public init(event: String, command: String, isAsync: Bool, timeoutSeconds: Double?) {
+    self.event = event
     self.command = command
     self.isAsync = isAsync
     self.timeoutSeconds = timeoutSeconds
@@ -15,6 +17,7 @@ public struct ContextHookEntry: Sendable, Equatable {
 public enum ContextHookSetup {
   public static let eventName = "UserPromptSubmit"
   public static let toolEventName = "PostToolUse"
+  public static let eventNames = [eventName, toolEventName]
   public static let timeoutSeconds = HookSetup.timeoutSeconds
 
   public static func install(into original: [UInt8]?, executablePath: String) throws -> [UInt8] {
@@ -26,44 +29,56 @@ public enum ContextHookSetup {
     guard case .object = document.root.content else {
       throw HookSetupError.unexpectedType(key: "the top level", expected: "an object")
     }
+    for event in eventNames {
+      try install(event: event, into: &document, executablePath: executablePath)
+    }
+    return document.bytes
+  }
+
+  private static func install(
+    event: String, into document: inout JSONSourceDocument, executablePath: String
+  ) throws {
     let group = groupFragment(executablePath: executablePath)
     guard let hooks = try HookSetup.hooksObject(in: document.root) else {
-      let event = JSONFragmentMember(key: eventName, value: .array([group]))
+      let member = JSONFragmentMember(key: event, value: .array([group]))
       try document.appendMember(
-        JSONFragmentMember(key: "hooks", value: .object([event])), to: document.root)
-      return document.bytes
+        JSONFragmentMember(key: "hooks", value: .object([member])), to: document.root)
+      return
     }
-    guard let groups = try HookSetup.eventArray(in: hooks, event: eventName) else {
-      try document.appendMember(
-        JSONFragmentMember(key: eventName, value: .array([group])), to: hooks)
-      return document.bytes
+    guard let groups = try HookSetup.eventArray(in: hooks, event: event) else {
+      try document.appendMember(JSONFragmentMember(key: event, value: .array([group])), to: hooks)
+      return
     }
-    guard !HookSetup.sites(in: document.root, event: eventName).isEmpty else {
+    guard !HookSetup.sites(in: document.root, event: event).isEmpty else {
       try document.appendElement(group, to: groups)
-      return document.bytes
+      return
     }
-    try refreshEntries(in: &document, executablePath: executablePath)
-    return document.bytes
+    try refreshEntries(event: event, in: &document, executablePath: executablePath)
   }
 
   public static func refresh(into original: [UInt8], executablePath: String) throws -> [UInt8] {
     guard !HookSetup.isBlank(original) else { return original }
     var document = try JSONSourceDocument(bytes: original)
-    try refreshEntries(in: &document, executablePath: executablePath)
+    for event in eventNames {
+      try refreshEntries(event: event, in: &document, executablePath: executablePath)
+    }
     return document.bytes
   }
 
   public static func uninstall(from original: [UInt8]?) throws -> [UInt8]? {
-    try HookSetup.removeEntries(from: original, event: eventName)
+    try eventNames.reduce(original) { try HookSetup.removeEntries(from: $0, event: $1) }
   }
 
   public static func entries(in bytes: [UInt8]) -> [ContextHookEntry] {
     guard let root = try? JSONSpanReader.parse(bytes) else { return [] }
-    return HookSetup.sites(in: root, event: eventName).map { site in
-      ContextHookEntry(
-        command: site.hook.member(named: "command")?.value.stringValue ?? "",
-        isAsync: isAsync(site.hook),
-        timeoutSeconds: site.hook.member(named: "timeout")?.value.numberValue)
+    return eventNames.flatMap { event in
+      HookSetup.sites(in: root, event: event).map { site in
+        ContextHookEntry(
+          event: event,
+          command: site.hook.member(named: "command")?.value.stringValue ?? "",
+          isAsync: isAsync(site.hook),
+          timeoutSeconds: site.hook.member(named: "timeout")?.value.numberValue)
+      }
     }
   }
 
@@ -90,28 +105,31 @@ public enum ContextHookSetup {
   }
 
   private static func refreshEntries(
-    in document: inout JSONSourceDocument, executablePath: String
+    event: String, in document: inout JSONSourceDocument, executablePath: String
   ) throws {
-    for index in 0..<HookSetup.sites(in: document.root, event: eventName).count {
-      try updateCommand(ofHook: index, in: &document, executablePath: executablePath)
-      try ensureMember("async", ofHook: index, in: &document, fragment: .bool(true)) {
+    for index in 0..<HookSetup.sites(in: document.root, event: event).count {
+      try updateCommand(ofHook: index, event: event, in: &document, executablePath: executablePath)
+      try ensureMember("async", ofHook: index, event: event, in: &document, fragment: .bool(true)) {
         $0.content == .bool(true)
       }
       try ensureMember(
-        "timeout", ofHook: index, in: &document, fragment: .integer(timeoutSeconds)
+        "timeout", ofHook: index, event: event, in: &document, fragment: .integer(timeoutSeconds)
       ) { $0.numberValue == Double(timeoutSeconds) }
     }
   }
 
-  private static func hookNode(_ index: Int, in document: JSONSourceDocument) -> JSONSpanNode? {
-    let all = HookSetup.sites(in: document.root, event: eventName).map(\.hook)
+  private static func hookNode(_ index: Int, event: String, in document: JSONSourceDocument)
+    -> JSONSpanNode?
+  {
+    let all = HookSetup.sites(in: document.root, event: event).map(\.hook)
     return all.indices.contains(index) ? all[index] : nil
   }
 
   private static func updateCommand(
-    ofHook index: Int, in document: inout JSONSourceDocument, executablePath: String
+    ofHook index: Int, event: String, in document: inout JSONSourceDocument, executablePath: String
   ) throws {
-    guard let command = hookNode(index, in: document)?.member(named: "command")?.value,
+    guard
+      let command = hookNode(index, event: event, in: document)?.member(named: "command")?.value,
       let text = command.stringValue,
       !HookCommand.isCommand(text, running: executablePath, for: .claude)
     else { return }
@@ -120,10 +138,10 @@ public enum ContextHookSetup {
   }
 
   private static func ensureMember(
-    _ key: String, ofHook index: Int, in document: inout JSONSourceDocument,
+    _ key: String, ofHook index: Int, event: String, in document: inout JSONSourceDocument,
     fragment: JSONFragment, matches: (JSONSpanNode) -> Bool
   ) throws {
-    guard let hook = hookNode(index, in: document) else { return }
+    guard let hook = hookNode(index, event: event, in: document) else { return }
     guard let existing = hook.member(named: key) else {
       try document.appendMember(JSONFragmentMember(key: key, value: fragment), to: hook)
       return
