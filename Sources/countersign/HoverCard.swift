@@ -36,7 +36,18 @@ private struct HoverCardModifier<CardContent: View>: ViewModifier {
   let offsetY: CGFloat
   let card: () -> CardContent
 
-  @State private var isHovering = false
+  @State private var isHovering: Bool
+
+  init(
+    width: CGFloat, alignment: Alignment, offsetY: CGFloat, startsOpen: Bool,
+    card: @escaping () -> CardContent
+  ) {
+    self.width = width
+    self.alignment = alignment
+    self.offsetY = offsetY
+    self.card = card
+    _isHovering = State(initialValue: startsOpen)
+  }
 
   func body(content: Content) -> some View {
     content
@@ -57,8 +68,11 @@ extension View {
     width: CGFloat,
     alignment: Alignment = .topTrailing,
     offsetY: CGFloat = 30,
+    startsOpen: Bool = false,
     @ViewBuilder card: @escaping () -> CardContent
   ) -> some View {
-    modifier(HoverCardModifier(width: width, alignment: alignment, offsetY: offsetY, card: card))
+    modifier(
+      HoverCardModifier(
+        width: width, alignment: alignment, offsetY: offsetY, startsOpen: startsOpen, card: card))
   }
 }

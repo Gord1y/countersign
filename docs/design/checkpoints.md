@@ -145,6 +145,9 @@ files the hook keeps. A session counts only while it is live: the Claude Code se
 (`~/.claude/sessions/*.json`) has an entry with its id and that entry's `pid` is a running process.
 Files outlive their process, so anything unknown, such as a missing entry or pid, means "not live".
 
+Rows are built through `ContextGauge.make`, shared with the context chip on approval panels (see
+"The context chip" in [panel.md](panel.md)), so the two always agree about the window.
+
 Each live session is read fresh from its stored `transcriptPath` with `ContextUsageReader`, because
 the stored `lastTokens` is only as new as the last prompt. If the transcript cannot be read, the
 row falls back to `lastTokens`. The row title is `<project> · <size> tokens · <percent>%`, with

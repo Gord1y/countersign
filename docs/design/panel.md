@@ -901,6 +901,30 @@ nothing, ever. `.hoverCard` uses the same `.onHover` state plus `.overlay` patte
 list" uses for the "+N" chip's dropdown — plain, non-focusable `Text` in a `VStack`, never a
 `Menu`, `Button`, popover or second `NSWindow` — so the explanation actually renders.
 
+## The context chip
+
+A Claude Code permission, question or plan panel shows how big the asking session's context is:
+the plain `Chip` with the `gauge.with.dots.needle.33percent` symbol and the text
+`<size> · <percent>%`, right after the permission mode chip, the same in every state. It shows
+only when the request has a `transcriptPath`, `contextCheckpoints.enabled` is true and
+`ContextGauge.make` returns a gauge; a context checkpoint panel, a test panel and any other host
+never show it, and anything unknown means no chip.
+
+The numbers come from `ApprovalCore.ContextGauge`, which `ContextMeter.rows` also builds its rows
+through, so the menu-bar meter and the chip cannot disagree about the window. The gauge takes the
+size from the transcript tail (`ContextUsageReader.read(transcriptURL:)`) or, without one, from
+the session's checkpoint state, and carries the window, the percent, the model, the ladder, the
+rungs already passed and the cache warmth. `PanelContextGauge` reads the tail and the state once,
+when `DisplayWatch` builds the panel, and hands the gauge to `PanelModel`; `snapshot` builds it the
+same way. Nothing polls, so the number is as old as the moment the panel was built, and the
+transcript itself can lag a turn.
+
+The chip explains itself with `.hoverCard(width: 300)` and not `.help`, for the reason given under
+"The permission mode chip": AppKit shows no tooltip for a panel that is never the active app. The
+card gives the size against the window, the rungs with the passed ones in primary text, the cache
+warmth and model when known, and a sentence on what the number means; the sentence mentions the
+stop only when the ladder has a stop rung.
+
 ## The subagent chain in the header
 
 A single `subagent · <agentType>` chip says a subagent is asking, but not what it or its ancestors
@@ -1831,7 +1855,7 @@ layout work can be checked by builders, agents and scripts while the person keep
 swift build
 .build/debug/countersign snapshot <request.json> --host claude|codex|cursor|antigravity \
   [--waiting N] [--appearance light|dark] [--accent #RRGGBB] [--unarmed] [--question-notes] \
-  [--open-menu approve|snooze|mode] [--later] -o <out.png>
+  [--open-menu approve|snooze|mode|context] [--later] -o <out.png>
 ```
 
 `--later` sets `PanelModel.escapeKeepsWaiting`, so the footer's link reads "Later" as it does for a
@@ -1843,6 +1867,13 @@ as a click on its button would open it: `approve` for Approve ▾, `snooze` for 
 that button to open it when it appears, so the rows, the highlight and any growth of the panel are
 the ones the screen shows. A panel without that button, such as `approve` for a request with no
 suggestions or `mode` for anything but a plan, is an error with exit status 1.
+
+`--open-menu context` is the one value that is not a dropdown: it renders the context chip's hover
+card open (`ContextChip`'s `cardOpenOnAppear`, through `hoverCard(startsOpen:)`), since an offscreen
+snapshot has no pointer to hover with. `snapshot` builds the gauge from the request's
+`transcript_path`, with the default checkpoint settings rather than the user's config and the real
+checkpoint state under the home folder, so its chip can differ from a live panel's; a request without a
+readable transcript has no chip and the flag is an error with exit status 1.
 
 It draws the same `PanelRootView` the panel shows, with the same model, and changes nothing about
 the on-screen path. It is a separate subcommand, never reachable from `hook`, and it behaves like

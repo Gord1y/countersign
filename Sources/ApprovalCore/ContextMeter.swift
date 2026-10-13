@@ -28,6 +28,7 @@ public enum ContextMeter {
   public static func rows(
     store: ContextCheckpointStore,
     isLive: (String) -> Bool,
+    settings: ContextCheckpointSettings = .default,
     now: Date = Date(),
     read: (URL) -> ContextReading? = ContextUsageReader.read(transcriptURL:)
   ) -> [ContextMeterRow] {
@@ -35,23 +36,17 @@ public enum ContextMeter {
     for sessionID in store.sessionIDs() {
       guard isLive(sessionID), let state = store.load(sessionID: sessionID) else { continue }
       let freshReading = state.transcriptPath.flatMap { read(URL(fileURLWithPath: $0)) }
-      let tokens = freshReading?.tokens ?? state.lastTokens
+      guard
+        let gauge = ContextGauge.make(
+          reading: freshReading, state: state, settings: settings, now: now)
+      else { continue }
       let project = state.project ?? fallbackProject
-      let hasMillionWindow =
-        freshReading?.hasMillionTokenWindow == true
-        || state.modelID?.contains(ContextUsageReader.millionTokenMarker) == true
-        || tokens > ContextUsageReader.standardWindowTokens
-      let window =
-        hasMillionWindow
-        ? ContextUsageReader.millionWindowTokens : ContextUsageReader.standardWindowTokens
-      let windowPercent = Int((Double(tokens) * 100 / Double(window)).rounded())
-      let warmth = freshReading.map { ContextWarmth.of($0, now: now) } ?? .unknown
-      let sizeText = "\(project) · \(ContextCheckpointNotes.tokenText(tokens)) tokens"
+      let sizeText = "\(project) · \(ContextCheckpointNotes.tokenText(gauge.tokens)) tokens"
       rows.append(
         ContextMeterRow(
-          sessionID: sessionID, project: project, tokens: tokens, windowPercent: windowPercent,
-          warmth: warmth,
-          title: "\(sizeText) · \(windowPercent)%\(warmthSuffix(warmth))"))
+          sessionID: sessionID, project: project, tokens: gauge.tokens,
+          windowPercent: gauge.windowPercent, warmth: gauge.warmth,
+          title: "\(sizeText) · \(gauge.windowPercent)%\(warmthSuffix(gauge.warmth))"))
     }
     rows.sort { left, right in
       if left.tokens != right.tokens { return left.tokens > right.tokens }
@@ -61,15 +56,7 @@ public enum ContextMeter {
   }
 
   private static func warmthSuffix(_ warmth: ContextWarmth) -> String {
-    switch warmth {
-    case .unknown:
-      return ""
-    case .cold:
-      return " · cold"
-    case .warm(let secondsLeft):
-      if secondsLeft < 60 { return " · warm, under a minute left" }
-      return " · warm, \(Int((secondsLeft / 60).rounded(.up))) min left"
-    }
+    warmth.phrase.map { " · \($0)" } ?? ""
   }
 
   public static func isLive(sessionID: String, sessionsDirectory: URL) -> Bool {

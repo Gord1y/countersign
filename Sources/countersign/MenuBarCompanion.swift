@@ -311,7 +311,8 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
         store: ContextCheckpointStore(directory: paths.contextCheckpointsDirectory),
         isLive: {
           ContextMeter.isLive(sessionID: $0, sessionsDirectory: paths.claudeSessionsDirectory)
-        })
+        },
+        settings: checkpointSettings)
       : []
     return CompanionMenuInput(
       isPaused: pauseSwitch.isPaused,

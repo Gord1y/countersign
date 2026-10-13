@@ -468,6 +468,8 @@ private final class DisplayWatch: NSObject {
   private var hasEvaluatedChatTracking = false
   private var chatTrackingDrift: ChatTrackingDrift?
   private let subagentChain: [SubagentChainLink]?
+  private var contextGauge: ContextGauge?
+  private var hasReadContextGauge = false
   private let paths: AppPaths
 
   init(
@@ -774,6 +776,14 @@ private final class DisplayWatch: NSObject {
         log.write("chat tracking: \(chatTrackingDrift.reason)")
       }
     }
+    if !hasReadContextGauge {
+      hasReadContextGauge = true
+      contextGauge =
+        mode.isTest
+        ? nil
+        : PanelContextGauge.make(
+          for: request, settings: settings.contextCheckpoints, paths: paths, now: Date())
+    }
     let waitingEntries = queue.waitingEntries(excluding: ticket)
     lastWaitingEntries = waitingEntries
     return PanelController(
@@ -783,7 +793,8 @@ private final class DisplayWatch: NSObject {
       modeAfterPlan: settings.modeAfterPlan, panelSound: settings.panelSound,
       appearance: settings.appearance, accentColor: settings.accentColor,
       chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
-      isTestPanel: mode.isTest, handoffBackdrop: handoffBackdrop, afterHandoff: afterHandoff,
+      contextGauge: contextGauge, isTestPanel: mode.isTest, handoffBackdrop: handoffBackdrop,
+      afterHandoff: afterHandoff,
       onFinish: { [weak self] outcome in self?.finish(outcome) },
       onSnooze: { [weak self] seconds in self?.handleSnooze(seconds) },
       onStepAside: { [weak self] reason in self?.handleStepAside(reason) },

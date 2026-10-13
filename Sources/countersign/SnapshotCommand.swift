@@ -3,10 +3,12 @@ import ApprovalCore
 import SwiftUI
 
 enum SnapshotCommand {
+  private static let contextCardMenuName = "context"
+
   static let usage =
     "usage: countersign snapshot <request.json> --host claude|codex|cursor|antigravity"
     + " [--waiting N] [--appearance light|dark] [--accent #RRGGBB] [--unarmed] [--question-notes]"
-    + " [--open-menu approve|snooze|mode] [--later] -o <out.png>\n"
+    + " [--open-menu approve|snooze|mode|context] [--later] -o <out.png>\n"
     + "       countersign snapshot --test-panel command|question|plan|context"
     + " [--waiting N] [--appearance light|dark] [--accent #RRGGBB] [--unarmed] [--question-notes]"
     + " [--open-menu approve|snooze|mode] [--checkpoint-level soft|status|insist]"
@@ -84,6 +86,14 @@ enum SnapshotCommand {
     let maxHeight = PanelController.maxContentHeight(screen: screen)
 
     let subagentChain = SubagentDescription.chain(for: request)
+    let contextGauge =
+      isTestPanel
+      ? nil
+      : PanelContextGauge.make(
+        for: request, settings: .default, paths: AppPaths.standard, now: Date())
+    if options.opensContextCard, contextGauge == nil {
+      CommandLineOutput.fail("error: this panel has no context chip")
+    }
     let waitingEntries = Array(
       repeating: WaitingEntry(
         summary: TicketSummary(
@@ -95,6 +105,7 @@ enum SnapshotCommand {
     let model = PanelModel(
       request: request, waitingEntries: waitingEntries, questionNotes: options.questionNotes,
       chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
+      contextGauge: contextGauge, opensContextCardOnAppear: options.opensContextCard,
       isTestPanel: isTestPanel, escapeKeepsWaiting: options.escapeKeepsWaiting,
       alwaysAllowOffer: isTestPanel
         ? nil : AlwaysAllowOffer.offer(for: request, home: AppPaths.standard.home),
@@ -663,6 +674,7 @@ enum SnapshotCommand {
     let isArmed: Bool
     let questionNotes: Bool
     let openMenu: PanelDropdownID?
+    let opensContextCard: Bool
     let checkpointLevel: ContextLevel?
     let escapeKeepsWaiting: Bool
   }
@@ -687,6 +699,7 @@ enum SnapshotCommand {
     var isArmed = true
     var questionNotes = Settings.defaultQuestionNotes
     var openMenu: PanelDropdownID?
+    var opensContextCard = false
     var checkpointLevel: ContextLevel?
     var escapeKeepsWaiting = false
     var index = arguments.startIndex
@@ -731,9 +744,13 @@ enum SnapshotCommand {
         escapeKeepsWaiting = true
       case "--open-menu":
         index += 1
-        guard index < arguments.count, let menu = PanelDropdownID(rawValue: arguments[index])
-        else { return nil }
-        openMenu = menu
+        guard index < arguments.count else { return nil }
+        if arguments[index] == contextCardMenuName {
+          opensContextCard = true
+        } else {
+          guard let menu = PanelDropdownID(rawValue: arguments[index]) else { return nil }
+          openMenu = menu
+        }
       case "--checkpoint-level":
         index += 1
         guard index < arguments.count, let level = contextLevel(named: arguments[index])
@@ -762,7 +779,8 @@ enum SnapshotCommand {
     return Options(
       source: source, outputPath: outputPath, waitingCount: waitingCount,
       appearance: appearance, accentColor: accentColor, isArmed: isArmed,
-      questionNotes: questionNotes, openMenu: openMenu, checkpointLevel: checkpointLevel,
+      questionNotes: questionNotes, openMenu: openMenu, opensContextCard: opensContextCard,
+      checkpointLevel: checkpointLevel,
       escapeKeepsWaiting: escapeKeepsWaiting)
   }
 
