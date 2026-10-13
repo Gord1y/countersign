@@ -26,7 +26,7 @@ testedWith:
   600K in a 1M window, Countersign tells Claude, without a panel and in either mode, to start
   nothing new, collect what its subagents have found, write the handoff file and tell you it is
   ready for `/clear`. Countersign also checks it after each tool call of the main session, so a
-  long run that never waits for a prompt still reaches it. The note is **Stop** under **Edit
+  long run that never waits for a prompt still reaches it. The note is **Stop note** under **Edit
   Notes…** in Settings ▸ Context.
 - A cold-cache card. While the menu-bar app runs, a corner card appears 10 minutes before an idle
   Claude Code session past its first checkpoint loses its 1-hour prompt cache, once per idle
@@ -61,6 +61,10 @@ testedWith:
 
 - Copy, cut, paste, select all, undo and redo work in the panel's text fields: the Other answer,
   the deny reason, plan feedback and the question note. ⌘C and ⌘X used to do nothing there.
+- Updating Codex's hooks no longer brings back the trust step for a hook Codex already trusts.
+  **Update** and `countersign setup` forgot Codex's trust in every hook of Countersign's in
+  `hooks.json`, even one they left unchanged, so Settings asked you to trust the approval hook
+  again and `countersign doctor` warned that Codex hadn't trusted the Stop hook.
 
 ## Removed
 
