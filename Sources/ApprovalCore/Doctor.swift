@@ -396,7 +396,7 @@ public enum Doctor {
     switch verdict.state {
     case .trusted, .markedDone:
       return []
-    case .pending(_, _):
+    case .pending(_?, _), .pending(nil, false):
       return [
         DoctorLine(
           status: .warn, check: check,
@@ -404,7 +404,7 @@ public enum Doctor {
             "Codex has not trusted Countersign's \(event) entry yet; run /hooks in a Codex session and trust it"
         )
       ]
-    case .unknown:
+    case .pending(nil, true), .unknown:
       return [
         DoctorLine(
           status: .info, check: check,
@@ -482,7 +482,7 @@ public enum Doctor {
     switch verdict.state {
     case .trusted, .markedDone:
       return []
-    case .pending(_, _):
+    case .pending(_?, _), .pending(nil, false):
       return [
         DoctorLine(
           status: .warn, check: check,
@@ -490,7 +490,7 @@ public enum Doctor {
             "Codex has not trusted Countersign's Stop entry yet; run /hooks in a Codex session and trust it"
         )
       ]
-    case .unknown:
+    case .pending(nil, true), .unknown:
       return [
         DoctorLine(
           status: .info, check: check,
