@@ -150,7 +150,7 @@ import Testing
     }
     #expect(prompt.tokens == 212_345)
     #expect(prompt.level == .soft)
-    #expect(prompt.ladder == [200_000, 300_000, 400_000])
+    #expect(prompt.ladder == [200_000, 300_000, 400_000, 600_000])
     #expect(prompt.handoffFile == ContextCheckpointSettings.defaultHandoffFile)
     #expect(prompt.notes == ContextCheckpointNotes.default)
   }

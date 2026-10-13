@@ -32,10 +32,10 @@ struct ContextSection: View {
             }
             SettingsDivider()
             ContextLadderRow(
-              name: .contextStandardThresholds, placeholder: "100, 130, 160", model: model)
+              name: .contextStandardThresholds, placeholder: "100, 120, 140, 160", model: model)
             SettingsDivider()
             ContextLadderRow(
-              name: .contextMillionThresholds, placeholder: "200, 300, 400", model: model)
+              name: .contextMillionThresholds, placeholder: "200, 300, 400, 600", model: model)
             SettingsDivider()
             ContextModelsRow(model: model)
             SettingsDivider()

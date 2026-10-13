@@ -480,15 +480,17 @@ session's context has grown and adds a note asking it to wrap up, compact or han
 
 - `enabled`: `true` or `false`. Default `true`.
 - `mode`: `"panel"` asks you in a panel, `"silent"` only adds the note. Default `"panel"`.
-- `thresholds`: the three checkpoints, in tokens, by context window. `200k` defaults to
-  `[100000, 130000, 160000]` and `1m` to `[200000, 300000, 400000]`. Each is exactly three whole
-  numbers of 1 or more, strictly ascending.
+- `thresholds`: the checkpoints, in tokens, by context window. `200k` defaults to
+  `[100000, 120000, 140000, 160000]` and `1m` to `[200000, 300000, 400000, 600000]`. Each is three
+  or four whole numbers of 1 or more, strictly ascending. The fourth is the stop: there Countersign
+  tells Claude, without asking and in either mode, to stop, collect what its subagents have found,
+  write the handoff file and wait for `/clear`. Leave the fourth number out to turn the stop off.
 - `modelThresholds`: an object from a model identifier, as Claude Code reports it, to a ladder of
-  three ascending whole numbers. It wins over `thresholds`. A bad entry is dropped.
+  three or four ascending whole numbers. It wins over `thresholds`. A bad entry is dropped.
 - `rearmBelow`: a number from `0.1` to `0.95`. Default `0.6`. A checkpoint fires again only once
   the context has fallen below this fraction of its size, for example after `/compact`.
 - `handoffFile`: a non-empty path. Default `"notes/handoff.md"`.
-- `notes`: the text of `soft`, `status`, `insist`, `compact` and `handoff`, each 1 to 4000
+- `notes`: the text of `soft`, `status`, `insist`, `stop`, `compact` and `handoff`, each 1 to 4000
   characters. Two placeholders work in every note: `{tokens}` becomes the context size (`212K`, or
   `1.3M` from 999,500 tokens up) and `{handoffFile}` becomes `handoffFile`.
 - `menuBarMeter`: `true` or `false`. Default `false`.

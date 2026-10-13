@@ -64,7 +64,9 @@ struct ContextCheckpointView: View {
 
   private var ladder: some View {
     HStack(spacing: 6) {
-      ForEach(Array(ContextLevel.allCases.enumerated()), id: \.offset) { index, level in
+      ForEach(
+        Array(ContextLevel.allCases.prefix(prompt.ladder.count).enumerated()), id: \.offset
+      ) { index, level in
         if index > 0 {
           Text("·")
             .foregroundStyle(.secondary)
@@ -86,6 +88,7 @@ struct ContextCheckpointView: View {
     case .soft: return "Soft"
     case .status: return "Status"
     case .insist: return "Insist"
+    case .stop: return "Stop"
     }
   }
 
@@ -94,6 +97,7 @@ struct ContextCheckpointView: View {
     case .soft: return "A good moment to compact, if a piece of work just finished."
     case .status: return "Worth a status check before the session grows further."
     case .insist: return "Past the point where long sessions keep working well."
+    case .stop: return "Countersign asks Claude to stop and hand off."
     }
   }
 

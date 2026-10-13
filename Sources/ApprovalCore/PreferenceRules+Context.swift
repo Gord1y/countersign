@@ -11,7 +11,7 @@ public enum ContextTextError: Error, Sendable, Equatable, CustomStringConvertibl
   public var description: String {
     switch self {
     case .ladder:
-      return "Enter three ascending numbers of thousands of tokens"
+      return "Enter three or four ascending numbers of thousands of tokens"
     case .emptyPrefix:
       return "Enter a model ID prefix, like claude-opus-5"
     case .prefixContainsWhitespace:
@@ -28,13 +28,13 @@ public enum ContextTextError: Error, Sendable, Equatable, CustomStringConvertibl
 
 extension PreferenceRules {
   public static let contextLadderThousands: ClosedRange<Int> = 1...2000
-  public static let contextLadderLength = 3
+  public static let contextLadderLengths: ClosedRange<Int> = 3...4
   public static let contextRearmPercentRange: ClosedRange<Double> = 10...95
   public static let contextRearmPercentStep: Double = 5
 
   public static func contextLadder(fromThousands text: String) -> Result<[Int], ContextTextError> {
     let words = text.split { $0 == "," || $0.isWhitespace }.map(String.init)
-    guard words.count == contextLadderLength else { return .failure(.ladder) }
+    guard contextLadderLengths.contains(words.count) else { return .failure(.ladder) }
     var thousands: [Int] = []
     for word in words {
       guard let value = Int(word), contextLadderThousands.contains(value) else {

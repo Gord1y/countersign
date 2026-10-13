@@ -32,6 +32,7 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
   case contextNoteSoft
   case contextNoteStatus
   case contextNoteInsist
+  case contextNoteStop
   case contextNoteCompact
   case contextNoteHandoff
   case contextMenuBarMeter
@@ -48,6 +49,7 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
     case .contextNoteSoft: return ["contextCheckpoints", "notes", "soft"]
     case .contextNoteStatus: return ["contextCheckpoints", "notes", "status"]
     case .contextNoteInsist: return ["contextCheckpoints", "notes", "insist"]
+    case .contextNoteStop: return ["contextCheckpoints", "notes", "stop"]
     case .contextNoteCompact: return ["contextCheckpoints", "notes", "compact"]
     case .contextNoteHandoff: return ["contextCheckpoints", "notes", "handoff"]
     case .contextMenuBarMeter: return ["contextCheckpoints", "menuBarMeter"]
@@ -61,7 +63,8 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
 
   public var noteName: String? {
     switch self {
-    case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteCompact,
+    case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteStop,
+      .contextNoteCompact,
       .contextNoteHandoff:
       return keyPath.last
     default:

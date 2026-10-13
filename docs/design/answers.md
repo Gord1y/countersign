@@ -243,9 +243,10 @@ sorted keys, and every other host encodes `.addContext` as `nil`:
 | **Not this session** | Nothing on stdout (`.noDecision`); the session is also muted |
 | **Compact after this step** | The JSON above with `notes.compact` rendered |
 | **Hand off & start fresh** | The JSON above with `notes.handoff` rendered |
+| The stop rung of the ladder (no panel, either mode) | The JSON above with `notes.stop` rendered |
 
 Rendering fills `{tokens}` (for example `131K`) and `{handoffFile}`. Silent mode prints the same
-JSON with the note of the level that fired (`soft`, `status` or `insist`), without a panel.
+JSON with the note of the level that fired (`soft`, `status`, `insist` or `stop`), without a panel.
 
 Nothing on stdout, exit 0, means "nothing to add" in every other case: Esc, a click outside the
 panel, a panel closed or abandoned (parent exited, session compacted meanwhile, another checkpoint

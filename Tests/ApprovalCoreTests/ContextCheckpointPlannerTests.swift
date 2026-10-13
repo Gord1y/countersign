@@ -33,13 +33,36 @@ import Testing
   @Test func panelModeAsksWithTheLevelAndTheLadderUsed() {
     let settings = settings(mode: .panel)
     let plan = ContextCheckpointPlanner.plan(
-      reading: reading(165_000), previous: .fresh(now: now), settings: settings,
+      reading: reading(145_000), previous: .fresh(now: now), settings: settings,
       transcriptPath: nil, project: "shop-api", now: now)
 
     let expected = ContextCheckpointPrompt(
-      tokens: 165_000, level: .insist, ladder: [100_000, 130_000, 160_000],
+      tokens: 145_000, level: .insist, ladder: [100_000, 120_000, 140_000, 160_000],
       modelID: "claude-opus-5-5", handoffFile: settings.handoffFile, notes: settings.notes)
     #expect(plan.decision == .panel(expected))
+  }
+
+  @Test func stopInjectsItsRenderedNoteInPanelMode() {
+    let settings = settings(mode: .panel)
+    let plan = ContextCheckpointPlanner.plan(
+      reading: reading(165_000), previous: .fresh(now: now), settings: settings,
+      transcriptPath: nil, project: "shop-api", now: now)
+
+    let expected = ContextCheckpointNotes.render(
+      settings.notes.stop, tokens: 165_000, handoffFile: settings.handoffFile)
+    #expect(plan.decision == .inject(expected))
+    #expect(plan.state.fired == [.soft, .status, .insist, .stop])
+  }
+
+  @Test func stopInjectsItsRenderedNoteInSilentMode() {
+    let settings = settings(mode: .silent)
+    let plan = ContextCheckpointPlanner.plan(
+      reading: reading(165_000), previous: .fresh(now: now), settings: settings,
+      transcriptPath: nil, project: "shop-api", now: now)
+
+    let expected = ContextCheckpointNotes.render(
+      settings.notes.stop, tokens: 165_000, handoffFile: settings.handoffFile)
+    #expect(plan.decision == .inject(expected))
   }
 
   @Test func noCrossingKeepsTheStateCurrent() {

@@ -1076,7 +1076,7 @@ final class SettingsModel {
   ]
 
   static let contextNoteNames: [PreferenceName] = [
-    .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteCompact,
+    .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteStop, .contextNoteCompact,
     .contextNoteHandoff,
   ]
 
@@ -1180,6 +1180,7 @@ final class SettingsModel {
     case .contextNoteSoft: return values.notes.soft
     case .contextNoteStatus: return values.notes.status
     case .contextNoteInsist: return values.notes.insist
+    case .contextNoteStop: return values.notes.stop
     case .contextNoteCompact: return values.notes.compact
     case .contextNoteHandoff: return values.notes.handoff
     default: return ""

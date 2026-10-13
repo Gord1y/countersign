@@ -65,7 +65,7 @@ public enum ContextCheckpointChoice: String, Sendable, Equatable, CaseIterable {
   public static func highlighted(for level: ContextLevel) -> ContextCheckpointChoice {
     switch level {
     case .soft, .status: return .compactAfterStep
-    case .insist: return .handOff
+    case .insist, .stop: return .handOff
     }
   }
 }
@@ -89,13 +89,14 @@ public struct ContextCheckpointPlan: Sendable, Equatable {
 public enum ContextCheckpointPlanner {
   public static func plan(
     reading: ContextReading, previous: ContextCheckpointState, settings: ContextCheckpointSettings,
-    transcriptPath: String?, project: String, now: Date
+    transcriptPath: String?, project: String, now: Date,
+    levels: [ContextLevel] = ContextLevel.allCases
   ) -> ContextCheckpointPlan {
     let ladderSettings = ContextLadderSettings(settings)
     let step = ContextLadder.step(
       tokens: reading.tokens, modelID: reading.modelID,
       hasMillionTokenWindow: reading.hasMillionTokenWindow, compactionID: reading.compactionID,
-      previous: previous, settings: ladderSettings)
+      previous: previous, settings: ladderSettings, levels: levels)
 
     var state = step.state
     state.transcriptPath = transcriptPath
@@ -106,13 +107,13 @@ public enum ContextCheckpointPlanner {
       return ContextCheckpointPlan(state: state, decision: .nothing)
     }
 
-    switch settings.mode {
-    case .silent:
+    switch (settings.mode, level) {
+    case (.silent, _), (.panel, .stop):
       let note = ContextCheckpointNotes.render(
         template(for: level, in: settings.notes), tokens: reading.tokens,
         handoffFile: settings.handoffFile)
       return ContextCheckpointPlan(state: state, decision: .inject(note))
-    case .panel:
+    case (.panel, _):
       let ladder = ContextLadder.thresholds(
         modelID: state.modelID, hasMillionTokenWindow: reading.hasMillionTokenWindow,
         settings: ladderSettings)
@@ -130,6 +131,7 @@ public enum ContextCheckpointPlanner {
     case .soft: return notes.soft
     case .status: return notes.status
     case .insist: return notes.insist
+    case .stop: return notes.stop
     }
   }
 }

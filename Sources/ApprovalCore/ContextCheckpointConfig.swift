@@ -9,10 +9,11 @@ public struct ContextCheckpointNotes: Sendable, Equatable {
   public var soft: String
   public var status: String
   public var insist: String
+  public var stop: String
   public var compact: String
   public var handoff: String
 
-  public static let names: [String] = ["soft", "status", "insist", "compact", "handoff"]
+  public static let names: [String] = ["soft", "status", "insist", "stop", "compact", "handoff"]
   public static let maximumLength = 4000
 
   public static let `default` = ContextCheckpointNotes(
@@ -22,16 +23,21 @@ public struct ContextCheckpointNotes: Sendable, Equatable {
       "Context note from Countersign, the user's approval app: this session's context is about {tokens} tokens. The user would like a short status before it grows further: when the current step is done, say what is finished, what remains and roughly how much. If what remains is small, say so and carry on without compacting; otherwise recommend /compact and list what its summary must preserve.",
     insist:
       "Context note from Countersign, the user's approval app: this session's context is about {tokens} tokens, which the user considers too large to keep working well. The user prefers that you stop after the current step, write or update {handoffFile} with the current state, the decisions made, the remaining steps and any gotchas, and then ask them to choose between /compact and /clear followed by that file. The user prefers no new sub-tasks until they decide.",
+    stop:
+      "Context note from Countersign, the user's approval app: this session's context is about {tokens} tokens, the point where the user wants work to stop and continue in a fresh session while the prompt cache is still warm. Do not start any new step, tool call or subagent beyond what this note asks. If subagents are still running, first collect what each has found and where it stands, by waiting for its result or asking it for its state, then stop it. Then write {handoffFile}: the goal, the current state including each subagent's results and unfinished work, the decisions made and why, the remaining steps and any gotchas, so a new session can continue from that file alone. Then stop and tell the user it is ready for /clear. Do not suggest /compact: once the cache has expired, compacting a session this large costs more than starting fresh from the handoff.",
     compact:
       "Context note from Countersign, the user's approval app: this session's context is about {tokens} tokens, and the user chose to compact after the current step. Finish the step you are on without starting new work, then stop and list, in a few lines, what the /compact summary must preserve, so the user can run /compact.",
     handoff:
       "Context note from Countersign, the user's approval app: this session's context is about {tokens} tokens, and the user chose to hand off and start fresh. Finish or safely pause the current step, then write {handoffFile}: the goal, the current state, the decisions made and why, the remaining steps and any gotchas, so a new session can continue from that file alone. Then stop and tell the user it is ready for /clear."
   )
 
-  public init(soft: String, status: String, insist: String, compact: String, handoff: String) {
+  public init(
+    soft: String, status: String, insist: String, stop: String, compact: String, handoff: String
+  ) {
     self.soft = soft
     self.status = status
     self.insist = insist
+    self.stop = stop
     self.compact = compact
     self.handoff = handoff
   }
@@ -56,6 +62,7 @@ public struct ContextCheckpointNotes: Sendable, Equatable {
     case "soft": return soft
     case "status": return status
     case "insist": return insist
+    case "stop": return stop
     case "compact": return compact
     case "handoff": return handoff
     default: return nil
@@ -108,8 +115,8 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
   public var notes: ContextCheckpointNotes
   public var menuBarMeter: Bool
 
-  public static let defaultStandardThresholds: [Int] = [100_000, 130_000, 160_000]
-  public static let defaultMillionThresholds: [Int] = [200_000, 300_000, 400_000]
+  public static let defaultStandardThresholds: [Int] = [100_000, 120_000, 140_000, 160_000]
+  public static let defaultMillionThresholds: [Int] = [200_000, 300_000, 400_000, 600_000]
   public static let rearmBelowRange: ClosedRange<Double> = 0.1...0.95
   public static let defaultRearmBelow: Double = 0.6
   public static let defaultHandoffFile = "notes/handoff.md"
@@ -178,7 +185,7 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
       handoffFile: hostValues?.handoffFile ?? top?.handoffFile ?? defaultHandoffFile,
       notes: ContextCheckpointNotes(
         soft: note("soft"), status: note("status"), insist: note("insist"),
-        compact: note("compact"), handoff: note("handoff")),
+        stop: note("stop"), compact: note("compact"), handoff: note("handoff")),
       menuBarMeter: hostValues?.menuBarMeter ?? top?.menuBarMeter ?? false)
   }
 }

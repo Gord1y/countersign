@@ -10,6 +10,7 @@ extension ContextCheckpointNotes {
     case .contextNoteSoft: soft = text
     case .contextNoteStatus: status = text
     case .contextNoteInsist: insist = text
+    case .contextNoteStop: stop = text
     case .contextNoteCompact: compact = text
     case .contextNoteHandoff: handoff = text
     default: break
@@ -244,7 +245,8 @@ public struct PreferenceValues: Sendable, Equatable {
       values.contextCheckpoints.rearmBelow = ContextCheckpointSettings.defaultRearmBelow
     case .contextHandoffFile:
       values.contextCheckpoints.handoffFile = ContextCheckpointSettings.defaultHandoffFile
-    case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteCompact,
+    case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteStop,
+      .contextNoteCompact,
       .contextNoteHandoff:
       values.contextCheckpoints.notes.set(
         ContextCheckpointNotes.default.text(for: name) ?? "", named: name)

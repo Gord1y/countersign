@@ -84,7 +84,11 @@ enum ContextCheckpointRunner {
       exit(0)
     case .inject(let text):
       HookRunner.writeReply(.addContext(text), host: .claude)
-      log.write("outcome: context note (silent, \(firedLevelName ?? "unknown"))")
+      if firedLevel(in: plan) == .stop {
+        log.write("outcome: context note (stop)")
+      } else {
+        log.write("outcome: context note (silent, \(firedLevelName ?? "unknown"))")
+      }
       exit(0)
     case .panel(let prompt):
       let session = ContextCheckpointSession(
@@ -113,6 +117,7 @@ enum ContextCheckpointRunner {
     case .soft: return "soft"
     case .status: return "status"
     case .insist: return "insist"
+    case .stop: return "stop"
     }
   }
 }

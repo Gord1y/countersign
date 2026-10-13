@@ -4,10 +4,10 @@ import Testing
 
 @Suite struct ContextCheckpointChoiceTests {
   private let prompt = ContextCheckpointPrompt(
-    tokens: 131_000, level: .status, ladder: [100_000, 130_000, 160_000], modelID: nil,
+    tokens: 131_000, level: .status, ladder: [100_000, 120_000, 140_000, 160_000], modelID: nil,
     handoffFile: "notes/handoff.md",
     notes: ContextCheckpointNotes(
-      soft: "s", status: "t", insist: "i", compact: "compact {tokens} {handoffFile}",
+      soft: "s", status: "t", insist: "i", stop: "p", compact: "compact {tokens} {handoffFile}",
       handoff: "handoff {tokens} {handoffFile}"))
 
   @Test func titles() {
@@ -35,5 +35,6 @@ import Testing
     #expect(ContextCheckpointChoice.highlighted(for: .soft) == .compactAfterStep)
     #expect(ContextCheckpointChoice.highlighted(for: .status) == .compactAfterStep)
     #expect(ContextCheckpointChoice.highlighted(for: .insist) == .handOff)
+    #expect(ContextCheckpointChoice.highlighted(for: .stop) == .handOff)
   }
 }

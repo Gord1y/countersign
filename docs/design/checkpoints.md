@@ -71,18 +71,24 @@ reading as an estimate that is at most one turn old, never as the exact state.
 
 ## Levels and re-arming
 
-A checkpoint ladder has three levels, `soft`, `status` and `insist`, each tied to a token count.
-A ladder is exactly three ascending positive token counts.
+A checkpoint ladder has four levels, `soft`, `status`, `insist` and `stop`, each tied to a token
+count. A ladder is three or four ascending positive token counts, and the fourth is the stop rung.
+A ladder of three has no stop: the planner zips the levels with the ladder, so a level without a
+count can never be crossed.
 
 Defaults:
 
-| Window | soft | status | insist |
-| --- | --- | --- | --- |
-| Standard (200K) | 100,000 | 130,000 | 160,000 |
-| 1M | 200,000 | 300,000 | 400,000 |
+| Window | soft | status | insist | stop |
+| --- | --- | --- | --- | --- |
+| Standard (200K) | 100,000 | 120,000 | 140,000 | 160,000 |
+| 1M | 200,000 | 300,000 | 400,000 | 600,000 |
 
-The 200K window gets its own ladder because Claude Code auto-compacts before a 200K session
-reaches the first step of the 1M ladder (200,000), so that ladder would never fire there.
+The stop exists because long sessions grow huge and then sit idle. Once the prompt cache has
+expired, a `/compact` or a handoff re-reads the whole context uncached, which is slow and costly.
+The stop rung makes Countersign tell Claude, without asking, to stop, gather what its running
+subagents have found, write the handoff file and wait for `/clear`, while the cache is still warm.
+The user chose these ladders on 2026-10-13: the 1M stop sits at 60% of the window, and the 200K
+ladder was re-spaced (it used to be 100,000 / 130,000 / 160,000) so that all four rungs fit.
 
 A `modelThresholds` entry maps a model-id prefix to a ladder. The longest matching prefix wins,
 and it beats both defaults. Model ids may carry a `[1m]` suffix (`claude-opus-5-5[1m]`), and a
@@ -140,8 +146,17 @@ highlighted choice follows the level: `soft` and `status` highlight **Compact af
 `insist` highlights **Hand off & start fresh**. Esc, a click outside, and a closed or abandoned
 panel send nothing.
 
-`silent` mode skips the panel and sends the note of the level that fired (`soft`, `status` or
-`insist`) straight away.
+`silent` mode skips the panel and sends the note of the level that fired (`soft`, `status`,
+`insist` or `stop`) straight away.
+
+The `stop` level never shows a panel. In both modes it sends the `stop` note as
+`additionalContext`, and the hook logs `outcome: context note (stop)` instead of
+`outcome: context note (silent, <level>)`. Its highlighted choice (**Hand off & start fresh**)
+exists only because the mapping is an exhaustive switch.
+
+`ContextCheckpointPlanner.plan` and `ContextLadder.step` take a `levels` parameter that limits
+which levels can count as crossed; everything else, including the fired set, behaves as before.
+The prompt hook passes all levels.
 
 The hook entry is async, so Claude Code runs it in the background and delivers its
 `additionalContext` at Claude's next request. Its `systemMessage` would never be shown to the user,

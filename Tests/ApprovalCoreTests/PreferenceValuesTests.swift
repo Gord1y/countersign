@@ -18,6 +18,7 @@ import Testing
     values = values.applying(.contextNote(.contextNoteSoft, "a"))
     values = values.applying(.contextNote(.contextNoteStatus, "b"))
     values = values.applying(.contextNote(.contextNoteInsist, "c"))
+    values = values.applying(.contextNote(.contextNoteStop, "s"))
     values = values.applying(.contextNote(.contextNoteCompact, "d"))
     values = values.applying(.contextNote(.contextNoteHandoff, "e"))
     values = values.applying(.contextMenuBarMeter(true))
@@ -28,7 +29,7 @@ import Testing
           millionThresholds: [4, 5, 6], modelThresholds: ["claude-opus": [7, 8, 9]],
           rearmBelow: 0.5, handoffFile: "h.md",
           notes: ContextCheckpointNotes(
-            soft: "a", status: "b", insist: "c", compact: "d", handoff: "e"),
+            soft: "a", status: "b", insist: "c", stop: "s", compact: "d", handoff: "e"),
           menuBarMeter: true))
   }
 

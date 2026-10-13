@@ -14,12 +14,12 @@
     "tokenLadder": {
       "type": "array",
       "minItems": 3,
-      "maxItems": 3,
+      "maxItems": 4,
       "items": {
         "type": "integer",
         "minimum": 1
       },
-      "description": "Three strictly ascending token counts: the soft, status and insist checkpoints."
+      "description": "Three or four strictly ascending token counts: the soft, status and insist checkpoints, then the optional stop."
     },
     "contextCheckpointValues": {
       "type": "object",
@@ -39,16 +39,16 @@
         "thresholds": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Token counts of the three checkpoints, by context window size.",
+          "description": "Token counts of the checkpoints, by context window size.",
           "properties": {
             "200k": {
               "$ref": "#/$defs/tokenLadder",
-              "default": [100000, 130000, 160000],
+              "default": [100000, 120000, 140000, 160000],
               "description": "Checkpoints for a 200K-token context window."
             },
             "1m": {
               "$ref": "#/$defs/tokenLadder",
-              "default": [200000, 300000, 400000],
+              "default": [200000, 300000, 400000, 600000],
               "description": "Checkpoints for a 1M-token context window."
             }
           }
@@ -95,6 +95,12 @@
               "minLength": 1,
               "maxLength": 4000,
               "description": "The note sent at the third checkpoint."
+            },
+            "stop": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "description": "The note sent without asking at the stop checkpoint."
             },
             "compact": {
               "type": "string",
