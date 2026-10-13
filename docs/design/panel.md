@@ -214,7 +214,13 @@ used and performs them there, so nothing reaches the view behind it. The rules:
   them: ⌫ never opens the deny or feedback step then. Before the panel is armed the dropdown's
   arrows, digits and Return are swallowed, but ⌘Return and Esc still close it. Marked text still
   wins over all of it.
-- **⌘ and ⌃ combinations** pass through, so ⌘C copies a selection in the panel.
+- **⌘ and ⌃ combinations** pass through, so ⌘C copies a selection in the panel, and ⌘X, ⌘C,
+  ⌘V, ⌘A, ⌘Z and ⇧⌘Z edit the Other, reason, feedback and note fields. AppKit turns those keys
+  into `cut:`, `copy:` and the rest only through a main menu item's key equivalent, so
+  `PanelApplication` installs a main menu holding just Edit (`EditMenu`, the items Settings uses
+  too) in `applicationDidFinishLaunching`. An accessory app never shows its menu bar, so nothing
+  appears on screen. Before 0.4.0 the panel process had no main menu, and ⌘C and ⌘X did nothing in
+  those fields.
 - **Every other key** without ⌘ or ⌃ steps aside and is swallowed: letters, punctuation, Space,
   Tab, ↑ and ↓ with no dropdown open, Page Up and Down, a digit the visible question has no option
   for, the function keys, and anything with only ⇧ or ⌥. Scrolling a long request works with the
