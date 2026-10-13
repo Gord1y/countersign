@@ -721,9 +721,10 @@ A copy is one install, grouped by where it came from:
 | Countersign.app | `/Applications/Countersign.app` is a real directory, or `~/Applications/Countersign.app` is one and no installer copy owns it | the bundle | its `CFBundleShortVersionString` | `rm -rf <the bundle>` |
 
 The installer row covers both `install.sh` at the repository root and `scripts/install.sh`, which
-writes only the CLI. Older version folders under `<prefix>/Cellar/countersign/` are Homebrew's to
-clean up (`brew cleanup`), not copies. Symbolic links are resolved, and a file or bundle already
-counted, compared by resolved path, is never counted again: a `~/.local/bin/countersign` linked to
+writes the CLI, and with `--app` the app too. Older version folders under
+`<prefix>/Cellar/countersign/` are Homebrew's to clean up (`brew cleanup`), not copies. Symbolic
+links are resolved, and a file or bundle already counted, compared by resolved path, is never
+counted again: a `~/.local/bin/countersign` linked to
 Homebrew's binary is no installer copy, and an `/Applications` that links to `~/Applications` does
 not make the installer's app a second copy. A dangling link counts as nothing. A version that
 cannot be read shows as "version unknown".
@@ -780,7 +781,7 @@ entry to the copy running the window (see "The stable path"), and `countersign s
 from the terminal.
 
 The installer's two halves can drift apart with a single copy too: rerunning `install.sh` with
-`COUNTERSIGN_APP=0`, or `scripts/install.sh`, which writes only the CLI, updates
+`COUNTERSIGN_APP=0`, or `scripts/install.sh` without `--app`, which writes only the CLI, updates
 `~/.local/bin/countersign` and leaves the app at its old version, and an app replaced by hand does
 the reverse. `InstalledCopies.versionMismatch` looks only at the installer copy with both
 halves present, and returns an `InstallVersionMismatch` when both versions parse and differ. When

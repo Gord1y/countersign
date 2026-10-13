@@ -60,6 +60,12 @@ committed `scripts/app/AppIcon.icns` into the bundle as it is, since no script g
 see [design/icon.md](design/icon.md). `scripts/package-release.sh` builds on it to produce a
 downloadable release; see [release.md](release.md).
 
+`scripts/install.sh` installs a checkout's release build as `~/.local/bin/countersign`. With
+`--app` it also runs `scripts/build-app.sh` and replaces `~/Applications/Countersign.app` with the
+result the way the root `install.sh` replaces it, including the warning when the old app is still
+running. It is how a maintainer installs a local build or a release tag from a clone, and like
+`build-app.sh` it has no test script.
+
 ## Commit messages
 
 `scripts/git-hooks/commit-msg` is the one rule set. Locally git runs it as a hook; in CI,

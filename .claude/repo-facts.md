@@ -73,7 +73,7 @@ them.
 | Fact | Countersign |
 | --- | --- |
 | The surfaces, and how to reach each | the CLI (`countersign --help`), the approval panel (a real agent request, or `countersign test-panel [command\|question\|plan\|context]`), the Settings window (`countersign settings`), the menu-bar app (`~/Applications/Countersign.app`), corner cards (Settings ▸ Panels has test buttons), and offscreen PNGs (`countersign snapshot <fixture> --host <host>`) |
-| Which port or process serves which checkout | no server; the installed build is `~/.local/bin/countersign` plus `~/Applications/Countersign.app`, from `scripts/install.sh && scripts/build-app.sh` in the checkout under test; the maintainer quits the app before each reinstall |
+| Which port or process serves which checkout | no server; the installed build is `~/.local/bin/countersign` plus `~/Applications/Countersign.app`, from `scripts/install.sh --app` in the checkout under test; the maintainer quits the app before each reinstall |
 | The local QA account (email and local-only password, committed) and how to create it when it is missing | none: Countersign has no accounts |
 | How to sign in (form, token endpoint, MFA) | nothing to sign in to |
 | Smoke checks per surface | `countersign doctor` (every line `ok` or `info`), `countersign status`, a `test-panel` of each kind, Settings opens on every pane, the menu-bar icon shows its menu, and `countersign snapshot` of `claude-edit.json` in both appearances |
@@ -85,7 +85,7 @@ them.
 | Fact | Countersign |
 | --- | --- |
 | Where drafts and walkthroughs go | `writeups/changes/<date>-<branch>/walkthrough.md`; a release's `writeups/releases/<x.y.z>/walkthrough.html` |
-| How to reach the product, and how to sign in | install with `scripts/install.sh && scripts/build-app.sh`, then the surfaces listed under qa-tester; no sign-in |
+| How to reach the product, and how to sign in | install with `scripts/install.sh --app`, then the surfaces listed under qa-tester; no sign-in |
 | Where release notes live, and who reads them | `releases/release-<x.y.z>.md`, read by people running Countersign on the GitHub release page |
 | The brand look to copy | the mark and the one accent colour in [docs/design/icon.md](../docs/design/icon.md) and "Countersign's mark and one accent" in [docs/design/panel.md](../docs/design/panel.md); screenshots in `docs/images/` |
 | Words banned from customer-facing text | as for release notes: Swift type, file and function names and internal terms (lease, ticket, display watch) |

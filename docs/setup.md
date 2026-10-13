@@ -25,7 +25,10 @@ The full installer behaviour, including what each variable rejects and how it pi
 without a terminal to ask in: [release.md](release.md#the-curl-installer).
 
 To build from source instead (Xcode 26 or later), clone the repository and run
-`scripts/install.sh`.
+`scripts/install.sh`, which installs the CLI into `~/.local/bin`. `scripts/install.sh --app` also
+builds the menu-bar app and puts it in `~/Applications`, replacing an older copy; quit the app
+first. To move to a newer release, check out its tag (`git switch --detach v<x.y.z>`) and run it
+again.
 
 ## From the setup window
 
