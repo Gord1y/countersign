@@ -1,0 +1,10 @@
+{
+  "session_id": "01a134cd-564a-7481-8dbe-80176e769b0c",
+  "turn_id": "01a134cd-b0bf-7873-9c85-72c1627f5daf",
+  "transcript_path": "/Users/dev/.codex/sessions/2026/10/13/rollout-2026-10-13T13-27-14-01a134cd-564a-7481-8dbe-80176e769b0c.jsonl",
+  "cwd": "/Users/dev/Projects/shop-api",
+  "hook_event_name": "UserPromptSubmit",
+  "model": "gpt-6-astra",
+  "permission_mode": "default",
+  "prompt": "Run ls and tell me how many files are here."
+}

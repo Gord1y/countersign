@@ -168,4 +168,12 @@ import Testing
     let settings = Settings.resolve(file: file, host: .codex)
     #expect(settings.includeHeadlessSessions == true)
   }
+
+  @Test func contextCheckpointHostsFollowTheResolvedSwitchOfEachHost() {
+    #expect(Settings.contextCheckpointHosts(file: ConfigFile()) == [.claude, .codex])
+    let codexOff = ConfigFile(contextCheckpointsCodex: ContextCheckpointFileValues(enabled: false))
+    #expect(Settings.contextCheckpointHosts(file: codexOff) == [.claude])
+    let allOff = ConfigFile(contextCheckpoints: ContextCheckpointFileValues(enabled: false))
+    #expect(Settings.contextCheckpointHosts(file: allOff) == [])
+  }
 }

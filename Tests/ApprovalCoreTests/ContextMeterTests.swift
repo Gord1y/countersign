@@ -73,8 +73,60 @@ import Testing
     defer { try? FileManager.default.removeItem(at: directory) }
     try save(store, id: "a", tokens: 212_000)
     let rows = ContextMeter.rows(store: store, isLive: { _ in true }, read: { _ in nil })
-    #expect(rows.first?.title == "shop-api · 212K tokens")
+    #expect(rows.first?.title == "shop-api · 212K tokens · 21%")
     #expect(rows.first?.project == "shop-api")
+  }
+
+  private func warmthRow(
+    secondsSinceActivity: TimeInterval, lifetime: ContextCacheLifetime?, tokens: Int = 100_000
+  ) throws -> ContextMeterRow? {
+    let (store, directory) = try makeStore()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    try save(store, id: "a", tokens: tokens, transcript: "/tmp/a.jsonl")
+    let value = ContextReading(
+      tokens: tokens, modelID: nil, hasMillionTokenWindow: false, compactionID: nil,
+      lastActivity: now.addingTimeInterval(-secondsSinceActivity), cacheLifetime: lifetime)
+    return ContextMeter.rows(store: store, isLive: { _ in true }, now: now, read: { _ in value })
+      .first
+  }
+
+  @Test func warmTitleRoundsMinutesUp() throws {
+    let row = try warmthRow(secondsSinceActivity: 100, lifetime: .fiveMinutes)
+    #expect(row?.title == "shop-api · 100K tokens · 50% · warm, 4 min left")
+    #expect(row?.warmth == .warm(secondsLeft: 200))
+    let exact = try warmthRow(secondsSinceActivity: 120, lifetime: .fiveMinutes)
+    #expect(exact?.title == "shop-api · 100K tokens · 50% · warm, 3 min left")
+  }
+
+  @Test func warmTitleUnderAMinute() throws {
+    let row = try warmthRow(secondsSinceActivity: 250, lifetime: .fiveMinutes)
+    #expect(row?.title == "shop-api · 100K tokens · 50% · warm, under a minute left")
+  }
+
+  @Test func coldTitle() throws {
+    let row = try warmthRow(secondsSinceActivity: 300, lifetime: .fiveMinutes)
+    #expect(row?.title == "shop-api · 100K tokens · 50% · cold")
+    #expect(row?.warmth == .cold)
+  }
+
+  @Test func unknownWarmthTitleHasNoSuffix() throws {
+    let row = try warmthRow(secondsSinceActivity: 10, lifetime: nil)
+    #expect(row?.title == "shop-api · 100K tokens · 50%")
+    #expect(row?.warmth == .unknown)
+  }
+
+  @Test func windowPercentUsesTwoHundredKForStandardAndOneMillionForLargeWindows() throws {
+    let (store, directory) = try makeStore()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    try save(store, id: "standard", tokens: 150_000)
+    try save(store, id: "tagged", tokens: 150_000)
+    var tagged = try #require(store.load(sessionID: "tagged"))
+    tagged.modelID = "claude-opus-5-5[1m]"
+    try store.save(tagged, sessionID: "tagged")
+    try save(store, id: "over", tokens: 400_000)
+    let rows = ContextMeter.rows(store: store, isLive: { _ in true }, read: { _ in nil })
+    let percents = Dictionary(uniqueKeysWithValues: rows.map { ($0.sessionID, $0.windowPercent) })
+    #expect(percents == ["standard": 75, "tagged": 15, "over": 40])
   }
 
   @Test func missingProjectFallsBackToClaudeCode() throws {
@@ -82,7 +134,7 @@ import Testing
     defer { try? FileManager.default.removeItem(at: directory) }
     try save(store, id: "a", tokens: 130_000, project: nil)
     let rows = ContextMeter.rows(store: store, isLive: { _ in true }, read: { _ in nil })
-    #expect(rows.first?.title == "Claude Code · 130K tokens")
+    #expect(rows.first?.title == "Claude Code · 130K tokens · 65%")
   }
 
   @Test func unknownSessionIsNotLive() {

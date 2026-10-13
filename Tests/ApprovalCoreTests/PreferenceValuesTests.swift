@@ -18,9 +18,11 @@ import Testing
     values = values.applying(.contextNote(.contextNoteSoft, "a"))
     values = values.applying(.contextNote(.contextNoteStatus, "b"))
     values = values.applying(.contextNote(.contextNoteInsist, "c"))
+    values = values.applying(.contextNote(.contextNoteStop, "s"))
     values = values.applying(.contextNote(.contextNoteCompact, "d"))
     values = values.applying(.contextNote(.contextNoteHandoff, "e"))
     values = values.applying(.contextMenuBarMeter(true))
+    values = values.applying(.contextColdCacheCard(false))
     #expect(
       values.contextCheckpoints
         == ContextCheckpointSettings(
@@ -28,8 +30,8 @@ import Testing
           millionThresholds: [4, 5, 6], modelThresholds: ["claude-opus": [7, 8, 9]],
           rearmBelow: 0.5, handoffFile: "h.md",
           notes: ContextCheckpointNotes(
-            soft: "a", status: "b", insist: "c", compact: "d", handoff: "e"),
-          menuBarMeter: true))
+            soft: "a", status: "b", insist: "c", stop: "s", compact: "d", handoff: "e"),
+          menuBarMeter: true, coldCacheCard: false))
   }
 
   @Test func resetsEveryContextNameToItsDefault() {
@@ -38,6 +40,7 @@ import Testing
     values = values.applying(.contextNote(.contextNoteSoft, "a"))
     values = values.applying(.setContextModelThresholds(prefix: "x", ladder: [1]))
     values = values.applying(.contextMenuBarMeter(true))
+    values = values.applying(.contextColdCacheCard(false))
     for name in PreferenceName.allCases {
       values = values.applying(.reset(name))
     }

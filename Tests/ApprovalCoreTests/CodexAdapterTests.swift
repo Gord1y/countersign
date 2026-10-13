@@ -4,6 +4,53 @@ import Testing
 @testable import ApprovalCore
 
 @Suite struct CodexAdapterTests {
+  @Test func readsTheEventNameOfTheContextFixtures() throws {
+    #expect(
+      try CodexAdapter.eventName(of: FixtureLoader.data("codex-user-prompt-submit"))
+        == "UserPromptSubmit")
+    #expect(
+      try CodexAdapter.eventName(of: FixtureLoader.data("codex-post-tool-use")) == "PostToolUse")
+  }
+
+  @Test func parsesTheContextInputOfEachEvent() throws {
+    for (name, event) in [
+      ("codex-user-prompt-submit", "UserPromptSubmit"), ("codex-post-tool-use", "PostToolUse"),
+    ] {
+      let input = try CodexAdapter.parseContextInput(FixtureLoader.data(name), eventName: event)
+      #expect(input.sessionID == "01a134cd-564a-7481-8dbe-80176e769b0c")
+      #expect(input.cwd == "/Users/dev/Projects/shop-api")
+      #expect(
+        input.transcriptPath
+          == "/Users/dev/.codex/sessions/2026/10/13/rollout-2026-10-13T13-27-14-01a134cd-564a-7481-8dbe-80176e769b0c.jsonl"
+      )
+      #expect(input.permissionMode == "default")
+      #expect(input.agentID == nil)
+    }
+  }
+
+  @Test func rejectsTheWrongEventAndAPermissionRequestForContextInput() throws {
+    let prompt = try FixtureLoader.data("codex-user-prompt-submit")
+    let permission = try FixtureLoader.data("codex-bash")
+    #expect(throws: AdapterError.self) {
+      try CodexAdapter.parseContextInput(prompt, eventName: "PostToolUse")
+    }
+    #expect(throws: AdapterError.self) {
+      try CodexAdapter.parseContextInput(permission, eventName: "UserPromptSubmit")
+    }
+  }
+
+  @Test func encodesTheContextEnvelope() throws {
+    let data = try #require(CodexAdapter.encodeContext("note", eventName: "PostToolUse"))
+    let decoded = try JSONDecoder().decode(JSONValue.self, from: data)
+    #expect(
+      decoded
+        == .object([
+          "hookSpecificOutput": .object([
+            "hookEventName": .string("PostToolUse"), "additionalContext": .string("note"),
+          ])
+        ]))
+  }
+
   @Test func parsesBashStringFixture() throws {
     let request = try CodexAdapter.parse(FixtureLoader.data("codex-bash"))
     #expect(request.host == .codex)

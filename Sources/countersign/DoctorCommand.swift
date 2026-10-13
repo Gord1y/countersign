@@ -62,14 +62,17 @@ enum DoctorCommand {
       hookExecutables: hosts.flatMap { $0.executableChecks.keys },
       runningExecutable: Bundle.main.executableURL?.resolvingSymlinksInPath().path, home: home)
     input.installVersionMismatch = InstallCopiesCheck.versionMismatch(home: home)
-    input.contextCheckpointsEnabled =
-      Settings.resolve(file: configFile, host: .claude).contextCheckpoints.enabled
+    input.contextCheckpointHosts = Settings.contextCheckpointHosts(file: configFile)
     input.waitingNoticesEnabled =
       Settings.resolve(file: configFile, host: .claude).waitingNotices
     input.rules = Settings.resolve(file: configFile, host: .claude).rules
     input.codexHookTrustRecord = CodexHookTrustRecordStore.load(file: paths.codexHookTrustFile)
     input.codexWaitingHookTrustRecord = CodexHookTrustRecordStore.load(
       file: paths.codexWaitingHookTrustFile)
+    input.codexContextHookTrustRecord = CodexHookTrustRecordStore.load(
+      file: paths.codexContextHookTrustFile)
+    input.codexContextToolHookTrustRecord = CodexHookTrustRecordStore.load(
+      file: paths.codexContextToolHookTrustFile)
     input.codexConfigFile = readFileState(
       CodexHookTrust.configFile(
         for: HookConfigLocation.location(for: .codex, environment: environment, home: home)))

@@ -14,12 +14,12 @@
     "tokenLadder": {
       "type": "array",
       "minItems": 3,
-      "maxItems": 3,
+      "maxItems": 4,
       "items": {
         "type": "integer",
         "minimum": 1
       },
-      "description": "Three strictly ascending token counts: the soft, status and insist checkpoints."
+      "description": "Three or four strictly ascending token counts: the soft, status and insist checkpoints, then the optional stop."
     },
     "contextCheckpointValues": {
       "type": "object",
@@ -28,7 +28,7 @@
         "enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Whether Countersign adds context checkpoint notes to a Claude Code session as its context grows."
+          "description": "Whether Countersign adds context checkpoint notes to Claude Code and Codex sessions as their context grows."
         },
         "mode": {
           "type": "string",
@@ -39,16 +39,16 @@
         "thresholds": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Token counts of the three checkpoints, by context window size.",
+          "description": "Token counts of the checkpoints, by context window size.",
           "properties": {
             "200k": {
               "$ref": "#/$defs/tokenLadder",
-              "default": [100000, 130000, 160000],
+              "default": [100000, 120000, 140000, 160000],
               "description": "Checkpoints for a 200K-token context window."
             },
             "1m": {
               "$ref": "#/$defs/tokenLadder",
-              "default": [200000, 300000, 400000],
+              "default": [200000, 300000, 400000, 600000],
               "description": "Checkpoints for a 1M-token context window."
             }
           }
@@ -96,6 +96,12 @@
               "maxLength": 4000,
               "description": "The note sent at the third checkpoint."
             },
+            "stop": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "description": "The note sent without asking at the stop checkpoint."
+            },
             "compact": {
               "type": "string",
               "minLength": 1,
@@ -114,6 +120,11 @@
           "type": "boolean",
           "default": false,
           "description": "Whether the menu-bar companion shows the context size of the active Claude Code session."
+        },
+        "coldCacheCard": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether the menu-bar companion shows a card 10 minutes before an idle Claude Code session's 1-hour prompt cache expires."
         }
       }
     },
@@ -145,13 +156,20 @@
         "menuBarMeter": {
           "$ref": "#/$defs/contextCheckpointValues/properties/menuBarMeter"
         },
+        "coldCacheCard": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/coldCacheCard"
+        },
         "hosts": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Per-host overrides; context checkpoints support only Claude Code.",
+          "description": "Per-host overrides; context checkpoints support only Claude Code and Codex.",
           "properties": {
             "claude": {
               "$ref": "#/$defs/contextCheckpointValues"
+            },
+            "codex": {
+              "$ref": "#/$defs/contextCheckpointValues",
+              "description": "Codex reads only enabled, rearmBelow, handoffFile and notes; mode, thresholds, modelThresholds, menuBarMeter and coldCacheCard are logged and ignored."
             }
           }
         }
@@ -571,7 +589,7 @@
     },
     "contextCheckpoints": {
       "$ref": "#/$defs/contextCheckpoints",
-      "description": "Optional notes that ask Claude Code to wrap up, compact or hand off as its context grows; on by default, Claude Code only."
+      "description": "Optional notes that ask Claude Code to wrap up, compact or hand off as its context grows; on by default for Claude Code (panel or note) and Codex (notes only)."
     },
     "hosts": {
       "type": "object",

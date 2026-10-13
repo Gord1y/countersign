@@ -29,6 +29,8 @@ enum StepAsideReason: String {
 final class PanelModel {
   let request: ApprovalRequest
   let subagentChain: [SubagentChainLink]?
+  let contextGauge: ContextGauge?
+  let opensContextCardOnAppear: Bool
   let chatTrackingDrift: ChatTrackingDrift?
   let fileDiffs: [FileDiff]?
   var waitingEntries: [WaitingEntry]
@@ -61,6 +63,8 @@ final class PanelModel {
     modeAfterPlan: PlanApprovalMode = Settings.defaultModeAfterPlan,
     chatTrackingDrift: ChatTrackingDrift? = nil,
     subagentChain: [SubagentChainLink]? = nil,
+    contextGauge: ContextGauge? = nil,
+    opensContextCardOnAppear: Bool = false,
     isTestPanel: Bool = false,
     sessionIdle: Bool = false,
     escapeKeepsWaiting: Bool = false,
@@ -81,6 +85,8 @@ final class PanelModel {
     self.dropdown = PanelDropdownState(requestedOnAppear: openDropdownOnAppear)
     self.fileDiffs = FileDiffBuilder.load(for: request)
     self.subagentChain = subagentChain
+    self.contextGauge = contextGauge
+    self.opensContextCardOnAppear = opensContextCardOnAppear
   }
 
   func startArming() {
@@ -151,6 +157,7 @@ final class PanelController {
     accentColor: HexColor = Settings.defaultAccentColor,
     chatTrackingDrift: ChatTrackingDrift? = nil,
     subagentChain: [SubagentChainLink]? = nil,
+    contextGauge: ContextGauge? = nil,
     isTestPanel: Bool = false,
     handoffBackdrop: BackdropWindow? = nil,
     afterHandoff: Bool = false,
@@ -173,7 +180,8 @@ final class PanelController {
       request: request, waitingEntries: waitingEntries, armDuration: clampedArmDuration,
       snoozePresets: snoozePresets, questionNotes: questionNotes, modeAfterPlan: modeAfterPlan,
       chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
-      isTestPanel: isTestPanel, sessionIdle: sessionIdle, escapeKeepsWaiting: escapeKeepsWaiting,
+      contextGauge: contextGauge, isTestPanel: isTestPanel, sessionIdle: sessionIdle,
+      escapeKeepsWaiting: escapeKeepsWaiting,
       alwaysAllowOffer: alwaysAllowOffer)
     CountersignPalette.use(accentColor)
     let panel = ApprovalPanel()

@@ -472,38 +472,52 @@ Settings ▸ Rules lists every rule in the order of the file and removes one wit
 after asking you to confirm.
 Entries that couldn't be read aren't listed; the pane counts them and offers Open in Editor.
 
-## Context checkpoints (Claude Code)
+## Context checkpoints (Claude Code and Codex)
 
-On by default, and for Claude Code only. While on, Countersign watches how large a Claude Code
-session's context has grown and adds a note asking it to wrap up, compact or hand off. The
-`contextCheckpoints` object takes these keys, all optional and all edited in the file only:
+On by default, for Claude Code and Codex. While on, Countersign watches how large a Claude Code
+or Codex session's context has grown and adds a note asking it to wrap up, compact or hand off.
+Codex gets notes only, never a panel, at 50, 60 and 70 % of its context window as reported by
+Codex, and the stop note at 80 %; the token ladders below are Claude Code's. The
+`contextCheckpoints` object takes these keys, all optional. Settings ▸ Context edits all of them
+but two: `enabled` is the switch in Settings ▸ Panels, and `hosts` is set in the file only.
 
 - `enabled`: `true` or `false`. Default `true`.
 - `mode`: `"panel"` asks you in a panel, `"silent"` only adds the note. Default `"panel"`.
-- `thresholds`: the three checkpoints, in tokens, by context window. `200k` defaults to
-  `[100000, 130000, 160000]` and `1m` to `[200000, 300000, 400000]`. Each is exactly three whole
-  numbers of 1 or more, strictly ascending.
+- `thresholds`: the checkpoints, in tokens, by context window. `200k` defaults to
+  `[100000, 120000, 140000, 160000]` and `1m` to `[200000, 300000, 400000, 600000]`. Each is three
+  or four whole numbers of 1 or more, strictly ascending. The fourth is the stop: there Countersign
+  tells Claude, without asking and in either mode, to stop, collect what its subagents have found,
+  write the handoff file and wait for `/clear`. Leave the fourth number out to turn the stop off.
 - `modelThresholds`: an object from a model identifier, as Claude Code reports it, to a ladder of
-  three ascending whole numbers. It wins over `thresholds`. A bad entry is dropped.
+  three or four ascending whole numbers. It wins over `thresholds`. A bad entry is dropped.
 - `rearmBelow`: a number from `0.1` to `0.95`. Default `0.6`. A checkpoint fires again only once
   the context has fallen below this fraction of its size, for example after `/compact`.
 - `handoffFile`: a non-empty path. Default `"notes/handoff.md"`.
-- `notes`: the text of `soft`, `status`, `insist`, `compact` and `handoff`, each 1 to 4000
+- `notes`: the text of `soft`, `status`, `insist`, `stop`, `compact` and `handoff`, each 1 to 4000
   characters. Two placeholders work in every note: `{tokens}` becomes the context size (`212K`, or
   `1.3M` from 999,500 tokens up) and `{handoffFile}` becomes `handoffFile`.
 - `menuBarMeter`: `true` or `false`. Default `false`.
+- `coldCacheCard`: `true` or `false`. Default `true`. While the menu-bar app runs, shows a card
+  10 minutes before an idle Claude Code session past its first checkpoint loses its 1-hour prompt
+  cache.
 - `hosts.claude`: any of the keys above except `hosts`, winning over the top-level value, note by
-  note. `hosts.codex`, `hosts.cursor` and `hosts.antigravity` are ignored with a log line.
+  note.
+- `hosts.codex`: `enabled`, `rearmBelow`, `handoffFile` and `notes`, winning over the top-level
+  value. `mode`, `thresholds`, `modelThresholds`, `menuBarMeter` and `coldCacheCard` are logged and
+  ignored for Codex. `hosts.cursor` and `hosts.antigravity` are ignored with a log line.
 
 A key with a mistake uses its default and the rest of the block is read as usual, like every other
 key on this page.
 
-`countersign setup`, and Update in Settings > Agents, add Countersign's `UserPromptSubmit` entry to
-Claude Code's settings while checkpoints are on; turning them off in Settings removes it.
+`countersign setup`, and Update in Settings > Agents, add Countersign's `UserPromptSubmit` and
+`PostToolUse` entries to Claude Code's settings and to Codex's `hooks.json` while checkpoints are
+on for that agent (the second one checks the
+stop checkpoint after each tool call); turning them off in Settings removes both.
 
-To turn the feature off, use the "Context checkpoints (Claude Code)" switch in Settings > Panels or
+To turn the feature off, use the "Context checkpoints (Claude Code and Codex)" switch in Settings > Panels or
 the "Turn Off Context Checkpoints" button at the bottom of the Context tab. Both show what changes
-in Claude Code's `settings.json` before anything is written.
+in Claude Code's `settings.json` and, when Codex is wired, Codex's `hooks.json` before anything is
+written.
 
 #### Ask your coding agent
 

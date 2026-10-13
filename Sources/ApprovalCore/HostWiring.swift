@@ -5,13 +5,15 @@ public struct HostWiringUpdate: Sendable, Equatable {
   public let otherArguments: [String]
   public let missingEvents: [String]
   public let addsWaitingEntry: Bool
-  public let addsContextEntry: Bool
+  public let missingContextEvents: [String]
+
+  public var addsContextEntry: Bool { !missingContextEvents.isEmpty }
 
   public init(
     otherExecutablePaths: [String], otherArguments: [String] = [], missingEvents: [String] = [],
-    addsWaitingEntry: Bool = false, addsContextEntry: Bool = false
+    addsWaitingEntry: Bool = false, missingContextEvents: [String] = []
   ) {
-    self.addsContextEntry = addsContextEntry
+    self.missingContextEvents = missingContextEvents
     self.otherExecutablePaths = otherExecutablePaths
     self.otherArguments = otherArguments
     self.missingEvents = missingEvents
@@ -89,13 +91,13 @@ public enum HostWiring {
     let missing = host == .cursor ? CursorHookSetup.missingEvents(in: root) : []
     let missingWaitingEntry =
       addsWaitingEntry && WaitingHookSetup.hookNodes(in: root, host: host).isEmpty
-    let missingContextEntry =
-      host == .claude && addsContextEntry
-      && HookSetup.sites(in: root, event: ContextHookSetup.eventName).isEmpty
+    let missingContextEvents =
+      (host == .claude || host == .codex) && addsContextEntry
+      ? ContextHookSetup.eventNames.filter { HookSetup.sites(in: root, event: $0).isEmpty } : []
     return .needsUpdate(
       HostWiringUpdate(
         otherExecutablePaths: otherPaths, otherArguments: otherArguments, missingEvents: missing,
-        addsWaitingEntry: missingWaitingEntry, addsContextEntry: missingContextEntry))
+        addsWaitingEntry: missingWaitingEntry, missingContextEvents: missingContextEvents))
   }
 
   public static func action(for status: HostWiringStatus) -> HostWiringAction? {
@@ -136,7 +138,10 @@ public enum HostWiring {
         parts.append("adds the Stop entry for waiting-agent notices")
       }
       if update.addsContextEntry {
-        parts.append("adds the UserPromptSubmit entry for context checkpoints")
+        let noun = update.missingContextEvents.count == 1 ? "entry" : "entries"
+        parts.append(
+          "adds the \(update.missingContextEvents.joined(separator: " and ")) \(noun) for context checkpoints"
+        )
       }
       if parts.isEmpty {
         switch host {

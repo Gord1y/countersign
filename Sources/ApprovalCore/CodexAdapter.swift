@@ -52,6 +52,43 @@ public enum CodexAdapter {
     )
   }
 
+  public static func eventName(of data: Data) -> String? {
+    ClaudeAdapter.eventName(of: data)
+  }
+
+  public static func parseContextInput(
+    _ data: Data, eventName: String
+  ) throws -> ContextCheckpointInput {
+    let decoded: JSONValue
+    do {
+      decoded = try JSONDecoder().decode(JSONValue.self, from: data)
+    } catch {
+      throw AdapterError.malformedInput("invalid JSON")
+    }
+    guard case .object(let root) = decoded else {
+      throw AdapterError.malformedInput("expected a JSON object")
+    }
+    guard let sessionID = root["session_id"]?.stringValue else {
+      throw AdapterError.malformedInput("missing session_id")
+    }
+    guard let cwd = root["cwd"]?.stringValue else {
+      throw AdapterError.malformedInput("missing cwd")
+    }
+    guard root["hook_event_name"]?.stringValue == eventName else {
+      throw AdapterError.malformedInput("unexpected hook_event_name")
+    }
+    return ContextCheckpointInput(
+      sessionID: sessionID,
+      cwd: cwd,
+      transcriptPath: root["transcript_path"]?.stringValue,
+      permissionMode: root["permission_mode"]?.stringValue,
+      agentID: root["agent_id"]?.stringValue)
+  }
+
+  public static func encodeContext(_ text: String, eventName: String) -> Data? {
+    ClaudeAdapter.encodeContext(text, eventName: eventName)
+  }
+
   public static func encode(_ outcome: ApprovalOutcome) -> Data? {
     switch outcome {
     case .noDecision, .addContext:

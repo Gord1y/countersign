@@ -58,6 +58,7 @@ public enum WaitingHookSetup {
     guard let root = try? JSONSpanReader.parse(bytes) else { return [] }
     return hookNodes(in: root, host: host).map { hook in
       ContextHookEntry(
+        event: eventName(for: host),
         command: hook.member(named: "command")?.value.stringValue ?? "",
         isAsync: ContextHookSetup.isAsync(hook),
         timeoutSeconds: hook.member(named: "timeout")?.value.numberValue)

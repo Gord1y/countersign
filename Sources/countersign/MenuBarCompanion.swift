@@ -48,6 +48,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     CompanionLaunch.openSetupNotificationName)
   private static let refreshInterval: TimeInterval = 2
   private static let updateCheckInterval: TimeInterval = 3600
+  private static let coldCacheInterval: TimeInterval = 30
 
   private let paths: AppPaths
   private let log: EventLog
@@ -59,6 +60,8 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   private var statusItem: NSStatusItem?
   private var refreshTimer: Timer?
   private var updateCheckTimer: Timer?
+  private var coldCacheTimer: Timer?
+  private let coldCacheCard: ColdCacheCardController
   private var shownIcon: CompanionIcon?
   private var menuActions: [CompanionMenuAction] = []
   private var isLaunchAtLoginUnavailable = false
@@ -80,6 +83,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     quietTime = QuietTime(file: paths.quietFile)
     stateSwitches = StateSwitches(pauseSwitch: pauseSwitch, quietTime: quietTime)
     queue = TicketQueue(directory: paths.queueDirectory, lockFile: paths.displayLockFile)
+    coldCacheCard = ColdCacheCardController(paths: paths, log: log)
     super.init()
     reloadUpdateCheckState()
   }
@@ -112,6 +116,11 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
       selector: #selector(updateCheckTimerFired), userInfo: nil, repeats: true)
     RunLoop.main.add(updateTimer, forMode: .common)
     updateCheckTimer = updateTimer
+    let coldCacheTimer = Timer(
+      timeInterval: Self.coldCacheInterval, target: self,
+      selector: #selector(coldCacheTimerFired), userInfo: nil, repeats: true)
+    RunLoop.main.add(coldCacheTimer, forMode: .common)
+    self.coldCacheTimer = coldCacheTimer
     performScheduledUpdateCheckIfNeeded()
     DistributedNotificationCenter.default().addObserver(
       self, selector: #selector(openSettingsRequested(_:)), name: Self.openSettingsNotification,
@@ -202,6 +211,15 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
 
   @objc private func refreshTimerFired() {
     refreshIcon()
+  }
+
+  @objc private func coldCacheTimerFired() {
+    let configFile = loadConfigFile()
+    coldCacheCard.tick(
+      settings: Settings.resolve(file: configFile, host: .claude),
+      isHeld: pauseSwitch.isPaused
+        || QuietState(paths: paths, schedule: configFile.quietSchedule).activeUntil() != nil,
+      now: Date())
   }
 
   @objc private func updateCheckTimerFired() {
@@ -311,7 +329,8 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
         store: ContextCheckpointStore(directory: paths.contextCheckpointsDirectory),
         isLive: {
           ContextMeter.isLive(sessionID: $0, sessionsDirectory: paths.claudeSessionsDirectory)
-        })
+        },
+        settings: checkpointSettings)
       : []
     return CompanionMenuInput(
       isPaused: pauseSwitch.isPaused,
@@ -633,13 +652,14 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     let (configFile, _) = ConfigFileLoader.load(
       paths: paths, soundNames: SystemSounds.installedNames)
     let settings = Settings.resolve(file: configFile, host: .claude)
+    let contextCheckpointHosts = Settings.contextCheckpointHosts(file: configFile)
     return ApprovalCore.Host.allCases.map { host in
       let location = HookConfigLocation.location(for: host, environment: environment, home: home)
       return HostWiring.status(
         host: host, directoryExists: DoctorCommand.isInstalled(location),
         file: ConfigFileStore.fileState(location.file), stablePath: stablePath,
         addsWaitingEntry: settings.waitingNotices,
-        addsContextEntry: settings.contextCheckpoints.enabled)
+        addsContextEntry: contextCheckpointHosts.contains(host))
     }
   }
 

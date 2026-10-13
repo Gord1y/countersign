@@ -70,7 +70,8 @@ public enum PreferenceReset {
     case .contextHandoffFile:
       return changed(
         file.contextCheckpoints?.handoffFile, from: ContextCheckpointSettings.defaultHandoffFile)
-    case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteCompact,
+    case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteStop,
+      .contextNoteCompact,
       .contextNoteHandoff:
       return changed(
         name.noteName.flatMap { file.contextCheckpoints?.notes[$0] },
@@ -78,6 +79,10 @@ public enum PreferenceReset {
     case .contextMenuBarMeter:
       return changed(
         file.contextCheckpoints?.menuBarMeter, from: ContextCheckpointSettings.default.menuBarMeter)
+    case .contextColdCacheCard:
+      return changed(
+        file.contextCheckpoints?.coldCacheCard,
+        from: ContextCheckpointSettings.default.coldCacheCard)
     }
   }
 
@@ -138,11 +143,13 @@ public enum PreferenceReset {
       return modelsCountText(values.contextCheckpoints.modelThresholds.count)
     case .contextRearmBelow: return percentText(values.contextCheckpoints.rearmBelow)
     case .contextHandoffFile: return values.contextCheckpoints.handoffFile
-    case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteCompact,
+    case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteStop,
+      .contextNoteCompact,
       .contextNoteHandoff:
       let text = values.contextCheckpoints.notes.text(for: name)
       return text == ContextCheckpointNotes.default.text(for: name) ? "Default" : "Custom"
     case .contextMenuBarMeter: return values.contextCheckpoints.menuBarMeter ? "On" : "Off"
+    case .contextColdCacheCard: return values.contextCheckpoints.coldCacheCard ? "On" : "Off"
     }
   }
 
@@ -187,7 +194,8 @@ public enum PreferenceReset {
       .editorApp, .contextCheckpointsEnabled, .contextMode, .contextStandardThresholds,
       .contextMillionThresholds, .contextModelThresholds,
       .contextRearmBelow, .contextHandoffFile, .contextNoteSoft, .contextNoteStatus,
-      .contextNoteInsist, .contextNoteCompact, .contextNoteHandoff, .contextMenuBarMeter:
+      .contextNoteInsist, .contextNoteStop, .contextNoteCompact, .contextNoteHandoff,
+      .contextMenuBarMeter, .contextColdCacheCard:
       return false
     }
   }

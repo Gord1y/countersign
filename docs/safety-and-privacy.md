@@ -40,9 +40,10 @@ How each answer plays out, agent by agent, is in [agents.md](agents.md); the des
 - Claude Code's session registry and the session's transcript, to notice that you answered a
   request in the chat, and the subagent files Claude Code keeps next to that transcript, to show
   which subagent asked.
-- With context checkpoints on (the default for Claude Code), the tail of the session transcript
-  Claude Code names in the hook input, for the token counts, the model name and compaction
-  markers only. Message text is not used.
+- With context checkpoints on (the default, for Claude Code and Codex), the tail of the session
+  transcript Claude Code names in the hook input, for the token counts, the model name and
+  compaction markers only, and the tail of the rollout file Codex names, for its token counts and
+  context window only. Message text is not used.
 - With waiting-agent notices on, the growth of the session's transcript, to tell when the agent
   works again (see [below](#what-it-writes)). Message text is not used.
 - The chain of parent processes, to tell which app a request came from.
@@ -79,14 +80,14 @@ None of this leaves your Mac, and none of it is written to the log.
 | App bundle (curl installer, or copied by Settings) | `~/Applications/Countersign.app` |
 | Config file | `~/.config/countersign/config.json` (or `$XDG_CONFIG_HOME/countersign/config.json`) |
 | Queue and display lock | `~/Library/Application Support/Countersign/queue/` |
-| Context checkpoint state, one small file per Claude Code session | ~/Library/Application Support/Countersign/context/ |
+| Context checkpoint state, one small file per Claude Code or Codex session | ~/Library/Application Support/Countersign/context/ |
 | Decision history, the last 200 answers | `~/Library/Application Support/Countersign/history.jsonl` |
 | Waiting-agent records, one per waiting session, their `*.lock` and `slot-<n>.lock` files, and `approval-claim.json` (the process id of a request whose approval card waits for a corner) | `~/Library/Application Support/Countersign/waiting/` |
 | Pause switch | `~/Library/Application Support/Countersign/paused` |
 | Quiet time | `~/Library/Application Support/Countersign/quiet-until` |
 | Menu-bar app lock | `~/Library/Application Support/Countersign/companion.lock` |
 | Last update check | `~/Library/Application Support/Countersign/update-check.json` |
-| Codex hook trust record | `~/Library/Application Support/Countersign/codex-hook-trust.json` |
+| Codex hook trust records, one per entry of ours: approval, `Stop`, `UserPromptSubmit` and `PostToolUse` | `~/Library/Application Support/Countersign/codex-hook-trust.json`, `codex-waiting-hook-trust.json`, `codex-context-hook-trust.json` and `codex-context-tool-hook-trust.json` |
 | Last version that ran | `~/Library/Application Support/Countersign/last-seen-version` |
 | Whether to open Settings after the menu-bar app restarts to update its copy, removed when it starts | `~/Library/Application Support/Countersign/relaunch-after-copy` |
 | Tour shown by 0.2.0 and earlier, now only read so an upgrade is not treated as new | `~/Library/Application Support/Countersign/tour-shown` |

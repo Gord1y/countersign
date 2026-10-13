@@ -20,16 +20,17 @@ public struct AgentFollowUp: Sendable, Equatable {
 public enum AgentFollowUps {
   public static let codexNextStep =
     "Open Codex in a terminal, not the desktop app, run /hooks and trust Countersign's hook. Codex sessions already open pick it up after /hooks or in a new session."
-  public static let codexNextStepWithWaitingEntry =
+  public static let codexNextStepWithOtherEntries =
     "Open Codex in a terminal, not the desktop app, run /hooks and trust Countersign's hooks. Codex sessions already open pick them up after /hooks or in a new session."
 
-  public static func codexNextStep(hasWaitingEntry: Bool) -> String {
-    hasWaitingEntry ? codexNextStepWithWaitingEntry : codexNextStep
+  public static func codexNextStep(hasOtherEntries: Bool) -> String {
+    hasOtherEntries ? codexNextStepWithOtherEntries : codexNextStep
   }
 
-  public static func codexHasWaitingEntry(in file: Doctor.FileState) -> Bool {
+  public static func codexHasOtherEntries(in file: Doctor.FileState) -> Bool {
     guard case .bytes(let bytes) = file else { return false }
     return !WaitingHookSetup.entries(in: bytes, host: .codex).isEmpty
+      || !ContextHookSetup.entries(in: bytes).isEmpty
   }
 
   public static let cursorGoodToKnow =
@@ -39,10 +40,10 @@ public enum AgentFollowUps {
 
   public static func current(
     host: Host, wiringStatus: HostWiringStatus, codexTrust: CodexHookTrustState = .unknown,
-    codexHasWaitingEntry: Bool = false
+    codexHasOtherEntries: Bool = false
   ) -> AgentFollowUp? {
     guard wiringStatus == .wired else { return nil }
-    let nextStep = codexNextStep(hasWaitingEntry: codexHasWaitingEntry)
+    let nextStep = codexNextStep(hasOtherEntries: codexHasOtherEntries)
     switch host {
     case .claude:
       return nil
@@ -70,14 +71,14 @@ public enum AgentFollowUps {
 
   public static func setupLines(
     wiring: [Host: HostWiringStatus], codexTrust: CodexHookTrustState, changedHosts: Set<Host>,
-    uninstall: Bool, codexHasWaitingEntry: Bool = false
+    uninstall: Bool, codexHasOtherEntries: Bool = false
   ) -> [String] {
     guard !uninstall, !changedHosts.isEmpty else { return [] }
     return Host.allCases.compactMap { host in
       guard let status = wiring[host],
         let followUp = current(
           host: host, wiringStatus: status, codexTrust: codexTrust,
-          codexHasWaitingEntry: codexHasWaitingEntry)
+          codexHasOtherEntries: codexHasOtherEntries)
       else { return nil }
       switch followUp.kind {
       case .nextStep:

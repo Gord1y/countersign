@@ -30,16 +30,83 @@ import Testing
     #expect(plan.state.fired == [.soft])
   }
 
+  @Test func codexLadderFiresStatusAsAnInjectedNote() {
+    let settings = ContextCheckpointSettings.default.forCodex(windowTokens: 258_400)
+    let plan = ContextCheckpointPlanner.plan(
+      reading: reading(160_000), previous: .fresh(now: now), settings: settings,
+      transcriptPath: "/t.jsonl", project: "shop-api", now: now)
+    #expect(plan.state.fired.max() == .status)
+    guard case .inject = plan.decision else {
+      Issue.record("expected an injected note")
+      return
+    }
+  }
+
+  @Test func codexStopOnlyLevelsFireStopAt210000Tokens() {
+    let settings = ContextCheckpointSettings.default.forCodex(windowTokens: 258_400)
+    let plan = ContextCheckpointPlanner.plan(
+      reading: reading(210_000), previous: .fresh(now: now), settings: settings,
+      transcriptPath: "/t.jsonl", project: "shop-api", now: now, levels: [.stop])
+    #expect(plan.state.fired.max() == .stop)
+    guard case .inject = plan.decision else {
+      Issue.record("expected an injected note")
+      return
+    }
+  }
+
   @Test func panelModeAsksWithTheLevelAndTheLadderUsed() {
+    let settings = settings(mode: .panel)
+    let plan = ContextCheckpointPlanner.plan(
+      reading: reading(145_000), previous: .fresh(now: now), settings: settings,
+      transcriptPath: nil, project: "shop-api", now: now)
+
+    let expected = ContextCheckpointPrompt(
+      tokens: 145_000, level: .insist, ladder: [100_000, 120_000, 140_000, 160_000],
+      modelID: "claude-opus-5-5", handoffFile: settings.handoffFile, notes: settings.notes)
+    #expect(plan.decision == .panel(expected))
+  }
+
+  @Test func stopInjectsItsRenderedNoteInPanelMode() {
     let settings = settings(mode: .panel)
     let plan = ContextCheckpointPlanner.plan(
       reading: reading(165_000), previous: .fresh(now: now), settings: settings,
       transcriptPath: nil, project: "shop-api", now: now)
 
-    let expected = ContextCheckpointPrompt(
-      tokens: 165_000, level: .insist, ladder: [100_000, 130_000, 160_000],
-      modelID: "claude-opus-5-5", handoffFile: settings.handoffFile, notes: settings.notes)
-    #expect(plan.decision == .panel(expected))
+    let expected = ContextCheckpointNotes.render(
+      settings.notes.stop, tokens: 165_000, handoffFile: settings.handoffFile)
+    #expect(plan.decision == .inject(expected))
+    #expect(plan.state.fired == [.soft, .status, .insist, .stop])
+  }
+
+  @Test func stopInjectsItsRenderedNoteInSilentMode() {
+    let settings = settings(mode: .silent)
+    let plan = ContextCheckpointPlanner.plan(
+      reading: reading(165_000), previous: .fresh(now: now), settings: settings,
+      transcriptPath: nil, project: "shop-api", now: now)
+
+    let expected = ContextCheckpointNotes.render(
+      settings.notes.stop, tokens: 165_000, handoffFile: settings.handoffFile)
+    #expect(plan.decision == .inject(expected))
+  }
+
+  @Test func stopOnlyLevelsInjectTheStopNoteInPanelModeAndFireEveryLevel() {
+    let settings = settings(mode: .panel)
+    let plan = ContextCheckpointPlanner.plan(
+      reading: reading(165_000), previous: .fresh(now: now), settings: settings,
+      transcriptPath: nil, project: "shop-api", now: now, levels: [.stop])
+
+    let expected = ContextCheckpointNotes.render(
+      settings.notes.stop, tokens: 165_000, handoffFile: settings.handoffFile)
+    #expect(plan.decision == .inject(expected))
+    #expect(plan.state.fired == [.soft, .status, .insist, .stop])
+  }
+
+  @Test func stopOnlyLevelsStayQuietBetweenInsistAndStop() {
+    let plan = ContextCheckpointPlanner.plan(
+      reading: reading(145_000), previous: .fresh(now: now), settings: settings(mode: .panel),
+      transcriptPath: nil, project: "shop-api", now: now, levels: [.stop])
+
+    #expect(plan.decision == .nothing)
   }
 
   @Test func noCrossingKeepsTheStateCurrent() {

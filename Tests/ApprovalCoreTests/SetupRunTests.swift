@@ -62,14 +62,17 @@ private struct Sandbox {
 
   func run(
     _ locations: [HookConfigLocation], uninstall: Bool = false, addsWaitingEntry: Bool = false,
-    addsContextEntry: Bool = false, codexHookTrustFile: URL? = nil,
+    contextCheckpointHosts: Set<ApprovalCore.Host> = [], codexHookTrustFile: URL? = nil,
+    codexContextHookTrustFile: URL? = nil, codexContextToolHookTrustFile: URL? = nil,
     answer: @escaping (String) -> Bool = { _ in true }
   ) -> Outcome {
     var output = ""
     var asked: [String] = []
     var setup = SetupRun(
       executablePath: brewPath, uninstall: uninstall, addsWaitingEntry: addsWaitingEntry,
-      addsContextEntry: addsContextEntry, codexHookTrustFile: codexHookTrustFile,
+      contextCheckpointHosts: contextCheckpointHosts, codexHookTrustFile: codexHookTrustFile,
+      codexContextHookTrustFile: codexContextHookTrustFile,
+      codexContextToolHookTrustFile: codexContextToolHookTrustFile,
       now: { moment },
       output: { output += $0 },
       confirm: { path in
@@ -223,6 +226,25 @@ private let codexInstalled = codexEntry("\(brewPath) hook --host codex")
           hashAtWrite: .stored("sha256:old")))
   }
 
+  @Test func addingTheContextEntriesKeepsTheTrustRecordOfAnUnchangedPermissionEntry() throws {
+    let sandbox = try Sandbox()
+    defer { sandbox.remove() }
+    let original = try HookSetup.install(
+      into: nil, host: .codex, executablePath: brewPath, addsWaitingEntry: false)
+    try sandbox.put(String(decoding: original, as: UTF8.self), at: sandbox.codex.file)
+    let trusted = CodexHookTrustRecord(
+      hookKey: "\(sandbox.codex.file.path):permission_request:0:0",
+      command: "\(brewPath) hook --host codex", hashAtWrite: .absent,
+      learnedHash: "sha256:trusted")
+    try CodexHookTrustRecordStore.save(trusted, to: sandbox.codexHookTrustFile)
+    let outcome = sandbox.run(
+      [sandbox.codex], contextCheckpointHosts: [.codex],
+      codexHookTrustFile: sandbox.codexHookTrustFile)
+    #expect(outcome.succeeded)
+    #expect(sandbox.text(of: sandbox.codex.file)?.contains("UserPromptSubmit") == true)
+    #expect(CodexHookTrustRecordStore.load(file: sandbox.codexHookTrustFile) == trusted)
+  }
+
   @Test func installingCodexWithoutItsConfigRecordsNoHashAtWrite() throws {
     let sandbox = try Sandbox()
     defer { sandbox.remove() }
@@ -370,7 +392,7 @@ private let codexInstalled = codexEntry("\(brewPath) hook --host codex")
     let sandbox = try Sandbox()
     defer { sandbox.remove() }
     try sandbox.put(claudeInstalled, at: sandbox.claude.file)
-    let outcome = sandbox.run([sandbox.claude], addsContextEntry: true)
+    let outcome = sandbox.run([sandbox.claude], contextCheckpointHosts: [.claude])
     #expect(outcome.succeeded)
     let written = try #require(sandbox.text(of: sandbox.claude.file))
     #expect(written.contains("\"PermissionRequest\""))
@@ -642,5 +664,47 @@ private let codexInstalled = codexEntry("\(brewPath) hook --host codex")
       SetupRun.describe(CocoaError(.fileReadNoPermission))
         == CocoaError(.fileReadNoPermission).localizedDescription)
     #expect(!SetupRun.describe(POSIXError(.ENOTDIR)).contains("\n"))
+  }
+
+  @Test func codexWritesBothContextRecordsWhileCheckpointsAreOnAndDeletesThemOnUninstall() throws {
+    let sandbox = try Sandbox()
+    defer { sandbox.remove() }
+    let promptFile = AppPaths(home: sandbox.home).codexContextHookTrustFile
+    let toolFile = AppPaths(home: sandbox.home).codexContextToolHookTrustFile
+    let installed = sandbox.run(
+      [sandbox.codex], contextCheckpointHosts: [.codex],
+      codexContextHookTrustFile: promptFile, codexContextToolHookTrustFile: toolFile)
+    #expect(installed.succeeded)
+    let written = try #require(sandbox.text(of: sandbox.codex.file))
+    #expect(written.contains("\"UserPromptSubmit\""))
+    #expect(written.contains("\"PostToolUse\""))
+    #expect(
+      CodexHookTrustRecordStore.load(file: promptFile)?.hookKey
+        == "\(sandbox.codex.file.path):user_prompt_submit:0:0")
+    #expect(
+      CodexHookTrustRecordStore.load(file: toolFile)?.hookKey
+        == "\(sandbox.codex.file.path):post_tool_use:0:0")
+    let removed = sandbox.run(
+      [sandbox.codex], uninstall: true, contextCheckpointHosts: [.codex],
+      codexContextHookTrustFile: promptFile, codexContextToolHookTrustFile: toolFile)
+    #expect(removed.succeeded)
+    #expect(CodexHookTrustRecordStore.load(file: promptFile) == nil)
+    #expect(CodexHookTrustRecordStore.load(file: toolFile) == nil)
+  }
+
+  @Test func codexOutsideTheContextCheckpointHostsGetsNoContextEntries() throws {
+    let sandbox = try Sandbox()
+    defer { sandbox.remove() }
+    let promptFile = AppPaths(home: sandbox.home).codexContextHookTrustFile
+    let toolFile = AppPaths(home: sandbox.home).codexContextToolHookTrustFile
+    let outcome = sandbox.run(
+      [sandbox.codex], contextCheckpointHosts: [.claude],
+      codexContextHookTrustFile: promptFile, codexContextToolHookTrustFile: toolFile)
+    #expect(outcome.succeeded)
+    let written = try #require(sandbox.text(of: sandbox.codex.file))
+    #expect(!written.contains("UserPromptSubmit"))
+    #expect(!written.contains("PostToolUse"))
+    #expect(CodexHookTrustRecordStore.load(file: promptFile) == nil)
+    #expect(CodexHookTrustRecordStore.load(file: toolFile) == nil)
   }
 }

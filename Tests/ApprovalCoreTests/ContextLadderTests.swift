@@ -16,6 +16,11 @@ import Testing
       compactionID: compactionID, previous: previous, settings: settings)
   }
 
+  @Test func codexThresholdsArePercentsOfTheWindow() {
+    #expect(
+      ContextLadder.codexThresholds(windowTokens: 258_400) == [129_200, 155_040, 180_880, 206_720])
+  }
+
   @Test func picksThresholdsByModelAndWindow() {
     var settings = ContextLadderSettings.default
     settings.modelThresholds = [
@@ -59,7 +64,7 @@ import Testing
   }
 
   @Test func jumpFiresOnlyTheHighestAndLowerOnesCountAsFired() {
-    let jump = step(170_000, from: .fresh(now: now))
+    let jump = step(150_000, from: .fresh(now: now))
     #expect(jump.fire == .insist)
     #expect(jump.state.fired == [.soft, .status, .insist])
     #expect(step(105_000, from: jump.state).fire == nil)
@@ -112,7 +117,46 @@ import Testing
     #expect(result.state.compactionID == "a")
   }
 
+  @Test func fourRungLadderFiresStopAtTheFourthThreshold() {
+    let insist = step(150_000, from: .fresh(now: now))
+    let stop = step(160_000, from: insist.state)
+    #expect(stop.fire == .stop)
+    #expect(stop.state.fired == [.soft, .status, .insist, .stop])
+  }
+
+  @Test func threeRungLadderNeverFiresStop() {
+    var settings = ContextLadderSettings.default
+    settings.standardThresholds = [100_000, 130_000, 160_000]
+    let result = step(900_000, from: .fresh(now: now), settings: settings)
+    #expect(result.fire == .insist)
+    #expect(result.state.fired == [.soft, .status, .insist])
+  }
+
+  @Test func jumpPastTheStopRungFiresStopOnly() {
+    let jump = step(170_000, from: .fresh(now: now))
+    #expect(jump.fire == .stop)
+    #expect(jump.state.fired == [.soft, .status, .insist, .stop])
+  }
+
+  @Test func limitedToStopFiresNothingBelowIt() {
+    let previous = ContextCheckpointState.fresh(now: now)
+    let result = ContextLadder.step(
+      tokens: 150_000, modelID: nil, hasMillionTokenWindow: false, compactionID: nil,
+      previous: previous, settings: .default, levels: [.stop])
+    #expect(result.fire == nil)
+    #expect(result.state.fired == previous.fired)
+  }
+
+  @Test func limitedToStopFiresStopPastIt() {
+    let result = ContextLadder.step(
+      tokens: 170_000, modelID: nil, hasMillionTokenWindow: false, compactionID: nil,
+      previous: .fresh(now: now), settings: .default, levels: [.stop])
+    #expect(result.fire == .stop)
+    #expect(result.state.fired == [.soft, .status, .insist, .stop])
+  }
+
   @Test func levelsOrderAscending() {
+    #expect(ContextLevel.insist < ContextLevel.stop)
     #expect(ContextLevel.soft < ContextLevel.status)
     #expect(ContextLevel.status < ContextLevel.insist)
   }

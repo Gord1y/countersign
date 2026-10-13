@@ -192,6 +192,7 @@ private let ownStopOnly = """
     #expect(
       entries == [
         ContextHookEntry(
+          event: "Stop",
           command: "/opt/homebrew/bin/countersign hook --host claude --event waiting",
           isAsync: true, timeoutSeconds: 30)
       ])

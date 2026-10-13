@@ -77,10 +77,15 @@ panel shows up in the icon within two seconds.
   Decisions** like any other.
 - **Context in live sessions** appears right below it, only when context checkpoints and the
   menu-bar meter are both on and at least one Claude Code session is running. Its submenu has one
-  read-only line per session, such as `shop-api · 212K tokens`, largest first, up to eight. Sessions
-  whose Claude Code process has ended are left out. Countersign reads each session's transcript
-  when you open the menu, not in the background; if a transcript cannot be read, the size from that
-  session's last prompt is shown.
+  read-only line per session, such as `shop-api · 212K tokens · 21% · warm, 4 min left`, largest
+  first, up to eight. The percent is how full the session's context window is. After it, the line
+  says whether the session's prompt cache is still warm and for about how many minutes, or
+  `cold`: a cold cache means the next message, a `/compact` or a handoff re-reads the whole
+  conversation at full price, so act while it is warm. The warmth part is left off when it can't
+  be told, for example right after a compaction. Sessions whose Claude Code process has ended are
+  left out. Countersign reads each session's transcript when you open the menu, not in the
+  background; if a transcript cannot be read, the size from that session's last prompt is shown
+  without the warmth.
 - **Recent Decisions** lists your last ten answers, newest first, one read-only line each, such as
   `✓ Bash · shop-api · 14:05 — git status`. The mark says what happened: ✓ approved, ✕ denied,
   ↩ answered in the chat or resolved there before you got to it, • a choice on a context
@@ -90,6 +95,12 @@ panel shows up in the icon within two seconds.
   history. With nothing recorded, the submenu shows a single `No decisions yet`. What is stored,
   and for how long, is in [safety-and-privacy.md](safety-and-privacy.md#what-it-writes).
 
+While the menu-bar app runs, a card appears in the top-right corner 10 minutes before an idle Claude
+Code session past its first context checkpoint loses its prompt cache. **Copy handoff prompt**
+copies the handoff note, so you can paste it into that session and hand off while the cache is still
+warm. It shows once per idle stretch, and pause and quiet time hold it. Turn it off in Settings,
+Context.
+
 ## Settings
 
 **Settings…** (<kbd>⌘</kbd><kbd>,</kbd> while the menu is open) opens the Settings window. Under
@@ -98,7 +109,11 @@ including during a [quiet-hours window](configuration.md#panels), its sidebar li
 where you [connect your agents](setup.md), **App**, for what this app does, **Panels**, for how
 panels behave, **Rules**, for the [rules](configuration.md#allow-and-deny-rules) that
 answer before a panel shows, **Context** while context checkpoints are on, and **Help**, for
-guides, updates and ways to support Countersign. **Advanced**, for where the
+guides, updates and ways to support Countersign. The Context switch covers Claude Code and
+Codex: it writes both agents' hook entries, and the Context tab shows a "Claude Code hooks" row and,
+when Codex is wired and `contextCheckpoints.hosts.codex.enabled` is not set, a "Codex hooks" row, each with Update when its entries are missing or
+stale. After Codex's entries are written, Codex asks you to trust the new hooks: run `/hooks` in a
+Codex session. **Advanced**, for where the
 [config file](configuration.md) is, opens from a button at the bottom of App. Closing the window leaves the app running.
 
 The first time you open the app on a new Mac, one with no Countersign state, it shows the
@@ -148,9 +163,10 @@ has the same switch under **App** when it runs from Countersign.app.
 ## After an upgrade
 
 The first time a new version starts, if an agent's hooks need an update, Settings opens on Agents,
-once per version. 0.2.0 adds the hook entries for waiting-agent notices and context checkpoints.
-Each Update shows its change before it writes anything. `countersign setup` does the same from a
-terminal.
+once per version. 0.2.0 adds the hook entries for waiting-agent notices and context checkpoints,
+and 0.4.0 adds the `PostToolUse` entry for context checkpoints, and for Codex both context
+entries. Each Update shows its change before
+it writes anything. `countersign setup` does the same from a terminal.
 
 ## Check for updates
 

@@ -455,4 +455,140 @@ private func codexHooksJSON(groups: [[String]]) -> [UInt8] {
   func refusesAFieldOfTheWrongType(json: String) {
     #expect(CodexHookTrustRecordStore.decode(Data(json.utf8)) == nil)
   }
+
+  @Test func currentContextBuildsTheKeysOfBothContextEvents() {
+    let command = "\(brewPath) hook --host codex"
+    let bytes = Array(
+      """
+      { "hooks": {
+        "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "\(command)", "timeout": 30 }] }],
+        "PostToolUse": [{ "hooks": [{ "type": "command", "command": "\(command)", "timeout": 30 }] }]
+      } }
+      """.utf8)
+    #expect(
+      CodexHookTrust.currentContext(
+        hooksFileBytes: bytes, hooksFilePath: hooksPath, event: "UserPromptSubmit")?.hookKey
+        == "\(hooksPath):user_prompt_submit:0:0")
+    #expect(
+      CodexHookTrust.currentContext(
+        hooksFileBytes: bytes, hooksFilePath: hooksPath, event: "PostToolUse")?.hookKey
+        == "\(hooksPath):post_tool_use:0:0")
+  }
+
+  @Test func recordWrittenContextSavesBothRecordsAndDeletesThemWithNothingWritten() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "qa-" + UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let location = HookConfigLocation.location(
+      for: .codex, environment: ["CODEX_HOME": directory.path], home: directory)
+    let promptFile = directory.appendingPathComponent("prompt.json")
+    let toolFile = directory.appendingPathComponent("tool.json")
+    let written = try ContextHookSetup.install(
+      into: nil, executablePath: brewPath, host: .codex)
+    CodexHookTrust.recordWrittenContext(
+      written, replacing: nil, at: location, promptRecordFile: promptFile,
+      toolRecordFile: toolFile)
+    #expect(
+      CodexHookTrustRecordStore.load(file: promptFile)?.hookKey
+        == "\(location.file.path):user_prompt_submit:0:0")
+    #expect(
+      CodexHookTrustRecordStore.load(file: toolFile)?.hookKey
+        == "\(location.file.path):post_tool_use:0:0")
+    CodexHookTrust.recordWrittenContext(
+      nil, replacing: written, at: location, promptRecordFile: promptFile,
+      toolRecordFile: toolFile)
+    #expect(CodexHookTrustRecordStore.load(file: promptFile) == nil)
+    #expect(CodexHookTrustRecordStore.load(file: toolFile) == nil)
+  }
+
+  @Test func recordWrittenKeepsTheRecordWhenTheWriteLeavesTheEntryUnchanged() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "qa-" + UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let location = HookConfigLocation.location(
+      for: .codex, environment: ["CODEX_HOME": directory.path], home: directory)
+    let recordFile = directory.appendingPathComponent("record.json")
+    let original = try HookSetup.install(
+      into: nil, host: .codex, executablePath: brewPath, addsWaitingEntry: false)
+    let trusted = CodexHookTrustRecord(
+      hookKey: "\(location.file.path):permission_request:0:0",
+      command: "\(brewPath) hook --host codex", hashAtWrite: .absent,
+      learnedHash: "sha256:trusted")
+    try CodexHookTrustRecordStore.save(trusted, to: recordFile)
+    let written = try HookSetup.install(
+      into: original, host: .codex, executablePath: brewPath, addsWaitingEntry: true,
+      addsContextEntry: true)
+    #expect(written != original)
+    CodexHookTrust.recordWritten(written, replacing: original, at: location, in: recordFile)
+    #expect(CodexHookTrustRecordStore.load(file: recordFile) == trusted)
+  }
+
+  @Test func recordWrittenReplacesTheRecordWhenTheWriteChangesTheEntry() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "qa-" + UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let location = HookConfigLocation.location(
+      for: .codex, environment: ["CODEX_HOME": directory.path], home: directory)
+    let recordFile = directory.appendingPathComponent("record.json")
+    let localPath = "/Users/dev/.local/bin/countersign"
+    let original = try HookSetup.install(
+      into: nil, host: .codex, executablePath: localPath, addsWaitingEntry: false)
+    try CodexHookTrustRecordStore.save(
+      CodexHookTrustRecord(
+        hookKey: "\(location.file.path):permission_request:0:0",
+        command: "\(localPath) hook --host codex", hashAtWrite: .absent,
+        learnedHash: "sha256:trusted"),
+      to: recordFile)
+    let written = try HookSetup.install(
+      into: original, host: .codex, executablePath: brewPath, addsWaitingEntry: false)
+    CodexHookTrust.recordWritten(written, replacing: original, at: location, in: recordFile)
+    let record = CodexHookTrustRecordStore.load(file: recordFile)
+    #expect(record?.command == "\(brewPath) hook --host codex")
+    #expect(record?.learnedHash == nil)
+  }
+
+  @Test func recordWrittenContextKeepsBothRecordsWhenOnlyTheStopEntryIsAdded() throws {
+    let directory = FileManager.default.temporaryDirectory.appendingPathComponent(
+      "qa-" + UUID().uuidString)
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let location = HookConfigLocation.location(
+      for: .codex, environment: ["CODEX_HOME": directory.path], home: directory)
+    let promptFile = directory.appendingPathComponent("prompt.json")
+    let toolFile = directory.appendingPathComponent("tool.json")
+    let command = "\(brewPath) hook --host codex"
+    let original = try HookSetup.install(
+      into: nil, host: .codex, executablePath: brewPath, addsWaitingEntry: false,
+      addsContextEntry: true)
+    let prompt = CodexHookTrustRecord(
+      hookKey: "\(location.file.path):user_prompt_submit:0:0", command: command,
+      hashAtWrite: .absent, learnedHash: "sha256:prompt")
+    let tool = CodexHookTrustRecord(
+      hookKey: "\(location.file.path):post_tool_use:0:0", command: command,
+      hashAtWrite: .absent, learnedHash: "sha256:tool")
+    try CodexHookTrustRecordStore.save(prompt, to: promptFile)
+    try CodexHookTrustRecordStore.save(tool, to: toolFile)
+    let written = try HookSetup.install(
+      into: original, host: .codex, executablePath: brewPath, addsWaitingEntry: true,
+      addsContextEntry: true)
+    CodexHookTrust.recordWrittenContext(
+      written, replacing: original, at: location, promptRecordFile: promptFile,
+      toolRecordFile: toolFile)
+    #expect(CodexHookTrustRecordStore.load(file: promptFile) == prompt)
+    #expect(CodexHookTrustRecordStore.load(file: toolFile) == tool)
+  }
+
+  @Test func anEntryThatMovesOrHadNoOriginalCountsAsChanged() {
+    let ours = "\(brewPath) hook --host codex"
+    let original = codexHooksJSON(groups: [[ours]])
+    #expect(
+      CodexHookTrust.leavesEntryUnchanged(
+        original: original, written: original, event: HookSetup.eventName))
+    #expect(
+      !CodexHookTrust.leavesEntryUnchanged(
+        original: original, written: codexHooksJSON(groups: [["/usr/bin/other"], [ours]]),
+        event: HookSetup.eventName))
+    #expect(
+      !CodexHookTrust.leavesEntryUnchanged(
+        original: nil, written: original, event: HookSetup.eventName))
+  }
 }

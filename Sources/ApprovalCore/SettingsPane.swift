@@ -55,7 +55,7 @@ public enum SettingsPane: String, CaseIterable, Sendable {
         + " or changes anything."
     case .context:
       return
-        "Context checkpoints for Claude Code sessions. Saved to config.json as soon as you"
+        "Context checkpoints for Claude Code and Codex sessions. Saved to config.json as soon as you"
         + " change them."
     case .help:
       return "Guides and answers, updates, and ways to support Countersign."
@@ -79,8 +79,10 @@ public enum SettingsPane: String, CaseIterable, Sendable {
       return [
         .contextMode, .contextStandardThresholds, .contextMillionThresholds,
         .contextModelThresholds, .contextRearmBelow, .contextHandoffFile, .contextNoteSoft,
-        .contextNoteStatus, .contextNoteInsist, .contextNoteCompact, .contextNoteHandoff,
+        .contextNoteStatus, .contextNoteInsist, .contextNoteStop, .contextNoteCompact,
+        .contextNoteHandoff,
         .contextMenuBarMeter,
+        .contextColdCacheCard,
       ]
     }
   }

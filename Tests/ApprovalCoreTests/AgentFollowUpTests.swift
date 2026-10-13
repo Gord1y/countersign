@@ -117,20 +117,32 @@ import Testing
     #expect(followUp?.offersMarkAsDone == false)
   }
 
-  @Test func codexNextStepSaysHooksOnceTheStopEntryIsThere() {
+  @Test func codexNextStepSaysHooksOnceAnotherEntryIsThere() {
     #expect(AgentFollowUps.codexNextStep.contains("trust Countersign's hook."))
-    #expect(AgentFollowUps.codexNextStep(hasWaitingEntry: false) == AgentFollowUps.codexNextStep)
+    #expect(AgentFollowUps.codexNextStep(hasOtherEntries: false) == AgentFollowUps.codexNextStep)
     #expect(
-      AgentFollowUps.codexNextStep(hasWaitingEntry: true).contains("trust Countersign's hooks."))
+      AgentFollowUps.codexNextStep(hasOtherEntries: true).contains("trust Countersign's hooks."))
     let followUp = AgentFollowUps.current(
-      host: .codex, wiringStatus: .wired, codexTrust: .unknown, codexHasWaitingEntry: true)
-    #expect(followUp?.text == AgentFollowUps.codexNextStepWithWaitingEntry)
+      host: .codex, wiringStatus: .wired, codexTrust: .unknown, codexHasOtherEntries: true)
+    #expect(followUp?.text == AgentFollowUps.codexNextStepWithOtherEntries)
     let stop = Array(
       #"{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "/opt/homebrew/bin/countersign hook --host codex --event waiting"}]}]}}"#
         .utf8)
-    #expect(AgentFollowUps.codexHasWaitingEntry(in: .bytes(stop)))
-    #expect(!AgentFollowUps.codexHasWaitingEntry(in: .bytes(Array("{}".utf8))))
-    #expect(!AgentFollowUps.codexHasWaitingEntry(in: .missing))
+    #expect(AgentFollowUps.codexHasOtherEntries(in: .bytes(stop)))
+    #expect(!AgentFollowUps.codexHasOtherEntries(in: .bytes(Array("{}".utf8))))
+    #expect(!AgentFollowUps.codexHasOtherEntries(in: .missing))
+    let context = Array(
+      #"{"hooks": {"PermissionRequest": [{"hooks": [{"type": "command", "command": "/opt/homebrew/bin/countersign hook --host codex"}]}], "UserPromptSubmit": [{"hooks": [{"type": "command", "command": "/opt/homebrew/bin/countersign hook --host codex", "timeout": 30}]}], "PostToolUse": [{"hooks": [{"type": "command", "command": "/opt/homebrew/bin/countersign hook --host codex", "timeout": 30}]}]}}"#
+        .utf8)
+    #expect(AgentFollowUps.codexHasOtherEntries(in: .bytes(context)))
+    let permissionOnly = Array(
+      #"{"hooks": {"PermissionRequest": [{"hooks": [{"type": "command", "command": "/opt/homebrew/bin/countersign hook --host codex"}]}]}}"#
+        .utf8)
+    #expect(!AgentFollowUps.codexHasOtherEntries(in: .bytes(permissionOnly)))
+    let followUp2 = AgentFollowUps.current(
+      host: .codex, wiringStatus: .wired, codexTrust: .unknown,
+      codexHasOtherEntries: AgentFollowUps.codexHasOtherEntries(in: .bytes(context)))
+    #expect(followUp2?.text == AgentFollowUps.codexNextStepWithOtherEntries)
   }
 
   @Test func antigravityGetsNoLineWhenItNeedsAnUpdate() {

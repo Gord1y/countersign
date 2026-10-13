@@ -21,10 +21,42 @@ private func uninstall(_ text: String?) throws -> String? {
   }
 }
 
+private let promptOnlyContext = """
+  {
+    "hooks": {
+      "UserPromptSubmit": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "/opt/homebrew/bin/countersign hook --host claude",
+              "async": true,
+              "timeout": 3600
+            }
+          ]
+        }
+      ]
+    }
+  }
+
+  """
+
 private let freshContext = """
   {
     "hooks": {
       "UserPromptSubmit": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "/opt/homebrew/bin/countersign hook --host claude",
+              "async": true,
+              "timeout": 3600
+            }
+          ]
+        }
+      ],
+      "PostToolUse": [
         {
           "hooks": [
             {
@@ -103,6 +135,18 @@ private let othersPromptWithOurs = """
             }
           ]
         }
+      ],
+      "PostToolUse": [
+        {
+          "hooks": [
+            {
+              "type": "command",
+              "command": "/opt/homebrew/bin/countersign hook --host claude",
+              "async": true,
+              "timeout": 3600
+            }
+          ]
+        }
       ]
     }
   }
@@ -154,6 +198,39 @@ private let staleEntry = """
     #expect(try install(result) == result)
   }
 
+  @Test func addsTheToolEventBesideAnExistingPromptEntryAndKeepsItsBytes() throws {
+    let result = try install(promptOnlyContext)
+    #expect(result == freshContext)
+    #expect(result.hasPrefix(String(promptOnlyContext.dropLast("\n    }\n  }\n\n".count))))
+    #expect(try install(result) == result)
+  }
+
+  @Test func installsEachEventAsAnAsyncGroupWithoutAMatcher() throws {
+    let result = try install(nil)
+    let root = try JSONSpanReader.parse(Array(result.utf8))
+    for event in ContextHookSetup.eventNames {
+      let site = try #require(HookSetup.sites(in: root, event: event).first)
+      #expect(ContextHookSetup.isAsync(site.hook))
+      #expect(site.hook.member(named: "timeout")?.value.numberValue == 3600)
+      #expect(site.groups.elements?.first?.member(named: "matcher") == nil)
+    }
+  }
+
+  @Test func refreshNeverAddsTheToolEvent() throws {
+    #expect(try refresh(promptOnlyContext) == promptOnlyContext)
+  }
+
+  @Test func uninstallKeepsSomeoneElsesToolHook() throws {
+    let others = """
+      {"hooks": {"PostToolUse": [{"hooks": [{"type": "command", "command": "~/bin/after.sh"}]}]}}
+      """
+    let installed = try install(others)
+    let removed = try #require(try uninstall(installed))
+    #expect(removed.contains("~/bin/after.sh"))
+    #expect(!removed.contains("countersign"))
+    #expect(!removed.contains("UserPromptSubmit"))
+  }
+
   @Test func refreshLeavesAFileWithoutOurEntryUnchanged() throws {
     #expect(try refresh(othersPrompt) == othersPrompt)
     #expect(try refresh("{}") == "{}")
@@ -161,7 +238,7 @@ private let staleEntry = """
   }
 
   @Test func refreshRewritesAStaleEntry() throws {
-    #expect(try refresh(staleEntry) == freshContext)
+    #expect(try refresh(staleEntry) == promptOnlyContext)
   }
 
   @Test func refreshKeepsATimeoutThatIsAlreadyRightHoweverItIsSpelled() throws {
@@ -200,10 +277,15 @@ private let staleEntry = """
     #expect(
       ContextHookSetup.entries(in: Array(settings.utf8)) == [
         ContextHookEntry(
-          command: "countersign hook --host claude", isAsync: true, timeoutSeconds: 3600),
+          event: "UserPromptSubmit", command: "countersign hook --host claude", isAsync: true,
+          timeoutSeconds: 3600),
         ContextHookEntry(
-          command: "/x/countersign hook --host claude", isAsync: false, timeoutSeconds: nil),
+          event: "UserPromptSubmit", command: "/x/countersign hook --host claude", isAsync: false,
+          timeoutSeconds: nil),
       ])
+    #expect(
+      ContextHookSetup.entries(in: Array(freshContext.utf8)).map(\.event)
+        == ["UserPromptSubmit", "PostToolUse"])
     #expect(ContextHookSetup.entries(in: Array("{".utf8)).isEmpty)
     #expect(ContextHookSetup.entries(in: Array("{}".utf8)).isEmpty)
   }
@@ -232,5 +314,40 @@ private let staleEntry = """
     #expect(throws: HookSetupError.unrecognizableExecutable(path)) {
       try install(nil, path: path)
     }
+  }
+
+  @Test func codexRefreshUpdatesTheTimeoutAndLeavesAnExistingAsyncMemberAlone() throws {
+    let stale = """
+      {"hooks": {"UserPromptSubmit": [{"hooks": [{"type": "command", "command": "\(brewPath) hook --host codex", "async": true, "timeout": 3600}]}], "PostToolUse": [{"hooks": [{"type": "command", "command": "\(brewPath) hook --host codex", "async": true, "timeout": 3600}]}]}}
+      """
+    let refreshed = try ContextHookSetup.refresh(
+      into: Array(stale.utf8), executablePath: brewPath, host: .codex)
+    let expected = stale.replacingOccurrences(of: "\"timeout\": 3600", with: "\"timeout\": 30")
+    #expect(String(decoding: refreshed, as: UTF8.self) == expected)
+    #expect(String(decoding: refreshed, as: UTF8.self).contains("\"async\": true, \"timeout\": 30"))
+  }
+
+  @Test func codexInstallAddsBothGroupsWithoutMatcherOrAsyncAndATimeoutOf30() throws {
+    let permission = Array(
+      #"{"hooks": {"PermissionRequest": [{"matcher": "", "hooks": [{"type": "command", "command": "/opt/homebrew/bin/countersign hook --host codex", "timeout": 3600}]}]}}"#
+        .utf8)
+    let installed = try ContextHookSetup.install(
+      into: permission, executablePath: brewPath, host: .codex)
+    let entries = ContextHookSetup.entries(in: installed)
+    #expect(entries.map(\.event) == ["UserPromptSubmit", "PostToolUse"])
+    #expect(entries.allSatisfy { $0.command == "\(brewPath) hook --host codex" })
+    #expect(entries.allSatisfy { !$0.isAsync && $0.timeoutSeconds == 30 })
+    let text = String(decoding: installed, as: UTF8.self)
+    #expect(!text.contains("async"))
+    #expect(text.components(separatedBy: "matcher").count == 2)
+    #expect(
+      try ContextHookSetup.refresh(into: installed, executablePath: brewPath, host: .codex)
+        == installed)
+    #expect(
+      try ContextHookSetup.refresh(into: permission, executablePath: brewPath, host: .codex)
+        == permission)
+    let removed = try #require(try ContextHookSetup.uninstall(from: installed))
+    #expect(ContextHookSetup.entries(in: removed).isEmpty)
+    #expect(String(decoding: removed, as: UTF8.self).contains("PermissionRequest"))
   }
 }

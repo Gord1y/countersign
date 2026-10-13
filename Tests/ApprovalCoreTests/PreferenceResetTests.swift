@@ -29,7 +29,8 @@ import Testing
     #expect(
       !PreferenceReset.isChanged(
         .contextStandardThresholds,
-        in: file(ContextCheckpointFileValues(standardThresholds: [100_000, 130_000, 160_000]))))
+        in: file(
+          ContextCheckpointFileValues(standardThresholds: [100_000, 120_000, 140_000, 160_000]))))
     #expect(!PreferenceReset.isChanged(.contextStandardThresholds, in: ConfigFile()))
     #expect(
       PreferenceReset.isChanged(
@@ -75,6 +76,9 @@ import Testing
         .contextMenuBarMeter, in: file(ContextCheckpointFileValues(menuBarMeter: true))))
     #expect(
       PreferenceReset.isChanged(
+        .contextColdCacheCard, in: file(ContextCheckpointFileValues(coldCacheCard: false))))
+    #expect(
+      PreferenceReset.isChanged(
         .contextMillionThresholds,
         in: file(ContextCheckpointFileValues(millionThresholds: [1, 2, 3]))))
   }
@@ -88,13 +92,16 @@ import Testing
     var values = PreferenceValues()
     #expect(PreferenceReset.valueText(.contextCheckpointsEnabled, in: values) == "On")
     #expect(PreferenceReset.valueText(.contextMode, in: values) == "Panel")
-    #expect(PreferenceReset.valueText(.contextStandardThresholds, in: values) == "100K, 130K, 160K")
-    #expect(PreferenceReset.valueText(.contextMillionThresholds, in: values) == "200K, 300K, 400K")
+    #expect(
+      PreferenceReset.valueText(.contextStandardThresholds, in: values) == "100K, 120K, 140K, 160K")
+    #expect(
+      PreferenceReset.valueText(.contextMillionThresholds, in: values) == "200K, 300K, 400K, 600K")
     #expect(PreferenceReset.valueText(.contextModelThresholds, in: values) == "none")
     #expect(PreferenceReset.valueText(.contextRearmBelow, in: values) == "60%")
     #expect(PreferenceReset.valueText(.contextHandoffFile, in: values) == "notes/handoff.md")
     #expect(PreferenceReset.valueText(.contextNoteSoft, in: values) == "Default")
     #expect(PreferenceReset.valueText(.contextMenuBarMeter, in: values) == "Off")
+    #expect(PreferenceReset.valueText(.contextColdCacheCard, in: values) == "On")
     values = values.applying(.contextCheckpointsEnabled(true)).applying(.contextMode(.silent))
     values = values.applying(.contextNote(.contextNoteSoft, "mine"))
     values = values.applying(.setContextModelThresholds(prefix: "a", ladder: [1]))

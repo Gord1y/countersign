@@ -35,12 +35,27 @@ Codex's `hooks.json` gets the same shape with `--host codex` and one more field,
 
 ### The Context checkpoints entry
 
-While Context checkpoints are on, which is the default, Claude Code's file gets a second entry,
-under `hooks.UserPromptSubmit`, in one group without a `matcher` (the event has none):
+While Context checkpoints are on, which is the default, Claude Code's file gets two more entries,
+under `hooks.UserPromptSubmit` and `hooks.PostToolUse`, each in one group without a `matcher`. The
+prompt event has none, and a `PostToolUse` group without one fires for every tool (verified on
+Claude Code 2.1.296). The second entry is the stop check after a tool call (see "After a tool
+call" in [checkpoints.md](checkpoints.md)):
 
 ```json
 "hooks": {
   "UserPromptSubmit": [
+    {
+      "hooks": [
+        {
+          "type": "command",
+          "command": "/opt/homebrew/bin/countersign hook --host claude",
+          "async": true,
+          "timeout": 3600
+        }
+      ]
+    }
+  ],
+  "PostToolUse": [
     {
       "hooks": [
         {
@@ -65,26 +80,63 @@ apart by `hook_event_name` in its input. Three facts decide the shape:
 - `timeout: 3600` covers a Claude Code that ignores `async`: the prompt then waits for the panel
   instead of being blocked at the 30 second default.
 - Recognition is the same as for the `PermissionRequest` entry (see "How our entry is
-  recognised"), searched under `hooks.UserPromptSubmit`. Anyone else's hooks under the event are
-  never touched.
+  recognised"), searched under `hooks.UserPromptSubmit` and `hooks.PostToolUse`. Anyone else's
+  hooks under those events are never touched.
 
-`ContextHookSetup.install` adds the entry, or refreshes it when one of ours already exists under
-the event: the `command`, `async` and `timeout` are set with the same rules as "Install" (a value
-that is already right, however it is spelled, is left as written). The Settings toggle
-(`ContextHookRun`) calls it when the feature is turned on, and `HookSetup.install` calls it for
-Claude Code when `addsContextEntry` is true, which is what Wire, Update and `countersign setup` pass
-while checkpoints are on (see "The context entry follows the setting" below). With
-`addsContextEntry` false, `HookSetup.install` only refreshes an existing `UserPromptSubmit` entry
-of ours and never adds one, so a person who has turned the feature off never gets an entry, and one
-who has it on never keeps a stale one. A stale entry shows as "Needs an update" in the Agents rows.
+`ContextHookSetup.install` adds each entry, or refreshes it when one of ours already exists under
+its event (`ContextHookSetup.eventNames`): the `command`, `async` and `timeout` are set with the
+same rules as "Install" (a value that is already right, however it is spelled, is left as
+written). The Settings toggle (`ContextHookRun`) calls it when the feature is turned on, and
+`HookSetup.install` calls it for Claude Code when `addsContextEntry` is true, which is what Wire,
+Update and `countersign setup` pass while checkpoints are on (see "The context entry follows the
+setting" below). With `addsContextEntry` false, `HookSetup.install` only refreshes existing
+`UserPromptSubmit` and `PostToolUse` entries of ours and never adds one, so a person who has turned
+the feature off never gets an entry, and one who has it on never keeps a stale one. A stale entry
+shows as "Needs an update" in the Agents rows.
+
+### The context entries of Codex
+
+While Context checkpoints are on for Codex (`hosts.codex.enabled` over the top-level switch, so
+`Settings.contextCheckpointHosts(file:)` lists `.codex`), Codex's `hooks.json` gets the same two
+events, each in one group without a `matcher`, in the shape the 2026-10-13 capture (Codex 0.162.0)
+proved works, where `PostToolUse` fired for every tool and the notes the hook printed were
+delivered as developer messages and followed every time:
+
+```json
+"hooks": {
+  "UserPromptSubmit": [
+    { "hooks": [{ "type": "command", "command": "<exe> hook --host codex", "timeout": 30 }] }
+  ],
+  "PostToolUse": [
+    { "hooks": [{ "type": "command", "command": "<exe> hook --host codex", "timeout": 30 }] }
+  ]
+}
+```
+
+The command is the one of Codex's `PermissionRequest` entry. Unlike Claude Code's, the entries are
+synchronous: no `async` and a `timeout` of 30 seconds (`ContextHookSetup.codexTimeoutSeconds`, the
+value of Codex's `Stop` entry). Codex 0.162 parses an `async` key, but whether its runtime honours
+it, and whether a note from an async hook is delivered, is unverified, so Countersign does not
+depend on it. The hook answers in well under a second, so waiting costs nothing noticeable.
+`ContextHookSetup.install`, `refresh` and `entries` take the host and write this shape for
+`.codex`; refresh sets the command and the timeout only and never adds or removes `async`.
+`HookSetup.install` installs both entries for Codex when `addsContextEntry` is true and only
+refreshes existing ones otherwise, and `HookSetup.uninstall` removes them. Both entries or neither.
+
+Switching the feature on or off later changes Codex's `hooks.json`, so Codex asks for trust again,
+for each new entry (see "The Codex hook trust record").
 
 ### The context entry follows the setting
 
-Setup and Update add Claude Code's async `UserPromptSubmit` context entry while checkpoints are on,
-which is the default, and only refresh it while they are off. `HookSetup.install` takes
-`addsContextEntry` beside `addsWaitingEntry`, and `HostWiring.status` reports a missing entry as an
-update (`HostWiringUpdate.addsContextEntry`) only for Claude Code. `countersign setup` and Settings
-pass the resolved `contextCheckpoints.enabled`; `Doctor` does the same so its wiring check agrees.
+Setup and Update add Claude Code's async `UserPromptSubmit` and `PostToolUse` context entries, and
+Codex's synchronous ones, while checkpoints are on for that host, which is the default, and only
+refresh them while they are off.
+`HookSetup.install` takes `addsContextEntry` beside `addsWaitingEntry`, and `HostWiring.status`
+reports a missing entry as an update (`HostWiringUpdate.missingContextEvents` names the events with
+none) for Claude Code and Codex. A file wired before 0.4.0 has the prompt entry only, so it shows "Needs
+an update" and Update adds the `PostToolUse` one; refresh never adds an entry. `countersign setup`
+and Settings pass the hosts in `Settings.contextCheckpointHosts(file:)`, each host's own resolved
+`contextCheckpoints.enabled`; `Doctor` does the same so its wiring check agrees.
 The Settings toggle still adds and removes the entry itself (`ContextHookRun`).
 
 Why: checkpoints became on by default in 0.2.0, and before this only the toggle wrote the entry,
@@ -235,8 +287,9 @@ Codex runs a new hook only once the person trusts it, so the `Stop` entry has it
 approval entry's record with the key `<hooks.json path>:stop:<group>:<hook>`
 (`CodexHookTrust.current(hooksFileBytes:hooksFilePath:event:label:)`; the label `stop` is Codex's
 snake_case of the event name, confirmed by the record Codex wrote when the entry was trusted). `WaitingHookRun.apply` and `SetupRun` save that
-record whenever they write Codex's file and the `Stop` entry exists afterwards, and delete it
-otherwise. Nothing persists a learned hash for it: `countersign doctor` judges it from what was
+record whenever they write Codex's file and change the `Stop` entry, and delete it when the entry
+is gone afterwards; a write that leaves it as it was keeps the record (see "Who writes the
+record"). Nothing persists a learned hash for it: `countersign doctor` judges it from what was
 stored at write time, so a change of the stored hash still reads as trusted. Turning the
 notices on in Settings for a Codex file that changes adds one sentence to the confirmation: Codex
 then asks you to trust the new Stop hook, in `/hooks` in a Codex session.
@@ -246,8 +299,9 @@ then asks you to trust the new Stop hook, in `/hooks` in a Codex session.
 Our entry is a hook object whose `type` is `command` and whose `command` has, as its first word,
 an executable path named `countersign` and, as its second word, `hook`. A first word in single or
 double quotes counts as one word, so a path with spaces is still found. Only
-`hooks.PermissionRequest` is searched, and for Claude Code also `hooks.UserPromptSubmit` (see "The
-Context checkpoints entry"); an entry of ours under any other event is left alone. Only
+`hooks.PermissionRequest` is searched, and for Claude Code and Codex also `hooks.UserPromptSubmit`
+and `hooks.PostToolUse` (see "The Context checkpoints entry"); an entry of ours under any other event
+is left alone. Only
 those two words count: an entry of ours with anything else after `hook`, another host, no
 `--host` or an extra word, is still ours, and install rewrites its command (see "Install").
 
@@ -607,9 +661,10 @@ nothing ends up as `{}`, and a file install appended the named hook to is back t
 bytes. Every other named hook, including one that runs countersign, is left alone.
 
 In Claude Code's file, uninstall (Remove, and `setup --cli --uninstall`) removes every entry of
-ours under both `hooks.PermissionRequest` and `hooks.UserPromptSubmit`, with the same rules for a
-group or an event left empty. `hooks` stays. Someone else's hooks under `UserPromptSubmit` are
-left alone.
+ours under `hooks.PermissionRequest`, `hooks.UserPromptSubmit` and `hooks.PostToolUse`, with the
+same rules for a group or an event left empty. `hooks` stays. Someone else's hooks under
+`UserPromptSubmit` or `PostToolUse` are left alone. Codex's file loses its context entries the same
+way.
 
 ## The stable path
 
@@ -667,9 +722,10 @@ A copy is one install, grouped by where it came from:
 | Countersign.app | `/Applications/Countersign.app` is a real directory, or `~/Applications/Countersign.app` is one and no installer copy owns it | the bundle | its `CFBundleShortVersionString` | `rm -rf <the bundle>` |
 
 The installer row covers both `install.sh` at the repository root and `scripts/install.sh`, which
-writes only the CLI. Older version folders under `<prefix>/Cellar/countersign/` are Homebrew's to
-clean up (`brew cleanup`), not copies. Symbolic links are resolved, and a file or bundle already
-counted, compared by resolved path, is never counted again: a `~/.local/bin/countersign` linked to
+writes the CLI, and with `--app` the app too. Older version folders under
+`<prefix>/Cellar/countersign/` are Homebrew's to clean up (`brew cleanup`), not copies. Symbolic
+links are resolved, and a file or bundle already counted, compared by resolved path, is never
+counted again: a `~/.local/bin/countersign` linked to
 Homebrew's binary is no installer copy, and an `/Applications` that links to `~/Applications` does
 not make the installer's app a second copy. A dangling link counts as nothing. A version that
 cannot be read shows as "version unknown".
@@ -726,7 +782,7 @@ entry to the copy running the window (see "The stable path"), and `countersign s
 from the terminal.
 
 The installer's two halves can drift apart with a single copy too: rerunning `install.sh` with
-`COUNTERSIGN_APP=0`, or `scripts/install.sh`, which writes only the CLI, updates
+`COUNTERSIGN_APP=0`, or `scripts/install.sh` without `--app`, which writes only the CLI, updates
 `~/.local/bin/countersign` and leaves the app at its old version, and an app replaced by hand does
 the reverse. `InstalledCopies.versionMismatch` looks only at the installer copy with both
 halves present, and returns an `InstallVersionMismatch` when both versions parse and differ. When
@@ -770,6 +826,10 @@ wiringStatus:codexTrust:)` is the single place that decides whether a host gets 
 | Codex, trust `.pending(reason:offersMarkAsDone:)` | `.nextStep`: the reason, when there is one, then `codexNextStep`; "Mark as done" only when the state offers it |
 | Codex, trust `.trusted` or `.markedDone` | none |
 | Cursor, Antigravity | a permanent `.goodToKnow` |
+
+The next step says "hooks" and "them" instead of "hook" and "it" once Codex's file holds another
+entry of ours besides the permission one: a `Stop` entry or a context entry
+(`AgentFollowUps.codexHasOtherEntries(in:)`, `codexNextStepWithOtherEntries`).
 
 The Codex states are in "The Codex hook trust record" below. Every case requires
 `wiringStatus == .wired`: an agent that needs an update or was never wired gets no line, the same
@@ -833,6 +893,14 @@ Codex's `hooks.json` the same way `HookSetup.sites` already does, and returns it
 (`CodexHookTrustCurrent`); when the entry appears more than once, it uses the first and reports
 `hasMultipleEntries`.
 
+The two context entries have a record each, because a record tracks exactly one key:
+`AppPaths.codexContextHookTrustFile` (`codex-context-hook-trust.json`, the `UserPromptSubmit`
+entry, key `<hooks.json path>:user_prompt_submit:<group>:<hook>`) and
+`AppPaths.codexContextToolHookTrustFile` (`codex-context-tool-hook-trust.json`, the `PostToolUse`
+entry, label `post_tool_use`). `CodexHookTrust.recordWrittenContext` saves both whenever `SetupRun`
+or `ContextHookRun.apply` writes Codex's file and changes that entry (see "Who writes the record"),
+and deletes a record whose entry is absent; `currentContext` finds an event's entry. Nothing persists a learned hash for them either, and "Mark as done" does not cover them yet.
+
 ### Who writes the record
 
 - `SetupRun`, when it actually writes Codex's file for an install or update, writes a fresh record
@@ -844,6 +912,14 @@ Codex's `hooks.json` the same way `HookSetup.sites` already does, and returns it
   never touches the record during `SetupRun.preview` (`writesFiles: false`) or when the file was
   already up to date. This is what makes clicking Wire or Update, from the terminal or the window,
   put the next step back: the fresh record has seen no trust yet.
+- A write that leaves the record's entry as it was keeps the record as it was
+  (`CodexHookTrust.leavesEntryUnchanged`): our entry is first at the same key before and after,
+  and its group is byte for byte the same. Codex's hash covers the entry's content, so Codex keeps
+  trusting an entry no write touched and `config.toml` never changes; a fresh record would then
+  compare equal to the value it already held and stay pending for good. Adding the context entries
+  on an upgrade, or the `Stop` entry, therefore keeps the approval entry's record, and each record
+  follows only its own entry. The same rule applies wherever a record is written: `SetupRun`,
+  `WaitingHookRun.apply` and `ContextHookRun.apply`.
 - "Mark as done" (`CodexHookTrust.markAsDone`, from `CodexHookTrust.markedRecord`) writes the record
   for the entry Codex's file holds right now, with `markedDone: true`. It keeps `learnedHash` when
   the command is unchanged, and `hashAtWrite` when the key is unchanged too; for an entry that has

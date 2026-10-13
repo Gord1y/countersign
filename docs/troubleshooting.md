@@ -123,18 +123,24 @@ nobody dismisses and never shows gives up after 12 hours. The log,
 
 Go through these in order:
 
-1. **Is the feature on?** It is on by default for Claude Code; if you turned it off, turn it back on
-   in Settings ▸ Panels ▸ Context checkpoints. `countersign test-panel context` shows a checkpoint
-   panel with your settings, whatever the session.
-2. **Is the hook wired?** `countersign doctor` reports it on its `claude context` line; if it is
-   not `ok`, open Settings ▸ Context: the Claude Code hook row says Not wired or Needs an update,
-   and Update shows the change before it writes the entry again (see [setup.md](setup.md)).
-3. **Paused or in quiet time?** Both hold checkpoints back, as they do any panel; see
+1. **Is the feature on?** It is on by default for Claude Code and Codex; if you turned it off, turn
+   it back on in Settings ▸ Panels ▸ **Context checkpoints (Claude Code and Codex)**.
+   `countersign test-panel context` shows a checkpoint panel with your settings, whatever the
+   session.
+2. **Is the hook wired?** `countersign doctor` reports it on its `claude context` and
+   `codex context` lines; if one is not `ok`, open Settings ▸ Context: the Claude Code hooks row or
+   the Codex hooks row says Not wired or Needs an update, and Update shows the change before it
+   writes the entry again (see [setup.md](setup.md)).
+3. **For Codex, is the hook trusted?** Codex skips a hook until you trust it. When a
+   `codex context` line says Codex has not trusted an entry, open Codex in a terminal, run
+   `/hooks` and trust it (see [setup.md](setup.md#codex-asks-you-to-trust-the-hook)).
+4. **Paused or in quiet time?** Both hold checkpoints back, as they do any panel; see
    [No panel appears](#no-panel-appears).
-4. **A headless session?** Non-interactive runs such as `claude -p` get no panel.
-5. **Below the first checkpoint?** Nothing fires until the context passes it: 100K tokens on a
-   200K window, 200K on a 1M window, or your own thresholds.
-6. **Already muted?** **Not this session** mutes the session; a new session starts unmuted.
+5. **A headless session?** Non-interactive Claude Code runs such as `claude -p` get no panel.
+6. **Below the first checkpoint?** Nothing fires until the context passes it: 100K tokens on a
+   200K window, 200K on a 1M window, or your own thresholds. For Codex, 50 % of the context window
+   Codex reports.
+7. **Already muted?** **Not this session** mutes the session; a new session starts unmuted.
 
 A reading can lag one turn, so a checkpoint may show one prompt after the size was crossed.
 
