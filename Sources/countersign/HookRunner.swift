@@ -20,18 +20,29 @@ enum HookRunner {
       exit(0)
     }
 
+    let input = FileHandle.standardInput.readDataToEndOfFile()
+
+    let isToolCallEvent =
+      options.host == .claude
+      && ClaudeAdapter.eventName(of: input) == ContextHookSetup.toolEventName
+
     let (configFile, configLogLines) = ConfigFileLoader.load(
       paths: paths, soundNames: SystemSounds.installedNames)
-    for line in configLogLines {
-      log.write("config: \(line)")
+    if !isToolCallEvent {
+      for line in configLogLines {
+        log.write("config: \(line)")
+      }
     }
     let settings = Settings.resolve(file: configFile, host: options.host)
-
-    let input = FileHandle.standardInput.readDataToEndOfFile()
 
     if options.host == .claude, ClaudeAdapter.isCursorPayload(input) {
       log.write("ignored: a Cursor payload in a Claude Code hook")
       exit(0)
+    }
+
+    if isToolCallEvent {
+      ContextCheckpointRunner.runAfterToolCall(
+        input: input, settings: settings, paths: paths, log: log)
     }
 
     if options.event == .waiting {

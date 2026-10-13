@@ -235,6 +235,13 @@ sorted keys, and every other host encodes `.addContext` as `nil`:
 {"hookSpecificOutput":{"additionalContext":"<the rendered note>","hookEventName":"UserPromptSubmit"}}
 ```
 
+The stop note sent after a tool call answers `PostToolUse` with the same envelope, only the event
+name differs, through `ClaudeAdapter.encodeContext(_:eventName:)`:
+
+```json
+{"hookSpecificOutput":{"additionalContext":"<the rendered stop note>","hookEventName":"PostToolUse"}}
+```
+
 `ContextCheckpointChoice.outcome(for:)` maps each panel choice:
 
 | Choice | Output |

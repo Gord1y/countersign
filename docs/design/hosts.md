@@ -165,6 +165,23 @@ the text a person typed never leaves the parser. It returns a `ContextCheckpoint
 `Context checkpoint` and an empty tool input, so the panel and the queue treat it like any other
 request.
 
+## The Claude `PostToolUse` input
+
+The same command also serves `PostToolUse`, which `HookRunner.run` routes to
+`ContextCheckpointRunner.runAfterToolCall` (see "After a tool call" in
+[checkpoints.md](checkpoints.md)). A main-thread call carries exactly `cwd`, `duration_ms`,
+`effort`, `hook_event_name`, `permission_mode`, `prompt_id`, `session_id`, `tool_input`,
+`tool_name`, `tool_response`, `tool_use_id` and `transcript_path` (real captures, Claude Code
+2.1.296). A call made inside a subagent adds `agent_id` and `agent_type`; the main thread's own
+`Agent` call, which starts the subagent, has neither.
+
+`ClaudeAdapter.parsePostToolUse` requires `session_id`, `cwd` and the event name, and reads
+`transcript_path`, `permission_mode` and `agent_id` when they are strings. It never reads
+`tool_input` or `tool_response`, so what a tool was given or returned never leaves the parser. The
+fixtures are `claude-post-tool-use.json` (a main-thread `Read`) and
+`claude-post-tool-use-subagent.json` (the same `Read` inside an `Explore` subagent), both with
+anonymized paths.
+
 ## Cursor payloads in Claude Code hooks
 
 Cursor also runs the hooks in `~/.claude/settings.json`, through its Claude Code compatibility, so

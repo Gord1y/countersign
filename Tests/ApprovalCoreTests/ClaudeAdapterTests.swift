@@ -438,6 +438,44 @@ import Testing
     }
   }
 
+  @Test func parsesThePostToolUseFixture() throws {
+    let input = try ClaudeAdapter.parsePostToolUse(FixtureLoader.data("claude-post-tool-use"))
+    #expect(input.sessionID == "df40b0b1-b0c6-41be-a7b1-c8930a0bfdf3")
+    #expect(input.cwd == "/Users/dev/Projects/shop-api")
+    #expect(
+      input.transcriptPath
+        == "/Users/dev/.claude/projects/shop-api/df40b0b1-b0c6-41be-a7b1-c8930a0bfdf3.jsonl")
+    #expect(input.permissionMode == "default")
+    #expect(input.agentID == nil)
+  }
+
+  @Test func aSubagentsPostToolUseCarriesItsAgentID() throws {
+    let input = try ClaudeAdapter.parsePostToolUse(
+      FixtureLoader.data("claude-post-tool-use-subagent"))
+    #expect(input.agentID == "ab5ba02951796de47")
+  }
+
+  @Test func aUserPromptSubmitIsNotAPostToolUse() {
+    #expect(throws: AdapterError.malformedInput("unexpected hook_event_name")) {
+      try ClaudeAdapter.parsePostToolUse(FixtureLoader.data("claude-user-prompt-submit"))
+    }
+  }
+
+  @Test func aPostToolUseWithoutASessionIDThrows() throws {
+    let data = Data(
+      #"{"cwd":"/tmp","hook_event_name":"PostToolUse","tool_name":"Read"}"#.utf8)
+    #expect(throws: AdapterError.malformedInput("missing session_id")) {
+      try ClaudeAdapter.parsePostToolUse(data)
+    }
+  }
+
+  @Test func encodesAContextNoteForAGivenEvent() throws {
+    let data = try #require(ClaudeAdapter.encodeContext("note", eventName: "PostToolUse"))
+    #expect(
+      String(decoding: data, as: UTF8.self)
+        == #"{"hookSpecificOutput":{"additionalContext":"note","hookEventName":"PostToolUse"}}"#)
+  }
+
   @Test func encodesAddContextAsAdditionalContextExactly() throws {
     let data = try #require(ClaudeAdapter.encode(.addContext("Use /compact soon.")))
     #expect(

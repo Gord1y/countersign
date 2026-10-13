@@ -5,12 +5,17 @@ public struct ContextCheckpointInput: Sendable, Equatable {
   public var cwd: String
   public var transcriptPath: String?
   public var permissionMode: String?
+  public var agentID: String?
 
-  public init(sessionID: String, cwd: String, transcriptPath: String?, permissionMode: String?) {
+  public init(
+    sessionID: String, cwd: String, transcriptPath: String?, permissionMode: String?,
+    agentID: String? = nil
+  ) {
     self.sessionID = sessionID
     self.cwd = cwd
     self.transcriptPath = transcriptPath
     self.permissionMode = permissionMode
+    self.agentID = agentID
   }
 }
 

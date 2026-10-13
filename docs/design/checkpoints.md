@@ -263,3 +263,40 @@ moment the panel is built; a panel prepared in warm standby reads it then. A cho
 `context: mute not saved: <reason>` when that fails. The outcome is written like a permission
 panel's answer, and `outcome: context <choice>` is logged, or `outcome: context dismissed` when the
 panel closed with no choice (Esc or a click outside). Logs name the choice, never the note text.
+
+### After a tool call
+
+An autonomous run never submits a prompt, so a checkpoint checked only on `UserPromptSubmit` sails
+past the stop rung. `HookRunner.run` therefore also hands a Claude Code input whose `hook_event_name`
+is `PostToolUse` to `ContextCheckpointRunner.runAfterToolCall`, right after the Cursor-payload check.
+The hook entry is async, installed separately from the `UserPromptSubmit` one.
+
+**Only the stop rung.** The planner runs with `levels: [.stop]`, so firing it marks every lower rung
+fired. The lower rungs ask for a status or a compact at a natural breakpoint, which the next prompt
+gives; the stop rung is the one that must not wait. The stop note is injected in both modes, never a
+panel.
+
+**Main thread only.** A subagent's call carries `agent_id`, and a note there would steer the
+subagent, which cannot hand off the session. Such a call exits quietly.
+
+**Quiet.** This runs after every tool call, so every stop exits 0 with empty stdout and no log line,
+except `context: unparseable tool call` and `context: state not saved: <error>`. The stops, in
+order: paused, unparseable, a subagent's call, `contextCheckpoints.enabled` false, the headless gate
+skipping the session, an unusable session id, no `transcript_path` or no reading, a lock not won.
+The config warnings are not logged for this event either, so one warning does not repeat on every
+tool call. When the stop rung fires, the runner writes the note and logs
+`context: <tokens> tokens after a tool call, stop fired` and
+`outcome: context note (stop, after a tool call)`.
+
+**No waiting-record clear.** `WaitingRecorder.clearRecord` deletes the session's waiting record as
+"working again". An async `PostToolUse` that finishes after the `Stop` hook would delete the record
+that hook just wrote, so this event is routed before the clear.
+
+**Shared with the prompt path.** The pause switch, the headless gate, the per-session lock and the
+state file. The tool-call path does not prune old state files and never sets `pendingProcessID`.
+
+**Delivery.** In a real run (Claude Code 2.1.296, `claude -p`, Haiku) an async `PostToolUse` hook
+that printed `hookSpecificOutput.additionalContext` reached the model at its next request. The model
+first read the note as part of the tool's result and said it would ignore it, then followed it in its
+final reply. So delivery works, and a model may still distrust a note that arrives next to a tool
+result.

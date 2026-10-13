@@ -37,6 +37,9 @@ for something specific, or when it behaves differently from what you expected an
   tells you what to run.
 - A checkpoint prints no line in the terminal: Claude Code never shows the messages of a hook that
   runs in the background.
+- The stop note sent after a tool call arrives next to that tool's result, and a model can take it
+  for part of the result and ignore it. The note sent with your next prompt does not have that
+  problem.
 
 ## Codex
 

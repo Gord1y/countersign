@@ -14,6 +14,7 @@ public struct ContextHookEntry: Sendable, Equatable {
 
 public enum ContextHookSetup {
   public static let eventName = "UserPromptSubmit"
+  public static let toolEventName = "PostToolUse"
   public static let timeoutSeconds = HookSetup.timeoutSeconds
 
   public static func install(into original: [UInt8]?, executablePath: String) throws -> [UInt8] {

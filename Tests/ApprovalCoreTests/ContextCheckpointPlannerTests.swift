@@ -65,6 +65,26 @@ import Testing
     #expect(plan.decision == .inject(expected))
   }
 
+  @Test func stopOnlyLevelsInjectTheStopNoteInPanelModeAndFireEveryLevel() {
+    let settings = settings(mode: .panel)
+    let plan = ContextCheckpointPlanner.plan(
+      reading: reading(165_000), previous: .fresh(now: now), settings: settings,
+      transcriptPath: nil, project: "shop-api", now: now, levels: [.stop])
+
+    let expected = ContextCheckpointNotes.render(
+      settings.notes.stop, tokens: 165_000, handoffFile: settings.handoffFile)
+    #expect(plan.decision == .inject(expected))
+    #expect(plan.state.fired == [.soft, .status, .insist, .stop])
+  }
+
+  @Test func stopOnlyLevelsStayQuietBetweenInsistAndStop() {
+    let plan = ContextCheckpointPlanner.plan(
+      reading: reading(145_000), previous: .fresh(now: now), settings: settings(mode: .panel),
+      transcriptPath: nil, project: "shop-api", now: now, levels: [.stop])
+
+    #expect(plan.decision == .nothing)
+  }
+
   @Test func noCrossingKeepsTheStateCurrent() {
     let plan = ContextCheckpointPlanner.plan(
       reading: reading(50_000), previous: .fresh(now: Date(timeIntervalSince1970: 0)),
