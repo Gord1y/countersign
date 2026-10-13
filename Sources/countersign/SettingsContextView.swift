@@ -9,9 +9,12 @@ struct ContextSection: View {
     SettingsSection(.context) {
       ConfigProblemMessage(model: model)
       SettingsBlocks {
-        SettingsBlock("Hook") {
-          ContextHookRow(model: model)
-            .disabled(model.configProblem != nil)
+        SettingsBlock("Hooks") {
+          VStack(alignment: .leading, spacing: 0) {
+            ContextHookRow(model: model, host: .claude)
+            ContextHookRow(model: model, host: .codex)
+          }
+          .disabled(model.configProblem != nil)
         }
         SettingsBlock("Checkpoints") {
           VStack(alignment: .leading, spacing: 0) {
@@ -104,7 +107,7 @@ private struct ContextFooterRow: View {
       Spacer(minLength: 0)
       Button(Self.turnOff) { model.requestContextCheckpoints(false) }
         .buttonStyle(SecondaryButtonStyle())
-        .disabled(model.contextChange != nil || !model.claudeIsInstalled)
+        .disabled(model.contextChange != nil || !model.contextAgentIsInstalled)
       RestoreDefaultsButton(pane: .context, model: model)
     }
     .presentsContextHookPrompt(model: model, origin: .toggle)
@@ -119,7 +122,7 @@ private struct ContextHookPromptPresenter: ViewModifier {
     content.onChange(of: model.contextChange(for: origin) != nil) { _, isPending in
       guard isPending, let change = model.contextChange(for: origin) else { return }
       ContextHookPrompt.present(
-        change: change, path: model.contextHookFileText ?? "Claude Code's settings",
+        change: change, home: model.homeDirectory,
         on: NSApp.keyWindow,
         onConfirm: { model.confirmContextChange() },
         onCancel: { model.cancelContextChange() })
@@ -136,7 +139,7 @@ extension View {
 }
 
 struct ContextToggleRow: View {
-  static let notInstalledCaption = "Claude Code isn't installed."
+  static let notInstalledCaption = "Neither Claude Code nor Codex is installed."
 
   let model: SettingsModel
 
@@ -152,54 +155,81 @@ struct ContextToggleRow: View {
           get: { model.contextCheckpointsEnabled },
           set: { model.requestContextCheckpoints($0) })
       )
-      .disabled(!model.claudeIsInstalled)
+      .disabled(!model.contextAgentIsInstalled)
     }
     .presentsContextHookPrompt(model: model, origin: .toggle)
   }
 
   private var caption: String {
-    model.claudeIsInstalled
+    model.contextAgentIsInstalled
       ? PreferenceName.contextCheckpointsEnabled.caption : Self.notInstalledCaption
   }
 }
 
 private struct ContextHookRow: View {
-  static let title = "Claude Code hook"
+  static let claudeTitle = "Claude Code hooks"
+  static let codexTitle = "Codex hooks"
 
   let model: SettingsModel
+  let host: ApprovalCore.Host
 
   var body: some View {
-    PreferenceRow(Self.title, caption: caption, problem: problem) {
-      HStack(spacing: 10) {
-        Text(model.contextHookStatus.title)
-          .font(PanelTypography.body)
-          .foregroundStyle(.secondary)
-          .multilineTextAlignment(.trailing)
-        if offersUpdate {
-          Button("Update") { model.requestContextHookUpdate() }
-            .buttonStyle(SecondaryButtonStyle())
+    if let status {
+      PreferenceRow(title, caption: caption, problem: problem(for: status)) {
+        HStack(spacing: 10) {
+          Text(status.title)
+            .font(PanelTypography.body)
+            .foregroundStyle(.secondary)
+            .multilineTextAlignment(.trailing)
             .fixedSize()
-            .disabled(model.contextChange != nil)
+          if offersUpdate(for: status) {
+            Button("Update") { requestUpdate() }
+              .buttonStyle(SecondaryButtonStyle())
+              .fixedSize()
+              .disabled(model.contextChange != nil)
+          }
         }
       }
+      .presentsContextHookPrompt(model: model, origin: origin)
     }
-    .presentsContextHookPrompt(model: model, origin: .hookStatus)
+  }
+
+  private var isCodex: Bool { host == .codex }
+
+  private var origin: ContextHookChangeOrigin { isCodex ? .codexHookStatus : .hookStatus }
+
+  private var title: String { isCodex ? Self.codexTitle : Self.claudeTitle }
+
+  private var status: ContextHookStatus? {
+    isCodex ? model.codexContextHookStatus : model.contextHookStatus
   }
 
   private var caption: String {
-    "Countersign's UserPromptSubmit and PostToolUse entries in \(model.contextHookFileText ?? "Claude Code's settings")."
+    let file =
+      isCodex
+      ? model.codexContextHookFileText ?? "Codex's hooks.json"
+      : model.contextHookFileText ?? "Claude Code's settings"
+    return "Countersign's UserPromptSubmit and PostToolUse entries in \(file)."
   }
 
-  private var offersUpdate: Bool {
-    switch model.contextHookStatus {
-    case .notWired, .needsUpdate: return model.claudeIsInstalled
+  private func requestUpdate() {
+    if isCodex {
+      model.requestCodexContextHookUpdate()
+    } else {
+      model.requestContextHookUpdate()
+    }
+  }
+
+  private func offersUpdate(for status: ContextHookStatus) -> Bool {
+    switch status {
+    case .notWired, .needsUpdate: return isCodex ? true : model.claudeIsInstalled
     case .wired, .unusable: return false
     }
   }
 
-  private var problem: String? {
-    if let failure = model.contextHookProblem(for: .hookStatus) { return failure }
-    if case .unusable(let reason) = model.contextHookStatus { return reason }
+  private func problem(for status: ContextHookStatus) -> String? {
+    if let failure = model.contextHookProblem(for: origin) { return failure }
+    if case .unusable(let reason) = status { return reason }
     return nil
   }
 }
@@ -382,7 +412,7 @@ private struct ContextHandoffFileRow: View {
 
 private struct ContextNotesRow: View {
   static let title = "Notes"
-  static let caption = "What Countersign sends Claude at each checkpoint and after your choice."
+  static let caption = "What Countersign sends the agent at each checkpoint and after your choice."
   static let button = "Edit Notes…"
 
   let model: SettingsModel
@@ -393,6 +423,7 @@ private struct ContextNotesRow: View {
         ContextNotesSheet.present(model: model, on: NSApp.keyWindow)
       }
       .buttonStyle(SecondaryButtonStyle())
+      .fixedSize()
     }
   }
 }

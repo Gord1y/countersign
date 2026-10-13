@@ -109,7 +109,11 @@ including during a [quiet-hours window](configuration.md#panels), its sidebar li
 where you [connect your agents](setup.md), **App**, for what this app does, **Panels**, for how
 panels behave, **Rules**, for the [rules](configuration.md#allow-and-deny-rules) that
 answer before a panel shows, **Context** while context checkpoints are on, and **Help**, for
-guides, updates and ways to support Countersign. **Advanced**, for where the
+guides, updates and ways to support Countersign. The Context switch covers Claude Code and
+Codex: it writes both agents' hook entries, and the Context tab shows a "Claude Code hooks" row and,
+when Codex is wired and `contextCheckpoints.hosts.codex.enabled` is not set, a "Codex hooks" row, each with Update when its entries are missing or
+stale. After Codex's entries are written, Codex asks you to trust the new hooks: run `/hooks` in a
+Codex session. **Advanced**, for where the
 [config file](configuration.md) is, opens from a button at the bottom of App. Closing the window leaves the app running.
 
 The first time you open the app on a new Mac, one with no Countersign state, it shows the

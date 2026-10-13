@@ -219,7 +219,7 @@ since the sidebar already names it:
 | Group | Holds | What it changes |
 | --- | --- | --- |
 | Agents | a row per agent (Wire, Update and Remove, each confirmed in a popup that shows its diff), the notice about a second copy, on each row the values `hosts.<agent>` sets, and, once wired, its follow-up line and Codex's "Mark as done" (`AgentFollowUp`; see "Follow-up lines" and "The Codex hook trust record" in [setup.md](setup.md)) | each agent's own hook file; the Codex hook trust record, never `config.json` |
-| Panels | five blocks: Delays (Same delays for all agents, then while it is off an Agent picker with the four agents, then Wait for idle, Grace period, Arm delay, Arm delay after an answer, Show card after), Interruptions (Hand off when frontmost, Snooze presets, Quiet hours, Sound), Corner cards (Waiting-agent notices, Notice after, Show notice for, Approval card with one checkbox per agent), Claude Code (Notes on answers, Mode after a plan, Context checkpoints) and Try it (Show a test panel, Show a test card), then Restore Defaults | `config.json`, for every agent, or under `hosts.<agent>` for the delays and the Approval card checkboxes |
+| Panels | six blocks: Delays (Same delays for all agents, then while it is off an Agent picker with the four agents, then Wait for idle, Grace period, Arm delay, Arm delay after an answer, Show card after), Interruptions (Hand off when frontmost, Snooze presets, Quiet hours, Sound), Corner cards (Waiting-agent notices, Notice after, Show notice for, Approval card with one checkbox per agent), Claude Code (Notes on answers, Mode after a plan), Context checkpoints (the switch) and Try it (Show a test panel, Show a test card), then Restore Defaults | `config.json`, for every agent, or under `hosts.<agent>` for the delays and the Approval card checkboxes |
 | App | General (Launch at login, Check for updates, When Countersign quits), Appearance (Appearance, Accent colour, Skills in the sidebar) and, while there is an offer to copy Countersign.app, Install, then Advanced… and Restore Defaults | macOS's login items, `config.json`, `~/Applications` |
 | Rules | the intro line, one row per rule in file order with a remove button, the unreadable-entries notice (see "Rules" below) | `config.json`, the top-level `rules` array |
 | Skills | the source of the installed countersign-skills, the updates notice with its command, each skill with the agents it is installed for, the rules (see [skills.md](skills.md#the-overview)) | nothing; it only reads |
@@ -651,14 +651,14 @@ on a preference beyond committing the text fields as the table says.
 
 ### Context checkpoints
 
-The Panels tab ends with the switch "Context checkpoints (Claude Code)", showing the file's
+The Panels tab has a "Context checkpoints" block, right after the Claude Code block, holding the switch "Context checkpoints (Claude Code and Codex)", showing the file's
 `contextCheckpoints.enabled`. It is the one Panels row that changes a host file, so flipping it
 writes nothing: it opens a confirmation popup (`ContextHookPrompt`, an `NSAlert` sheet on the
 Settings window like `RestoreDefaultsPrompt`; the model's `contextChange` is what the row presents,
 and confirm and cancel stay model calls). The popup asks "Turn on context checkpoints?" or "Turn
-off context checkpoints?" ("Update Countersign's Claude Code hook?" from the hook row), says
+off context checkpoints?" ("Update Countersign's Claude Code hooks?" or "Update Countersign's Codex hooks?" from a hook row), says
 "Countersign changes <path> and keeps a backup.", and shows the diff `ContextHookRun.preview` gives
-for Claude Code's `settings.json` in a selectable monospaced scroll view about 12 lines tall, with
+for every file in `contextLocations` (Claude Code's `settings.json`, and Codex's `hooks.json` when its Agents row is wired or stale) in a selectable monospaced scroll view about 12 lines tall, with
 two buttons, "Turn On" or "Turn Off" (primary) and "Cancel". A preview with failures shows the
 failure lines and only "OK"; dismissing it changes nothing and leaves the failure as the row's red
 line. The primary button applies the hook change through
@@ -669,17 +669,29 @@ config and state change: on, it writes `contextCheckpoints.enabled: true`; off, 
 `contextCheckpoints` is kept, so turning it on again finds the thresholds and notes as they were.
 A failure in the hook step shows one red line on the row and changes nothing else. The order
 matters: the config never says "on" while the hook is missing because of a failed write. If Claude
-Code's directory is missing the switch is disabled and the caption reads "Claude Code isn't
-installed."
+Code's directory is missing and so is Codex's, the switch is disabled and the caption reads
+"Neither Claude Code nor Codex is installed."
+
+`SettingsModel.contextLocations` is Claude Code's location when it is installed, plus Codex's when
+its Agents row is wired or stale. Codex is left out when the config file sets
+`contextCheckpoints.hosts.codex.enabled`: that per-agent setting wins over the switch, so the
+switch must not write a Codex file whose entries the setting decides. Codex's entries are
+synchronous, and after writing Codex's file `ContextHookRun.apply` records the two trust records, so
+the popup appends "Codex then asks you to trust the new hooks: run /hooks in a Codex session."
+when the change enables and writes Codex's file. When `contextLocations` is empty (Codex installed
+but not wired, or `hosts.codex.enabled` set, and no Claude Code), the switch skips the popup and
+only writes `contextCheckpoints.enabled`, clearing the checkpoint store when it turns off.
 
 The Context tab appears in the sidebar only while the feature is on, and turning the feature off,
-here or in the file, while Context is showing selects Panels. Its blocks, in order: Hook (the
-hook status: Wired, Not wired or Needs an update, from `ContextHookRun.status`, with "Update" for
-the last two, which shows the same popup as the switch and never touches the config), Checkpoints
+here or in the file, while Context is showing selects Panels. Its blocks, in order: Hooks (a
+"Claude Code hooks" row and, only while Codex is in `contextLocations`, a "Codex hooks" row, each
+showing Wired, Not wired or Needs an update from `ContextHookRun.status`, with "Update" for the last
+two; the Claude row's Update covers Claude Code's file only, the Codex row's Codex's file only, and
+neither touches the config; only the switch writes every location in `contextLocations`), Checkpoints
 (Checkpoint style, the 200K and 1M ladders, the per-model ladders, Start over below), Notes and
 handoff (Notes, one row with an "Edit Notes…" button, then Handoff file), Menu bar (Context in the
 menu bar) and Try it (a button that shows a context test panel), then a footer with "Turn Off
-Context Checkpoints" left of Restore Defaults. That button calls `requestContextCheckpoints(false)` and so shows the same "Turn off context checkpoints?" popup as the Panels switch (the row presents it for the `.toggle` origin, and only one tab is on screen at a time, so one `contextChange` shows one alert); it is disabled while a change is pending or Claude Code isn't installed.
+Context Checkpoints" left of Restore Defaults. That button calls `requestContextCheckpoints(false)` and so shows the same "Turn off context checkpoints?" popup as the Panels switch (the row presents it for the `.toggle` origin, and only one tab is on screen at a time, so one `contextChange` shows one alert); it is disabled while a change is pending or neither Claude Code nor Codex is installed.
 
 Write rules follow the table above. The two ladder fields take three or four ascending whole numbers of
 thousands, 1 to 2000, the fourth being the optional stop (`PreferenceRules.contextLadder`), checked on each keystroke, and are written

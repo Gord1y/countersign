@@ -24,7 +24,7 @@ extension PreferenceName {
     case .accentColor: return "Accent colour"
     case .showSkills: return "Skills in the sidebar"
     case .editorApp: return "Open with"
-    case .contextCheckpointsEnabled: return "Context checkpoints (Claude Code)"
+    case .contextCheckpointsEnabled: return "Context checkpoints (Claude Code and Codex)"
     case .contextMode: return "Checkpoint style"
     case .contextStandardThresholds: return "Checkpoints, 200K window"
     case .contextMillionThresholds: return "Checkpoints, 1M window"
@@ -70,13 +70,13 @@ extension PreferenceName {
     case .showSkills: return "Show the Skills group in the sidebar."
     case .editorApp: return "The app Open in Editor uses for config.json."
     case .contextCheckpointsEnabled:
-      return "Nudge long Claude Code sessions toward a deliberate compaction."
+      return "Nudge long Claude Code and Codex sessions toward a deliberate compaction."
     case .contextMode: return "Show a panel, or add the note silently."
     case .contextStandardThresholds: return "Soft, status, insist and an optional stop, in tokens."
     case .contextMillionThresholds: return "Soft, status, insist and an optional stop, in tokens."
     case .contextModelThresholds: return "A ladder for model IDs starting with a prefix."
     case .contextRearmBelow: return "A drop this far below the peak counts as a fresh start."
-    case .contextHandoffFile: return "Where Claude writes a handoff, relative to the project."
+    case .contextHandoffFile: return "Where the agent writes a handoff, relative to the project."
     case .contextNoteSoft: return "Sent in silent mode at the first checkpoint."
     case .contextNoteStatus: return "Sent in silent mode at the second checkpoint."
     case .contextNoteInsist: return "Sent in silent mode at the third checkpoint."
@@ -240,10 +240,11 @@ extension PreferenceName {
         + " menu, and \"Other…\" if that editor isn't offered."
     case .contextCheckpointsEnabled:
       return
-        "Watches how large each Claude Code session's context has grown and steers Claude toward"
-        + " a deliberate compaction at a natural breakpoint, instead of letting auto-compact"
-        + " interrupt a task. It reads the session's transcript, so a reading can lag a turn"
-        + " behind. Countersign only steers Claude; it cannot run /compact itself."
+        "Watches how large each Claude Code or Codex session's context has grown and steers the"
+        + " agent toward a deliberate compaction at a natural breakpoint, instead of letting"
+        + " auto-compact interrupt a task. It reads the session's transcript or rollout, so a"
+        + " reading can lag a turn behind. Claude Code gets a panel or a note; Codex gets notes"
+        + " only. Countersign only steers the agent; it cannot run /compact itself."
     case .contextMode:
       return
         "Panel shows a checkpoint panel where you choose what happens next; Silent skips the"

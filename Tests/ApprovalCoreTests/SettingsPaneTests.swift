@@ -36,7 +36,7 @@ import Testing
   @Test func saysWhatTheContextGroupChanges() {
     #expect(
       SettingsPane.context.subtitle
-        == "Context checkpoints for Claude Code sessions. Saved to config.json as soon as you"
+        == "Context checkpoints for Claude Code and Codex sessions. Saved to config.json as soon as you"
         + " change them.")
   }
 

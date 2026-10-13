@@ -513,9 +513,10 @@ key on this page.
 on for that agent (the second one checks the
 stop checkpoint after each tool call); turning them off in Settings removes both.
 
-To turn the feature off, use the "Context checkpoints (Claude Code)" switch in Settings > Panels or
+To turn the feature off, use the "Context checkpoints (Claude Code and Codex)" switch in Settings > Panels or
 the "Turn Off Context Checkpoints" button at the bottom of the Context tab. Both show what changes
-in Claude Code's `settings.json` before anything is written.
+in Claude Code's `settings.json` and, when Codex is wired, Codex's `hooks.json` before anything is
+written.
 
 #### Ask your coding agent
 

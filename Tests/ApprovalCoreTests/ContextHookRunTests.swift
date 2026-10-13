@@ -31,15 +31,19 @@ private struct Sandbox {
   let directory: URL
   let file: URL
 
-  init(contents: String?) throws {
+  init(contents: String?, fileName: String = "settings.json") throws {
     directory = FileManager.default.temporaryDirectory
       .appendingPathComponent("countersign-context-hook-run-\(UUID().uuidString)")
       .resolvingSymlinksInPath()
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-    file = directory.appendingPathComponent("settings.json")
+    file = directory.appendingPathComponent(fileName)
     if let contents {
       try Data(contents.utf8).write(to: file)
     }
+  }
+
+  func location(_ host: ApprovalCore.Host = .claude) -> HookConfigLocation {
+    HookConfigLocation(host: host, directory: directory, file: file)
   }
 
   func remove() {
@@ -60,7 +64,7 @@ private struct Sandbox {
     let sandbox = try Sandbox(contents: permissionOnly)
     defer { sandbox.remove() }
     let preview = ContextHookRun.preview(
-      file: sandbox.file, executablePath: brewPath, enable: true)
+      locations: [sandbox.location()], executablePath: brewPath, enable: true)
     #expect(preview.failures.isEmpty)
     #expect(preview.hasChanges)
     #expect(preview.changedFiles == [sandbox.file])
@@ -74,7 +78,7 @@ private struct Sandbox {
     let sandbox = try Sandbox(contents: nil)
     defer { sandbox.remove() }
     let preview = ContextHookRun.preview(
-      file: sandbox.file, executablePath: brewPath, enable: true)
+      locations: [sandbox.location()], executablePath: brewPath, enable: true)
     #expect(preview.hasChanges)
     #expect(preview.text.contains("--- /dev/null"))
     #expect(sandbox.names.isEmpty)
@@ -84,7 +88,7 @@ private struct Sandbox {
     let sandbox = try Sandbox(contents: permissionOnly)
     defer { sandbox.remove() }
     let preview = ContextHookRun.preview(
-      file: sandbox.file, executablePath: brewPath, enable: false)
+      locations: [sandbox.location()], executablePath: brewPath, enable: false)
     #expect(!preview.hasChanges)
     #expect(preview.failures.isEmpty)
     #expect(preview.text == "\(sandbox.file.path): already up to date\n")
@@ -94,7 +98,7 @@ private struct Sandbox {
     let sandbox = try Sandbox(contents: "not json")
     defer { sandbox.remove() }
     let preview = ContextHookRun.preview(
-      file: sandbox.file, executablePath: brewPath, enable: true)
+      locations: [sandbox.location()], executablePath: brewPath, enable: true)
     #expect(preview.failures.count == 1)
     #expect(preview.failures[0].hasPrefix("\(sandbox.file.path): error: "))
     #expect(!preview.hasChanges)
@@ -105,14 +109,16 @@ private struct Sandbox {
     defer { sandbox.remove() }
     #expect(
       ContextHookRun.apply(
-        file: sandbox.file, executablePath: brewPath, enable: true, now: firstMoment) == nil)
+        locations: [sandbox.location()], executablePath: brewPath, enable: true, now: firstMoment
+      ).isEmpty)
     let enabled = try #require(sandbox.text)
     #expect(enabled != permissionOnly)
     #expect(!ContextHookSetup.entries(in: Array(enabled.utf8)).isEmpty)
     #expect(sandbox.names.count == 2)
     #expect(
       ContextHookRun.apply(
-        file: sandbox.file, executablePath: brewPath, enable: false, now: secondMoment) == nil)
+        locations: [sandbox.location()], executablePath: brewPath, enable: false, now: secondMoment
+      ).isEmpty)
     #expect(sandbox.text == permissionOnly)
     #expect(sandbox.names.count == 3)
   }
@@ -122,11 +128,13 @@ private struct Sandbox {
     defer { sandbox.remove() }
     #expect(
       ContextHookRun.apply(
-        file: sandbox.file, executablePath: brewPath, enable: true, now: firstMoment) == nil)
+        locations: [sandbox.location()], executablePath: brewPath, enable: true, now: firstMoment
+      ).isEmpty)
     let names = sandbox.names
     #expect(
       ContextHookRun.apply(
-        file: sandbox.file, executablePath: brewPath, enable: true, now: secondMoment) == nil)
+        locations: [sandbox.location()], executablePath: brewPath, enable: true, now: secondMoment
+      ).isEmpty)
     #expect(sandbox.names == names)
   }
 
@@ -135,7 +143,8 @@ private struct Sandbox {
     defer { sandbox.remove() }
     #expect(
       ContextHookRun.apply(
-        file: sandbox.file, executablePath: brewPath, enable: true, now: firstMoment) == nil)
+        locations: [sandbox.location()], executablePath: brewPath, enable: true, now: firstMoment
+      ).isEmpty)
     let written = try #require(sandbox.text)
     #expect(ContextHookSetup.entries(in: Array(written.utf8)).count == 2)
     #expect(sandbox.names == ["settings.json"])
@@ -145,8 +154,8 @@ private struct Sandbox {
     let sandbox = try Sandbox(contents: "{ nope")
     defer { sandbox.remove() }
     let line = ContextHookRun.apply(
-      file: sandbox.file, executablePath: brewPath, enable: true, now: firstMoment)
-    #expect(line?.hasPrefix("\(sandbox.file.path): error: ") == true)
+      locations: [sandbox.location()], executablePath: brewPath, enable: true, now: firstMoment)
+    #expect(line.first?.hasPrefix("\(sandbox.file.path): error: ") == true)
     #expect(sandbox.text == "{ nope")
     #expect(sandbox.names == ["settings.json"])
   }
@@ -154,24 +163,27 @@ private struct Sandbox {
   @Test func reportsTheHookStatusOfAFile() throws {
     let sandbox = try Sandbox(contents: permissionOnly)
     defer { sandbox.remove() }
-    #expect(ContextHookRun.status(file: sandbox.file, executablePath: brewPath) == .notWired)
+    #expect(
+      ContextHookRun.status(location: sandbox.location(), executablePath: brewPath) == .notWired)
     _ = ContextHookRun.apply(
-      file: sandbox.file, executablePath: brewPath, enable: true, now: firstMoment)
-    #expect(ContextHookRun.status(file: sandbox.file, executablePath: brewPath) == .wired)
+      locations: [sandbox.location()], executablePath: brewPath, enable: true, now: firstMoment)
+    #expect(ContextHookRun.status(location: sandbox.location(), executablePath: brewPath) == .wired)
     let stale = try #require(sandbox.text).replacingOccurrences(
       of: "\"async\": true,", with: "\"async\": false,")
     try Data(stale.utf8).write(to: sandbox.file)
-    #expect(ContextHookRun.status(file: sandbox.file, executablePath: brewPath) == .needsUpdate)
+    #expect(
+      ContextHookRun.status(location: sandbox.location(), executablePath: brewPath) == .needsUpdate)
     let both = try #require(sandbox.text)
     let promptOnly = try #require(
       try HookSetup.removeEntries(
         from: Array(both.utf8), event: ContextHookSetup.toolEventName))
     try Data(promptOnly).write(to: sandbox.file)
-    #expect(ContextHookRun.status(file: sandbox.file, executablePath: brewPath) == .needsUpdate)
+    #expect(
+      ContextHookRun.status(location: sandbox.location(), executablePath: brewPath) == .needsUpdate)
     try Data("{ nope".utf8).write(to: sandbox.file)
     guard
       case .unusable(let reason) = ContextHookRun.status(
-        file: sandbox.file, executablePath: brewPath)
+        location: sandbox.location(), executablePath: brewPath)
     else {
       Issue.record("expected unusable")
       return
@@ -186,15 +198,89 @@ private struct Sandbox {
   @Test func reportsAMissingFileAsNotWired() throws {
     let sandbox = try Sandbox(contents: nil)
     defer { sandbox.remove() }
-    #expect(ContextHookRun.status(file: sandbox.file, executablePath: brewPath) == .notWired)
+    #expect(
+      ContextHookRun.status(location: sandbox.location(), executablePath: brewPath) == .notWired)
+  }
+
+  @Test func previewsBothDiffsForAClaudeFileAndACodexFile() throws {
+    let claude = try Sandbox(contents: permissionOnly)
+    let codex = try Sandbox(contents: nil, fileName: "hooks.json")
+    defer {
+      claude.remove()
+      codex.remove()
+    }
+    let preview = ContextHookRun.preview(
+      locations: [claude.location(), codex.location(.codex)], executablePath: brewPath,
+      enable: true)
+    #expect(preview.failures.isEmpty)
+    #expect(preview.changedFiles == [claude.file, codex.file])
+    #expect(preview.text.contains(claude.file.path + "\n"))
+    #expect(preview.text.contains("--- /dev/null"))
+    #expect(preview.text.contains(codex.file.path))
+  }
+
+  @Test func enablingWritesCodexEntriesSynchronouslyAndRecordsBothTrustRecords() throws {
+    let claude = try Sandbox(contents: permissionOnly)
+    let codex = try Sandbox(contents: nil, fileName: "hooks.json")
+    defer {
+      claude.remove()
+      codex.remove()
+    }
+    let promptRecord = codex.directory.appendingPathComponent("prompt-trust.json")
+    let toolRecord = codex.directory.appendingPathComponent("tool-trust.json")
+    let failures = ContextHookRun.apply(
+      locations: [claude.location(), codex.location(.codex)], executablePath: brewPath,
+      enable: true, now: firstMoment, codexPromptTrustFile: promptRecord,
+      codexToolTrustFile: toolRecord)
+    #expect(failures.isEmpty)
+    let claudeEntries = ContextHookSetup.entries(in: Array(try #require(claude.text).utf8))
+    let codexEntries = ContextHookSetup.entries(in: Array(try #require(codex.text).utf8))
+    #expect(claudeEntries.count == 2)
+    #expect(codexEntries.count == 2)
+    #expect(codexEntries.allSatisfy { !$0.isAsync })
+    #expect(FileManager.default.fileExists(atPath: promptRecord.path))
+    #expect(FileManager.default.fileExists(atPath: toolRecord.path))
+  }
+
+  @Test func disablingRemovesBothHostsEntries() throws {
+    let claude = try Sandbox(contents: permissionOnly)
+    let codex = try Sandbox(contents: nil, fileName: "hooks.json")
+    defer {
+      claude.remove()
+      codex.remove()
+    }
+    let locations = [claude.location(), codex.location(.codex)]
+    _ = ContextHookRun.apply(
+      locations: locations, executablePath: brewPath, enable: true, now: firstMoment)
+    let failures = ContextHookRun.apply(
+      locations: locations, executablePath: brewPath, enable: false, now: secondMoment)
+    #expect(failures.isEmpty)
+    #expect(ContextHookSetup.entries(in: Array(try #require(claude.text).utf8)).isEmpty)
+    #expect(ContextHookSetup.entries(in: Array(try #require(codex.text).utf8)).isEmpty)
+  }
+
+  @Test func reportsACodexFileWithOnlyThePermissionEntryAsNotWired() throws {
+    let codex = try Sandbox(
+      contents: permissionOnly.replacingOccurrences(of: "--host claude", with: "--host codex"),
+      fileName: "hooks.json")
+    defer { codex.remove() }
+    #expect(
+      ContextHookRun.status(location: codex.location(.codex), executablePath: brewPath)
+        == .notWired)
+    _ = ContextHookRun.apply(
+      locations: [codex.location(.codex)], executablePath: brewPath, enable: true,
+      now: firstMoment)
+    #expect(
+      ContextHookRun.status(location: codex.location(.codex), executablePath: brewPath)
+        == .wired)
   }
 
   @Test func refusesAnExecutableThatIsNotCountersign() throws {
     let sandbox = try Sandbox(contents: permissionOnly)
     defer { sandbox.remove() }
     let line = ContextHookRun.apply(
-      file: sandbox.file, executablePath: "", enable: true, now: firstMoment)
-    #expect(line?.hasPrefix("\(sandbox.file.path): error: ") == true)
+      locations: [sandbox.location()], executablePath: "", enable: true, now: firstMoment)
+    #expect(line.first?.hasPrefix("\(sandbox.file.path): error: ") == true)
     #expect(sandbox.text == permissionOnly)
   }
 }
@@ -259,7 +345,7 @@ private let demoSettings = """
   @Test func contextAndAgentsStatusesAgreeOnTheDemoSettings() throws {
     let sandbox = try Sandbox(contents: demoSettings)
     defer { sandbox.remove() }
-    let context = ContextHookRun.status(file: sandbox.file, executablePath: brewPath)
+    let context = ContextHookRun.status(location: sandbox.location(), executablePath: brewPath)
     let agents = HostWiring.status(
       host: .claude, directoryExists: true,
       file: ConfigFileStore.fileState(sandbox.file), stablePath: brewPath,
@@ -273,7 +359,7 @@ private let demoSettings = """
       of: "/opt/homebrew/bin/countersign", with: "/opt/other/bin/countersign")
     let sandbox = try Sandbox(contents: other)
     defer { sandbox.remove() }
-    let context = ContextHookRun.status(file: sandbox.file, executablePath: brewPath)
+    let context = ContextHookRun.status(location: sandbox.location(), executablePath: brewPath)
     let agents = HostWiring.status(
       host: .claude, directoryExists: true,
       file: ConfigFileStore.fileState(sandbox.file), stablePath: brewPath,

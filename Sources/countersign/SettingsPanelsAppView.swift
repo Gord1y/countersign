@@ -178,10 +178,12 @@ struct PanelsSection: View {
               .labelsHidden()
               .fixedSize()
             }
-            SettingsDivider()
-            ContextToggleRow(model: model)
           }
           .disabled(model.configProblem != nil)
+        }
+        SettingsBlock("Context checkpoints") {
+          ContextToggleRow(model: model)
+            .disabled(model.configProblem != nil)
         }
         SettingsBlock("Try it") {
           TestPanelRow(model: model)
