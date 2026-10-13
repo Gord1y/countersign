@@ -226,6 +226,25 @@ private let codexInstalled = codexEntry("\(brewPath) hook --host codex")
           hashAtWrite: .stored("sha256:old")))
   }
 
+  @Test func addingTheContextEntriesKeepsTheTrustRecordOfAnUnchangedPermissionEntry() throws {
+    let sandbox = try Sandbox()
+    defer { sandbox.remove() }
+    let original = try HookSetup.install(
+      into: nil, host: .codex, executablePath: brewPath, addsWaitingEntry: false)
+    try sandbox.put(String(decoding: original, as: UTF8.self), at: sandbox.codex.file)
+    let trusted = CodexHookTrustRecord(
+      hookKey: "\(sandbox.codex.file.path):permission_request:0:0",
+      command: "\(brewPath) hook --host codex", hashAtWrite: .absent,
+      learnedHash: "sha256:trusted")
+    try CodexHookTrustRecordStore.save(trusted, to: sandbox.codexHookTrustFile)
+    let outcome = sandbox.run(
+      [sandbox.codex], contextCheckpointHosts: [.codex],
+      codexHookTrustFile: sandbox.codexHookTrustFile)
+    #expect(outcome.succeeded)
+    #expect(sandbox.text(of: sandbox.codex.file)?.contains("UserPromptSubmit") == true)
+    #expect(CodexHookTrustRecordStore.load(file: sandbox.codexHookTrustFile) == trusted)
+  }
+
   @Test func installingCodexWithoutItsConfigRecordsNoHashAtWrite() throws {
     let sandbox = try Sandbox()
     defer { sandbox.remove() }

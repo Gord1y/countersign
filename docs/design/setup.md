@@ -287,8 +287,9 @@ Codex runs a new hook only once the person trusts it, so the `Stop` entry has it
 approval entry's record with the key `<hooks.json path>:stop:<group>:<hook>`
 (`CodexHookTrust.current(hooksFileBytes:hooksFilePath:event:label:)`; the label `stop` is Codex's
 snake_case of the event name, confirmed by the record Codex wrote when the entry was trusted). `WaitingHookRun.apply` and `SetupRun` save that
-record whenever they write Codex's file and the `Stop` entry exists afterwards, and delete it
-otherwise. Nothing persists a learned hash for it: `countersign doctor` judges it from what was
+record whenever they write Codex's file and change the `Stop` entry, and delete it when the entry
+is gone afterwards; a write that leaves it as it was keeps the record (see "Who writes the
+record"). Nothing persists a learned hash for it: `countersign doctor` judges it from what was
 stored at write time, so a change of the stored hash still reads as trusted. Turning the
 notices on in Settings for a Codex file that changes adds one sentence to the confirmation: Codex
 then asks you to trust the new Stop hook, in `/hooks` in a Codex session.
@@ -897,8 +898,8 @@ The two context entries have a record each, because a record tracks exactly one 
 entry, key `<hooks.json path>:user_prompt_submit:<group>:<hook>`) and
 `AppPaths.codexContextToolHookTrustFile` (`codex-context-tool-hook-trust.json`, the `PostToolUse`
 entry, label `post_tool_use`). `CodexHookTrust.recordWrittenContext` saves both whenever `SetupRun`
-writes Codex's file, and deletes a record whose entry is absent; `currentContext` finds an event's
-entry. Nothing persists a learned hash for them either, and "Mark as done" does not cover them yet.
+or `ContextHookRun.apply` writes Codex's file and changes that entry (see "Who writes the record"),
+and deletes a record whose entry is absent; `currentContext` finds an event's entry. Nothing persists a learned hash for them either, and "Mark as done" does not cover them yet.
 
 ### Who writes the record
 
@@ -911,6 +912,14 @@ entry. Nothing persists a learned hash for them either, and "Mark as done" does 
   never touches the record during `SetupRun.preview` (`writesFiles: false`) or when the file was
   already up to date. This is what makes clicking Wire or Update, from the terminal or the window,
   put the next step back: the fresh record has seen no trust yet.
+- A write that leaves the record's entry as it was keeps the record as it was
+  (`CodexHookTrust.leavesEntryUnchanged`): our entry is first at the same key before and after,
+  and its group is byte for byte the same. Codex's hash covers the entry's content, so Codex keeps
+  trusting an entry no write touched and `config.toml` never changes; a fresh record would then
+  compare equal to the value it already held and stay pending for good. Adding the context entries
+  on an upgrade, or the `Stop` entry, therefore keeps the approval entry's record, and each record
+  follows only its own entry. The same rule applies wherever a record is written: `SetupRun`,
+  `WaitingHookRun.apply` and `ContextHookRun.apply`.
 - "Mark as done" (`CodexHookTrust.markAsDone`, from `CodexHookTrust.markedRecord`) writes the record
   for the entry Codex's file holds right now, with `markedDone: true`. It keeps `learnedHash` when
   the command is unchanged, and `hashAtWrite` when the key is unchanged too; for an entry that has

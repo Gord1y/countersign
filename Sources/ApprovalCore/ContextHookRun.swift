@@ -87,8 +87,8 @@ public enum ContextHookRun {
         _ = try ConfigFileStore.write(change.updated, to: file, date: now, backingUp: true)
         if location.host == .codex, let codexPromptTrustFile, let codexToolTrustFile {
           CodexHookTrust.recordWrittenContext(
-            change.updated, at: location, promptRecordFile: codexPromptTrustFile,
-            toolRecordFile: codexToolTrustFile)
+            change.updated, replacing: change.original, at: location,
+            promptRecordFile: codexPromptTrustFile, toolRecordFile: codexToolTrustFile)
         }
       } catch {
         failures.append(errorLine(error, in: file))

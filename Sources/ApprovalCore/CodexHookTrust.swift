@@ -106,9 +106,12 @@ public enum CodexHookTrust {
   }
 
   public static func recordWritten(
-    _ written: [UInt8]?, at location: HookConfigLocation, in recordFile: URL,
-    event: String = HookSetup.eventName, label: String = eventLabel
+    _ written: [UInt8]?, replacing original: [UInt8]?, at location: HookConfigLocation,
+    in recordFile: URL, event: String = HookSetup.eventName, label: String = eventLabel
   ) {
+    if let written, leavesEntryUnchanged(original: original, written: written, event: event) {
+      return
+    }
     guard let written,
       let record = writtenRecord(
         hooksFileBytes: written, hooksFilePath: location.file.path,
@@ -124,12 +127,32 @@ public enum CodexHookTrust {
     }
   }
 
+  static func leavesEntryUnchanged(original: [UInt8]?, written: [UInt8], event: String) -> Bool {
+    guard let original,
+      let before = entryGroup(in: original, event: event),
+      let after = entryGroup(in: written, event: event)
+    else { return false }
+    return before.groupIndex == after.groupIndex && before.hookIndex == after.hookIndex
+      && original[before.group.range] == written[after.group.range]
+  }
+
+  private static func entryGroup(in bytes: [UInt8], event: String)
+    -> (group: JSONSpanNode, groupIndex: Int, hookIndex: Int)?
+  {
+    guard let root = try? JSONSpanReader.parse(bytes),
+      let site = HookSetup.sites(in: root, event: event).first,
+      let groups = site.groups.elements, groups.indices.contains(site.groupIndex)
+    else { return nil }
+    return (groups[site.groupIndex], site.groupIndex, site.hookIndex)
+  }
+
   public static func recordWrittenWaiting(
-    _ written: [UInt8]?, at location: HookConfigLocation, in recordFile: URL
+    _ written: [UInt8]?, replacing original: [UInt8]?, at location: HookConfigLocation,
+    in recordFile: URL
   ) {
     recordWritten(
-      written, at: location, in: recordFile, event: WaitingHookSetup.eventName,
-      label: waitingEventLabel)
+      written, replacing: original, at: location, in: recordFile,
+      event: WaitingHookSetup.eventName, label: waitingEventLabel)
   }
 
   public static func currentWaiting(hooksFileBytes: [UInt8], hooksFilePath: String)
@@ -149,15 +172,15 @@ public enum CodexHookTrust {
   }
 
   public static func recordWrittenContext(
-    _ written: [UInt8]?, at location: HookConfigLocation, promptRecordFile: URL,
-    toolRecordFile: URL
+    _ written: [UInt8]?, replacing original: [UInt8]?, at location: HookConfigLocation,
+    promptRecordFile: URL, toolRecordFile: URL
   ) {
     recordWritten(
-      written, at: location, in: promptRecordFile, event: ContextHookSetup.eventName,
-      label: contextEventLabel)
+      written, replacing: original, at: location, in: promptRecordFile,
+      event: ContextHookSetup.eventName, label: contextEventLabel)
     recordWritten(
-      written, at: location, in: toolRecordFile, event: ContextHookSetup.toolEventName,
-      label: contextToolEventLabel)
+      written, replacing: original, at: location, in: toolRecordFile,
+      event: ContextHookSetup.toolEventName, label: contextToolEventLabel)
   }
 
   public static func markedRecord(

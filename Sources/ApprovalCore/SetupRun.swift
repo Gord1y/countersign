@@ -69,9 +69,10 @@ public struct SetupRun {
 
   public mutating func apply(_ location: HookConfigLocation) -> Bool {
     let file = location.file
+    let original: [UInt8]?
     let updated: [UInt8]?
     do {
-      let original = try ConfigFileStore.read(file)
+      original = try ConfigFileStore.read(file)
       updated =
         uninstall
         ? try HookSetup.uninstall(from: original, host: location.host)
@@ -87,14 +88,17 @@ public struct SetupRun {
     if location.host == .codex, writesFiles {
       let written = uninstall ? nil : updated
       if let codexHookTrustFile {
-        CodexHookTrust.recordWritten(written, at: location, in: codexHookTrustFile)
+        CodexHookTrust.recordWritten(
+          written, replacing: original, at: location, in: codexHookTrustFile)
       }
       if let codexWaitingHookTrustFile {
-        CodexHookTrust.recordWrittenWaiting(written, at: location, in: codexWaitingHookTrustFile)
+        CodexHookTrust.recordWrittenWaiting(
+          written, replacing: original, at: location, in: codexWaitingHookTrustFile)
       }
       if let codexContextHookTrustFile, let codexContextToolHookTrustFile {
         CodexHookTrust.recordWrittenContext(
-          written, at: location, promptRecordFile: codexContextHookTrustFile,
+          written, replacing: original, at: location,
+          promptRecordFile: codexContextHookTrustFile,
           toolRecordFile: codexContextToolHookTrustFile)
       }
     }

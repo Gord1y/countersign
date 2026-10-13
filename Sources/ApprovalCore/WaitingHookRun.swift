@@ -77,7 +77,7 @@ public enum WaitingHookRun {
         _ = try ConfigFileStore.write(change.updated, to: file, date: now, backingUp: true)
         if location.host == .codex, let codexWaitingTrustFile {
           CodexHookTrust.recordWrittenWaiting(
-            change.updated, at: location, in: codexWaitingTrustFile)
+            change.updated, replacing: change.original, at: location, in: codexWaitingTrustFile)
         }
       } catch {
         failures.append(errorLine(error, in: file))
