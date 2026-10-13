@@ -74,6 +74,25 @@ to load such a file too. A missing file is "cannot tell" for the verdict; for th
 writes, it means no hash was stored yet, while a file that cannot be read or understood leaves the
 record's hash at write unknown (`CodexHashAtWrite.unread`).
 
+## Codex rollout usage
+
+Codex hooks pass `transcript_path`, the session's rollout file
+(`~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl`). After each model request the rollout records an
+`event_msg` line whose payload is a `token_count` event, carrying `info.total_token_usage`,
+`info.last_token_usage` and `info.model_context_window`. `CodexUsageReader` walks the tail of the
+file backwards and takes the latest such line.
+
+The context size is `info.last_token_usage.input_tokens`, what the latest request sent, so it lags
+one reply like the Claude reading. It is not `total_token_usage.total_tokens`: that total is
+cumulative. Over the captured session's five requests it grew from 20,045 to 101,308 while each
+request's `last_token_usage.input_tokens` stayed about 20,000. The window is
+`info.model_context_window` (258,400 in the capture); a missing or non-positive window means no
+reading.
+
+Captured on Codex 0.162.0 (`codex-tui`); the fixture `codex-rollout-token-count.jsonl` holds two
+of its `token_count` lines unchanged. What a rollout records when Codex compacts the context has
+not been captured yet, so the reader does not handle compaction.
+
 ## Stop hooks
 
 Waiting-agent notices hook each host's end-of-turn event. `WaitingEnvelope` reads only the

@@ -28,7 +28,12 @@ public enum ContextUsageReader {
   static let millionTokenMarker = "[1m]"
 
   public static func read(transcriptURL: URL) -> ContextReading? {
-    guard let handle = try? FileHandle(forReadingFrom: transcriptURL) else { return nil }
+    guard let lines = tailLines(ofFileAt: transcriptURL) else { return nil }
+    return reading(fromLines: lines)
+  }
+
+  static func tailLines(ofFileAt url: URL) -> [Substring]? {
+    guard let handle = try? FileHandle(forReadingFrom: url) else { return nil }
     defer { try? handle.close() }
     guard let size = try? handle.seekToEnd(), size > 0 else { return nil }
 
@@ -37,7 +42,7 @@ public enum ContextUsageReader {
       let tailData = try? handle.readToEnd()
     else { return nil }
 
-    return reading(fromLines: tailLines(from: tailData, startedMidFile: startOffset > 0))
+    return tailLines(from: tailData, startedMidFile: startOffset > 0)
   }
 
   public static func read(
@@ -189,7 +194,7 @@ public enum ContextUsageReader {
       compactionID: compactionID, lastActivity: lastActivity, cacheLifetime: cacheLifetime)
   }
 
-  private static func timestamp(_ text: String?) -> Date? {
+  static func timestamp(_ text: String?) -> Date? {
     guard let text else { return nil }
     let withFraction = ISO8601DateFormatter()
     withFraction.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
