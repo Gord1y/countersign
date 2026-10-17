@@ -104,6 +104,7 @@ public enum ContextCheckpointPlanner {
       previous: previous, settings: ladderSettings, levels: levels)
 
     var state = step.state
+    state.hasMillionTokenWindow = reading.hasMillionTokenWindow
     state.transcriptPath = transcriptPath
     state.project = project
     state.updatedAt = now

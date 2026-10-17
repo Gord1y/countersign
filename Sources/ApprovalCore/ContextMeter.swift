@@ -30,7 +30,7 @@ public enum ContextMeter {
     isLive: (String) -> Bool,
     settings: ContextCheckpointSettings = .default,
     now: Date = Date(),
-    read: (URL) -> ContextReading? = ContextUsageReader.read(transcriptURL:)
+    read: (URL) -> ContextReading? = { ContextUsageReader.read(transcriptURL: $0) }
   ) -> [ContextMeterRow] {
     var rows: [ContextMeterRow] = []
     for sessionID in store.sessionIDs() {

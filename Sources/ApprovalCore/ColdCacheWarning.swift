@@ -25,7 +25,7 @@ public enum ColdCacheWarning {
   public static func candidates(
     store: ContextCheckpointStore, isIdle: (String) -> Bool,
     settings: ContextCheckpointSettings, now: Date,
-    read: (URL) -> ContextReading? = ContextUsageReader.read(transcriptURL:)
+    read: (URL) -> ContextReading? = { ContextUsageReader.read(transcriptURL: $0) }
   ) -> [ColdCacheCandidate] {
     guard settings.enabled, settings.coldCacheCard else { return [] }
     var candidates: [ColdCacheCandidate] = []

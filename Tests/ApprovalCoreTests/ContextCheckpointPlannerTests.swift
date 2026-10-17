@@ -18,6 +18,17 @@ import Testing
     return settings
   }
 
+  @Test(arguments: [true, false])
+  func theStateRecordsTheReadingsWindow(million: Bool) {
+    let reading = ContextReading(
+      tokens: 50_000, modelID: "claude-opus-5-5", hasMillionTokenWindow: million,
+      compactionID: nil)
+    let plan = ContextCheckpointPlanner.plan(
+      reading: reading, previous: .fresh(now: now), settings: settings(mode: .silent),
+      transcriptPath: "/t.jsonl", project: "shop-api", now: now)
+    #expect(plan.state.hasMillionTokenWindow == million)
+  }
+
   @Test func silentModeInjectsTheRenderedNoteOfTheCrossedLevel() {
     let settings = settings(mode: .silent)
     let plan = ContextCheckpointPlanner.plan(

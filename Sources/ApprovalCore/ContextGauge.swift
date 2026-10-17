@@ -27,10 +27,12 @@ public struct ContextGauge: Sendable, Equatable {
     now: Date
   ) -> ContextGauge? {
     guard let tokens = reading?.tokens ?? state?.lastTokens else { return nil }
+    let readingWindow = reading?.hasMillionTokenWindow == true ? true : nil
     let hasMillionWindow =
-      reading?.hasMillionTokenWindow == true
-      || state?.modelID?.contains(ContextUsageReader.millionTokenMarker) == true
-      || tokens > ContextUsageReader.standardWindowTokens
+      tokens > ContextUsageReader.standardWindowTokens
+      || state?.hasMillionTokenWindow ?? readingWindow
+        ?? ContextWindow.hasMillionTokens(
+          modelID: state?.modelID ?? reading?.modelID, tokens: tokens, millionDisabled: false)
     let windowTokens =
       hasMillionWindow
       ? ContextUsageReader.millionWindowTokens : ContextUsageReader.standardWindowTokens
