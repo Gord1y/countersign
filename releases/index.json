@@ -2,6 +2,26 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.4.1",
+      "date": "2026-10-17",
+      "title": "Countersign 0.4.1: checkpoints follow the 1M window again",
+      "summary": "Since Claude Code 2.1.301, sessions on models with a 1M-token window by default, such as Opus 5.5, hit the 200K checkpoints and were told to stop at 160K. Countersign now knows which models default to 1M and uses the 1M checkpoints for them.",
+      "type": "patch",
+      "breaking": false,
+      "highlights": [
+        "1M-window sessions get the 1M checkpoints again"
+      ],
+      "tags": [
+        "claude-code",
+        "context"
+      ],
+      "testedWith": {
+        "claudeCode": "2.1.302",
+        "codex": "0.159.3"
+      },
+      "notes": "releases/release-0.4.1.md"
+    },
+    {
       "version": "0.4.0",
       "date": "2026-10-13",
       "title": "Countersign 0.4.0: a stop checkpoint, cache warnings and checkpoints for Codex",
