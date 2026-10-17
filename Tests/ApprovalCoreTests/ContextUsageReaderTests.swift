@@ -214,6 +214,35 @@ import Testing
     String(try fixtureLines("claude-transcript-usage")[1]) + "\n"
   }
 
+  @Test func defaultMillionIdentityWithoutMarkerMarksTheWindow() throws {
+    let lines =
+      try fixtureLines("claude-transcript-usage")
+      + fixtureLines("claude-transcript-model-default-1m")
+    let reading = ContextUsageReader.reading(fromLines: lines)
+    #expect(reading?.modelID == "claude-opus-5-5")
+    #expect(reading?.tokens == 34400)
+    #expect(reading?.hasMillionTokenWindow == true)
+    let disabled = ContextUsageReader.reading(fromLines: lines, millionDisabled: true)
+    #expect(disabled?.hasMillionTokenWindow == false)
+  }
+
+  @Test func millionDisabledReachesTheFileReads() throws {
+    let contents =
+      try fixtureLines("claude-transcript-model-default-1m")[0] + "\n" + usageRow()
+    let url = try temporaryFile(contents)
+    defer { try? FileManager.default.removeItem(at: url) }
+    #expect(ContextUsageReader.read(transcriptURL: url)?.hasMillionTokenWindow == true)
+    #expect(
+      ContextUsageReader.read(transcriptURL: url, millionDisabled: true)?.hasMillionTokenWindow
+        == false)
+    #expect(
+      ContextUsageReader.read(transcriptURL: url, identity: nil)?.reading.hasMillionTokenWindow
+        == true)
+    #expect(
+      ContextUsageReader.read(transcriptURL: url, identity: nil, millionDisabled: true)?.reading
+        .hasMillionTokenWindow == false)
+  }
+
   @Test func findsAnIdentityRowBeyondTheTail() throws {
     let contents =
       try identityRow(modelID: "claude-opus-5-5[1m]") + paddingRows(bytes: 640_000)

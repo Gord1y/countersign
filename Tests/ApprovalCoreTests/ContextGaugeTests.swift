@@ -40,6 +40,18 @@ import Testing
     #expect(result?.windowTokens == 1_000_000)
   }
 
+  @Test func recordedStandardWindowBeatsTheModelId() {
+    var recorded = state(modelID: "claude-opus-5-5")
+    recorded.hasMillionTokenWindow = false
+    let result = gauge(reading: reading(150_000, modelID: "claude-opus-5-5"), state: recorded)
+    #expect(result?.windowTokens == 200_000)
+  }
+
+  @Test func defaultMillionModelWithoutARecordedWindowGivesMillion() {
+    let result = gauge(reading: nil, state: state(tokens: 150_000, modelID: "claude-opus-5-5"))
+    #expect(result?.windowTokens == 1_000_000)
+  }
+
   @Test func tokensAboveStandardWindowGiveMillion() {
     let result = gauge(reading: reading(200_001))
     #expect(result?.windowTokens == 1_000_000)

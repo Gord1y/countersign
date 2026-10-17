@@ -27,9 +27,9 @@ public enum ContextUsageReader {
   public static let millionWindowTokens = 1_000_000
   static let millionTokenMarker = "[1m]"
 
-  public static func read(transcriptURL: URL) -> ContextReading? {
+  public static func read(transcriptURL: URL, millionDisabled: Bool = false) -> ContextReading? {
     guard let lines = tailLines(ofFileAt: transcriptURL) else { return nil }
-    return reading(fromLines: lines)
+    return reading(fromLines: lines, millionDisabled: millionDisabled)
   }
 
   static func tailLines(ofFileAt url: URL) -> [Substring]? {
@@ -46,7 +46,8 @@ public enum ContextUsageReader {
   }
 
   public static func read(
-    transcriptURL: URL, identity cached: ContextModelIdentity?, chunkBytes: Int = tailBytes
+    transcriptURL: URL, identity cached: ContextModelIdentity?, chunkBytes: Int = tailBytes,
+    millionDisabled: Bool = false
   ) -> (reading: ContextReading, identity: ContextModelIdentity)? {
     guard let handle = try? FileHandle(forReadingFrom: transcriptURL) else { return nil }
     defer { try? handle.close() }
@@ -59,7 +60,7 @@ public enum ContextUsageReader {
     else { return nil }
 
     let lines = tailLines(from: tailData, startedMidFile: startOffset > 0)
-    if reading(fromLines: lines) != nil {
+    if reading(fromLines: lines, millionDisabled: millionDisabled) != nil {
       var resolvedModelID = latestIdentityModelID(in: lines)
       if resolvedModelID == nil {
         let scanEnd =
@@ -71,7 +72,10 @@ public enum ContextUsageReader {
             handle: handle, from: scanEnd, downTo: usableCache?.scannedThrough ?? 0,
             chunkBytes: max(chunkBytes, 1)) ?? usableCache?.modelID
       }
-      guard let resolved = reading(fromLines: lines, identityFallback: resolvedModelID) else {
+      guard
+        let resolved = reading(
+          fromLines: lines, identityFallback: resolvedModelID, millionDisabled: millionDisabled)
+      else {
         return nil
       }
       return (resolved, ContextModelIdentity(modelID: resolvedModelID, scannedThrough: size))
@@ -83,7 +87,10 @@ public enum ContextUsageReader {
     }
     let wholeLines = tailLines(from: wholeData, startedMidFile: false)
     let wholeModelID = latestIdentityModelID(in: wholeLines) ?? usableCache?.modelID
-    guard let wholeReading = reading(fromLines: wholeLines, identityFallback: wholeModelID) else {
+    guard
+      let wholeReading = reading(
+        fromLines: wholeLines, identityFallback: wholeModelID, millionDisabled: millionDisabled)
+    else {
       return nil
     }
     return (wholeReading, ContextModelIdentity(modelID: wholeModelID, scannedThrough: size))
@@ -133,9 +140,9 @@ public enum ContextUsageReader {
     return nil
   }
 
-  static func reading(fromLines lines: [Substring], identityFallback: String? = nil)
-    -> ContextReading?
-  {
+  static func reading(
+    fromLines lines: [Substring], identityFallback: String? = nil, millionDisabled: Bool = false
+  ) -> ContextReading? {
     var identityModelID: String?
     var compactionID: String?
     var sawBoundary = false
@@ -187,8 +194,8 @@ public enum ContextUsageReader {
       return nil
     }
 
-    let hasMillionTokenWindow =
-      modelID?.contains(millionTokenMarker) == true || tokens > standardWindowTokens
+    let hasMillionTokenWindow = ContextWindow.hasMillionTokens(
+      modelID: modelID, tokens: tokens, millionDisabled: millionDisabled)
     return ContextReading(
       tokens: tokens, modelID: modelID, hasMillionTokenWindow: hasMillionTokenWindow,
       compactionID: compactionID, lastActivity: lastActivity, cacheLifetime: cacheLifetime)
