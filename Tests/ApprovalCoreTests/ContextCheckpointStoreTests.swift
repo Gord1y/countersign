@@ -26,12 +26,22 @@ import Testing
     state.modelID = "claude-opus-5-5[1m]"
     state.modelIdentity = ContextModelIdentity(
       modelID: "claude-opus-5-5[1m]", scannedThrough: 812_345)
+    state.hasMillionTokenWindow = true
     state.muted = true
     state.transcriptPath = "/tmp/t.jsonl"
     state.project = "demo"
     state.pendingProcessID = 4242
     try store.save(state, sessionID: sessionID)
     #expect(store.load(sessionID: sessionID) == state)
+  }
+
+  @Test func stateWithoutTheWindowFlagLoadsWithNil() throws {
+    let directory = try makeDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = ContextCheckpointStore(directory: directory)
+    try Data(#"{"peakTokens":5,"updatedAt":"2027-01-15T08:00:00Z"}"#.utf8)
+      .write(to: directory.appendingPathComponent("\(sessionID).json"))
+    #expect(store.load(sessionID: sessionID)?.hasMillionTokenWindow == nil)
   }
 
   @Test func stateWithoutOrWithBadModelIdentityLoadsWithNil() throws {

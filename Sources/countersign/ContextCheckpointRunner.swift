@@ -41,7 +41,9 @@ enum ContextCheckpointRunner {
     guard let transcriptPath = checkpointInput.transcriptPath,
       let (reading, modelIdentity) = ContextUsageReader.read(
         transcriptURL: URL(fileURLWithPath: transcriptPath),
-        identity: store.load(sessionID: sessionID)?.modelIdentity)
+        identity: store.load(sessionID: sessionID)?.modelIdentity,
+        millionDisabled: ContextWindow.isMillionDisabled(
+          environment: ProcessInfo.processInfo.environment))
     else {
       log.write("context: no reading")
       exit(0)
@@ -135,7 +137,9 @@ enum ContextCheckpointRunner {
     guard let transcriptPath = checkpointInput.transcriptPath,
       let (reading, modelIdentity) = ContextUsageReader.read(
         transcriptURL: URL(fileURLWithPath: transcriptPath),
-        identity: store.load(sessionID: sessionID)?.modelIdentity)
+        identity: store.load(sessionID: sessionID)?.modelIdentity,
+        millionDisabled: ContextWindow.isMillionDisabled(
+          environment: ProcessInfo.processInfo.environment))
     else {
       exit(0)
     }

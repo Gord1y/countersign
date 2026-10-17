@@ -58,10 +58,23 @@ row, both `lastActivity` and `cacheLifetime` are `nil`: the compacted context ha
 yet as far as the transcript shows.
 
 The model comes from the latest `attachment` row whose `attachment.type` is `model`, read from
-`attachment.identity.modelId`. A `[1m]` suffix on that id means a 1M-token window. Assistant rows
-carry `message.model` without the suffix, so it is only a fallback for the name and never proves
-the window size. Since a session can hold more than 200K tokens only with the 1M window, a size
-above 200,000 also counts as a 1M window when no identity says so.
+`attachment.identity.modelId`. Assistant rows carry `message.model` without any suffix, so it is
+only a fallback for the name and never proves the window size. The window is decided by
+`ContextWindow.hasMillionTokens`, in this order:
+
+1. A size above 200,000 tokens is 1M: only a 1M window can hold it.
+2. `CLAUDE_CODE_DISABLE_1M_CONTEXT` set to `1`, `true` or `yes` (the hook reads its own
+   environment) forces 200K.
+3. No model id means 200K: an unknown model keeps the smaller window.
+4. A `[1m]` suffix on the id means 1M.
+5. A model that predates the 1M default means 200K. The list is closed: every `claude-3` and
+   older id, `claude-instant`, Sonnet 4 and 4.x, Haiku 4 and 4.x, Opus 4 and Opus 4.1 to 4.6
+   (also as Bedrock or Vertex ids and with a date suffix).
+6. Everything else is 1M: Opus 4.7 and later, every Claude 5 model, Fable, and ids not yet known.
+
+Claude Code 2.1.301 stopped writing `[1m]` for the models whose default window is 1M, so the marker
+alone misread a live Opus 5.5 session of 1M as 200K and ran it up the 200K ladder. `[1m]` is still
+written, and still needed, for Opus 4.6 and Sonnet 4.6.
 
 Claude Code writes that identity row at session start and on a model switch only, so in a long
 session it is older than the last 512 KiB and the tail cannot see it. Reading only the tail then
@@ -107,7 +120,7 @@ The user chose these ladders on 2026-10-13: the 1M stop sits at 60% of the windo
 ladder was re-spaced (it used to be 100,000 / 130,000 / 160,000) so that all four rungs fit.
 
 A `modelThresholds` entry maps a model-id prefix to a ladder. The longest matching prefix wins,
-and it beats both defaults. Model ids may carry a `[1m]` suffix (`claude-opus-5-5[1m]`), and a
+and it beats both defaults. Model ids carry a `[1m]` suffix only on models whose default window is 200K (`claude-opus-4-6[1m]`), and a
 prefix may include it, so one model can have a different ladder with and without the suffix.
 
 Each level fires at most once per session. When a reading jumps over several thresholds, only the
@@ -153,9 +166,11 @@ Each live session is read fresh from its stored `transcriptPath` with `ContextUs
 the stored `lastTokens` is only as new as the last prompt. If the transcript cannot be read, the
 row falls back to `lastTokens`. The row title is `<project> · <size> tokens · <percent>%`, with
 `Claude Code` when no project was stored, followed by the cache warmth (see "Cache warmth"). The
-percent is the size over the window: 1M when the fresh reading says so, when the stored `modelID`
-carries `[1m]` (the hook keeps the identity-resolved id, which the tail read alone can miss) or
-when the size is above 200,000; otherwise 200K. Rows are sorted by tokens, largest first, capped
+percent is the size over the window: 1M when the size is above 200,000, otherwise the window the
+hook recorded in the state (`hasMillionTokenWindow`), because the app cannot see the hook's
+environment and so cannot know about `CLAUDE_CODE_DISABLE_1M_CONTEXT`. Without a recorded window,
+1M when the fresh reading says so or when the stored `modelID` calls for it (the hook keeps the
+identity-resolved id, which the tail read alone can miss); otherwise 200K. Rows are sorted by tokens, largest first, capped
 at eight. The read happens only when the menu opens; nothing polls, and the icon timer never
 reads transcripts.
 

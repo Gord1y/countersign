@@ -483,7 +483,10 @@ but two: `enabled` is the switch in Settings ▸ Panels, and `hosts` is set in t
 
 - `enabled`: `true` or `false`. Default `true`.
 - `mode`: `"panel"` asks you in a panel, `"silent"` only adds the note. Default `"panel"`.
-- `thresholds`: the checkpoints, in tokens, by context window. `200k` defaults to
+- `thresholds`: the checkpoints, in tokens, by context window. The `1m` ladder applies to models
+  whose default window is 1M (Opus 4.7 and later, every Claude 5 model) and to any model id with
+  `[1m]`; the `200k` ladder applies to older models, an unknown model, or when
+  `CLAUDE_CODE_DISABLE_1M_CONTEXT` is set. `200k` defaults to
   `[100000, 120000, 140000, 160000]` and `1m` to `[200000, 300000, 400000, 600000]`. Each is three
   or four whole numbers of 1 or more, strictly ascending. The fourth is the stop: there Countersign
   tells Claude, without asking and in either mode, to stop, collect what its subagents have found,
