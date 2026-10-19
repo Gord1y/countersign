@@ -1316,7 +1316,7 @@ private final class DisplayWatch: NSObject {
   private func handleStepAside(_ reason: StepAsideReason) {
     guard case .shown(let controller) = state else { return }
     closeShownPanel(controller)
-    waitAfterStepAside(reason.rawValue)
+    waitAfterStepAside(reason.logText)
   }
 
   private func waitAfterStepAside(_ reason: String) {

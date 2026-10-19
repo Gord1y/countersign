@@ -18,10 +18,21 @@ struct PanelKeyHandler {
   let perform: (PanelKey) -> Void
 }
 
-enum StepAsideReason: String {
-  case appSwitch = "app switch"
-  case focusLost = "focus lost"
+enum StepAsideReason: Sendable, Equatable {
+  case appSwitch(to: String?)
+  case focusLost(frontmost: String?)
   case typing
+
+  var logText: String {
+    switch self {
+    case .appSwitch(let bundleID):
+      return bundleID.map { "app switch to \($0)" } ?? "app switch"
+    case .focusLost(let bundleID):
+      return bundleID.map { "focus lost, \($0) frontmost" } ?? "focus lost"
+    case .typing:
+      return "typing"
+    }
+  }
 }
 
 @MainActor
@@ -479,7 +490,10 @@ final class PanelController {
       let activated =
         notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
       let activatedProcess = activated?.processIdentifier
-      MainActor.assumeIsolated { self?.stepAsideIfAnotherApp(activatedProcess) }
+      let activatedBundleID = activated?.bundleIdentifier
+      MainActor.assumeIsolated {
+        self?.stepAsideIfAnotherApp(activatedProcess, bundleID: activatedBundleID)
+      }
     }
   }
 
@@ -494,10 +508,10 @@ final class PanelController {
     workspaceObserver = nil
   }
 
-  private func stepAsideIfAnotherApp(_ activatedProcess: pid_t?) {
+  private func stepAsideIfAnotherApp(_ activatedProcess: pid_t?, bundleID: String?) {
     guard let activatedProcess, activatedProcess != ProcessInfo.processInfo.processIdentifier
     else { return }
-    stepAside(.appSwitch)
+    stepAside(.appSwitch(to: bundleID))
   }
 
   private func checkFocusOnNextTurn() {
@@ -509,7 +523,7 @@ final class PanelController {
   private func stepAsideIfFocusLost() {
     let ownsKeyWindow = NSApplication.shared.windows.contains { $0.isKeyWindow }
     guard !ownsKeyWindow else { return }
-    stepAside(.focusLost)
+    stepAside(.focusLost(frontmost: NSWorkspace.shared.frontmostApplication?.bundleIdentifier))
   }
 
   private func stepAside(_ reason: StepAsideReason) {

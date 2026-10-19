@@ -69,7 +69,7 @@ enum PreviewCommand {
         exit(0)
       },
       onStepAside: { reason in
-        print("stepped aside: \(reason.rawValue)")
+        print("stepped aside: \(reason.logText)")
         exit(0)
       })
     app.show(controller)

@@ -67,9 +67,11 @@ A ⌘-Tab usually fires both of the first two. Whichever AppKit delivers first n
 the log, and the second finds the panel already gone.
 
 Stepping aside is the snooze path without quiet time. `PanelController` calls its `onStepAside`
-closure, and `DisplayWatch` closes the controller, logs `stepped aside: app switch`,
-`stepped aside: focus lost` or `stepped aside: typing` and then `waiting for idle`, and returns to
-`waitingForIdle` with the same ticket and lease. The request keeps its place at the head of the
+closure, and `DisplayWatch` closes the controller, logs `stepped aside: app switch to <bundle id>`,
+`stepped aside: focus lost, <bundle id> frontmost` or `stepped aside: typing` and then
+`waiting for idle`, and returns to `waitingForIdle` with the same ticket and lease. The bundle id
+names the app that took over, so a log shows which app keeps pulling panels away; without one the
+line ends at `app switch` or `focus lost`. The request keeps its place at the head of the
 queue and comes back as a new `PanelController`, armed from zero, after the next idle pause, with
 the person's draft restored (see "What comes back" below). The
 idle gate counts the ⌘ still held on the switcher, the typing that caused the step-aside, and the
