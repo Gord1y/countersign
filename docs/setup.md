@@ -70,7 +70,8 @@ line for Cursor or Antigravity (see [agents.md](agents.md)).
 
 With a Homebrew install, the window's **App** group also offers to copy Countersign.app into
 `~/Applications`, so Spotlight and Launchpad find it. The menu-bar app keeps it current at
-Homebrew's version after `brew upgrade`.
+Homebrew's version after `brew upgrade`. If `brew upgrade` refuses to load the formula from an
+untrusted tap, see [troubleshooting](troubleshooting.md#homebrew-refuses-the-countersign-formula).
 
 ## From the terminal
 
