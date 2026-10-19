@@ -23,7 +23,7 @@ testedWith:
 - **Choose what each checkpoint offers.** Settings ▸ Context has a row per checkpoint with
   Compact, Hand off, Continue and Not this session, and a Highlighted menu for the one Return
   picks. In `config.json` this is `contextCheckpoints.choices`. By default the first checkpoint
-  offers Compact, Continue and Not this session, and the second Hand off, Compact and Continue.
+  offers Continue, Compact and Not this session, and the second Hand off, Compact and Continue.
   Not this session is off the second by default, so an answer there can never mute the stop.
 - **A compaction limit.** Countersign counts how often a session has been compacted. Once it
   reaches **Compactions before hand-off only** (`maxCompactions`, default 5), a checkpoint no

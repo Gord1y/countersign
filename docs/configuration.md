@@ -503,7 +503,7 @@ but two: `enabled` is the switch in Settings ▸ Panels, and `hosts` is set in t
 - `choices`: an object with `soft`, `status` and `insist`, each a list of 1 to 4 different names
   from `"compact"`, `"handoff"`, `"continue"` and `"mute"` (`"mute"` is Not this session): the
   choices that checkpoint's panel shows. The first is highlighted, so Return picks it. Defaults:
-  `soft` is `["compact", "continue", "mute"]`; `status` and `insist` are
+  `soft` is `["continue", "compact", "mute"]`; `status` and `insist` are
   `["handoff", "compact", "continue"]`. `insist` is used only with a four-number ladder. When
   `maxCompactions` is passed, `"compact"` is left out, and a list that held only it becomes
   `["handoff", "continue"]`. The stop checkpoint never shows a panel. Claude Code only.

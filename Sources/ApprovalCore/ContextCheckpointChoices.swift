@@ -12,7 +12,7 @@ public struct ContextCheckpointChoices: Sendable, Equatable {
   public static let maximumCount = 4
 
   public static let `default` = ContextCheckpointChoices(
-    soft: [.compactAfterStep, .continueWorking, .notThisSession],
+    soft: [.continueWorking, .compactAfterStep, .notThisSession],
     status: [.handOff, .compactAfterStep, .continueWorking],
     insist: [.handOff, .compactAfterStep, .continueWorking])
 

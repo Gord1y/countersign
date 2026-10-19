@@ -89,7 +89,7 @@ import Testing
       Issue.record("expected a panel")
       return
     }
-    #expect(prompt.choices == [.compactAfterStep, .continueWorking, .notThisSession])
+    #expect(prompt.choices == [.continueWorking, .compactAfterStep, .notThisSession])
     #expect(prompt.compactions == 2)
     #expect(prompt.maxCompactions == 5)
   }

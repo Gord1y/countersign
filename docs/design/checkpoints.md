@@ -246,7 +246,7 @@ in, as `additionalContext` (the exact JSON is in "A context checkpoint" in
 
 Each level's panel offers its own configured list (`choices.soft`, `choices.status`,
 `choices.insist`), and the first in the list is the highlighted one, so Return picks it. The
-defaults are `soft` Compact, Continue, Not this session; `status` and `insist` Hand off, Compact,
+defaults are `soft` Continue, Compact, Not this session; `status` and `insist` Hand off, Compact,
 Continue. **Not this session** is off the second checkpoint by default so that an answer there can
 never mute the session before the stop, which would otherwise never fire (the owner's call,
 2026-10-19). `ContextCheckpointChoices.offered` builds the list a prompt carries.

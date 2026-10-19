@@ -6,7 +6,7 @@ import Testing
   private let choices = ContextCheckpointChoices.default
 
   @Test func defaultsPerLevel() {
-    #expect(choices.list(for: .soft) == [.compactAfterStep, .continueWorking, .notThisSession])
+    #expect(choices.list(for: .soft) == [.continueWorking, .compactAfterStep, .notThisSession])
     #expect(choices.list(for: .status) == [.handOff, .compactAfterStep, .continueWorking])
     #expect(choices.list(for: .insist) == [.handOff, .compactAfterStep, .continueWorking])
   }
@@ -20,7 +20,7 @@ import Testing
   @Test func compactIsOfferedBelowTheLimit() {
     #expect(
       choices.offered(at: .soft, compactions: 4, maxCompactions: 5)
-        == [.compactAfterStep, .continueWorking, .notThisSession])
+        == [.continueWorking, .compactAfterStep, .notThisSession])
   }
 
   @Test(arguments: [5, 6, 50])
@@ -75,7 +75,7 @@ import Testing
 
   @Test func listTextsAreShort() {
     #expect(
-      PreferenceReset.choicesText(choices.soft) == "Compact, Continue, Not this session")
+      PreferenceReset.choicesText(choices.soft) == "Continue, Compact, Not this session")
     #expect(PreferenceReset.choicesText(choices.status) == "Hand off, Compact, Continue")
   }
 }

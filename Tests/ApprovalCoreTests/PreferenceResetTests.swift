@@ -133,7 +133,7 @@ import Testing
     #expect(PreferenceReset.valueText(.contextMaxCompactions, in: values) == "5")
     #expect(
       PreferenceReset.valueText(.contextSoftChoices, in: values)
-        == "Compact, Continue, Not this session")
+        == "Continue, Compact, Not this session")
     #expect(
       PreferenceReset.valueText(.contextStatusChoices, in: values) == "Hand off, Compact, Continue")
     #expect(PreferenceName.contextMaxCompactions.defaultText == "5")
