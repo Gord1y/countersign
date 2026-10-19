@@ -44,6 +44,8 @@ final class PanelModel {
   let escapeKeepsWaiting: Bool
   let alwaysAllowOffer: AlwaysAllowOffer?
   let dropdown: PanelDropdownState
+  let draft: PanelDraft
+  private(set) var isOnScreen = false
   private(set) var hasStartedArming = false
   private(set) var isArmed = false
   private var hasFinished = false
@@ -69,7 +71,8 @@ final class PanelModel {
     sessionIdle: Bool = false,
     escapeKeepsWaiting: Bool = false,
     alwaysAllowOffer: AlwaysAllowOffer? = nil,
-    openDropdownOnAppear: PanelDropdownID? = nil
+    openDropdownOnAppear: PanelDropdownID? = nil,
+    draft: PanelDraft? = nil
   ) {
     self.request = request
     self.alwaysAllowOffer = alwaysAllowOffer
@@ -83,6 +86,7 @@ final class PanelModel {
     self.chatTrackingDrift = chatTrackingDrift
     self.isTestPanel = isTestPanel
     self.dropdown = PanelDropdownState(requestedOnAppear: openDropdownOnAppear)
+    self.draft = draft ?? PanelDraft(request: request, modeAfterPlan: modeAfterPlan)
     self.fileDiffs = FileDiffBuilder.load(for: request)
     self.subagentChain = subagentChain
     self.contextGauge = contextGauge
@@ -91,6 +95,24 @@ final class PanelModel {
 
   func startArming() {
     hasStartedArming = true
+  }
+
+  func markOnScreen() {
+    isOnScreen = true
+  }
+
+  func markOffScreen() {
+    isOnScreen = false
+  }
+
+  func noteFocus(_ field: PanelDraftField?) {
+    guard isOnScreen else { return }
+    draft.focusedField = field
+  }
+
+  func noteScrollOffset(_ offset: CGFloat) {
+    guard isOnScreen else { return }
+    draft.scrollOffset = offset
   }
 
   func arm() {
@@ -159,6 +181,7 @@ final class PanelController {
     subagentChain: [SubagentChainLink]? = nil,
     contextGauge: ContextGauge? = nil,
     isTestPanel: Bool = false,
+    draft: PanelDraft? = nil,
     handoffBackdrop: BackdropWindow? = nil,
     afterHandoff: Bool = false,
     onFinish: @escaping @MainActor (ApprovalOutcome) -> Void,
@@ -182,7 +205,7 @@ final class PanelController {
       chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
       contextGauge: contextGauge, isTestPanel: isTestPanel, sessionIdle: sessionIdle,
       escapeKeepsWaiting: escapeKeepsWaiting,
-      alwaysAllowOffer: alwaysAllowOffer)
+      alwaysAllowOffer: alwaysAllowOffer, draft: draft)
     CountersignPalette.use(accentColor)
     let panel = ApprovalPanel()
     panel.appearance = appearance.windowAppearance
@@ -239,6 +262,7 @@ final class PanelController {
     panel.orderFrontRegardless()
     panel.makeKey()
     panel.makeFirstResponder(nil)
+    model.markOnScreen()
     isPresented = true
     installKeyMonitor()
     installStepAsideTriggers()
@@ -319,6 +343,7 @@ final class PanelController {
   }
 
   private func stopResponding() {
+    model.markOffScreen()
     isPresented = false
     armTask?.cancel()
     removeStepAsideTriggers()

@@ -70,10 +70,47 @@ Stepping aside is the snooze path without quiet time. `PanelController` calls it
 closure, and `DisplayWatch` closes the controller, logs `stepped aside: app switch`,
 `stepped aside: focus lost` or `stepped aside: typing` and then `waiting for idle`, and returns to
 `waitingForIdle` with the same ticket and lease. The request keeps its place at the head of the
-queue and comes back as a new `PanelController`, armed from zero, after the next idle pause. The
+queue and comes back as a new `PanelController`, armed from zero, after the next idle pause, with
+the person's draft restored (see "What comes back" below). The
 idle gate counts the ⌘ still held on the switcher, the typing that caused the step-aside, and the
 pointer moving in the other app (see "Waiting for a pause before showing"), so the panel comes back
 only once the person has stopped. `preview` prints `stepped aside: <reason>` and exits instead.
+
+#### What comes back
+
+Another app taking the keyboard is not the person giving up on the request: a dev build relaunching
+itself, or any app that activates on its own, steps the panel aside in the middle of a sentence.
+The step-aside itself stays (other apps may take the keyboard), but nothing the person did on the
+panel is lost. Everything they typed, picked or moved to lives in a `PanelDraft`, not in view
+`@State`: `DisplayWatch` owns one per request (`lazy var draft`) and hands it to every
+`PanelController` it builds for that request, so it survives every way a panel leaves the screen
+and comes back in the same hook process: a step-aside, quiet time, a snooze, Later and the card's
+Show, and a warm-standby panel built for the request. The draft holds:
+
+- Permission: the footer step (deny or not), the reason, and the gaps revealed in each file's diff.
+- Plan: the "then:" mode, whether the feedback step is open, and the feedback.
+- Questions: every answer (picks, Your own answer, notes), the open tab, which notes are expanded,
+  and the last clicked option of a multi-select question, which picks the preview.
+- Context checkpoint: the highlighted choice.
+- The text field being edited and the body's scroll offset.
+
+An open dropdown is not kept: it is a moment's choice, and a panel that comes back with a menu open
+would take Return for the menu.
+
+The field and the scroll offset come back once the panel is on screen. `PanelModel.isOnScreen` turns
+true in `show()`, after `makeFirstResponder(nil)`, and each view's `onChange` of it focuses the
+draft's field; `PanelScaffold` scrolls its `ScrollViewReader` to the content with an anchor of
+offset ÷ (content height − visible height), which puts the content back at the same offset. Without
+the field coming back, the first plain key after the panel returns would step it aside again and be
+swallowed. Keys typed into the field during the arm lock go into the field, as on any focused field;
+Return and Esc stay locked. Writes to the field and the offset go through `PanelModel.noteFocus` and
+`noteScrollOffset`, which do nothing while the panel is off screen: a warm-standby panel lays out at
+offset 0 long before it shows, and a panel on its way out can lose its field, and neither may
+overwrite what the person left. Text, picks and steps change only through the person's own input, so
+they are written straight to the draft.
+
+The draft lives in the hook process, so a request that comes back in a new process starts empty;
+none does today.
 
 #### Later
 
@@ -1193,7 +1230,8 @@ field, which would swallow every digit and arrow key meant for answering questio
 turn every plain key into typing in that field instead of a step-aside. With it, the panel itself
 holds first responder: the probe read `ApprovalPanel` at show, one second later, and again after a
 forced second `makeKey()`, for both a permission and a question panel. The key monitor's keys work as soon as the panel is armed, and a text field gets
-focus only when the person clicks into it or when the deny or feedback state opens.
+focus only when the person clicks into it, when the deny or feedback state opens, or when a panel
+that stepped aside comes back with that field being edited (see "What comes back").
 
 ### Other is selected by focus, not by typing
 

@@ -6,13 +6,9 @@ struct ContextCheckpointView: View {
   let prompt: ContextCheckpointPrompt
   let availableHeight: CGFloat
 
-  @State private var highlighted: ContextCheckpointChoice
-
-  init(model: PanelModel, prompt: ContextCheckpointPrompt, availableHeight: CGFloat) {
-    self.model = model
-    self.prompt = prompt
-    self.availableHeight = availableHeight
-    _highlighted = State(initialValue: ContextCheckpointChoice.highlighted(for: prompt.level))
+  private var highlighted: ContextCheckpointChoice {
+    get { model.draft.checkpointChoice }
+    nonmutating set { model.draft.checkpointChoice = newValue }
   }
 
   private static let choices = ContextCheckpointChoice.allCases

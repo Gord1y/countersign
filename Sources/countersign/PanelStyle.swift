@@ -379,6 +379,13 @@ extension View {
   }
 }
 
+private struct PanelScrollOffsetPreferenceKey: PreferenceKey {
+  static var defaultValue: CGFloat { 0 }
+  static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+    value = nextValue()
+  }
+}
+
 struct PanelScaffold<Body: View, Footer: View>: View {
   let model: PanelModel
   let availableHeight: CGFloat
@@ -389,6 +396,9 @@ struct PanelScaffold<Body: View, Footer: View>: View {
   @State private var footerHeight: CGFloat = 0
   @State private var armProgress: CGFloat = 0
   @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+  private static var scrollSpace: String { "panelScroll" }
+  private static var scrolledContentID: String { "panelScrolledContent" }
 
   init(
     model: PanelModel,
@@ -409,12 +419,31 @@ struct PanelScaffold<Body: View, Footer: View>: View {
 
   var body: some View {
     VStack(spacing: 0) {
-      ScrollView(.vertical) {
-        content
-          .padding(PanelMetrics.padding)
-          .frame(maxWidth: .infinity, alignment: .leading)
-          .fixedSize(horizontal: false, vertical: true)
-          .reportHeight { bodyHeight = $0 }
+      ScrollViewReader { proxy in
+        ScrollView(.vertical) {
+          content
+            .padding(PanelMetrics.padding)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .reportHeight { bodyHeight = $0 }
+            .background(
+              GeometryReader { geometry in
+                Color.clear.preference(
+                  key: PanelScrollOffsetPreferenceKey.self,
+                  value: -geometry.frame(in: .named(Self.scrollSpace)).minY)
+              }
+            )
+            .id(Self.scrolledContentID)
+        }
+        .coordinateSpace(name: Self.scrollSpace)
+        .onPreferenceChange(PanelScrollOffsetPreferenceKey.self) { offset in
+          model.noteScrollOffset(offset)
+        }
+        .onChange(of: model.isOnScreen) { _, isOnScreen in
+          if isOnScreen {
+            restoreScrollOffset(with: proxy)
+          }
+        }
       }
       .frame(minHeight: scrollHeight, maxHeight: scrollHeight)
       .frame(maxHeight: .infinity, alignment: .top)
@@ -433,6 +462,13 @@ struct PanelScaffold<Body: View, Footer: View>: View {
         startArmProgressIfNeeded()
       }
     }
+  }
+
+  private func restoreScrollOffset(with proxy: ScrollViewProxy) {
+    let offset = model.draft.scrollOffset
+    let travel = bodyHeight - scrollHeight
+    guard offset > 0, travel > 0 else { return }
+    proxy.scrollTo(Self.scrolledContentID, anchor: UnitPoint(x: 0, y: min(offset / travel, 1)))
   }
 
   @ViewBuilder

@@ -63,17 +63,12 @@ struct OptionCard<Content: View>: View {
   }
 }
 
-private enum QuestionField: Hashable {
-  case other(Int)
-  case notes(Int)
-}
-
 private struct OtherCard: View {
   let selected: Bool
   let multiSelect: Bool
   @Binding var text: String
-  let focus: FocusState<QuestionField?>.Binding
-  let field: QuestionField
+  let focus: FocusState<PanelDraftField?>.Binding
+  let field: PanelDraftField
   let onFocusChange: (Bool) -> Void
 
   @State private var isHovering = false
@@ -108,18 +103,27 @@ struct QuestionView: View {
   let questions: [Question]
   let availableHeight: CGFloat
 
-  @State private var answers: [QuestionAnswer]
-  @State private var selectedIndex = 0
-  @State private var lastClickedOptionIndex: [Int: Int] = [:]
-  @State private var notesExpanded: [Int: Bool] = [:]
   @State private var contentWidth: CGFloat = 0
-  @FocusState private var focusedField: QuestionField?
+  @FocusState private var focusedField: PanelDraftField?
 
-  init(model: PanelModel, questions: [Question], availableHeight: CGFloat) {
-    self.model = model
-    self.questions = questions
-    self.availableHeight = availableHeight
-    _answers = State(initialValue: questions.map { _ in QuestionAnswer() })
+  private var answers: [QuestionAnswer] {
+    get { model.draft.questionAnswers }
+    nonmutating set { model.draft.questionAnswers = newValue }
+  }
+
+  private var selectedIndex: Int {
+    get { model.draft.questionTab }
+    nonmutating set { model.draft.questionTab = newValue }
+  }
+
+  private var lastClickedOptionIndex: [Int: Int] {
+    get { model.draft.questionLastClickedOption }
+    nonmutating set { model.draft.questionLastClickedOption = newValue }
+  }
+
+  private var notesExpanded: [Int: Bool] {
+    get { model.draft.questionNotesExpanded }
+    nonmutating set { model.draft.questionNotesExpanded = newValue }
   }
 
   private var allAnswered: Bool {
@@ -159,6 +163,14 @@ struct QuestionView: View {
     .onAppear { model.keyHandler = PanelKeyHandler(uses: usesKey, perform: handleKey) }
     .onChange(of: selectedIndex) {
       focusedField = nil
+    }
+    .onChange(of: model.isOnScreen) { _, isOnScreen in
+      if isOnScreen {
+        focusedField = model.draft.focusedField
+      }
+    }
+    .onChange(of: focusedField) { _, field in
+      model.noteFocus(field)
     }
   }
 

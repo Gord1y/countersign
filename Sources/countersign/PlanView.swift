@@ -6,17 +6,19 @@ struct PlanView: View {
   let plan: PlanProposal
   let availableHeight: CGFloat
 
-  @State private var mode: PlanApprovalMode
-  @State private var feedback = ""
-  @State private var showingFeedback = false
   @FocusState private var isFeedbackFieldFocused: Bool
 
-  init(model: PanelModel, plan: PlanProposal, availableHeight: CGFloat) {
-    self.model = model
-    self.plan = plan
-    self.availableHeight = availableHeight
-    _mode = State(initialValue: model.modeAfterPlan)
+  private var mode: PlanApprovalMode {
+    get { model.draft.planMode }
+    nonmutating set { model.draft.planMode = newValue }
   }
+
+  private var showingFeedback: Bool {
+    get { model.draft.isWritingPlanFeedback }
+    nonmutating set { model.draft.isWritingPlanFeedback = newValue }
+  }
+
+  private var feedback: String { model.draft.planFeedback }
 
   private var blocks: [MarkdownBlock] {
     MarkdownBlocks.parse(plan.plan)
@@ -50,6 +52,14 @@ struct PlanView: View {
       if model.dropdown.takeRequest(for: .mode) {
         toggleModeDropdown()
       }
+    }
+    .onChange(of: model.isOnScreen) { _, isOnScreen in
+      if isOnScreen, model.draft.focusedField == .planFeedback {
+        isFeedbackFieldFocused = true
+      }
+    }
+    .onChange(of: isFeedbackFieldFocused) { _, isFocused in
+      model.noteFocus(isFocused ? .planFeedback : nil)
     }
   }
 
@@ -268,7 +278,7 @@ struct PlanView: View {
       .buttonStyle(LinkButtonStyle())
       .disabled(!model.isArmed)
 
-      TextField("What should change?", text: $feedback, axis: .vertical)
+      TextField("What should change?", text: Bindable(model.draft).planFeedback, axis: .vertical)
         .textFieldStyle(.roundedBorder)
         .lineLimit(1...4)
         .focused($isFeedbackFieldFocused)

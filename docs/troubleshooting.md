@@ -153,7 +153,7 @@ That is expected when:
 - Countersign was paused, or quiet time started: with quiet time the request comes back when it
   ends;
 - you switched to another app or typed a key the panel has no use for: it steps aside, swallowing
-  that one key, and comes back after your next pause;
+  that one key, and comes back after your next pause, with what you typed and picked still there;
 - a Cursor or Antigravity request went unanswered for 59 minutes: it was handed back to the agent's
   own prompt a minute before the hook's timeout, since a Cursor hook that times out lets the command
   run.
