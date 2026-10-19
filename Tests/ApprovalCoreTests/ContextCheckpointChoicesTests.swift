@@ -14,6 +14,7 @@ import Testing
   @Test func stopOffersNothing() {
     #expect(choices.list(for: .stop).isEmpty)
     #expect(choices.offered(at: .stop, compactions: 0, maxCompactions: 5).isEmpty)
+    #expect(choices.offered(at: .stop, compactions: 5, maxCompactions: 5).isEmpty)
   }
 
   @Test func compactIsOfferedBelowTheLimit() {

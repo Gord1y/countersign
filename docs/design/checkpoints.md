@@ -115,8 +115,12 @@ Defaults:
 
 The stop exists because long sessions grow huge and then sit idle. Once the prompt cache has
 expired, a `/compact` or a handoff re-reads the whole context uncached, which is slow and costly.
-The stop rung makes Countersign tell Claude, without asking, to stop, gather what its running
-subagents have found, write the handoff file and wait for `/clear`, while the cache is still warm.
+The stop rung makes Countersign tell Claude, without asking, to finish the task in hand, start
+nothing new, keep every unfinished piece (worktrees, branches, uncommitted work, run folders) where
+it is, and hand off, then wait for `/clear`, while the cache is still warm. A stop that tears state
+down makes the next session research it again, which costs more than the context it saves (the
+user's call, 2026-10-19). Every handoff note defers to the project's own way of handing off and
+falls back to `handoffFile` when the instructions name none.
 The user chose these ladders on 2026-10-19: a prompt to compact or continue at the first rung, a
 prompt to compact or hand off at the second, and the stop at the third as the backstop when the
 second goes unanswered; the 1M stop sits at 50% of the window, well before Claude Code's own
@@ -249,14 +253,15 @@ never mute the session before the stop, which would otherwise never fire (the ow
 
 Past `maxCompactions` (default 5) compactions in one session, Compact is never offered: a summary
 of a summary keeps too little. A list that held only Compact falls back to Hand off and Continue,
-and `0` removes Compact from every panel. `ContextCheckpointChoices.ordered` is the one place that
-turns a set plus a highlighted choice into a list, in the order Compact, Hand off, Continue, Not
-this session after the highlighted one.
+and `0` removes Compact from every panel; in `silent` mode `0` sends the `limit` note from the
+first checkpoint. An empty list (the stop's) stays empty. `ContextCheckpointChoices.ordered` is the
+one place that turns a set plus a highlighted choice into a list, in the order Compact, Hand off,
+Continue, Not this session after the highlighted one.
 
 `silent` mode skips the panel and sends the note of the level that fired (`soft`, `status`,
 `insist` or `stop`) straight away. Once the session has been compacted `maxCompactions` times, a
 silent `soft`, `status` or `insist` sends the `limit` note instead, which asks Claude to write the
-handoff file and stop for `/clear` and names the count through `{compactions}`.
+handoff and stop for `/clear` and names the count through `{compactions}`.
 
 The `stop` level never shows a panel and offers no choices. In both modes it sends the `stop` note
 as `additionalContext`, and the hook logs `outcome: context note (stop)` instead of

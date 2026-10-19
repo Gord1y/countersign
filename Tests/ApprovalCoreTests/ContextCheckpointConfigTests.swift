@@ -290,6 +290,15 @@ import Testing
     #expect(ContextCheckpointNotes.default.limit.contains("{compactions}"))
   }
 
+  @Test func theDefaultStopNoteKeepsStateAndNamesTheHandoffFile() {
+    let text = ContextCheckpointNotes.render(
+      ContextCheckpointNotes.default.stop, tokens: 165_000, handoffFile: "notes/h.md",
+      compactions: 0)
+    #expect(text.contains("clean nothing up"))
+    #expect(text.contains("notes/h.md"))
+    #expect(!text.contains("{handoffFile}"))
+  }
+
   @Test func maxCompactionsAndChoicesParse() {
     let (file, logLines) = parse(
       """

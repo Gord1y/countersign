@@ -38,6 +38,7 @@ public struct ContextCheckpointChoices: Sendable, Equatable {
     -> [ContextCheckpointChoice]
   {
     let configured = list(for: level)
+    guard !configured.isEmpty else { return [] }
     guard compactions >= maxCompactions else { return configured }
     let withoutCompact = configured.filter { $0 != .compactAfterStep }
     return withoutCompact.isEmpty ? [.handOff, .continueWorking] : withoutCompact
