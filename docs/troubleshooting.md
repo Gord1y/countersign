@@ -158,6 +158,22 @@ That is expected when:
   own prompt a minute before the hook's timeout, since a Cursor hook that times out lets the command
   run.
 
+## Homebrew refuses the countersign formula
+
+Homebrew 7.0.10 and later loads a formula from a tap outside Homebrew's own only once you trust
+it. `brew install gord1y/tap/countersign`, with the tap in the name, trusts the formula as it
+installs. A Countersign installed with an earlier Homebrew has no such entry, so
+`brew upgrade countersign` stops with "Refusing to load formula gord1y/tap/countersign from
+untrusted tap gord1y/tap". Trust the one formula, then upgrade:
+
+```sh
+brew trust --formula gord1y/tap/countersign
+brew upgrade countersign
+```
+
+`brew trust gord1y/tap` would trust everything the tap ships; the formula is all Countersign
+needs.
+
 ## Two copies of Countersign are installed
 
 Doctor's `copies` line, `countersign setup --cli`, and a notice at the top of Agents in the Settings
