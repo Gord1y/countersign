@@ -487,12 +487,12 @@ but two: `enabled` is the switch in Settings ▸ Panels, and `hosts` is set in t
   whose default window is 1M (Opus 4.7 and later, every Claude 5 model) and to any model id with
   `[1m]`; the `200k` ladder applies to older models, an unknown model, or when
   `CLAUDE_CODE_DISABLE_1M_CONTEXT` is set. `200k` defaults to
-  `[100000, 120000, 140000, 160000]` and `1m` to `[200000, 300000, 400000, 600000]`. Each is three
-  or four whole numbers of 1 or more, strictly ascending. The fourth is the stop: there Countersign
-  tells Claude, without asking and in either mode, to stop, collect what its subagents have found,
-  write the handoff file and wait for `/clear`. Leave the fourth number out to turn the stop off.
+  `[100000, 130000, 160000]` and `1m` to `[200000, 300000, 500000]`. Each is two to four whole
+  numbers of 1 or more, strictly ascending. With three or four, the last is the stop: there
+  Countersign tells Claude, without asking and in either mode, to finish the task in hand and hand
+  off. Two numbers turn the stop off; four add a third prompt, insist, before the stop.
 - `modelThresholds`: an object from a model identifier, as Claude Code reports it, to a ladder of
-  three or four ascending whole numbers. It wins over `thresholds`. A bad entry is dropped.
+  two to four ascending whole numbers. It wins over `thresholds`. A bad entry is dropped.
 - `rearmBelow`: a number from `0.1` to `0.95`. Default `0.6`. A checkpoint fires again only once
   the context has fallen below this fraction of its size, for example after `/compact`.
 - `handoffFile`: a non-empty path. Default `"notes/handoff.md"`.

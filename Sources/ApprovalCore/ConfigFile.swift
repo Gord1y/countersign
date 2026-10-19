@@ -398,7 +398,7 @@ public enum ConfigFileParser {
   }
 
   private static func ascendingLadder(_ value: JSONValue) -> [Int]? {
-    guard case .array(let array) = value, (3...4).contains(array.count) else { return nil }
+    guard case .array(let array) = value, (2...4).contains(array.count) else { return nil }
     var ladder: [Int] = []
     for element in array {
       guard let tokens = integerValue(element), tokens >= 1 else { return nil }
@@ -414,7 +414,7 @@ public enum ConfigFileParser {
     guard let value else { return nil }
     guard let ladder = ascendingLadder(value) else {
       logLines.append(
-        "\(path): expected 3 or 4 ascending whole numbers of tokens, using default \(defaultValue)")
+        "\(path): expected 2 to 4 ascending whole numbers of tokens, using default \(defaultValue)")
       return nil
     }
     return ladder
@@ -432,7 +432,7 @@ public enum ConfigFileParser {
     for key in object.keys.sorted() {
       guard !key.isEmpty, let value = object[key], let ladder = ascendingLadder(value) else {
         logLines.append(
-          "\(path).\(key): expected 3 or 4 ascending whole numbers of tokens, ignored")
+          "\(path).\(key): expected 2 to 4 ascending whole numbers of tokens, ignored")
         continue
       }
       ladders[key] = ladder

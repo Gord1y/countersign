@@ -150,7 +150,7 @@ import Testing
     }
     #expect(prompt.tokens == 212_345)
     #expect(prompt.level == .soft)
-    #expect(prompt.ladder == [200_000, 300_000, 400_000, 600_000])
+    #expect(prompt.ladder == [200_000, 300_000, 500_000])
     #expect(prompt.handoffFile == ContextCheckpointSettings.defaultHandoffFile)
     #expect(prompt.notes == ContextCheckpointNotes.default)
   }
@@ -173,14 +173,14 @@ import Testing
   }
 
   @Test func theContextSampleAtAHigherLevelStartsAboveThatThreshold() throws {
-    let insist = TestPanelSample.contextRequest(level: .insist, settings: .default)
+    let stop = TestPanelSample.contextRequest(level: .stop, settings: .default)
 
-    guard case .contextCheckpoint(let prompt) = insist.kind else {
+    guard case .contextCheckpoint(let prompt) = stop.kind else {
       Issue.record("expected a context checkpoint")
       return
     }
-    #expect(prompt.tokens == 412_345)
-    #expect(prompt.level == .insist)
+    #expect(prompt.tokens == 512_345)
+    #expect(prompt.level == .stop)
   }
 
   @Test func contextOutcomesReadAsAChosenNoteOrContinuing() {

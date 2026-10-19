@@ -30,7 +30,7 @@ import Testing
       !PreferenceReset.isChanged(
         .contextStandardThresholds,
         in: file(
-          ContextCheckpointFileValues(standardThresholds: [100_000, 120_000, 140_000, 160_000]))))
+          ContextCheckpointFileValues(standardThresholds: [100_000, 130_000, 160_000]))))
     #expect(!PreferenceReset.isChanged(.contextStandardThresholds, in: ConfigFile()))
     #expect(
       PreferenceReset.isChanged(
@@ -93,9 +93,9 @@ import Testing
     #expect(PreferenceReset.valueText(.contextCheckpointsEnabled, in: values) == "On")
     #expect(PreferenceReset.valueText(.contextMode, in: values) == "Panel")
     #expect(
-      PreferenceReset.valueText(.contextStandardThresholds, in: values) == "100K, 120K, 140K, 160K")
+      PreferenceReset.valueText(.contextStandardThresholds, in: values) == "100K, 130K, 160K")
     #expect(
-      PreferenceReset.valueText(.contextMillionThresholds, in: values) == "200K, 300K, 400K, 600K")
+      PreferenceReset.valueText(.contextMillionThresholds, in: values) == "200K, 300K, 500K")
     #expect(PreferenceReset.valueText(.contextModelThresholds, in: values) == "none")
     #expect(PreferenceReset.valueText(.contextRearmBelow, in: values) == "60%")
     #expect(PreferenceReset.valueText(.contextHandoffFile, in: values) == "notes/handoff.md")

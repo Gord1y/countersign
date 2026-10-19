@@ -9,6 +9,15 @@ public enum ContextLevel: Int, Sendable, Codable, CaseIterable, Comparable {
   public static func < (lhs: ContextLevel, rhs: ContextLevel) -> Bool {
     lhs.rawValue < rhs.rawValue
   }
+
+  public static func levels(forRungCount count: Int) -> [ContextLevel] {
+    switch count {
+    case 2: return [.soft, .status]
+    case 3: return [.soft, .status, .stop]
+    case 4: return allCases
+    default: return Array(allCases.prefix(max(count, 0)))
+    }
+  }
 }
 
 public struct ContextLadderSettings: Sendable, Equatable {
@@ -86,7 +95,7 @@ public enum ContextLadder {
 
     let ladder = thresholds(
       modelID: state.modelID, hasMillionTokenWindow: hasMillionTokenWindow, settings: settings)
-    let crossed = zip(ContextLevel.allCases, ladder)
+    let crossed = zip(ContextLevel.levels(forRungCount: ladder.count), ladder)
       .filter { levels.contains($0.0) && tokens >= $0.1 }.map(\.0).max()
     guard let crossed, state.fired.allSatisfy({ $0 < crossed }) else {
       return ContextLadderStep(state: state, fire: nil)

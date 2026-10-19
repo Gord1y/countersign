@@ -70,7 +70,8 @@ public enum TestPanelSample {
     -> ApprovalRequest
   {
     let ladder = settings.millionThresholds
-    let threshold = ladder.indices.contains(level.rawValue - 1) ? ladder[level.rawValue - 1] : 0
+    let threshold =
+      ContextLevel.levels(forRungCount: ladder.count).firstIndex(of: level).map { ladder[$0] } ?? 0
     let prompt = ContextCheckpointPrompt(
       tokens: threshold + 12_345, level: level, ladder: ladder, modelID: nil,
       handoffFile: settings.handoffFile, notes: settings.notes)

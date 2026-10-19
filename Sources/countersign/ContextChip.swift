@@ -58,7 +58,8 @@ struct ContextChip: View {
   }
 
   private var rungs: Text {
-    let labelled = zip(ContextLevel.allCases, gauge.ladder).map { level, threshold in
+    let labelled = zip(ContextLevel.levels(forRungCount: gauge.ladder.count), gauge.ladder).map {
+      level, threshold in
       let text = Text("\(level.label) \(ContextCheckpointNotes.tokenText(threshold))")
       return gauge.passed.contains(level)
         ? text.foregroundStyle(Color.primary) : text.foregroundStyle(.secondary)
@@ -71,7 +72,9 @@ struct ContextChip: View {
   private var explanation: String {
     let base =
       "How much of this Claude Code session's context is in use, read from its transcript, so it can lag a turn behind. At each checkpoint Countersign suggests a compact or a handoff"
-    guard gauge.ladder.count >= ContextLevel.allCases.count else { return base + "." }
+    guard ContextLevel.levels(forRungCount: gauge.ladder.count).contains(.stop) else {
+      return base + "."
+    }
     return base + "; at the stop it asks Claude to stop and hand off."
   }
 }

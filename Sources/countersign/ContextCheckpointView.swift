@@ -61,7 +61,7 @@ struct ContextCheckpointView: View {
   private var ladder: some View {
     HStack(spacing: 6) {
       ForEach(
-        Array(ContextLevel.allCases.prefix(prompt.ladder.count).enumerated()), id: \.offset
+        Array(ContextLevel.levels(forRungCount: prompt.ladder.count).enumerated()), id: \.offset
       ) { index, level in
         if index > 0 {
           Text("·")

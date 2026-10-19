@@ -253,18 +253,18 @@ extension PreferenceName {
         + " run /compact itself."
     case .contextStandardThresholds:
       return
-        "The context sizes, in tokens, at which the soft, status and insist checkpoints fire for"
-        + " a session on the 200K window, lowest first, and an optional fourth, the stop: there"
-        + " Countersign tells Claude, without asking, to stop and write the handoff file. Leave"
-        + " out the fourth number to turn the stop off. A session is counted as 1M only when its"
+        "The context sizes, in tokens, at which the checkpoints fire for a session on the 200K"
+        + " window, two to four numbers, lowest first. With three or four, the last is the stop:"
+        + " there Countersign tells Claude, without asking, to stop and write the handoff file."
+        + " Two numbers turn the stop off; four add a third prompt, insist, before the stop. A session is counted as 1M only when its"
         + " model ID carries the [1m] tag, so anything else uses this ladder. A ladder for one"
         + " model beats both window ladders."
     case .contextMillionThresholds:
       return
-        "The context sizes, in tokens, at which the soft, status and insist checkpoints fire for"
-        + " a session on the 1M window, lowest first, and an optional fourth, the stop: there"
-        + " Countersign tells Claude, without asking, to stop and write the handoff file. Leave"
-        + " out the fourth number to turn the stop off. Countersign tells 1M from 200K by the"
+        "The context sizes, in tokens, at which the checkpoints fire for a session on the 1M"
+        + " window, two to four numbers, lowest first. With three or four, the last is the stop:"
+        + " there Countersign tells Claude, without asking, to stop and write the handoff file."
+        + " Two numbers turn the stop off; four add a third prompt, insist, before the stop. Countersign tells 1M from 200K by the"
         + " [1m] tag in the model ID. A ladder for one model beats both window ladders."
     case .contextModelThresholds:
       return
@@ -302,7 +302,7 @@ extension PreferenceName {
     case .contextNoteStop:
       return
         "The note Countersign sends on its own when a session reaches the stop checkpoint, the"
-        + " optional fourth number of a ladder. It asks Claude to stop starting new work, gather"
+        + " last number of a ladder of three or four. It asks Claude to stop starting new work, gather"
         + " what its running subagents have, write the handoff file and tell you it is ready for"
         + " /clear. Use {tokens} for the context size and {handoffFile} for the handoff file."
     case .contextNoteCompact:

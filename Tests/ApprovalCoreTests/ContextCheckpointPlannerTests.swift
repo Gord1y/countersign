@@ -72,7 +72,7 @@ import Testing
       transcriptPath: nil, project: "shop-api", now: now)
 
     let expected = ContextCheckpointPrompt(
-      tokens: 145_000, level: .insist, ladder: [100_000, 120_000, 140_000, 160_000],
+      tokens: 145_000, level: .status, ladder: [100_000, 130_000, 160_000],
       modelID: "claude-opus-5-5", handoffFile: settings.handoffFile, notes: settings.notes)
     #expect(plan.decision == .panel(expected))
   }

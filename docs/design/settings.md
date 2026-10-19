@@ -693,9 +693,9 @@ handoff (Notes, one row with an "Edit Notes…" button, then Handoff file), Cold
 the cache goes cold), Menu bar (Context in the menu bar) and Try it (a button that shows a context test panel), then a footer with "Turn Off
 Context Checkpoints" left of Restore Defaults. That button calls `requestContextCheckpoints(false)` and so shows the same "Turn off context checkpoints?" popup as the Panels switch (the row presents it for the `.toggle` origin, and only one tab is on screen at a time, so one `contextChange` shows one alert); it is disabled while a change is pending or neither Claude Code nor Codex is installed.
 
-Write rules follow the table above. The two ladder fields take three or four ascending whole numbers of
-thousands, 1 to 2000, the fourth being the optional stop (`PreferenceRules.contextLadder`), checked on each keystroke, and are written
-on Return, blur or disappearance; an invalid value shows "Enter three or four ascending numbers of
+Write rules follow the table above. The two ladder fields take two to four ascending whole numbers of
+thousands, 1 to 2000, the last of three or four being the stop (`PreferenceRules.contextLadder`), checked on each keystroke, and are written
+on Return, blur or disappearance; an invalid value shows "Enter two to four ascending numbers of
 thousands of tokens" and is never written. The per-model list adds a pair (prefix, ladder) on Add
 or Return in either field, like Hand off when frontmost, and removes one with its button. Start
 over below is a slider from 10 % to 95 % in steps of 5, written when the drag ends. The handoff

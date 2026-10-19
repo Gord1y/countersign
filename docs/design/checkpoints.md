@@ -101,23 +101,27 @@ reading as an estimate that is at most one turn old, never as the exact state.
 ## Levels and re-arming
 
 A checkpoint ladder has four levels, `soft`, `status`, `insist` and `stop`, each tied to a token
-count. A ladder is three or four ascending positive token counts, and the fourth is the stop rung.
-A ladder of three has no stop: the planner zips the levels with the ladder, so a level without a
-count can never be crossed.
+count. A ladder is two to four ascending positive token counts. The last of three or four is the
+stop; two rungs are soft and status with no stop; four add insist between status and stop.
+`ContextLevel.levels(forRungCount:)` is the one mapping every reader uses (the planner, the gauge,
+the chip, the panel's ladder caption), so a level without a count can never be crossed.
 
 Defaults:
 
 | Window | soft | status | insist | stop |
 | --- | --- | --- | --- | --- |
-| Standard (200K) | 100,000 | 120,000 | 140,000 | 160,000 |
-| 1M | 200,000 | 300,000 | 400,000 | 600,000 |
+| Standard (200K) | 100,000 | 130,000 |  | 160,000 |
+| 1M | 200,000 | 300,000 |  | 500,000 |
 
 The stop exists because long sessions grow huge and then sit idle. Once the prompt cache has
 expired, a `/compact` or a handoff re-reads the whole context uncached, which is slow and costly.
 The stop rung makes Countersign tell Claude, without asking, to stop, gather what its running
 subagents have found, write the handoff file and wait for `/clear`, while the cache is still warm.
-The user chose these ladders on 2026-10-13: the 1M stop sits at 60% of the window, and the 200K
-ladder was re-spaced (it used to be 100,000 / 130,000 / 160,000) so that all four rungs fit.
+The user chose these ladders on 2026-10-19: a prompt to compact or continue at the first rung, a
+prompt to compact or hand off at the second, and the stop at the third as the backstop when the
+second goes unanswered; the 1M stop sits at 50% of the window, well before Claude Code's own
+auto-compact at about 967K. Until 0.5.0 the defaults had four rungs (`[100000, 120000, 140000,
+160000]` and `[200000, 300000, 400000, 600000]`) and three rungs meant no stop.
 
 A `modelThresholds` entry maps a model-id prefix to a ladder. The longest matching prefix wins,
 and it beats both defaults. Model ids carry a `[1m]` suffix only on models whose default window is 200K (`claude-opus-4-6[1m]`), and a

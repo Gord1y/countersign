@@ -11,15 +11,20 @@ import Testing
       PreferenceRules.contextLadder(fromThousands: "1 2 2000") == .success([1000, 2000, 2_000_000]))
   }
 
+  @Test func readsATwoStepLadderInThousands() {
+    #expect(
+      PreferenceRules.contextLadder(fromThousands: "100, 130") == .success([100_000, 130_000]))
+  }
+
   @Test func readsAFourStepLadderInThousands() {
     #expect(
       PreferenceRules.contextLadder(fromThousands: "100, 120, 140, 160")
         == .success([100_000, 120_000, 140_000, 160_000]))
   }
 
-  @Test func rejectsALadderThatIsNotThreeOrFourAscendingWholeThousandsInRange() {
+  @Test func rejectsALadderThatIsNotTwoToFourAscendingWholeThousandsInRange() {
     let inputs = [
-      "", "100, 130", "100", "100, 130, 160, 190, 220", "100, 100, 160", "160, 130, 100", "a, b, c",
+      "", "100", "100, 130, 160, 190, 220", "100, 100, 160", "160, 130, 100", "a, b, c",
       "1.5, 2, 3", "0, 1, 2", "1, 2, 2001",
     ]
     for input in inputs {
@@ -27,7 +32,7 @@ import Testing
     }
     #expect(
       ContextTextError.ladder.description
-        == "Enter three or four ascending numbers of thousands of tokens")
+        == "Enter two to four ascending numbers of thousands of tokens")
   }
 
   @Test func showsALadderInThousands() {

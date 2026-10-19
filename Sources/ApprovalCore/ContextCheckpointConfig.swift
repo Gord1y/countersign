@@ -119,8 +119,8 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
   public var menuBarMeter: Bool
   public var coldCacheCard: Bool
 
-  public static let defaultStandardThresholds: [Int] = [100_000, 120_000, 140_000, 160_000]
-  public static let defaultMillionThresholds: [Int] = [200_000, 300_000, 400_000, 600_000]
+  public static let defaultStandardThresholds: [Int] = [100_000, 130_000, 160_000]
+  public static let defaultMillionThresholds: [Int] = [200_000, 300_000, 500_000]
   public static let rearmBelowRange: ClosedRange<Double> = 0.1...0.95
   public static let defaultRearmBelow: Double = 0.6
   public static let defaultHandoffFile = "notes/handoff.md"

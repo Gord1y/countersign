@@ -95,6 +95,25 @@ import Testing
     #expect(file.contextCheckpoints?.standardThresholds == [1, 2, 3])
   }
 
+  @Test func twoValueLadderParsesAndOneOrFiveAreRejected() {
+    let (two, twoLog) = parse(#"{"contextCheckpoints": {"thresholds": {"200k": [100, 200]}}}"#)
+    #expect(twoLog.isEmpty)
+    #expect(two.contextCheckpoints?.standardThresholds == [100, 200])
+    let (one, oneLog) = parse(#"{"contextCheckpoints": {"thresholds": {"200k": [100]}}}"#)
+    #expect(one.contextCheckpoints?.standardThresholds == nil)
+    #expect(
+      oneLog == [
+        "contextCheckpoints.thresholds.200k: expected 2 to 4 ascending whole numbers of tokens, using default [100000, 130000, 160000]"
+      ])
+    let (five, fiveLog) = parse(
+      #"{"contextCheckpoints": {"thresholds": {"1m": [1, 2, 3, 4, 5]}}}"#)
+    #expect(five.contextCheckpoints?.millionThresholds == nil)
+    #expect(
+      fiveLog == [
+        "contextCheckpoints.thresholds.1m: expected 2 to 4 ascending whole numbers of tokens, using default [200000, 300000, 500000]"
+      ])
+  }
+
   @Test func hostStopNoteBeatsTheTopOne() {
     let (file, _) = parse(
       #"{"contextCheckpoints": {"notes": {"stop": "top"}, "hosts": {"claude": {"notes": {"stop": "host"}}}}}"#
@@ -119,7 +138,7 @@ import Testing
           "enabled": true,
           "mode": "x",
           "thresholds": { "200k": [3, 2, 1], "1m": [10, 20, 30] },
-          "modelThresholds": { "good": [1, 2, 3], "bad": [1, 2], "long": [1, 2, 3, 4, 5] },
+          "modelThresholds": { "good": [1, 2, 3], "bad": [1], "long": [1, 2, 3, 4, 5] },
           "rearmBelow": 2,
           "handoffFile": "",
           "notes": { "soft": "\(longNote)", "status": "kept" }
@@ -129,9 +148,9 @@ import Testing
     #expect(
       logLines == [
         "contextCheckpoints.mode: expected \"panel\" or \"silent\", using default \"panel\"",
-        "contextCheckpoints.thresholds.200k: expected 3 or 4 ascending whole numbers of tokens, using default [100000, 120000, 140000, 160000]",
-        "contextCheckpoints.modelThresholds.bad: expected 3 or 4 ascending whole numbers of tokens, ignored",
-        "contextCheckpoints.modelThresholds.long: expected 3 or 4 ascending whole numbers of tokens, ignored",
+        "contextCheckpoints.thresholds.200k: expected 2 to 4 ascending whole numbers of tokens, using default [100000, 130000, 160000]",
+        "contextCheckpoints.modelThresholds.bad: expected 2 to 4 ascending whole numbers of tokens, ignored",
+        "contextCheckpoints.modelThresholds.long: expected 2 to 4 ascending whole numbers of tokens, ignored",
         "contextCheckpoints.rearmBelow: expected a number from 0.1 to 0.95, using default 0.6",
         "contextCheckpoints.handoffFile: expected a non-empty string, using default \"notes/handoff.md\"",
         "contextCheckpoints.notes.soft: expected text of 1 to 4000 characters, using the default",
@@ -152,7 +171,7 @@ import Testing
       #"{"contextCheckpoints": {"thresholds": {"1m": [5, 5, 6]}}}"#)
     #expect(
       logLines == [
-        "contextCheckpoints.thresholds.1m: expected 3 or 4 ascending whole numbers of tokens, using default [200000, 300000, 400000, 600000]"
+        "contextCheckpoints.thresholds.1m: expected 2 to 4 ascending whole numbers of tokens, using default [200000, 300000, 500000]"
       ])
   }
 

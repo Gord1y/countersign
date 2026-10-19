@@ -77,8 +77,8 @@ import Testing
   @Test func contextDefaultTextMatchesTheBuiltInDefaults() {
     #expect(PreferenceName.contextCheckpointsEnabled.defaultText == "On")
     #expect(PreferenceName.contextMode.defaultText == "Panel")
-    #expect(PreferenceName.contextStandardThresholds.defaultText == "100K, 120K, 140K, 160K")
-    #expect(PreferenceName.contextMillionThresholds.defaultText == "200K, 300K, 400K, 600K")
+    #expect(PreferenceName.contextStandardThresholds.defaultText == "100K, 130K, 160K")
+    #expect(PreferenceName.contextMillionThresholds.defaultText == "200K, 300K, 500K")
     #expect(PreferenceName.contextRearmBelow.defaultText == "60%")
     #expect(PreferenceName.contextHandoffFile.defaultText == "notes/handoff.md")
     #expect(PreferenceName.contextMenuBarMeter.defaultText == "Off")
