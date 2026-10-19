@@ -18,6 +18,17 @@ extension ContextCheckpointNotes {
   }
 }
 
+extension ContextCheckpointChoices {
+  mutating func set(_ choices: [ContextCheckpointChoice], named name: PreferenceName) {
+    switch name {
+    case .contextSoftChoices: soft = choices
+    case .contextStatusChoices: status = choices
+    case .contextInsistChoices: insist = choices
+    default: break
+    }
+  }
+}
+
 public struct PreferenceValues: Sendable, Equatable {
   public var armDelay: Double
   public var chainedArmDelay: Double
@@ -194,6 +205,10 @@ public struct PreferenceValues: Sendable, Equatable {
       values.contextCheckpoints.modelThresholds[prefix] = nil
     case .contextRearmBelow(let ratio):
       values.contextCheckpoints.rearmBelow = ratio
+    case .contextMaxCompactions(let count):
+      values.contextCheckpoints.maxCompactions = count
+    case .contextChoices(let name, let choices):
+      values.contextCheckpoints.choices.set(choices, named: name)
     case .contextHandoffFile(let file):
       values.contextCheckpoints.handoffFile = file
     case .contextNote(let name, let text):
@@ -245,6 +260,12 @@ public struct PreferenceValues: Sendable, Equatable {
     case .contextModelThresholds: values.contextCheckpoints.modelThresholds = [:]
     case .contextRearmBelow:
       values.contextCheckpoints.rearmBelow = ContextCheckpointSettings.defaultRearmBelow
+    case .contextMaxCompactions:
+      values.contextCheckpoints.maxCompactions = ContextCheckpointSettings.defaultMaxCompactions
+    case .contextSoftChoices, .contextStatusChoices, .contextInsistChoices:
+      values.contextCheckpoints.choices.set(
+        ContextCheckpointChoices.default.list(named: name.choiceLevelName ?? "") ?? [],
+        named: name)
     case .contextHandoffFile:
       values.contextCheckpoints.handoffFile = ContextCheckpointSettings.defaultHandoffFile
     case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteStop,

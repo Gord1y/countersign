@@ -12,8 +12,11 @@ public struct ContextCheckpointNotes: Sendable, Equatable {
   public var stop: String
   public var compact: String
   public var handoff: String
+  public var limit: String
 
-  public static let names: [String] = ["soft", "status", "insist", "stop", "compact", "handoff"]
+  public static let names: [String] = [
+    "soft", "status", "insist", "stop", "compact", "handoff", "limit",
+  ]
   public static let maximumLength = 4000
 
   public static let `default` = ContextCheckpointNotes(
@@ -28,11 +31,14 @@ public struct ContextCheckpointNotes: Sendable, Equatable {
     compact:
       "Context note from Countersign, the user's approval app: this session's context is about {tokens} tokens, and the user chose to compact after the current step. Finish the step you are on without starting new work, then stop and list, in a few lines, what the /compact summary must preserve, so the user can run /compact.",
     handoff:
-      "Context note from Countersign, the user's approval app: this session's context is about {tokens} tokens, and the user chose to hand off and start fresh. Finish or safely pause the current step, then write {handoffFile}: the goal, the current state, the decisions made and why, the remaining steps and any gotchas, so a new session can continue from that file alone. Then stop and tell the user it is ready for /clear."
+      "Context note from Countersign, the user's approval app: this session's context is about {tokens} tokens, and the user chose to hand off and start fresh. Finish or safely pause the current step, then write {handoffFile}: the goal, the current state, the decisions made and why, the remaining steps and any gotchas, so a new session can continue from that file alone. Then stop and tell the user it is ready for /clear.",
+    limit:
+      "Context note from Countersign, the user's approval app: this session's context is about {tokens} tokens and it has been compacted {compactions} times, past the point where another summary keeps enough detail. When the current step is done, start no new work, write {handoffFile} with the goal, the current state, the decisions made and why, the remaining steps and any gotchas, then stop and tell the user it is ready for /clear."
   )
 
   public init(
-    soft: String, status: String, insist: String, stop: String, compact: String, handoff: String
+    soft: String, status: String, insist: String, stop: String, compact: String, handoff: String,
+    limit: String
   ) {
     self.soft = soft
     self.status = status
@@ -40,12 +46,16 @@ public struct ContextCheckpointNotes: Sendable, Equatable {
     self.stop = stop
     self.compact = compact
     self.handoff = handoff
+    self.limit = limit
   }
 
-  public static func render(_ template: String, tokens: Int, handoffFile: String) -> String {
+  public static func render(
+    _ template: String, tokens: Int, handoffFile: String, compactions: Int
+  ) -> String {
     template
       .replacingOccurrences(of: "{tokens}", with: tokenText(tokens))
       .replacingOccurrences(of: "{handoffFile}", with: handoffFile)
+      .replacingOccurrences(of: "{compactions}", with: String(compactions))
   }
 
   public static func tokenText(_ tokens: Int) -> String {
@@ -65,6 +75,7 @@ public struct ContextCheckpointNotes: Sendable, Equatable {
     case "stop": return stop
     case "compact": return compact
     case "handoff": return handoff
+    case "limit": return limit
     default: return nil
     }
   }
@@ -77,6 +88,8 @@ public struct ContextCheckpointFileValues: Sendable, Equatable {
   public var millionThresholds: [Int]?
   public var modelThresholds: [String: [Int]]?
   public var rearmBelow: Double?
+  public var maxCompactions: Int?
+  public var choices: [String: [ContextCheckpointChoice]]
   public var handoffFile: String?
   public var notes: [String: String]
   public var menuBarMeter: Bool?
@@ -89,6 +102,8 @@ public struct ContextCheckpointFileValues: Sendable, Equatable {
     millionThresholds: [Int]? = nil,
     modelThresholds: [String: [Int]]? = nil,
     rearmBelow: Double? = nil,
+    maxCompactions: Int? = nil,
+    choices: [String: [ContextCheckpointChoice]] = [:],
     handoffFile: String? = nil,
     notes: [String: String] = [:],
     menuBarMeter: Bool? = nil,
@@ -100,6 +115,8 @@ public struct ContextCheckpointFileValues: Sendable, Equatable {
     self.millionThresholds = millionThresholds
     self.modelThresholds = modelThresholds
     self.rearmBelow = rearmBelow
+    self.maxCompactions = maxCompactions
+    self.choices = choices
     self.handoffFile = handoffFile
     self.notes = notes
     self.menuBarMeter = menuBarMeter
@@ -114,11 +131,15 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
   public var millionThresholds: [Int]
   public var modelThresholds: [String: [Int]]
   public var rearmBelow: Double
+  public var maxCompactions: Int
+  public var choices: ContextCheckpointChoices
   public var handoffFile: String
   public var notes: ContextCheckpointNotes
   public var menuBarMeter: Bool
   public var coldCacheCard: Bool
 
+  public static let defaultMaxCompactions = 5
+  public static let maxCompactionsRange: ClosedRange<Int> = 0...50
   public static let defaultStandardThresholds: [Int] = [100_000, 130_000, 160_000]
   public static let defaultMillionThresholds: [Int] = [200_000, 300_000, 500_000]
   public static let rearmBelowRange: ClosedRange<Double> = 0.1...0.95
@@ -134,6 +155,8 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
     millionThresholds: defaultMillionThresholds,
     modelThresholds: [:],
     rearmBelow: defaultRearmBelow,
+    maxCompactions: defaultMaxCompactions,
+    choices: .default,
     handoffFile: defaultHandoffFile,
     notes: .default,
     menuBarMeter: false,
@@ -146,6 +169,8 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
     millionThresholds: [Int],
     modelThresholds: [String: [Int]],
     rearmBelow: Double,
+    maxCompactions: Int,
+    choices: ContextCheckpointChoices,
     handoffFile: String,
     notes: ContextCheckpointNotes,
     menuBarMeter: Bool,
@@ -157,6 +182,8 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
     self.millionThresholds = millionThresholds
     self.modelThresholds = modelThresholds
     self.rearmBelow = rearmBelow
+    self.maxCompactions = maxCompactions
+    self.choices = choices
     self.handoffFile = handoffFile
     self.notes = notes
     self.menuBarMeter = menuBarMeter
@@ -187,10 +214,13 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
       millionThresholds: defaultMillionThresholds,
       modelThresholds: [:],
       rearmBelow: hostValues?.rearmBelow ?? top?.rearmBelow ?? defaultRearmBelow,
+      maxCompactions: defaultMaxCompactions,
+      choices: .default,
       handoffFile: hostValues?.handoffFile ?? top?.handoffFile ?? defaultHandoffFile,
       notes: ContextCheckpointNotes(
         soft: note("soft"), status: note("status"), insist: note("insist"),
-        stop: note("stop"), compact: note("compact"), handoff: note("handoff")),
+        stop: note("stop"), compact: note("compact"), handoff: note("handoff"),
+        limit: note("limit")),
       menuBarMeter: false,
       coldCacheCard: false)
   }
@@ -216,6 +246,11 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
         ?? ContextCheckpointNotes.default.text(named: name) ?? ""
     }
 
+    func choices(_ name: String) -> [ContextCheckpointChoice] {
+      hostValues?.choices[name] ?? top?.choices[name]
+        ?? ContextCheckpointChoices.default.list(named: name) ?? []
+    }
+
     return ContextCheckpointSettings(
       enabled: hostValues?.enabled ?? top?.enabled ?? defaultEnabled,
       mode: hostValues?.mode ?? top?.mode ?? defaultMode,
@@ -225,10 +260,14 @@ public struct ContextCheckpointSettings: Sendable, Equatable {
         ?? defaultMillionThresholds,
       modelThresholds: hostValues?.modelThresholds ?? top?.modelThresholds ?? [:],
       rearmBelow: hostValues?.rearmBelow ?? top?.rearmBelow ?? defaultRearmBelow,
+      maxCompactions: hostValues?.maxCompactions ?? top?.maxCompactions ?? defaultMaxCompactions,
+      choices: ContextCheckpointChoices(
+        soft: choices("soft"), status: choices("status"), insist: choices("insist")),
       handoffFile: hostValues?.handoffFile ?? top?.handoffFile ?? defaultHandoffFile,
       notes: ContextCheckpointNotes(
         soft: note("soft"), status: note("status"), insist: note("insist"),
-        stop: note("stop"), compact: note("compact"), handoff: note("handoff")),
+        stop: note("stop"), compact: note("compact"), handoff: note("handoff"),
+        limit: note("limit")),
       menuBarMeter: hostValues?.menuBarMeter ?? top?.menuBarMeter ?? false,
       coldCacheCard: hostValues?.coldCacheCard ?? top?.coldCacheCard ?? true)
   }

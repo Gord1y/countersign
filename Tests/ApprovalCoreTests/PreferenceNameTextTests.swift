@@ -37,10 +37,12 @@ import Testing
 
   @Test func titlesEveryContextRow() {
     #expect(
-      PreferenceName.allCases.suffix(15).map(\.title) == [
+      PreferenceName.allCases.suffix(19).map(\.title) == [
         "Context checkpoints (Claude Code and Codex)", "Checkpoint style",
         "Checkpoints, 200K window",
-        "Checkpoints, 1M window", "Checkpoints for one model", "Start over below", "Handoff file",
+        "Checkpoints, 1M window", "Checkpoints for one model", "Start over below",
+        "Compactions before hand-off only", "First checkpoint offers",
+        "Second checkpoint offers", "Insist checkpoint offers", "Handoff file",
         "Soft note", "Status note", "Insist note", "Stop note", "Compact note", "Handoff note",
         "Context in the menu bar", "Warn before the cache goes cold",
       ])
@@ -48,13 +50,17 @@ import Testing
 
   @Test func captionsEveryContextRow() {
     #expect(
-      PreferenceName.allCases.suffix(15).map(\.caption) == [
+      PreferenceName.allCases.suffix(19).map(\.caption) == [
         "Nudge long Claude Code and Codex sessions toward a deliberate compaction.",
         "Show a panel, or add the note silently.",
         "Soft, status, insist and an optional stop, in tokens.",
         "Soft, status, insist and an optional stop, in tokens.",
         "A ladder for model IDs starting with a prefix.",
         "A drop this far below the peak counts as a fresh start.",
+        "Past this, a checkpoint no longer offers Compact.",
+        "The choices this checkpoint's panel shows.",
+        "The choices this checkpoint's panel shows.",
+        "The choices this checkpoint's panel shows.",
         "Where the agent writes a handoff, relative to the project.",
         "Sent in silent mode at the first checkpoint.",
         "Sent in silent mode at the second checkpoint.",

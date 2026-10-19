@@ -81,6 +81,27 @@ import Testing
     #expect(step(210_000, from: compacted.state, million: true, compactionID: "b").fire == .soft)
   }
 
+  @Test func compactionsCountEachDifferentCompactionID() {
+    let first = step(300_000, from: .fresh(now: now), million: true, compactionID: "a")
+    #expect(first.state.compactions == 1)
+    let same = step(310_000, from: first.state, million: true, compactionID: "a")
+    #expect(same.state.compactions == 1)
+    let second = step(150_000, from: same.state, million: true, compactionID: "b")
+    #expect(second.state.compactions == 2)
+  }
+
+  @Test func readingsWithoutACompactionIDNeverCount() {
+    let result = step(300_000, from: .fresh(now: now), million: true)
+    #expect(result.state.compactions == 0)
+  }
+
+  @Test func aCollapseRearmDoesNotCountAsACompaction() {
+    let status = step(400_000, from: .fresh(now: now), million: true)
+    let dropped = step(230_000, from: status.state, million: true)
+    #expect(dropped.state.fired == [.soft])
+    #expect(dropped.state.compactions == 0)
+  }
+
   @Test func sharpDropBelowRatioOfPeakRearms() {
     let status = step(400_000, from: .fresh(now: now), million: true)
     #expect(status.fire == .status)

@@ -277,8 +277,130 @@ import Testing
 
   @Test func renderReplacesEveryPlaceholder() {
     let text = ContextCheckpointNotes.render(
-      "{tokens} and {tokens}: write {handoffFile}, then read {handoffFile}",
-      tokens: 212_345, handoffFile: "notes/h.md")
-    #expect(text == "212K and 212K: write notes/h.md, then read notes/h.md")
+      "{tokens} and {tokens}: write {handoffFile}, then read {handoffFile}, {compactions} times",
+      tokens: 212_345, handoffFile: "notes/h.md", compactions: 7)
+    #expect(text == "212K and 212K: write notes/h.md, then read notes/h.md, 7 times")
+  }
+
+  @Test func theLimitNoteIsTheSeventhNoteAndUsesTheCompactionCount() {
+    #expect(ContextCheckpointNotes.names.last == "limit")
+    #expect(ContextCheckpointNotes.names.count == 7)
+    #expect(
+      ContextCheckpointNotes.default.text(named: "limit") == ContextCheckpointNotes.default.limit)
+    #expect(ContextCheckpointNotes.default.limit.contains("{compactions}"))
+  }
+
+  @Test func maxCompactionsAndChoicesParse() {
+    let (file, logLines) = parse(
+      """
+      {
+        "contextCheckpoints": {
+          "maxCompactions": 3,
+          "choices": {
+            "soft": ["handoff", "continue"],
+            "status": ["compact", "handoff", "continue", "mute"]
+          },
+          "hosts": { "claude": { "choices": { "status": ["continue"] } } }
+        }
+      }
+      """)
+    #expect(logLines.isEmpty)
+    #expect(file.contextCheckpoints?.maxCompactions == 3)
+    #expect(file.contextCheckpoints?.choices["soft"] == [.handOff, .continueWorking])
+    #expect(
+      file.contextCheckpoints?.choices["status"] == [
+        .compactAfterStep, .handOff, .continueWorking, .notThisSession,
+      ])
+
+    let resolved = Settings.resolve(file: file, host: .claude).contextCheckpoints
+    #expect(resolved.maxCompactions == 3)
+    #expect(resolved.choices.soft == [.handOff, .continueWorking])
+    #expect(resolved.choices.status == [.continueWorking])
+    #expect(resolved.choices.insist == ContextCheckpointChoices.default.insist)
+  }
+
+  @Test func absentValuesResolveToTheDefaults() {
+    let (file, _) = parse(#"{"contextCheckpoints": {}}"#)
+    let resolved = Settings.resolve(file: file, host: .claude).contextCheckpoints
+    #expect(resolved.maxCompactions == 5)
+    #expect(resolved.choices == .default)
+  }
+
+  @Test(arguments: ["-1", "51", "2.5", "\"3\"", "true"])
+  func aBadMaxCompactionsLogsAndKeepsTheDefault(value: String) {
+    let (file, logLines) = parse(#"{"contextCheckpoints": {"maxCompactions": \#(value)}}"#)
+    #expect(
+      logLines == [
+        "contextCheckpoints.maxCompactions: expected a whole number from 0 to 50, using default 5"
+      ])
+    #expect(file.contextCheckpoints?.maxCompactions == nil)
+    #expect(Settings.resolve(file: file, host: .claude).contextCheckpoints.maxCompactions == 5)
+  }
+
+  @Test(arguments: [0, 50])
+  func theMaxCompactionsBoundsAreAccepted(value: Int) {
+    let (file, logLines) = parse(#"{"contextCheckpoints": {"maxCompactions": \#(value)}}"#)
+    #expect(logLines.isEmpty)
+    #expect(file.contextCheckpoints?.maxCompactions == value)
+  }
+
+  @Test(arguments: [
+    #"["continue", "continue"]"#,
+    #"["later"]"#,
+    "[]",
+    #"["compact", "handoff", "continue", "mute", "compact"]"#,
+    #""compact""#,
+  ])
+  func aBadChoiceListLogsAndKeepsTheDefault(list: String) {
+    let (file, logLines) = parse(
+      #"{"contextCheckpoints": {"choices": {"soft": \#(list), "status": ["mute"]}}}"#)
+    #expect(
+      logLines == [
+        "contextCheckpoints.choices.soft: expected 1 to 4 different choices from compact, handoff, continue and mute, using the default"
+      ])
+    #expect(file.contextCheckpoints?.choices["soft"] == nil)
+    #expect(file.contextCheckpoints?.choices["status"] == [.notThisSession])
+    let resolved = Settings.resolve(file: file, host: .claude).contextCheckpoints
+    #expect(resolved.choices.soft == ContextCheckpointChoices.default.soft)
+  }
+
+  @Test func anUnknownChoicesKeyIsLoggedAndIgnored() {
+    let (file, logLines) = parse(
+      #"{"contextCheckpoints": {"choices": {"stop": ["mute"], "soft": ["mute"]}}}"#)
+    #expect(logLines == ["unknown key \"contextCheckpoints.choices.stop\", ignored"])
+    #expect(file.contextCheckpoints?.choices == ["soft": [.notThisSession]])
+  }
+
+  @Test func choicesThatAreNotAnObjectAreIgnored() {
+    let (file, logLines) = parse(#"{"contextCheckpoints": {"choices": ["mute"]}}"#)
+    #expect(logLines == ["contextCheckpoints.choices: expected an object, ignored"])
+    #expect(file.contextCheckpoints?.choices.isEmpty == true)
+  }
+
+  @Test func codexLogsAndDropsMaxCompactionsAndChoicesAndKeepsTheDefaults() {
+    let (file, logLines) = parse(
+      """
+      {"contextCheckpoints": {"hosts": {"codex": {
+        "maxCompactions": 1, "choices": {"soft": ["mute"]}
+      }}}}
+      """)
+    #expect(
+      logLines == [
+        "contextCheckpoints.hosts.codex.maxCompactions: Claude Code only, ignored",
+        "contextCheckpoints.hosts.codex.choices: Claude Code only, ignored",
+      ])
+    #expect(file.contextCheckpointsCodex?.maxCompactions == nil)
+    #expect(file.contextCheckpointsCodex?.choices.isEmpty == true)
+    let resolved = Settings.resolve(file: file, host: .codex).contextCheckpoints
+    #expect(resolved.maxCompactions == 5)
+    #expect(resolved.choices == .default)
+  }
+
+  @Test func codexIgnoresTheTopLevelMaxCompactionsAndChoices() {
+    let (file, _) = parse(
+      #"{"contextCheckpoints": {"maxCompactions": 1, "choices": {"soft": ["mute"]}}}"#)
+    let resolved = Settings.resolve(file: file, host: .codex).contextCheckpoints
+    #expect(resolved.maxCompactions == 5)
+    #expect(resolved.choices == .default)
   }
 }

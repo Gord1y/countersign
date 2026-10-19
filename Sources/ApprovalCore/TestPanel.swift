@@ -66,15 +66,21 @@ public enum TestPanelSample {
     return try ClaudeAdapter.parse(JSONEncoder().encode(payload(for: kind)))
   }
 
-  public static func contextRequest(level: ContextLevel, settings: ContextCheckpointSettings)
-    -> ApprovalRequest
-  {
-    let ladder = settings.millionThresholds
+  public static let insistLadder = [200_000, 300_000, 400_000, 500_000]
+
+  public static func contextRequest(
+    level: ContextLevel, settings: ContextCheckpointSettings, compactions: Int = 0
+  ) -> ApprovalRequest {
+    let settingsLadder = settings.millionThresholds
+    let ladder = level == .insist && settingsLadder.count < 4 ? insistLadder : settingsLadder
     let threshold =
       ContextLevel.levels(forRungCount: ladder.count).firstIndex(of: level).map { ladder[$0] } ?? 0
     let prompt = ContextCheckpointPrompt(
       tokens: threshold + 12_345, level: level, ladder: ladder, modelID: nil,
-      handoffFile: settings.handoffFile, notes: settings.notes)
+      handoffFile: settings.handoffFile, notes: settings.notes,
+      choices: settings.choices.offered(
+        at: level, compactions: compactions, maxCompactions: settings.maxCompactions),
+      compactions: compactions, maxCompactions: settings.maxCompactions)
     let input = ContextCheckpointInput(
       sessionID: sessionID, cwd: workingDirectory, transcriptPath: nil, permissionMode: "default")
     return .contextCheckpoint(input, prompt: prompt)

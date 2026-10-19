@@ -190,7 +190,7 @@ import Testing
       sessionID: "s", cwd: "/tmp/shop-api", transcriptPath: nil, permissionMode: nil)
     let prompt = ContextCheckpointPrompt(
       tokens: 1, level: .soft, ladder: [1, 2, 3], modelID: nil, handoffFile: "h.md",
-      notes: .default)
+      notes: .default, choices: [.continueWorking])
     let summary = TicketSummary(request: .contextCheckpoint(input, prompt: prompt))
     #expect(summary.isContextCheckpoint)
     #expect(summary.tool == "Context checkpoint")

@@ -8,7 +8,8 @@ import Testing
     handoffFile: "notes/handoff.md",
     notes: ContextCheckpointNotes(
       soft: "s", status: "t", insist: "i", stop: "p", compact: "compact {tokens} {handoffFile}",
-      handoff: "handoff {tokens} {handoffFile}"))
+      handoff: "handoff {tokens} {handoffFile}", limit: "l"),
+    choices: [.compactAfterStep, .handOff, .continueWorking])
 
   @Test func titles() {
     #expect(ContextCheckpointChoice.continueWorking.title == "Continue")
@@ -31,10 +32,12 @@ import Testing
     #expect(ContextCheckpointChoice.notThisSession.outcome(for: prompt) == .noDecision)
   }
 
-  @Test func highlightsByLevel() {
-    #expect(ContextCheckpointChoice.highlighted(for: .soft) == .compactAfterStep)
-    #expect(ContextCheckpointChoice.highlighted(for: .status) == .compactAfterStep)
-    #expect(ContextCheckpointChoice.highlighted(for: .insist) == .handOff)
-    #expect(ContextCheckpointChoice.highlighted(for: .stop) == .handOff)
+  @Test func compactRendersTheCompactionCount() {
+    var counted = prompt
+    counted.notes.compact = "compacted {compactions}"
+    counted.compactions = 3
+    #expect(
+      ContextCheckpointChoice.compactAfterStep.outcome(for: counted)
+        == .addContext("compacted 3"))
   }
 }

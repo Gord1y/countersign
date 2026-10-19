@@ -21,6 +21,16 @@
       },
       "description": "Three or four strictly ascending token counts: the soft, status and insist checkpoints, then the optional stop."
     },
+    "choiceList": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 4,
+      "uniqueItems": true,
+      "items": {
+        "enum": ["compact", "handoff", "continue", "mute"]
+      },
+      "description": "One to four different choices: compact, handoff, continue or mute. The first is highlighted."
+    },
     "contextCheckpointValues": {
       "type": "object",
       "additionalProperties": false,
@@ -67,6 +77,35 @@
           "default": 0.6,
           "description": "Fraction of a checkpoint's token count the context must fall below, for example after /compact, before that checkpoint can fire again."
         },
+        "maxCompactions": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50,
+          "default": 5,
+          "description": "Compactions in one session after which a checkpoint no longer offers Compact; 0 never offers it. Claude Code only."
+        },
+        "choices": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "The choices each checkpoint panel offers, first one highlighted. Claude Code only.",
+          "properties": {
+            "soft": {
+              "$ref": "#/$defs/choiceList",
+              "default": ["compact", "continue", "mute"],
+              "description": "Choices at the first checkpoint."
+            },
+            "status": {
+              "$ref": "#/$defs/choiceList",
+              "default": ["handoff", "compact", "continue"],
+              "description": "Choices at the second checkpoint."
+            },
+            "insist": {
+              "$ref": "#/$defs/choiceList",
+              "default": ["handoff", "compact", "continue"],
+              "description": "Choices at the insist checkpoint, which only a four-checkpoint ladder has."
+            }
+          }
+        },
         "handoffFile": {
           "type": "string",
           "minLength": 1,
@@ -76,7 +115,7 @@
         "notes": {
           "type": "object",
           "additionalProperties": false,
-          "description": "Text of each note; {tokens} becomes the context size, such as 212K, and {handoffFile} the handoff path.",
+          "description": "Text of each note; {tokens} becomes the context size, such as 212K, {handoffFile} the handoff path and {compactions} the number of compactions so far.",
           "properties": {
             "soft": {
               "type": "string",
@@ -113,6 +152,12 @@
               "minLength": 1,
               "maxLength": 4000,
               "description": "The note sent when you choose to hand off."
+            },
+            "limit": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "description": "The note sent in silent mode instead of the checkpoint's own once the session has been compacted maxCompactions times."
             }
           }
         },
@@ -147,6 +192,12 @@
         "rearmBelow": {
           "$ref": "#/$defs/contextCheckpointValues/properties/rearmBelow"
         },
+        "maxCompactions": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/maxCompactions"
+        },
+        "choices": {
+          "$ref": "#/$defs/contextCheckpointValues/properties/choices"
+        },
         "handoffFile": {
           "$ref": "#/$defs/contextCheckpointValues/properties/handoffFile"
         },
@@ -169,7 +220,7 @@
             },
             "codex": {
               "$ref": "#/$defs/contextCheckpointValues",
-              "description": "Codex reads only enabled, rearmBelow, handoffFile and notes; mode, thresholds, modelThresholds, menuBarMeter and coldCacheCard are logged and ignored."
+              "description": "Codex reads only enabled, rearmBelow, handoffFile and notes; mode, thresholds, modelThresholds, maxCompactions, choices, menuBarMeter and coldCacheCard are logged and ignored."
             }
           }
         }

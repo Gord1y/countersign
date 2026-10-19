@@ -28,6 +28,7 @@ import Testing
       modelID: "claude-opus-5-5[1m]", scannedThrough: 812_345)
     state.hasMillionTokenWindow = true
     state.muted = true
+    state.compactions = 3
     state.transcriptPath = "/tmp/t.jsonl"
     state.project = "demo"
     state.pendingProcessID = 4242
@@ -42,6 +43,15 @@ import Testing
     try Data(#"{"peakTokens":5,"updatedAt":"2027-01-15T08:00:00Z"}"#.utf8)
       .write(to: directory.appendingPathComponent("\(sessionID).json"))
     #expect(store.load(sessionID: sessionID)?.hasMillionTokenWindow == nil)
+  }
+
+  @Test func stateWithoutCompactionsLoadsWithZero() throws {
+    let directory = try makeDirectory()
+    defer { try? FileManager.default.removeItem(at: directory) }
+    let store = ContextCheckpointStore(directory: directory)
+    try Data(#"{"peakTokens":5,"updatedAt":"2027-01-15T08:00:00Z"}"#.utf8)
+      .write(to: directory.appendingPathComponent("\(sessionID).json"))
+    #expect(store.load(sessionID: sessionID)?.compactions == 0)
   }
 
   @Test func stateWithoutOrWithBadModelIdentityLoadsWithNil() throws {

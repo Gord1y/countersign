@@ -140,6 +140,11 @@ A session re-arms (fired levels cleared, peak reset to the current tokens) in tw
 
 "Not this session" mutes the session. A muted session never fires again, even after a re-arm.
 
+State files also count compactions (`compactions`, 0 for a fresh session or an older file). It
+goes up by one each time the compaction id changes, the first id seen included, and not on the
+`rearmBelow` collapse, which cannot tell a compaction from a `/clear`. The count is what
+`maxCompactions` is compared with (see "Choices and what Claude receives").
+
 State is one small JSON file per session, `<session id>.json`, in
 `~/Library/Application Support/Countersign/context/`. Session ids may contain only
 `A-Z`, `a-z`, `0-9` and `-`; any other id is rejected, so an id can never escape the folder.
@@ -229,21 +234,33 @@ time hold the card: nothing shows and an open card closes (logged as hidden). Th
 
 ## Choices and what Claude receives
 
-A panel offers four choices. **Continue** and **Not this session** send nothing; the second also
+There are four choices. **Continue** and **Not this session** send nothing; the second also
 mutes the session. **Compact after this step** sends the `compact` note and **Hand off & start
-fresh** sends the `handoff` note, each with `{tokens}` and `{handoffFile}` filled in, as
-`additionalContext` (the exact JSON is in "A context checkpoint" in [answers.md](answers.md)). The
-highlighted choice follows the level: `soft` and `status` highlight **Compact after this step**,
-`insist` highlights **Hand off & start fresh**. Esc, a click outside, and a closed or abandoned
-panel send nothing.
+fresh** sends the `handoff` note, each with `{tokens}`, `{handoffFile}` and `{compactions}` filled
+in, as `additionalContext` (the exact JSON is in "A context checkpoint" in
+[answers.md](answers.md)). Esc, a click outside, and a closed or abandoned panel send nothing.
+
+Each level's panel offers its own configured list (`choices.soft`, `choices.status`,
+`choices.insist`), and the first in the list is the highlighted one, so Return picks it. The
+defaults are `soft` Compact, Continue, Not this session; `status` and `insist` Hand off, Compact,
+Continue. **Not this session** is off the second checkpoint by default so that an answer there can
+never mute the session before the stop, which would otherwise never fire (the owner's call,
+2026-10-19). `ContextCheckpointChoices.offered` builds the list a prompt carries.
+
+Past `maxCompactions` (default 5) compactions in one session, Compact is never offered: a summary
+of a summary keeps too little. A list that held only Compact falls back to Hand off and Continue,
+and `0` removes Compact from every panel. `ContextCheckpointChoices.ordered` is the one place that
+turns a set plus a highlighted choice into a list, in the order Compact, Hand off, Continue, Not
+this session after the highlighted one.
 
 `silent` mode skips the panel and sends the note of the level that fired (`soft`, `status`,
-`insist` or `stop`) straight away.
+`insist` or `stop`) straight away. Once the session has been compacted `maxCompactions` times, a
+silent `soft`, `status` or `insist` sends the `limit` note instead, which asks Claude to write the
+handoff file and stop for `/clear` and names the count through `{compactions}`.
 
-The `stop` level never shows a panel. In both modes it sends the `stop` note as
-`additionalContext`, and the hook logs `outcome: context note (stop)` instead of
-`outcome: context note (silent, <level>)`. Its highlighted choice (**Hand off & start fresh**)
-exists only because the mapping is an exhaustive switch.
+The `stop` level never shows a panel and offers no choices. In both modes it sends the `stop` note
+as `additionalContext`, and the hook logs `outcome: context note (stop)` instead of
+`outcome: context note (silent, <level>)`. It never swaps in the `limit` note.
 
 `ContextCheckpointPlanner.plan` and `ContextLadder.step` take a `levels` parameter that limits
 which levels can count as crossed; everything else, including the fired set, behaves as before.

@@ -1520,9 +1520,9 @@ decision", which is Continue. Delete is not used. Digits move the highlight rath
 the choice, so a mistyped digit is never an answer; a click on a card performs it. The arm lock
 applies as for every panel: `chooseCheckpoint` is guarded the way `finish` is.
 
-**The highlight rule.** The starting highlight is `ContextCheckpointChoice.highlighted(for:)`:
-Compact after this step for the soft and status levels, Hand off & start fresh for insist. The
-highlighted card is what Return does, so the default follows how urgent the level is.
+**The highlight rule.** The starting highlight is the first choice of the prompt's `choices`, the list the level is
+configured to offer (see "Choices and what Claude receives" in [checkpoints.md](checkpoints.md)).
+The highlighted card is what Return does, so the default follows how urgent the level is.
 
 **Why choices go through `chooseCheckpoint`.** Not this session must mute the session, yet its
 outcome is `.noDecision`, the same as Continue and Esc; the outcome alone cannot tell them apart.

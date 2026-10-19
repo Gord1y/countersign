@@ -70,6 +70,29 @@ import Testing
         .contextRearmBelow, in: file(ContextCheckpointFileValues(rearmBelow: 0.6))))
     #expect(
       PreferenceReset.isChanged(
+        .contextMaxCompactions, in: file(ContextCheckpointFileValues(maxCompactions: 3))))
+    #expect(
+      !PreferenceReset.isChanged(
+        .contextMaxCompactions, in: file(ContextCheckpointFileValues(maxCompactions: 5))))
+    #expect(
+      PreferenceReset.isChanged(
+        .contextSoftChoices,
+        in: file(ContextCheckpointFileValues(choices: ["soft": [.notThisSession]]))))
+    #expect(
+      !PreferenceReset.isChanged(
+        .contextSoftChoices,
+        in: file(
+          ContextCheckpointFileValues(choices: ["soft": ContextCheckpointChoices.default.soft]))))
+    #expect(
+      !PreferenceReset.isChanged(
+        .contextStatusChoices,
+        in: file(ContextCheckpointFileValues(choices: ["soft": [.notThisSession]]))))
+    #expect(
+      PreferenceReset.isChanged(
+        .contextInsistChoices,
+        in: file(ContextCheckpointFileValues(choices: ["insist": [.continueWorking]]))))
+    #expect(
+      PreferenceReset.isChanged(
         .contextHandoffFile, in: file(ContextCheckpointFileValues(handoffFile: "h.md"))))
     #expect(
       PreferenceReset.isChanged(
@@ -98,6 +121,14 @@ import Testing
       PreferenceReset.valueText(.contextMillionThresholds, in: values) == "200K, 300K, 500K")
     #expect(PreferenceReset.valueText(.contextModelThresholds, in: values) == "none")
     #expect(PreferenceReset.valueText(.contextRearmBelow, in: values) == "60%")
+    #expect(PreferenceReset.valueText(.contextMaxCompactions, in: values) == "5")
+    #expect(
+      PreferenceReset.valueText(.contextSoftChoices, in: values)
+        == "Compact, Continue, Not this session")
+    #expect(
+      PreferenceReset.valueText(.contextStatusChoices, in: values) == "Hand off, Compact, Continue")
+    #expect(PreferenceName.contextMaxCompactions.defaultText == "5")
+    #expect(PreferenceName.contextInsistChoices.defaultText == "Hand off, Compact, Continue")
     #expect(PreferenceReset.valueText(.contextHandoffFile, in: values) == "notes/handoff.md")
     #expect(PreferenceReset.valueText(.contextNoteSoft, in: values) == "Default")
     #expect(PreferenceReset.valueText(.contextMenuBarMeter, in: values) == "Off")

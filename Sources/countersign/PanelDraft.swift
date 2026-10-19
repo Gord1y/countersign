@@ -39,7 +39,7 @@ final class PanelDraft {
       checkpointChoice = .continueWorking
     case .contextCheckpoint(let prompt):
       questionAnswers = []
-      checkpointChoice = ContextCheckpointChoice.highlighted(for: prompt.level)
+      checkpointChoice = prompt.choices.first ?? .continueWorking
     case .permission, .plan:
       questionAnswers = []
       checkpointChoice = .continueWorking

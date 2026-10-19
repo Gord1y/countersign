@@ -95,7 +95,8 @@ final class ColdCacheCardController {
   private func copyHandoffPrompt() {
     guard let current = shown, let settings = latestSettings?.contextCheckpoints else { return }
     let prompt = ContextCheckpointNotes.render(
-      settings.notes.handoff, tokens: current.candidate.tokens, handoffFile: settings.handoffFile)
+      settings.notes.handoff, tokens: current.candidate.tokens, handoffFile: settings.handoffFile,
+      compactions: 0)
     let pasteboard = NSPasteboard.general
     pasteboard.clearContents()
     let copied = pasteboard.setString(prompt, forType: .string)

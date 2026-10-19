@@ -28,6 +28,10 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
   case contextMillionThresholds
   case contextModelThresholds
   case contextRearmBelow
+  case contextMaxCompactions
+  case contextSoftChoices
+  case contextStatusChoices
+  case contextInsistChoices
   case contextHandoffFile
   case contextNoteSoft
   case contextNoteStatus
@@ -46,6 +50,10 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
     case .contextMillionThresholds: return ["contextCheckpoints", "thresholds", "1m"]
     case .contextModelThresholds: return ["contextCheckpoints", "modelThresholds"]
     case .contextRearmBelow: return ["contextCheckpoints", "rearmBelow"]
+    case .contextMaxCompactions: return ["contextCheckpoints", "maxCompactions"]
+    case .contextSoftChoices: return ["contextCheckpoints", "choices", "soft"]
+    case .contextStatusChoices: return ["contextCheckpoints", "choices", "status"]
+    case .contextInsistChoices: return ["contextCheckpoints", "choices", "insist"]
     case .contextHandoffFile: return ["contextCheckpoints", "handoffFile"]
     case .contextNoteSoft: return ["contextCheckpoints", "notes", "soft"]
     case .contextNoteStatus: return ["contextCheckpoints", "notes", "status"]
@@ -62,6 +70,15 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
   public static let agentDelays: [PreferenceName] = [
     .idleSeconds, .graceSeconds, .armDelay, .chainedArmDelay, .approvalCardDelay,
   ]
+
+  public var choiceLevelName: String? {
+    switch self {
+    case .contextSoftChoices, .contextStatusChoices, .contextInsistChoices:
+      return keyPath.last
+    default:
+      return nil
+    }
+  }
 
   public var noteName: String? {
     switch self {
@@ -108,6 +125,8 @@ public enum PreferenceEdit: Sendable, Equatable {
   case setContextModelThresholds(prefix: String, ladder: [Int])
   case removeContextModelThresholds(prefix: String)
   case contextRearmBelow(Double)
+  case contextMaxCompactions(Int)
+  case contextChoices(PreferenceName, [ContextCheckpointChoice])
   case contextHandoffFile(String)
   case contextNote(PreferenceName, String)
   case contextMenuBarMeter(Bool)
@@ -146,6 +165,8 @@ public enum PreferenceEdit: Sendable, Equatable {
     case .setContextModelThresholds, .removeContextModelThresholds:
       return .contextModelThresholds
     case .contextRearmBelow: return .contextRearmBelow
+    case .contextMaxCompactions: return .contextMaxCompactions
+    case .contextChoices(let name, _): return name
     case .contextHandoffFile: return .contextHandoffFile
     case .contextNote(let name, _): return name
     case .contextMenuBarMeter: return .contextMenuBarMeter
@@ -355,6 +376,14 @@ public enum ConfigEdit {
       try removeMember(path + [prefix], in: &document)
     case .contextRearmBelow(let ratio):
       try set(path, to: .number(spelling(ratio)), in: &document) { $0.numberValue == ratio }
+    case .contextMaxCompactions(let count):
+      try set(path, to: .integer(count), in: &document) { $0.numberValue == Double(count) }
+    case .contextChoices(let name, let choices):
+      guard name.choiceLevelName != nil else { return }
+      let names = choices.map(\.configName)
+      try set(path, to: .array(names.map(JSONFragment.string)), in: &document) {
+        $0.elements?.compactMap(\.stringValue) == names
+      }
     case .contextHandoffFile(let file):
       try set(path, to: .string(file), in: &document) { $0.stringValue == file }
     case .contextNote(let name, let text):

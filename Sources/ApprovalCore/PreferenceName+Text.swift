@@ -30,6 +30,10 @@ extension PreferenceName {
     case .contextMillionThresholds: return "Checkpoints, 1M window"
     case .contextModelThresholds: return "Checkpoints for one model"
     case .contextRearmBelow: return "Start over below"
+    case .contextMaxCompactions: return "Compactions before hand-off only"
+    case .contextSoftChoices: return "First checkpoint offers"
+    case .contextStatusChoices: return "Second checkpoint offers"
+    case .contextInsistChoices: return "Insist checkpoint offers"
     case .contextHandoffFile: return "Handoff file"
     case .contextNoteSoft: return "Soft note"
     case .contextNoteStatus: return "Status note"
@@ -76,6 +80,9 @@ extension PreferenceName {
     case .contextMillionThresholds: return "Soft, status, insist and an optional stop, in tokens."
     case .contextModelThresholds: return "A ladder for model IDs starting with a prefix."
     case .contextRearmBelow: return "A drop this far below the peak counts as a fresh start."
+    case .contextMaxCompactions: return "Past this, a checkpoint no longer offers Compact."
+    case .contextSoftChoices, .contextStatusChoices, .contextInsistChoices:
+      return "The choices this checkpoint's panel shows."
     case .contextHandoffFile: return "Where the agent writes a handoff, relative to the project."
     case .contextNoteSoft: return "Sent in silent mode at the first checkpoint."
     case .contextNoteStatus: return "Sent in silent mode at the second checkpoint."
@@ -278,6 +285,13 @@ extension PreferenceName {
         + " When the reading drops to this fraction of the highest one seen, the checkpoints"
         + " start over and can fire again. Raise it to re-arm sooner; lower it to require a"
         + " bigger drop."
+    case .contextMaxCompactions:
+      return
+        "After this many compactions in one session, a checkpoint stops offering Compact: a"
+        + " summary of a summary keeps too little. 0 never offers it."
+    case .contextSoftChoices, .contextStatusChoices, .contextInsistChoices:
+      return
+        "The choices this checkpoint's panel shows. The first is highlighted, so Return picks it."
     case .contextHandoffFile:
       return
         "The file, relative to the project, that Claude is asked to write when you hand off and"
@@ -365,6 +379,13 @@ extension PreferenceName {
     case .contextModelThresholds: return "No models"
     case .contextRearmBelow:
       return PreferenceReset.percentText(ContextCheckpointSettings.defaultRearmBelow)
+    case .contextMaxCompactions: return String(ContextCheckpointSettings.defaultMaxCompactions)
+    case .contextSoftChoices:
+      return PreferenceReset.choicesText(ContextCheckpointChoices.default.soft)
+    case .contextStatusChoices:
+      return PreferenceReset.choicesText(ContextCheckpointChoices.default.status)
+    case .contextInsistChoices:
+      return PreferenceReset.choicesText(ContextCheckpointChoices.default.insist)
     case .contextHandoffFile: return ContextCheckpointSettings.defaultHandoffFile
     case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteStop,
       .contextNoteCompact,

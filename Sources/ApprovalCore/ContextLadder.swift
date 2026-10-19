@@ -82,6 +82,9 @@ public enum ContextLadder {
     var state = previous
     let compacted = compactionID != nil && compactionID != previous.compactionID
     let collapsed = Double(tokens) < settings.rearmBelow * Double(previous.peakTokens)
+    if compacted {
+      state.compactions += 1
+    }
     if compacted || collapsed {
       state.fired = []
       state.peakTokens = tokens
