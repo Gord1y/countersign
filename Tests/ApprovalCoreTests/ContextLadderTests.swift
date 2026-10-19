@@ -65,36 +65,57 @@ import Testing
 
   @Test func jumpFiresOnlyTheHighestAndLowerOnesCountAsFired() {
     let jump = step(150_000, from: .fresh(now: now))
-    #expect(jump.fire == .insist)
-    #expect(jump.state.fired == [.soft, .status, .insist])
+    #expect(jump.fire == .status)
+    #expect(jump.state.fired == [.soft, .status])
     #expect(step(105_000, from: jump.state).fire == nil)
     #expect(step(135_000, from: jump.state).fire == nil)
   }
 
   @Test func newCompactionIDRearms() {
-    let insist = step(450_000, from: .fresh(now: now), million: true, compactionID: "a")
-    #expect(insist.fire == .insist)
-    let compacted = step(150_000, from: insist.state, million: true, compactionID: "b")
+    let status = step(450_000, from: .fresh(now: now), million: true, compactionID: "a")
+    #expect(status.fire == .status)
+    let compacted = step(150_000, from: status.state, million: true, compactionID: "b")
     #expect(compacted.fire == nil)
     #expect(compacted.state.fired.isEmpty)
     #expect(compacted.state.peakTokens == 150_000)
     #expect(step(210_000, from: compacted.state, million: true, compactionID: "b").fire == .soft)
   }
 
+  @Test func compactionsCountEachDifferentCompactionID() {
+    let first = step(300_000, from: .fresh(now: now), million: true, compactionID: "a")
+    #expect(first.state.compactions == 1)
+    let same = step(310_000, from: first.state, million: true, compactionID: "a")
+    #expect(same.state.compactions == 1)
+    let second = step(150_000, from: same.state, million: true, compactionID: "b")
+    #expect(second.state.compactions == 2)
+  }
+
+  @Test func readingsWithoutACompactionIDNeverCount() {
+    let result = step(300_000, from: .fresh(now: now), million: true)
+    #expect(result.state.compactions == 0)
+  }
+
+  @Test func aCollapseRearmDoesNotCountAsACompaction() {
+    let status = step(400_000, from: .fresh(now: now), million: true)
+    let dropped = step(230_000, from: status.state, million: true)
+    #expect(dropped.state.fired == [.soft])
+    #expect(dropped.state.compactions == 0)
+  }
+
   @Test func sharpDropBelowRatioOfPeakRearms() {
-    let insist = step(400_000, from: .fresh(now: now), million: true)
-    #expect(insist.fire == .insist)
-    let dropped = step(230_000, from: insist.state, million: true)
+    let status = step(400_000, from: .fresh(now: now), million: true)
+    #expect(status.fire == .status)
+    let dropped = step(230_000, from: status.state, million: true)
     #expect(dropped.fire == .soft)
     #expect(dropped.state.fired == [.soft])
     #expect(dropped.state.peakTokens == 230_000)
   }
 
   @Test func mildDropKeepsFiredLevels() {
-    let insist = step(400_000, from: .fresh(now: now), million: true)
-    let dipped = step(300_000, from: insist.state, million: true)
+    let status = step(400_000, from: .fresh(now: now), million: true)
+    let dipped = step(300_000, from: status.state, million: true)
     #expect(dipped.fire == nil)
-    #expect(dipped.state.fired == [.soft, .status, .insist])
+    #expect(dipped.state.fired == [.soft, .status])
   }
 
   @Test func mutedSessionNeverFires() {
@@ -118,18 +139,34 @@ import Testing
   }
 
   @Test func fourRungLadderFiresStopAtTheFourthThreshold() {
-    let insist = step(150_000, from: .fresh(now: now))
-    let stop = step(160_000, from: insist.state)
+    var settings = ContextLadderSettings.default
+    settings.standardThresholds = [100_000, 120_000, 140_000, 160_000]
+    let insist = step(150_000, from: .fresh(now: now), settings: settings)
+    #expect(insist.fire == .insist)
+    let stop = step(160_000, from: insist.state, settings: settings)
     #expect(stop.fire == .stop)
     #expect(stop.state.fired == [.soft, .status, .insist, .stop])
   }
 
-  @Test func threeRungLadderNeverFiresStop() {
+  @Test func threeRungLadderFiresStopAtTheThirdThreshold() {
     var settings = ContextLadderSettings.default
-    settings.standardThresholds = [100_000, 130_000, 160_000]
-    let result = step(900_000, from: .fresh(now: now), settings: settings)
-    #expect(result.fire == .insist)
-    #expect(result.state.fired == [.soft, .status, .insist])
+    settings.standardThresholds = [100, 200, 300]
+    #expect(step(300, from: .fresh(now: now), settings: settings).fire == .stop)
+    #expect(step(250, from: .fresh(now: now), settings: settings).fire == .status)
+  }
+
+  @Test func twoRungLadderNeverFiresStop() {
+    var settings = ContextLadderSettings.default
+    settings.standardThresholds = [100, 200]
+    #expect(step(10_000, from: .fresh(now: now), settings: settings).fire == .status)
+  }
+
+  @Test func levelsForRungCount() {
+    #expect(ContextLevel.levels(forRungCount: 2) == [.soft, .status])
+    #expect(ContextLevel.levels(forRungCount: 3) == [.soft, .status, .stop])
+    #expect(ContextLevel.levels(forRungCount: 4) == ContextLevel.allCases)
+    #expect(ContextLevel.levels(forRungCount: 1) == [.soft])
+    #expect(ContextLevel.levels(forRungCount: 0).isEmpty)
   }
 
   @Test func jumpPastTheStopRungFiresStopOnly() {

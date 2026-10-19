@@ -3,6 +3,10 @@ import ApprovalCore
 import SwiftUI
 
 struct ContextSection: View {
+  static let choiceNames: [PreferenceName] = [
+    .contextSoftChoices, .contextStatusChoices, .contextInsistChoices,
+  ]
+
   let model: SettingsModel
 
   var body: some View {
@@ -41,6 +45,28 @@ struct ContextSection: View {
               name: .contextMillionThresholds, placeholder: "200, 300, 400, 600", model: model)
             SettingsDivider()
             ContextModelsRow(model: model)
+            SettingsDivider()
+            PreferenceRow(
+              .contextMaxCompactions, model: model,
+              problem: model.writeErrors[.contextMaxCompactions]
+            ) {
+              HStack(spacing: 6) {
+                ValueText("\(model.contextCheckpoints.maxCompactions)")
+                Stepper(
+                  PreferenceName.contextMaxCompactions.title,
+                  value: Binding(
+                    get: { model.contextCheckpoints.maxCompactions },
+                    set: { model.setContextMaxCompactions($0) }),
+                  in: ContextCheckpointSettings.maxCompactionsRange, step: 1
+                )
+                .labelsHidden()
+                .controlSize(.small)
+              }
+            }
+            ForEach(Self.choiceNames, id: \.self) { name in
+              SettingsDivider()
+              ContextChoicesRow(name: name, model: model)
+            }
             SettingsDivider()
             PreferenceRow(
               .contextRearmBelow, model: model, problem: model.writeErrors[.contextRearmBelow]
@@ -263,6 +289,65 @@ private struct ContextLadderRow: View {
           .foregroundStyle(.secondary)
       }
     }
+  }
+}
+
+private struct ContextChoicesRow: View {
+  static let highlightedTitle = "Highlighted"
+
+  let name: PreferenceName
+  let model: SettingsModel
+
+  private var offered: [ContextCheckpointChoice] { model.contextChoices(name) }
+
+  private var highlighted: ContextCheckpointChoice {
+    offered.first ?? ContextCheckpointChoices.canonicalOrder[0]
+  }
+
+  var body: some View {
+    PreferenceRow(name, model: model, problem: model.writeErrors[name]) {
+      Picker(
+        Self.highlightedTitle,
+        selection: Binding(
+          get: { highlighted },
+          set: { model.setContextChoices(name, enabled: Set(offered), highlighted: $0) })
+      ) {
+        ForEach(offered, id: \.self) { choice in
+          Text(choice.listText).tag(choice)
+        }
+      }
+      .controlSize(.small)
+      .fixedSize()
+    } detail: {
+      HStack(spacing: 14) {
+        ForEach(ContextCheckpointChoices.canonicalOrder, id: \.self) { choice in
+          Toggle(
+            choice.listText, isOn: Binding(get: { isOffered(choice) }, set: { set(choice, $0) })
+          )
+          .toggleStyle(.checkbox)
+          .controlSize(.small)
+          .disabled(offered == [choice])
+        }
+      }
+    }
+  }
+
+  private func isOffered(_ choice: ContextCheckpointChoice) -> Bool {
+    offered.contains(choice)
+  }
+
+  private func set(_ choice: ContextCheckpointChoice, _ isOn: Bool) {
+    var enabled = Set(offered)
+    if isOn {
+      enabled.insert(choice)
+    } else {
+      enabled.remove(choice)
+    }
+    guard
+      let kept = enabled.contains(highlighted)
+        ? highlighted : ContextCheckpointChoices.canonicalOrder.first(where: enabled.contains)
+    else { return }
+    model.setContextChoices(name, enabled: enabled, highlighted: kept)
   }
 }
 

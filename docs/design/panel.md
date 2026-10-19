@@ -67,13 +67,56 @@ A ⌘-Tab usually fires both of the first two. Whichever AppKit delivers first n
 the log, and the second finds the panel already gone.
 
 Stepping aside is the snooze path without quiet time. `PanelController` calls its `onStepAside`
-closure, and `DisplayWatch` closes the controller, logs `stepped aside: app switch`,
-`stepped aside: focus lost` or `stepped aside: typing` and then `waiting for idle`, and returns to
-`waitingForIdle` with the same ticket and lease. The request keeps its place at the head of the
-queue and comes back as a new `PanelController`, armed from zero, after the next idle pause. The
+closure, and `DisplayWatch` closes the controller, logs `stepped aside: app switch to <bundle id>`,
+`stepped aside: focus lost, <bundle id> frontmost` or `stepped aside: typing` and then
+`waiting for idle`, and returns to `waitingForIdle` with the same ticket and lease. The bundle id
+names the app that took over, so a log shows which app keeps pulling panels away; without one the
+line ends at `app switch` or `focus lost`. The request keeps its place at the head of the
+queue and comes back as a new `PanelController`, armed from zero, after the next idle pause, with
+the person's draft restored (see "What comes back" below). The
 idle gate counts the ⌘ still held on the switcher, the typing that caused the step-aside, and the
 pointer moving in the other app (see "Waiting for a pause before showing"), so the panel comes back
 only once the person has stopped. `preview` prints `stepped aside: <reason>` and exits instead.
+
+#### What comes back
+
+Another app taking the keyboard is not the person giving up on the request: a dev build relaunching
+itself, or any app that activates on its own, steps the panel aside in the middle of a sentence.
+The step-aside itself stays (other apps may take the keyboard), but nothing the person did on the
+panel is lost. Everything they typed, picked or moved to lives in a `PanelDraft`, not in view
+`@State`: `DisplayWatch` owns one per request (`lazy var draft`) and hands it to every
+`PanelController` it builds for that request, so it survives every way a panel leaves the screen
+and comes back in the same hook process: a step-aside, quiet time, a snooze, Later and the card's
+Show, and a warm-standby panel built for the request. The draft holds:
+
+- Permission: the footer step (deny or not), the reason, and the gaps revealed in each file's diff.
+- Plan: the "then:" mode, whether the feedback step is open, and the feedback.
+- Questions: every answer (picks, Your own answer, notes), the open tab, which notes are expanded,
+  and the last clicked option of a multi-select question, which picks the preview.
+- Context checkpoint: the highlighted choice.
+- The text field being edited and the body's scroll offset.
+
+An open dropdown is not kept: it is a moment's choice, and a panel that comes back with a menu open
+would take Return for the menu.
+
+The field and the scroll offset come back once the panel is on screen. `PanelModel.isOnScreen` turns
+true in `show()`, after `makeFirstResponder(nil)`, and each view's `onChange` of it focuses the
+draft's field; `PanelScaffold` scrolls its `ScrollViewReader` to the content with an anchor of
+offset ÷ (content height − visible height), which puts the content back at the same offset. Without
+the field coming back, the first plain key after the panel returns would step it aside again and be
+swallowed. AppKit selects a field's whole text when it becomes first responder, so a restored field
+would have its text replaced by the next key; `close()` saves the field editor's selected range in
+the draft, and once the view has focused the field again `PanelController` puts that range back,
+clamped to the text, retrying for up to five 20 ms turns until the field editor is first responder.
+Keys typed into the field during the arm lock go into the field, as on any focused field;
+Return and Esc stay locked. Writes to the field and the offset go through `PanelModel.noteFocus` and
+`noteScrollOffset`, which do nothing while the panel is off screen: a warm-standby panel lays out at
+offset 0 long before it shows, and a panel on its way out can lose its field, and neither may
+overwrite what the person left. Text, picks and steps change only through the person's own input, so
+they are written straight to the draft.
+
+The draft lives in the hook process, so a request that comes back in a new process starts empty;
+none does today.
 
 #### Later
 
@@ -1193,7 +1236,8 @@ field, which would swallow every digit and arrow key meant for answering questio
 turn every plain key into typing in that field instead of a step-aside. With it, the panel itself
 holds first responder: the probe read `ApprovalPanel` at show, one second later, and again after a
 forced second `makeKey()`, for both a permission and a question panel. The key monitor's keys work as soon as the panel is armed, and a text field gets
-focus only when the person clicks into it or when the deny or feedback state opens.
+focus only when the person clicks into it, when the deny or feedback state opens, or when a panel
+that stepped aside comes back with that field being edited (see "What comes back").
 
 ### Other is selected by focus, not by typing
 
@@ -1466,19 +1510,23 @@ in the accent and the other two are secondary, so the person sees how far along 
 session is. One line per level says why the panel appeared. When `PanelModel.sessionIdle` is true a
 caption adds that Claude is idle and the choice reaches it with the next message: a note added to
 an idle session is only delivered when the person types again, and the panel says so instead of
-implying an immediate reaction. Four cards follow, numbered 1 to 4 (Continue, Compact after this
-step, Hand off & start fresh, Not this session), each with a one-line description. The footer is one
+implying an immediate reaction. When the session has been compacted (`prompt.compactions > 0`) a
+caption in the level line's font reads "Compacted n× in this session."; once `compactions` reaches
+`maxCompactions` it ends "so Compact is no longer offered." instead. One card per entry of
+`prompt.choices` follows, numbered from 1 in that order (any of Continue, Compact after this step,
+Hand off & start fresh, Not this session), each with a one-line description. The footer is one
 primary button titled with the highlighted choice.
 
-**Keys.** 1 to 4 and ↑/↓ move the highlight; Return performs the highlighted choice (⌘Return has
+**Keys.** The digits 1 to n, where n is the number of cards, and ↑/↓ move the highlight; a digit
+beyond n is not used; Return performs the highlighted choice (⌘Return has
 no menu here, so it does nothing); Esc and a click outside answer "no
 decision", which is Continue. Delete is not used. Digits move the highlight rather than performing
 the choice, so a mistyped digit is never an answer; a click on a card performs it. The arm lock
 applies as for every panel: `chooseCheckpoint` is guarded the way `finish` is.
 
-**The highlight rule.** The starting highlight is `ContextCheckpointChoice.highlighted(for:)`:
-Compact after this step for the soft and status levels, Hand off & start fresh for insist. The
-highlighted card is what Return does, so the default follows how urgent the level is.
+**The highlight rule.** The starting highlight is the first choice of the prompt's `choices`, the
+list the level is configured to offer (see "Choices and what Claude receives" in
+[checkpoints.md](checkpoints.md)). The highlighted card is what Return does, so the default follows how urgent the level is.
 
 **Why choices go through `chooseCheckpoint`.** Not this session must mute the session, yet its
 outcome is `.noDecision`, the same as Continue and Esc; the outcome alone cannot tell them apart.
@@ -1495,8 +1543,10 @@ at the first million-window threshold plus 12,345 tokens, on the configured 1M l
 configured handoff file and notes. `countersign snapshot --test-panel context` builds the same
 sample from the defaults, never the config file, and `--checkpoint-level soft|status|insist` picks
 the level (tokens are that level's million-window threshold plus 12,345, and the highlight follows
-the level). A context test panel logs `test panel: chose a context note` when a note was chosen and
-`test panel: continued` for no decision.
+the level) and `--compactions N` (0 to 50) sets how often the sample session has been compacted,
+so `--compactions 5` shows the caption and no Compact card. A context test panel logs
+`test panel: chose a context note` when a note was chosen and `test panel: continued` for no
+decision.
 
 ## Size limits
 

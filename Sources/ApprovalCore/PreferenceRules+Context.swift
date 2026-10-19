@@ -11,7 +11,7 @@ public enum ContextTextError: Error, Sendable, Equatable, CustomStringConvertibl
   public var description: String {
     switch self {
     case .ladder:
-      return "Enter three or four ascending numbers of thousands of tokens"
+      return "Enter two to four ascending numbers of thousands of tokens"
     case .emptyPrefix:
       return "Enter a model ID prefix, like claude-opus-5"
     case .prefixContainsWhitespace:
@@ -28,7 +28,7 @@ public enum ContextTextError: Error, Sendable, Equatable, CustomStringConvertibl
 
 extension PreferenceRules {
   public static let contextLadderThousands: ClosedRange<Int> = 1...2000
-  public static let contextLadderLengths: ClosedRange<Int> = 3...4
+  public static let contextLadderLengths: ClosedRange<Int> = 2...4
   public static let contextRearmPercentRange: ClosedRange<Double> = 10...95
   public static let contextRearmPercentStep: Double = 5
 

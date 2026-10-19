@@ -26,10 +26,14 @@ public struct ContextCheckpointPrompt: Sendable, Equatable {
   public var modelID: String?
   public var handoffFile: String
   public var notes: ContextCheckpointNotes
+  public var choices: [ContextCheckpointChoice]
+  public var compactions: Int
+  public var maxCompactions: Int
 
   public init(
     tokens: Int, level: ContextLevel, ladder: [Int], modelID: String?, handoffFile: String,
-    notes: ContextCheckpointNotes
+    notes: ContextCheckpointNotes, choices: [ContextCheckpointChoice],
+    compactions: Int = 0, maxCompactions: Int = ContextCheckpointSettings.defaultMaxCompactions
   ) {
     self.tokens = tokens
     self.level = level
@@ -37,6 +41,9 @@ public struct ContextCheckpointPrompt: Sendable, Equatable {
     self.modelID = modelID
     self.handoffFile = handoffFile
     self.notes = notes
+    self.choices = choices
+    self.compactions = compactions
+    self.maxCompactions = maxCompactions
   }
 }
 
@@ -52,6 +59,31 @@ public enum ContextCheckpointChoice: String, Sendable, Equatable, CaseIterable {
     }
   }
 
+  public var listText: String {
+    switch self {
+    case .compactAfterStep: return "Compact"
+    case .handOff: return "Hand off"
+    case .continueWorking: return "Continue"
+    case .notThisSession: return "Not this session"
+    }
+  }
+
+  public var configName: String {
+    switch self {
+    case .compactAfterStep: return "compact"
+    case .handOff: return "handoff"
+    case .continueWorking: return "continue"
+    case .notThisSession: return "mute"
+    }
+  }
+
+  public init?(configName: String) {
+    guard let choice = Self.allCases.first(where: { $0.configName == configName }) else {
+      return nil
+    }
+    self = choice
+  }
+
   public func outcome(for prompt: ContextCheckpointPrompt) -> ApprovalOutcome {
     switch self {
     case .continueWorking, .notThisSession:
@@ -59,18 +91,13 @@ public enum ContextCheckpointChoice: String, Sendable, Equatable, CaseIterable {
     case .compactAfterStep:
       return .addContext(
         ContextCheckpointNotes.render(
-          prompt.notes.compact, tokens: prompt.tokens, handoffFile: prompt.handoffFile))
+          prompt.notes.compact, tokens: prompt.tokens, handoffFile: prompt.handoffFile,
+          compactions: prompt.compactions))
     case .handOff:
       return .addContext(
         ContextCheckpointNotes.render(
-          prompt.notes.handoff, tokens: prompt.tokens, handoffFile: prompt.handoffFile))
-    }
-  }
-
-  public static func highlighted(for level: ContextLevel) -> ContextCheckpointChoice {
-    switch level {
-    case .soft, .status: return .compactAfterStep
-    case .insist, .stop: return .handOff
+          prompt.notes.handoff, tokens: prompt.tokens, handoffFile: prompt.handoffFile,
+          compactions: prompt.compactions))
     }
   }
 }
@@ -115,9 +142,12 @@ public enum ContextCheckpointPlanner {
 
     switch (settings.mode, level) {
     case (.silent, _), (.panel, .stop):
+      let pastCompactionLimit = state.compactions >= settings.maxCompactions && level != .stop
+      let chosenTemplate =
+        pastCompactionLimit ? settings.notes.limit : template(for: level, in: settings.notes)
       let note = ContextCheckpointNotes.render(
-        template(for: level, in: settings.notes), tokens: reading.tokens,
-        handoffFile: settings.handoffFile)
+        chosenTemplate, tokens: reading.tokens, handoffFile: settings.handoffFile,
+        compactions: state.compactions)
       return ContextCheckpointPlan(state: state, decision: .inject(note))
     case (.panel, _):
       let ladder = ContextLadder.thresholds(
@@ -125,7 +155,10 @@ public enum ContextCheckpointPlanner {
         settings: ladderSettings)
       let prompt = ContextCheckpointPrompt(
         tokens: reading.tokens, level: level, ladder: ladder, modelID: state.modelID,
-        handoffFile: settings.handoffFile, notes: settings.notes)
+        handoffFile: settings.handoffFile, notes: settings.notes,
+        choices: settings.choices.offered(
+          at: level, compactions: state.compactions, maxCompactions: settings.maxCompactions),
+        compactions: state.compactions, maxCompactions: settings.maxCompactions)
       return ContextCheckpointPlan(state: state, decision: .panel(prompt))
     }
   }

@@ -36,7 +36,7 @@ import Testing
       transcriptPath: "/t.jsonl", project: "shop-api", now: now)
 
     let expected = ContextCheckpointNotes.render(
-      settings.notes.soft, tokens: 101_000, handoffFile: settings.handoffFile)
+      settings.notes.soft, tokens: 101_000, handoffFile: settings.handoffFile, compactions: 0)
     #expect(plan.decision == .inject(expected))
     #expect(plan.state.fired == [.soft])
   }
@@ -72,9 +72,69 @@ import Testing
       transcriptPath: nil, project: "shop-api", now: now)
 
     let expected = ContextCheckpointPrompt(
-      tokens: 145_000, level: .insist, ladder: [100_000, 120_000, 140_000, 160_000],
-      modelID: "claude-opus-5-5", handoffFile: settings.handoffFile, notes: settings.notes)
+      tokens: 145_000, level: .status, ladder: [100_000, 130_000, 160_000],
+      modelID: "claude-opus-5-5", handoffFile: settings.handoffFile, notes: settings.notes,
+      choices: [.handOff, .compactAfterStep, .continueWorking], compactions: 0, maxCompactions: 5)
     #expect(plan.decision == .panel(expected))
+  }
+
+  @Test func aPanelPromptCarriesTheCompactionCountAndTheLevelsChoices() {
+    var previous = ContextCheckpointState.fresh(now: now)
+    previous.compactions = 2
+    let plan = ContextCheckpointPlanner.plan(
+      reading: reading(101_000), previous: previous, settings: settings(mode: .panel),
+      transcriptPath: nil, project: "shop-api", now: now)
+
+    guard case .panel(let prompt) = plan.decision else {
+      Issue.record("expected a panel")
+      return
+    }
+    #expect(prompt.choices == [.continueWorking, .compactAfterStep, .notThisSession])
+    #expect(prompt.compactions == 2)
+    #expect(prompt.maxCompactions == 5)
+  }
+
+  @Test func pastTheLimitThePanelNoLongerOffersCompact() {
+    var previous = ContextCheckpointState.fresh(now: now)
+    previous.compactions = 5
+    let plan = ContextCheckpointPlanner.plan(
+      reading: reading(145_000), previous: previous, settings: settings(mode: .panel),
+      transcriptPath: nil, project: "shop-api", now: now)
+
+    guard case .panel(let prompt) = plan.decision else {
+      Issue.record("expected a panel")
+      return
+    }
+    #expect(prompt.choices == [.handOff, .continueWorking])
+    #expect(!prompt.choices.contains(.compactAfterStep))
+  }
+
+  @Test func silentModePastTheLimitInjectsTheLimitNote() {
+    var previous = ContextCheckpointState.fresh(now: now)
+    previous.compactions = 5
+    let settings = settings(mode: .silent)
+    let plan = ContextCheckpointPlanner.plan(
+      reading: reading(145_000), previous: previous, settings: settings,
+      transcriptPath: nil, project: "shop-api", now: now)
+
+    let expected = ContextCheckpointNotes.render(
+      settings.notes.limit, tokens: 145_000, handoffFile: settings.handoffFile, compactions: 5)
+    #expect(plan.decision == .inject(expected))
+    #expect(expected.contains("compacted 5 times"))
+    #expect(!expected.contains("{compactions}"))
+  }
+
+  @Test func silentModeBelowTheLimitKeepsTheLevelsNote() {
+    var previous = ContextCheckpointState.fresh(now: now)
+    previous.compactions = 4
+    let settings = settings(mode: .silent)
+    let plan = ContextCheckpointPlanner.plan(
+      reading: reading(145_000), previous: previous, settings: settings,
+      transcriptPath: nil, project: "shop-api", now: now)
+
+    let expected = ContextCheckpointNotes.render(
+      settings.notes.status, tokens: 145_000, handoffFile: settings.handoffFile, compactions: 4)
+    #expect(plan.decision == .inject(expected))
   }
 
   @Test func stopInjectsItsRenderedNoteInPanelMode() {
@@ -84,7 +144,7 @@ import Testing
       transcriptPath: nil, project: "shop-api", now: now)
 
     let expected = ContextCheckpointNotes.render(
-      settings.notes.stop, tokens: 165_000, handoffFile: settings.handoffFile)
+      settings.notes.stop, tokens: 165_000, handoffFile: settings.handoffFile, compactions: 0)
     #expect(plan.decision == .inject(expected))
     #expect(plan.state.fired == [.soft, .status, .insist, .stop])
   }
@@ -96,7 +156,7 @@ import Testing
       transcriptPath: nil, project: "shop-api", now: now)
 
     let expected = ContextCheckpointNotes.render(
-      settings.notes.stop, tokens: 165_000, handoffFile: settings.handoffFile)
+      settings.notes.stop, tokens: 165_000, handoffFile: settings.handoffFile, compactions: 0)
     #expect(plan.decision == .inject(expected))
   }
 
@@ -107,7 +167,7 @@ import Testing
       transcriptPath: nil, project: "shop-api", now: now, levels: [.stop])
 
     let expected = ContextCheckpointNotes.render(
-      settings.notes.stop, tokens: 165_000, handoffFile: settings.handoffFile)
+      settings.notes.stop, tokens: 165_000, handoffFile: settings.handoffFile, compactions: 0)
     #expect(plan.decision == .inject(expected))
     #expect(plan.state.fired == [.soft, .status, .insist, .stop])
   }

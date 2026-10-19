@@ -95,6 +95,25 @@ import Testing
     #expect(file.contextCheckpoints?.standardThresholds == [1, 2, 3])
   }
 
+  @Test func twoValueLadderParsesAndOneOrFiveAreRejected() {
+    let (two, twoLog) = parse(#"{"contextCheckpoints": {"thresholds": {"200k": [100, 200]}}}"#)
+    #expect(twoLog.isEmpty)
+    #expect(two.contextCheckpoints?.standardThresholds == [100, 200])
+    let (one, oneLog) = parse(#"{"contextCheckpoints": {"thresholds": {"200k": [100]}}}"#)
+    #expect(one.contextCheckpoints?.standardThresholds == nil)
+    #expect(
+      oneLog == [
+        "contextCheckpoints.thresholds.200k: expected 2 to 4 ascending whole numbers of tokens, using default [100000, 130000, 160000]"
+      ])
+    let (five, fiveLog) = parse(
+      #"{"contextCheckpoints": {"thresholds": {"1m": [1, 2, 3, 4, 5]}}}"#)
+    #expect(five.contextCheckpoints?.millionThresholds == nil)
+    #expect(
+      fiveLog == [
+        "contextCheckpoints.thresholds.1m: expected 2 to 4 ascending whole numbers of tokens, using default [200000, 300000, 500000]"
+      ])
+  }
+
   @Test func hostStopNoteBeatsTheTopOne() {
     let (file, _) = parse(
       #"{"contextCheckpoints": {"notes": {"stop": "top"}, "hosts": {"claude": {"notes": {"stop": "host"}}}}}"#
@@ -119,7 +138,7 @@ import Testing
           "enabled": true,
           "mode": "x",
           "thresholds": { "200k": [3, 2, 1], "1m": [10, 20, 30] },
-          "modelThresholds": { "good": [1, 2, 3], "bad": [1, 2], "long": [1, 2, 3, 4, 5] },
+          "modelThresholds": { "good": [1, 2, 3], "bad": [1], "long": [1, 2, 3, 4, 5] },
           "rearmBelow": 2,
           "handoffFile": "",
           "notes": { "soft": "\(longNote)", "status": "kept" }
@@ -129,9 +148,9 @@ import Testing
     #expect(
       logLines == [
         "contextCheckpoints.mode: expected \"panel\" or \"silent\", using default \"panel\"",
-        "contextCheckpoints.thresholds.200k: expected 3 or 4 ascending whole numbers of tokens, using default [100000, 120000, 140000, 160000]",
-        "contextCheckpoints.modelThresholds.bad: expected 3 or 4 ascending whole numbers of tokens, ignored",
-        "contextCheckpoints.modelThresholds.long: expected 3 or 4 ascending whole numbers of tokens, ignored",
+        "contextCheckpoints.thresholds.200k: expected 2 to 4 ascending whole numbers of tokens, using default [100000, 130000, 160000]",
+        "contextCheckpoints.modelThresholds.bad: expected 2 to 4 ascending whole numbers of tokens, ignored",
+        "contextCheckpoints.modelThresholds.long: expected 2 to 4 ascending whole numbers of tokens, ignored",
         "contextCheckpoints.rearmBelow: expected a number from 0.1 to 0.95, using default 0.6",
         "contextCheckpoints.handoffFile: expected a non-empty string, using default \"notes/handoff.md\"",
         "contextCheckpoints.notes.soft: expected text of 1 to 4000 characters, using the default",
@@ -152,7 +171,7 @@ import Testing
       #"{"contextCheckpoints": {"thresholds": {"1m": [5, 5, 6]}}}"#)
     #expect(
       logLines == [
-        "contextCheckpoints.thresholds.1m: expected 3 or 4 ascending whole numbers of tokens, using default [200000, 300000, 400000, 600000]"
+        "contextCheckpoints.thresholds.1m: expected 2 to 4 ascending whole numbers of tokens, using default [200000, 300000, 500000]"
       ])
   }
 
@@ -258,8 +277,139 @@ import Testing
 
   @Test func renderReplacesEveryPlaceholder() {
     let text = ContextCheckpointNotes.render(
-      "{tokens} and {tokens}: write {handoffFile}, then read {handoffFile}",
-      tokens: 212_345, handoffFile: "notes/h.md")
-    #expect(text == "212K and 212K: write notes/h.md, then read notes/h.md")
+      "{tokens} and {tokens}: write {handoffFile}, then read {handoffFile}, {compactions} times",
+      tokens: 212_345, handoffFile: "notes/h.md", compactions: 7)
+    #expect(text == "212K and 212K: write notes/h.md, then read notes/h.md, 7 times")
+  }
+
+  @Test func theLimitNoteIsTheSeventhNoteAndUsesTheCompactionCount() {
+    #expect(ContextCheckpointNotes.names.last == "limit")
+    #expect(ContextCheckpointNotes.names.count == 7)
+    #expect(
+      ContextCheckpointNotes.default.text(named: "limit") == ContextCheckpointNotes.default.limit)
+    #expect(ContextCheckpointNotes.default.limit.contains("{compactions}"))
+  }
+
+  @Test func theDefaultStopNoteKeepsStateAndNamesTheHandoffFile() {
+    let text = ContextCheckpointNotes.render(
+      ContextCheckpointNotes.default.stop, tokens: 165_000, handoffFile: "notes/h.md",
+      compactions: 0)
+    #expect(text.contains("clean nothing up"))
+    #expect(text.contains("notes/h.md"))
+    #expect(!text.contains("{handoffFile}"))
+  }
+
+  @Test func maxCompactionsAndChoicesParse() {
+    let (file, logLines) = parse(
+      """
+      {
+        "contextCheckpoints": {
+          "maxCompactions": 3,
+          "choices": {
+            "soft": ["handoff", "continue"],
+            "status": ["compact", "handoff", "continue", "mute"]
+          },
+          "hosts": { "claude": { "choices": { "status": ["continue"] } } }
+        }
+      }
+      """)
+    #expect(logLines.isEmpty)
+    #expect(file.contextCheckpoints?.maxCompactions == 3)
+    #expect(file.contextCheckpoints?.choices["soft"] == [.handOff, .continueWorking])
+    #expect(
+      file.contextCheckpoints?.choices["status"] == [
+        .compactAfterStep, .handOff, .continueWorking, .notThisSession,
+      ])
+
+    let resolved = Settings.resolve(file: file, host: .claude).contextCheckpoints
+    #expect(resolved.maxCompactions == 3)
+    #expect(resolved.choices.soft == [.handOff, .continueWorking])
+    #expect(resolved.choices.status == [.continueWorking])
+    #expect(resolved.choices.insist == ContextCheckpointChoices.default.insist)
+  }
+
+  @Test func absentValuesResolveToTheDefaults() {
+    let (file, _) = parse(#"{"contextCheckpoints": {}}"#)
+    let resolved = Settings.resolve(file: file, host: .claude).contextCheckpoints
+    #expect(resolved.maxCompactions == 5)
+    #expect(resolved.choices == .default)
+  }
+
+  @Test(arguments: ["-1", "51", "2.5", "\"3\"", "true"])
+  func aBadMaxCompactionsLogsAndKeepsTheDefault(value: String) {
+    let (file, logLines) = parse(#"{"contextCheckpoints": {"maxCompactions": \#(value)}}"#)
+    #expect(
+      logLines == [
+        "contextCheckpoints.maxCompactions: expected a whole number from 0 to 50, using default 5"
+      ])
+    #expect(file.contextCheckpoints?.maxCompactions == nil)
+    #expect(Settings.resolve(file: file, host: .claude).contextCheckpoints.maxCompactions == 5)
+  }
+
+  @Test(arguments: [0, 50])
+  func theMaxCompactionsBoundsAreAccepted(value: Int) {
+    let (file, logLines) = parse(#"{"contextCheckpoints": {"maxCompactions": \#(value)}}"#)
+    #expect(logLines.isEmpty)
+    #expect(file.contextCheckpoints?.maxCompactions == value)
+  }
+
+  @Test(arguments: [
+    #"["continue", "continue"]"#,
+    #"["later"]"#,
+    "[]",
+    #"["compact", "handoff", "continue", "mute", "compact"]"#,
+    #""compact""#,
+  ])
+  func aBadChoiceListLogsAndKeepsTheDefault(list: String) {
+    let (file, logLines) = parse(
+      #"{"contextCheckpoints": {"choices": {"soft": \#(list), "status": ["mute"]}}}"#)
+    #expect(
+      logLines == [
+        "contextCheckpoints.choices.soft: expected 1 to 4 different choices from compact, handoff, continue and mute, using the default"
+      ])
+    #expect(file.contextCheckpoints?.choices["soft"] == nil)
+    #expect(file.contextCheckpoints?.choices["status"] == [.notThisSession])
+    let resolved = Settings.resolve(file: file, host: .claude).contextCheckpoints
+    #expect(resolved.choices.soft == ContextCheckpointChoices.default.soft)
+  }
+
+  @Test func anUnknownChoicesKeyIsLoggedAndIgnored() {
+    let (file, logLines) = parse(
+      #"{"contextCheckpoints": {"choices": {"stop": ["mute"], "soft": ["mute"]}}}"#)
+    #expect(logLines == ["unknown key \"contextCheckpoints.choices.stop\", ignored"])
+    #expect(file.contextCheckpoints?.choices == ["soft": [.notThisSession]])
+  }
+
+  @Test func choicesThatAreNotAnObjectAreIgnored() {
+    let (file, logLines) = parse(#"{"contextCheckpoints": {"choices": ["mute"]}}"#)
+    #expect(logLines == ["contextCheckpoints.choices: expected an object, ignored"])
+    #expect(file.contextCheckpoints?.choices.isEmpty == true)
+  }
+
+  @Test func codexLogsAndDropsMaxCompactionsAndChoicesAndKeepsTheDefaults() {
+    let (file, logLines) = parse(
+      """
+      {"contextCheckpoints": {"hosts": {"codex": {
+        "maxCompactions": 1, "choices": {"soft": ["mute"]}
+      }}}}
+      """)
+    #expect(
+      logLines == [
+        "contextCheckpoints.hosts.codex.maxCompactions: Claude Code only, ignored",
+        "contextCheckpoints.hosts.codex.choices: Claude Code only, ignored",
+      ])
+    #expect(file.contextCheckpointsCodex?.maxCompactions == nil)
+    #expect(file.contextCheckpointsCodex?.choices.isEmpty == true)
+    let resolved = Settings.resolve(file: file, host: .codex).contextCheckpoints
+    #expect(resolved.maxCompactions == 5)
+    #expect(resolved.choices == .default)
+  }
+
+  @Test func codexIgnoresTheTopLevelMaxCompactionsAndChoices() {
+    let (file, _) = parse(
+      #"{"contextCheckpoints": {"maxCompactions": 1, "choices": {"soft": ["mute"]}}}"#)
+    let resolved = Settings.resolve(file: file, host: .codex).contextCheckpoints
+    #expect(resolved.maxCompactions == 5)
+    #expect(resolved.choices == .default)
   }
 }

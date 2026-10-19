@@ -98,7 +98,7 @@ for pair in \
   "codex:codex-patch-dark" \
   "cursor:cursor-command-dark" \
   "antigravity:antigravity-command-dark" \
-  "checkpoint:context-insist-dark" \
+  "checkpoint:context-status-dark" \
   "rules:settings-rules-dark-readme"; do
   name=${pair%%:*}
   source=${pair#*:}

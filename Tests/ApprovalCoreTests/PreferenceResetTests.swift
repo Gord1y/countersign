@@ -30,7 +30,7 @@ import Testing
       !PreferenceReset.isChanged(
         .contextStandardThresholds,
         in: file(
-          ContextCheckpointFileValues(standardThresholds: [100_000, 120_000, 140_000, 160_000]))))
+          ContextCheckpointFileValues(standardThresholds: [100_000, 130_000, 160_000]))))
     #expect(!PreferenceReset.isChanged(.contextStandardThresholds, in: ConfigFile()))
     #expect(
       PreferenceReset.isChanged(
@@ -43,6 +43,15 @@ import Testing
     #expect(
       !PreferenceReset.isChanged(
         .contextNoteStatus, in: file(ContextCheckpointFileValues(notes: ["soft": "mine"]))))
+    #expect(
+      PreferenceReset.isChanged(
+        .contextNoteLimit, in: file(ContextCheckpointFileValues(notes: ["limit": "mine"]))))
+    #expect(
+      !PreferenceReset.isChanged(
+        .contextNoteLimit,
+        in: file(
+          ContextCheckpointFileValues(notes: ["limit": ContextCheckpointNotes.default.limit]))
+      ))
     #expect(
       PreferenceReset.isChanged(
         .contextModelThresholds,
@@ -70,6 +79,29 @@ import Testing
         .contextRearmBelow, in: file(ContextCheckpointFileValues(rearmBelow: 0.6))))
     #expect(
       PreferenceReset.isChanged(
+        .contextMaxCompactions, in: file(ContextCheckpointFileValues(maxCompactions: 3))))
+    #expect(
+      !PreferenceReset.isChanged(
+        .contextMaxCompactions, in: file(ContextCheckpointFileValues(maxCompactions: 5))))
+    #expect(
+      PreferenceReset.isChanged(
+        .contextSoftChoices,
+        in: file(ContextCheckpointFileValues(choices: ["soft": [.notThisSession]]))))
+    #expect(
+      !PreferenceReset.isChanged(
+        .contextSoftChoices,
+        in: file(
+          ContextCheckpointFileValues(choices: ["soft": ContextCheckpointChoices.default.soft]))))
+    #expect(
+      !PreferenceReset.isChanged(
+        .contextStatusChoices,
+        in: file(ContextCheckpointFileValues(choices: ["soft": [.notThisSession]]))))
+    #expect(
+      PreferenceReset.isChanged(
+        .contextInsistChoices,
+        in: file(ContextCheckpointFileValues(choices: ["insist": [.continueWorking]]))))
+    #expect(
+      PreferenceReset.isChanged(
         .contextHandoffFile, in: file(ContextCheckpointFileValues(handoffFile: "h.md"))))
     #expect(
       PreferenceReset.isChanged(
@@ -93,13 +125,22 @@ import Testing
     #expect(PreferenceReset.valueText(.contextCheckpointsEnabled, in: values) == "On")
     #expect(PreferenceReset.valueText(.contextMode, in: values) == "Panel")
     #expect(
-      PreferenceReset.valueText(.contextStandardThresholds, in: values) == "100K, 120K, 140K, 160K")
+      PreferenceReset.valueText(.contextStandardThresholds, in: values) == "100K, 130K, 160K")
     #expect(
-      PreferenceReset.valueText(.contextMillionThresholds, in: values) == "200K, 300K, 400K, 600K")
+      PreferenceReset.valueText(.contextMillionThresholds, in: values) == "200K, 300K, 500K")
     #expect(PreferenceReset.valueText(.contextModelThresholds, in: values) == "none")
     #expect(PreferenceReset.valueText(.contextRearmBelow, in: values) == "60%")
+    #expect(PreferenceReset.valueText(.contextMaxCompactions, in: values) == "5")
+    #expect(
+      PreferenceReset.valueText(.contextSoftChoices, in: values)
+        == "Continue, Compact, Not this session")
+    #expect(
+      PreferenceReset.valueText(.contextStatusChoices, in: values) == "Hand off, Compact, Continue")
+    #expect(PreferenceName.contextMaxCompactions.defaultText == "5")
+    #expect(PreferenceName.contextInsistChoices.defaultText == "Hand off, Compact, Continue")
     #expect(PreferenceReset.valueText(.contextHandoffFile, in: values) == "notes/handoff.md")
     #expect(PreferenceReset.valueText(.contextNoteSoft, in: values) == "Default")
+    #expect(PreferenceReset.valueText(.contextNoteLimit, in: values) == "Default")
     #expect(PreferenceReset.valueText(.contextMenuBarMeter, in: values) == "Off")
     #expect(PreferenceReset.valueText(.contextColdCacheCard, in: values) == "On")
     values = values.applying(.contextCheckpointsEnabled(true)).applying(.contextMode(.silent))

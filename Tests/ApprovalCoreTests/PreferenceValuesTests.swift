@@ -21,6 +21,11 @@ import Testing
     values = values.applying(.contextNote(.contextNoteStop, "s"))
     values = values.applying(.contextNote(.contextNoteCompact, "d"))
     values = values.applying(.contextNote(.contextNoteHandoff, "e"))
+    values = values.applying(.contextNote(.contextNoteLimit, "f"))
+    values = values.applying(.contextMaxCompactions(2))
+    values = values.applying(.contextChoices(.contextSoftChoices, [.notThisSession]))
+    values = values.applying(.contextChoices(.contextStatusChoices, [.handOff, .continueWorking]))
+    values = values.applying(.contextChoices(.contextInsistChoices, [.handOff]))
     values = values.applying(.contextMenuBarMeter(true))
     values = values.applying(.contextColdCacheCard(false))
     #expect(
@@ -28,9 +33,13 @@ import Testing
         == ContextCheckpointSettings(
           enabled: true, mode: .silent, standardThresholds: [1, 2, 3],
           millionThresholds: [4, 5, 6], modelThresholds: ["claude-opus": [7, 8, 9]],
-          rearmBelow: 0.5, handoffFile: "h.md",
+          rearmBelow: 0.5, maxCompactions: 2,
+          choices: ContextCheckpointChoices(
+            soft: [.notThisSession], status: [.handOff, .continueWorking], insist: [.handOff]),
+          handoffFile: "h.md",
           notes: ContextCheckpointNotes(
-            soft: "a", status: "b", insist: "c", stop: "s", compact: "d", handoff: "e"),
+            soft: "a", status: "b", insist: "c", stop: "s", compact: "d", handoff: "e",
+            limit: "f"),
           menuBarMeter: true, coldCacheCard: false))
   }
 

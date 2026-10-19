@@ -1125,7 +1125,7 @@ final class SettingsModel {
 
   static let contextNoteNames: [PreferenceName] = [
     .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteStop, .contextNoteCompact,
-    .contextNoteHandoff,
+    .contextNoteHandoff, .contextNoteLimit,
   ]
 
   var contextHookFileText: String? {
@@ -1253,6 +1253,7 @@ final class SettingsModel {
     case .contextNoteStop: return values.notes.stop
     case .contextNoteCompact: return values.notes.compact
     case .contextNoteHandoff: return values.notes.handoff
+    case .contextNoteLimit: return values.notes.limit
     default: return ""
     }
   }
@@ -1303,6 +1304,28 @@ final class SettingsModel {
 
   func setContextRearmBelow(_ ratio: Double) {
     write(.contextRearmBelow(ratio))
+  }
+
+  func contextChoices(_ name: PreferenceName) -> [ContextCheckpointChoice] {
+    let choices = contextCheckpoints.choices
+    switch name {
+    case .contextSoftChoices: return choices.soft
+    case .contextStatusChoices: return choices.status
+    case .contextInsistChoices: return choices.insist
+    default: return []
+    }
+  }
+
+  func setContextMaxCompactions(_ count: Int) {
+    write(.contextMaxCompactions(count))
+  }
+
+  func setContextChoices(
+    _ name: PreferenceName, enabled: Set<ContextCheckpointChoice>,
+    highlighted: ContextCheckpointChoice
+  ) {
+    write(
+      .contextChoices(name, ContextCheckpointChoices.ordered(enabled, highlighted: highlighted)))
   }
 
   func setContextMenuBarMeter(_ enabled: Bool) {

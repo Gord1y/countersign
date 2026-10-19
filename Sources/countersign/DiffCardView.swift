@@ -49,8 +49,7 @@ private enum NumberedDiffBlock {
 
 struct NumberedDiffCard: View {
   let segments: [DiffSegment]
-
-  @State private var revealed: [Int: GapRevealState] = [:]
+  @Binding var revealed: [Int: GapRevealState]
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
