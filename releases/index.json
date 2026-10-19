@@ -2,23 +2,27 @@
   "schemaVersion": 1,
   "releases": [
     {
-      "version": "0.4.2",
+      "version": "0.5.0",
       "date": "2026-10-19",
-      "title": "Countersign 0.4.2: a panel that steps aside keeps your answer",
-      "summary": "When another app takes the keyboard while a panel is up, the panel steps aside and comes back after your next pause. Until now it came back empty, so anything you had typed or picked was lost. It now comes back as you left it.",
-      "type": "patch",
+      "title": "Countersign 0.5.0: checkpoints that ask before they stop, and keep your work",
+      "summary": "Context checkpoints now have three rungs by default: a prompt to compact or continue, a prompt to hand off or compact, and a stop that has Claude finish the task in hand and hand off without tearing anything down. Each checkpoint's choices are configurable, Countersign counts compactions and stops offering Compact after five, and a panel that steps aside comes back as you left it.",
+      "type": "minor",
       "breaking": false,
       "highlights": [
+        "Three checkpoints by default: compact or continue, hand off or compact, then a stop that keeps your work",
+        "Choose what each checkpoint offers, and stop offering Compact after a set number of compactions",
         "A panel that steps aside comes back with what you typed, picked and scrolled to"
       ],
       "tags": [
+        "claude-code",
+        "context",
         "panel"
       ],
       "testedWith": {
         "claudeCode": "2.1.299",
         "codex": "0.159.3"
       },
-      "notes": "releases/release-0.4.2.md"
+      "notes": "releases/release-0.5.0.md"
     },
     {
       "version": "0.4.1",
