@@ -2,6 +2,25 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.4.2",
+      "date": "2026-10-19",
+      "title": "Countersign 0.4.2: a panel that steps aside keeps your answer",
+      "summary": "When another app takes the keyboard while a panel is up, the panel steps aside and comes back after your next pause. Until now it came back empty, so anything you had typed or picked was lost. It now comes back as you left it.",
+      "type": "patch",
+      "breaking": false,
+      "highlights": [
+        "A panel that steps aside comes back with what you typed, picked and scrolled to"
+      ],
+      "tags": [
+        "panel"
+      ],
+      "testedWith": {
+        "claudeCode": "2.1.299",
+        "codex": "0.159.3"
+      },
+      "notes": "releases/release-0.4.2.md"
+    },
+    {
       "version": "0.4.1",
       "date": "2026-10-17",
       "title": "Countersign 0.4.1: checkpoints follow the 1M window again",
