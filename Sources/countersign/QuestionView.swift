@@ -165,8 +165,9 @@ struct QuestionView: View {
       focusedField = nil
     }
     .onChange(of: model.isOnScreen) { _, isOnScreen in
-      if isOnScreen {
-        focusedField = model.draft.focusedField
+      if isOnScreen, let field = model.draft.focusedField {
+        focusedField = field
+        model.onFieldFocusRestored?()
       }
     }
     .onChange(of: focusedField) { _, field in

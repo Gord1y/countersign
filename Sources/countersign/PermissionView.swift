@@ -96,6 +96,7 @@ struct PermissionView: View {
     .onChange(of: model.isOnScreen) { _, isOnScreen in
       if isOnScreen, model.draft.focusedField == .denyReason {
         isReasonFieldFocused = true
+        model.onFieldFocusRestored?()
       }
     }
     .onChange(of: isReasonFieldFocused) { _, isFocused in

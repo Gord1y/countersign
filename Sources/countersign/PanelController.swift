@@ -67,6 +67,7 @@ final class PanelModel {
   var onAlwaysAllow: ((AlwaysAllowOffer) -> Void)?
   var keyHandler: PanelKeyHandler?
   var onPreferredHeightChange: ((CGFloat) -> Void)?
+  var onFieldFocusRestored: (() -> Void)?
 
   init(
     request: ApprovalRequest, waitingEntries: [WaitingEntry],
@@ -168,6 +169,7 @@ final class PanelController {
   private var topEdgeY: CGFloat?
   private var showTime: Date?
   private static let settleWindow: TimeInterval = 0.2
+  private static let selectionRestoreAttempts = 5
   private static let escapeKeyCode: UInt16 = 53
   private static let returnKeyCodes: Set<UInt16> = [36, 76]
   private static let deleteKeyCode: UInt16 = 51
@@ -255,6 +257,9 @@ final class PanelController {
     model.onPreferredHeightChange = { [weak self] height in
       self?.applyHeight(height)
     }
+    model.onFieldFocusRestored = { [weak self] in
+      self?.restoreFieldSelectionSoon()
+    }
   }
 
   func layOut() {
@@ -304,6 +309,9 @@ final class PanelController {
   }
 
   func close() {
+    if isPresented {
+      model.draft.fieldSelection = editableFirstResponder()?.selectedRange()
+    }
     stopResponding()
     panel.orderOut(nil)
     backdrop?.orderOut(nil)
@@ -421,6 +429,26 @@ final class PanelController {
     case .closeDropdown:
       model.dropdown.close()
     }
+    return true
+  }
+
+  private func restoreFieldSelectionSoon() {
+    Task { [weak self] in
+      for _ in 0..<Self.selectionRestoreAttempts {
+        guard let self else { return }
+        if self.restoreFieldSelection() { return }
+        try? await Task.sleep(nanoseconds: 20_000_000)
+      }
+    }
+  }
+
+  private func restoreFieldSelection() -> Bool {
+    guard let editor = editableFirstResponder() else { return false }
+    let length = (editor.string as NSString).length
+    let saved = model.draft.fieldSelection ?? NSRange(location: length, length: 0)
+    let location = min(saved.location, length)
+    editor.setSelectedRange(
+      NSRange(location: location, length: min(saved.length, length - location)))
     return true
   }
 

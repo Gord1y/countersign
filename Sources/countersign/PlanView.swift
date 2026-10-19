@@ -56,6 +56,7 @@ struct PlanView: View {
     .onChange(of: model.isOnScreen) { _, isOnScreen in
       if isOnScreen, model.draft.focusedField == .planFeedback {
         isFeedbackFieldFocused = true
+        model.onFieldFocusRestored?()
       }
     }
     .onChange(of: isFeedbackFieldFocused) { _, isFocused in

@@ -104,7 +104,11 @@ true in `show()`, after `makeFirstResponder(nil)`, and each view's `onChange` of
 draft's field; `PanelScaffold` scrolls its `ScrollViewReader` to the content with an anchor of
 offset ÷ (content height − visible height), which puts the content back at the same offset. Without
 the field coming back, the first plain key after the panel returns would step it aside again and be
-swallowed. Keys typed into the field during the arm lock go into the field, as on any focused field;
+swallowed. AppKit selects a field's whole text when it becomes first responder, so a restored field
+would have its text replaced by the next key; `close()` saves the field editor's selected range in
+the draft, and once the view has focused the field again `PanelController` puts that range back,
+clamped to the text, retrying for up to five 20 ms turns until the field editor is first responder.
+Keys typed into the field during the arm lock go into the field, as on any focused field;
 Return and Esc stay locked. Writes to the field and the offset go through `PanelModel.noteFocus` and
 `noteScrollOffset`, which do nothing while the panel is off screen: a warm-standby panel lays out at
 offset 0 long before it shows, and a panel on its way out can lose its field, and neither may

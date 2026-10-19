@@ -29,6 +29,7 @@ final class PanelDraft {
   var checkpointChoice: ContextCheckpointChoice
   var focusedField: PanelDraftField?
   @ObservationIgnored var scrollOffset: CGFloat = 0
+  @ObservationIgnored var fieldSelection: NSRange?
 
   init(request: ApprovalRequest, modeAfterPlan: PlanApprovalMode) {
     planMode = modeAfterPlan
