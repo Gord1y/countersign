@@ -37,31 +37,38 @@ import Testing
 
   @Test func titlesEveryContextRow() {
     #expect(
-      PreferenceName.allCases.suffix(15).map(\.title) == [
+      PreferenceName.allCases.suffix(20).map(\.title) == [
         "Context checkpoints (Claude Code and Codex)", "Checkpoint style",
         "Checkpoints, 200K window",
-        "Checkpoints, 1M window", "Checkpoints for one model", "Start over below", "Handoff file",
+        "Checkpoints, 1M window", "Checkpoints for one model", "Start over below",
+        "Compactions before hand-off only", "First checkpoint offers",
+        "Second checkpoint offers", "Insist checkpoint offers", "Handoff file",
         "Soft note", "Status note", "Insist note", "Stop note", "Compact note", "Handoff note",
-        "Context in the menu bar", "Warn before the cache goes cold",
+        "Past the compaction limit", "Context in the menu bar", "Warn before the cache goes cold",
       ])
   }
 
   @Test func captionsEveryContextRow() {
     #expect(
-      PreferenceName.allCases.suffix(15).map(\.caption) == [
+      PreferenceName.allCases.suffix(20).map(\.caption) == [
         "Nudge long Claude Code and Codex sessions toward a deliberate compaction.",
         "Show a panel, or add the note silently.",
-        "Soft, status, insist and an optional stop, in tokens.",
-        "Soft, status, insist and an optional stop, in tokens.",
+        "Two to four sizes in tokens; with three or four, the last is the stop.",
+        "Two to four sizes in tokens; with three or four, the last is the stop.",
         "A ladder for model IDs starting with a prefix.",
         "A drop this far below the peak counts as a fresh start.",
-        "Where the agent writes a handoff, relative to the project.",
+        "Past this, a checkpoint no longer offers Compact.",
+        "The choices this checkpoint's panel shows.",
+        "The choices this checkpoint's panel shows.",
+        "Used only with a four-number ladder.",
+        "Where the agent writes a handoff when the project names no other way.",
         "Sent in silent mode at the first checkpoint.",
         "Sent in silent mode at the second checkpoint.",
         "Sent in silent mode at the third checkpoint.",
         "Sent without asking at the stop checkpoint.",
         "Sent when you choose Compact after this step.",
         "Sent when you choose Hand off & start fresh.",
+        "Sent in silent mode once a session passes the compaction limit.",
         "List each live session's context in the menu.",
         "Show a card 10 minutes before an idle session's cache expires.",
       ])
@@ -77,8 +84,8 @@ import Testing
   @Test func contextDefaultTextMatchesTheBuiltInDefaults() {
     #expect(PreferenceName.contextCheckpointsEnabled.defaultText == "On")
     #expect(PreferenceName.contextMode.defaultText == "Panel")
-    #expect(PreferenceName.contextStandardThresholds.defaultText == "100K, 120K, 140K, 160K")
-    #expect(PreferenceName.contextMillionThresholds.defaultText == "200K, 300K, 400K, 600K")
+    #expect(PreferenceName.contextStandardThresholds.defaultText == "100K, 130K, 160K")
+    #expect(PreferenceName.contextMillionThresholds.defaultText == "200K, 300K, 500K")
     #expect(PreferenceName.contextRearmBelow.defaultText == "60%")
     #expect(PreferenceName.contextHandoffFile.defaultText == "notes/handoff.md")
     #expect(PreferenceName.contextMenuBarMeter.defaultText == "Off")

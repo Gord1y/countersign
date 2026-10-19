@@ -688,28 +688,37 @@ here or in the file, while Context is showing selects Panels. Its blocks, in ord
 showing Wired, Not wired or Needs an update from `ContextHookRun.status`, with "Update" for the last
 two; the Claude row's Update covers Claude Code's file only, the Codex row's Codex's file only, and
 neither touches the config; only the switch writes every location in `contextLocations`), Checkpoints
-(Checkpoint style, the 200K and 1M ladders, the per-model ladders, Start over below), Notes and
+(Checkpoint style, the 200K and 1M ladders, the per-model ladders, Compactions before hand-off
+only, the three "checkpoint offers" rows, Start over below), Notes and
 handoff (Notes, one row with an "Edit Notes…" button, then Handoff file), Cold cache (Warn before
 the cache goes cold), Menu bar (Context in the menu bar) and Try it (a button that shows a context test panel), then a footer with "Turn Off
 Context Checkpoints" left of Restore Defaults. That button calls `requestContextCheckpoints(false)` and so shows the same "Turn off context checkpoints?" popup as the Panels switch (the row presents it for the `.toggle` origin, and only one tab is on screen at a time, so one `contextChange` shows one alert); it is disabled while a change is pending or neither Claude Code nor Codex is installed.
 
-Write rules follow the table above. The two ladder fields take three or four ascending whole numbers of
-thousands, 1 to 2000, the fourth being the optional stop (`PreferenceRules.contextLadder`), checked on each keystroke, and are written
-on Return, blur or disappearance; an invalid value shows "Enter three or four ascending numbers of
+Write rules follow the table above. The two ladder fields take two to four ascending whole numbers of
+thousands, 1 to 2000, the last of three or four being the stop (`PreferenceRules.contextLadder`), checked on each keystroke, and are written
+on Return, blur or disappearance; an invalid value shows "Enter two to four ascending numbers of
 thousands of tokens" and is never written. The per-model list adds a pair (prefix, ladder) on Add
 or Return in either field, like Hand off when frontmost, and removes one with its button. Start
-over below is a slider from 10 % to 95 % in steps of 5, written when the drag ends. The handoff
+over below is a slider from 10 % to 95 % in steps of 5, written when the drag ends. Compactions
+before hand-off only is a stepper from 0 to 50 (`ContextCheckpointSettings.maxCompactionsRange`),
+written on each step. Each "checkpoint offers" row (first, second, insist) has four checkboxes,
+Compact, Hand off, Continue and Not this session, and a "Highlighted" menu listing the checked
+ones. Every change writes the whole list through `ContextCheckpointChoices.ordered`, the
+highlighted choice first and the rest in canonical order. A list is never empty: the last checked
+box is disabled, and unchecking the highlighted choice highlights the first remaining one in
+canonical order. The handoff
 file is written on blur, Return or disappearance; empty shows "Enter a file path".
 `commitEditing()` commits every pending ladder and handoff file field, so leaving the window or
 showing a test panel never drops one.
 
 The notes are edited in a sheet (`ContextNotesSheet`, a SwiftUI view in an `NSHostingController`
 presented with `beginSheet`), about 560 by 620, titled "Context notes", whose
-caption names the `{tokens}` and `{handoffFile}` placeholders. It shows the five notes in order,
+caption names the `{tokens}`, `{handoffFile}` and `{compactions}` placeholders. It shows the seven
+notes in order (soft, status, insist, stop, compact, handoff, limit),
 each with its caption, an editor about five lines tall and a "Restore Default" button enabled only
 while the text differs from the default. The pending texts live in the sheet's own state, not in
 `contextTexts`, and nothing is written on blur, so `commitEditing()` no longer touches the notes.
-"Cancel" (Esc) discards every edit. "Save" (Return, the default button) checks all five with
+"Cancel" (Esc) discards every edit. "Save" (Return, the default button) checks every note with
 `PreferenceRules.contextNote` first (empty shows "Enter the note", and a note is at most 4000
 characters, the limit the config parser enforces), and writes the changed ones only when every
 note is valid; otherwise the sheet stays open with the red line under the offending note, and a

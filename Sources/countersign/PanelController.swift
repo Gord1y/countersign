@@ -18,10 +18,21 @@ struct PanelKeyHandler {
   let perform: (PanelKey) -> Void
 }
 
-enum StepAsideReason: String {
-  case appSwitch = "app switch"
-  case focusLost = "focus lost"
+enum StepAsideReason: Sendable, Equatable {
+  case appSwitch(to: String?)
+  case focusLost(frontmost: String?)
   case typing
+
+  var logText: String {
+    switch self {
+    case .appSwitch(let bundleID):
+      return bundleID.map { "app switch to \($0)" } ?? "app switch"
+    case .focusLost(let bundleID):
+      return bundleID.map { "focus lost, \($0) frontmost" } ?? "focus lost"
+    case .typing:
+      return "typing"
+    }
+  }
 }
 
 @MainActor
@@ -44,6 +55,8 @@ final class PanelModel {
   let escapeKeepsWaiting: Bool
   let alwaysAllowOffer: AlwaysAllowOffer?
   let dropdown: PanelDropdownState
+  let draft: PanelDraft
+  private(set) var isOnScreen = false
   private(set) var hasStartedArming = false
   private(set) var isArmed = false
   private var hasFinished = false
@@ -54,6 +67,7 @@ final class PanelModel {
   var onAlwaysAllow: ((AlwaysAllowOffer) -> Void)?
   var keyHandler: PanelKeyHandler?
   var onPreferredHeightChange: ((CGFloat) -> Void)?
+  var onFieldFocusRestored: (() -> Void)?
 
   init(
     request: ApprovalRequest, waitingEntries: [WaitingEntry],
@@ -69,7 +83,8 @@ final class PanelModel {
     sessionIdle: Bool = false,
     escapeKeepsWaiting: Bool = false,
     alwaysAllowOffer: AlwaysAllowOffer? = nil,
-    openDropdownOnAppear: PanelDropdownID? = nil
+    openDropdownOnAppear: PanelDropdownID? = nil,
+    draft: PanelDraft? = nil
   ) {
     self.request = request
     self.alwaysAllowOffer = alwaysAllowOffer
@@ -83,6 +98,7 @@ final class PanelModel {
     self.chatTrackingDrift = chatTrackingDrift
     self.isTestPanel = isTestPanel
     self.dropdown = PanelDropdownState(requestedOnAppear: openDropdownOnAppear)
+    self.draft = draft ?? PanelDraft(request: request, modeAfterPlan: modeAfterPlan)
     self.fileDiffs = FileDiffBuilder.load(for: request)
     self.subagentChain = subagentChain
     self.contextGauge = contextGauge
@@ -91,6 +107,24 @@ final class PanelModel {
 
   func startArming() {
     hasStartedArming = true
+  }
+
+  func markOnScreen() {
+    isOnScreen = true
+  }
+
+  func markOffScreen() {
+    isOnScreen = false
+  }
+
+  func noteFocus(_ field: PanelDraftField?) {
+    guard isOnScreen else { return }
+    draft.focusedField = field
+  }
+
+  func noteScrollOffset(_ offset: CGFloat) {
+    guard isOnScreen else { return }
+    draft.scrollOffset = offset
   }
 
   func arm() {
@@ -135,6 +169,7 @@ final class PanelController {
   private var topEdgeY: CGFloat?
   private var showTime: Date?
   private static let settleWindow: TimeInterval = 0.2
+  private static let selectionRestoreAttempts = 5
   private static let escapeKeyCode: UInt16 = 53
   private static let returnKeyCodes: Set<UInt16> = [36, 76]
   private static let deleteKeyCode: UInt16 = 51
@@ -159,6 +194,7 @@ final class PanelController {
     subagentChain: [SubagentChainLink]? = nil,
     contextGauge: ContextGauge? = nil,
     isTestPanel: Bool = false,
+    draft: PanelDraft? = nil,
     handoffBackdrop: BackdropWindow? = nil,
     afterHandoff: Bool = false,
     onFinish: @escaping @MainActor (ApprovalOutcome) -> Void,
@@ -182,7 +218,7 @@ final class PanelController {
       chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
       contextGauge: contextGauge, isTestPanel: isTestPanel, sessionIdle: sessionIdle,
       escapeKeepsWaiting: escapeKeepsWaiting,
-      alwaysAllowOffer: alwaysAllowOffer)
+      alwaysAllowOffer: alwaysAllowOffer, draft: draft)
     CountersignPalette.use(accentColor)
     let panel = ApprovalPanel()
     panel.appearance = appearance.windowAppearance
@@ -221,6 +257,9 @@ final class PanelController {
     model.onPreferredHeightChange = { [weak self] height in
       self?.applyHeight(height)
     }
+    model.onFieldFocusRestored = { [weak self] in
+      self?.restoreFieldSelectionSoon()
+    }
   }
 
   func layOut() {
@@ -239,6 +278,7 @@ final class PanelController {
     panel.orderFrontRegardless()
     panel.makeKey()
     panel.makeFirstResponder(nil)
+    model.markOnScreen()
     isPresented = true
     installKeyMonitor()
     installStepAsideTriggers()
@@ -269,6 +309,9 @@ final class PanelController {
   }
 
   func close() {
+    if isPresented {
+      model.draft.fieldSelection = editableFirstResponder()?.selectedRange()
+    }
     stopResponding()
     panel.orderOut(nil)
     backdrop?.orderOut(nil)
@@ -319,6 +362,7 @@ final class PanelController {
   }
 
   private func stopResponding() {
+    model.markOffScreen()
     isPresented = false
     armTask?.cancel()
     removeStepAsideTriggers()
@@ -388,6 +432,26 @@ final class PanelController {
     return true
   }
 
+  private func restoreFieldSelectionSoon() {
+    Task { [weak self] in
+      for _ in 0..<Self.selectionRestoreAttempts {
+        guard let self else { return }
+        if self.restoreFieldSelection() { return }
+        try? await Task.sleep(nanoseconds: 20_000_000)
+      }
+    }
+  }
+
+  private func restoreFieldSelection() -> Bool {
+    guard let editor = editableFirstResponder() else { return false }
+    let length = (editor.string as NSString).length
+    let saved = model.draft.fieldSelection ?? NSRange(location: length, length: 0)
+    let location = min(saved.location, length)
+    editor.setSelectedRange(
+      NSRange(location: location, length: min(saved.length, length - location)))
+    return true
+  }
+
   private func editableFirstResponder() -> NSTextView? {
     guard let textView = panel.firstResponder as? NSTextView, textView.isEditable else {
       return nil
@@ -454,7 +518,10 @@ final class PanelController {
       let activated =
         notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
       let activatedProcess = activated?.processIdentifier
-      MainActor.assumeIsolated { self?.stepAsideIfAnotherApp(activatedProcess) }
+      let activatedBundleID = activated?.bundleIdentifier
+      MainActor.assumeIsolated {
+        self?.stepAsideIfAnotherApp(activatedProcess, bundleID: activatedBundleID)
+      }
     }
   }
 
@@ -469,10 +536,10 @@ final class PanelController {
     workspaceObserver = nil
   }
 
-  private func stepAsideIfAnotherApp(_ activatedProcess: pid_t?) {
+  private func stepAsideIfAnotherApp(_ activatedProcess: pid_t?, bundleID: String?) {
     guard let activatedProcess, activatedProcess != ProcessInfo.processInfo.processIdentifier
     else { return }
-    stepAside(.appSwitch)
+    stepAside(.appSwitch(to: bundleID))
   }
 
   private func checkFocusOnNextTurn() {
@@ -484,7 +551,7 @@ final class PanelController {
   private func stepAsideIfFocusLost() {
     let ownsKeyWindow = NSApplication.shared.windows.contains { $0.isKeyWindow }
     guard !ownsKeyWindow else { return }
-    stepAside(.focusLost)
+    stepAside(.focusLost(frontmost: NSWorkspace.shared.frontmostApplication?.bundleIdentifier))
   }
 
   private func stepAside(_ reason: StepAsideReason) {

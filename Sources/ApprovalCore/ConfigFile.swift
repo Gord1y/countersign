@@ -171,8 +171,8 @@ public enum ConfigFileParser {
     "$schema",
   ]
   static let contextCheckpointKeys: Set<String> = [
-    "enabled", "mode", "thresholds", "modelThresholds", "rearmBelow", "handoffFile", "notes",
-    "menuBarMeter", "coldCacheCard", "hosts",
+    "enabled", "mode", "thresholds", "modelThresholds", "rearmBelow", "maxCompactions", "choices",
+    "handoffFile", "notes", "menuBarMeter", "coldCacheCard", "hosts",
   ]
   static let hostKeys: Set<String> = [
     "armDelay", "chainedArmDelay", "idleSeconds", "graceSeconds", "handoffApps",
@@ -291,7 +291,8 @@ public enum ConfigFileParser {
   }
 
   private static let claudeOnlyContextCheckpointKeys = [
-    "mode", "thresholds", "modelThresholds", "menuBarMeter", "coldCacheCard",
+    "mode", "thresholds", "modelThresholds", "maxCompactions", "choices", "menuBarMeter",
+    "coldCacheCard",
   ]
 
   private static func readContextCheckpointHosts(
@@ -371,6 +372,10 @@ public enum ConfigFileParser {
       object["modelThresholds"], path: "\(path).modelThresholds", logLines: &logLines)
     values.rearmBelow = readRearmBelow(
       object["rearmBelow"], path: "\(path).rearmBelow", logLines: &logLines)
+    values.maxCompactions = readMaxCompactions(
+      object["maxCompactions"], path: "\(path).maxCompactions", logLines: &logLines)
+    values.choices = readContextCheckpointChoices(
+      object["choices"], path: "\(path).choices", logLines: &logLines)
     values.handoffFile = readHandoffFile(
       object["handoffFile"], path: "\(path).handoffFile", logLines: &logLines)
     values.notes = readContextCheckpointNotes(
@@ -398,7 +403,7 @@ public enum ConfigFileParser {
   }
 
   private static func ascendingLadder(_ value: JSONValue) -> [Int]? {
-    guard case .array(let array) = value, (3...4).contains(array.count) else { return nil }
+    guard case .array(let array) = value, (2...4).contains(array.count) else { return nil }
     var ladder: [Int] = []
     for element in array {
       guard let tokens = integerValue(element), tokens >= 1 else { return nil }
@@ -414,7 +419,7 @@ public enum ConfigFileParser {
     guard let value else { return nil }
     guard let ladder = ascendingLadder(value) else {
       logLines.append(
-        "\(path): expected 3 or 4 ascending whole numbers of tokens, using default \(defaultValue)")
+        "\(path): expected 2 to 4 ascending whole numbers of tokens, using default \(defaultValue)")
       return nil
     }
     return ladder
@@ -432,7 +437,7 @@ public enum ConfigFileParser {
     for key in object.keys.sorted() {
       guard !key.isEmpty, let value = object[key], let ladder = ascendingLadder(value) else {
         logLines.append(
-          "\(path).\(key): expected 3 or 4 ascending whole numbers of tokens, ignored")
+          "\(path).\(key): expected 2 to 4 ascending whole numbers of tokens, ignored")
         continue
       }
       ladders[key] = ladder
@@ -453,6 +458,60 @@ public enum ConfigFileParser {
       return nil
     }
     return number
+  }
+
+  private static func readMaxCompactions(
+    _ value: JSONValue?, path: String, logLines: inout [String]
+  ) -> Int? {
+    guard let value else { return nil }
+    guard let count = integerValue(value),
+      ContextCheckpointSettings.maxCompactionsRange.contains(count)
+    else {
+      logLines.append(
+        "\(path): expected a whole number from 0 to 50, using default"
+          + " \(ContextCheckpointSettings.defaultMaxCompactions)")
+      return nil
+    }
+    return count
+  }
+
+  private static func choiceList(_ value: JSONValue) -> [ContextCheckpointChoice]? {
+    guard case .array(let array) = value,
+      (1...ContextCheckpointChoices.maximumCount).contains(array.count)
+    else { return nil }
+    var choices: [ContextCheckpointChoice] = []
+    for element in array {
+      guard let name = element.stringValue, let choice = ContextCheckpointChoice(configName: name),
+        !choices.contains(choice)
+      else { return nil }
+      choices.append(choice)
+    }
+    return choices
+  }
+
+  private static func readContextCheckpointChoices(
+    _ value: JSONValue?, path: String, logLines: inout [String]
+  ) -> [String: [ContextCheckpointChoice]] {
+    guard let value else { return [:] }
+    guard case .object(let object) = value else {
+      logLines.append("\(path): expected an object, ignored")
+      return [:]
+    }
+    var choices: [String: [ContextCheckpointChoice]] = [:]
+    for key in object.keys.sorted() {
+      guard ContextCheckpointChoices.levelNames.contains(key) else {
+        logLines.append("unknown key \"\(path).\(key)\", ignored")
+        continue
+      }
+      guard let list = object[key].flatMap(choiceList) else {
+        logLines.append(
+          "\(path).\(key): expected 1 to 4 different choices from compact, handoff, continue"
+            + " and mute, using the default")
+        continue
+      }
+      choices[key] = list
+    }
+    return choices
   }
 
   private static func readHandoffFile(

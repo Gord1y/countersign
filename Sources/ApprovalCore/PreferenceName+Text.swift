@@ -30,6 +30,10 @@ extension PreferenceName {
     case .contextMillionThresholds: return "Checkpoints, 1M window"
     case .contextModelThresholds: return "Checkpoints for one model"
     case .contextRearmBelow: return "Start over below"
+    case .contextMaxCompactions: return "Compactions before hand-off only"
+    case .contextSoftChoices: return "First checkpoint offers"
+    case .contextStatusChoices: return "Second checkpoint offers"
+    case .contextInsistChoices: return "Insist checkpoint offers"
     case .contextHandoffFile: return "Handoff file"
     case .contextNoteSoft: return "Soft note"
     case .contextNoteStatus: return "Status note"
@@ -37,6 +41,7 @@ extension PreferenceName {
     case .contextNoteStop: return "Stop note"
     case .contextNoteCompact: return "Compact note"
     case .contextNoteHandoff: return "Handoff note"
+    case .contextNoteLimit: return "Past the compaction limit"
     case .contextMenuBarMeter: return "Context in the menu bar"
     case .contextColdCacheCard: return "Warn before the cache goes cold"
     }
@@ -72,17 +77,23 @@ extension PreferenceName {
     case .contextCheckpointsEnabled:
       return "Nudge long Claude Code and Codex sessions toward a deliberate compaction."
     case .contextMode: return "Show a panel, or add the note silently."
-    case .contextStandardThresholds: return "Soft, status, insist and an optional stop, in tokens."
-    case .contextMillionThresholds: return "Soft, status, insist and an optional stop, in tokens."
+    case .contextStandardThresholds, .contextMillionThresholds:
+      return "Two to four sizes in tokens; with three or four, the last is the stop."
     case .contextModelThresholds: return "A ladder for model IDs starting with a prefix."
     case .contextRearmBelow: return "A drop this far below the peak counts as a fresh start."
-    case .contextHandoffFile: return "Where the agent writes a handoff, relative to the project."
+    case .contextMaxCompactions: return "Past this, a checkpoint no longer offers Compact."
+    case .contextSoftChoices, .contextStatusChoices:
+      return "The choices this checkpoint's panel shows."
+    case .contextInsistChoices: return "Used only with a four-number ladder."
+    case .contextHandoffFile:
+      return "Where the agent writes a handoff when the project names no other way."
     case .contextNoteSoft: return "Sent in silent mode at the first checkpoint."
     case .contextNoteStatus: return "Sent in silent mode at the second checkpoint."
     case .contextNoteInsist: return "Sent in silent mode at the third checkpoint."
     case .contextNoteStop: return "Sent without asking at the stop checkpoint."
     case .contextNoteCompact: return "Sent when you choose Compact after this step."
     case .contextNoteHandoff: return "Sent when you choose Hand off & start fresh."
+    case .contextNoteLimit: return "Sent in silent mode once a session passes the compaction limit."
     case .contextMenuBarMeter: return "List each live session's context in the menu."
     case .contextColdCacheCard:
       return "Show a card 10 minutes before an idle session's cache expires."
@@ -253,19 +264,21 @@ extension PreferenceName {
         + " run /compact itself."
     case .contextStandardThresholds:
       return
-        "The context sizes, in tokens, at which the soft, status and insist checkpoints fire for"
-        + " a session on the 200K window, lowest first, and an optional fourth, the stop: there"
-        + " Countersign tells Claude, without asking, to stop and write the handoff file. Leave"
-        + " out the fourth number to turn the stop off. A session is counted as 1M only when its"
-        + " model ID carries the [1m] tag, so anything else uses this ladder. A ladder for one"
-        + " model beats both window ladders."
+        "The context sizes, in tokens, at which the checkpoints fire for a session on the 200K"
+        + " window, two to four numbers, lowest first. With three or four, the last is the stop:"
+        + " there Countersign tells Claude, without asking, to finish the task in hand, keep what"
+        + " is unfinished as it is and hand off. Two numbers turn the stop off; four add a third"
+        + " prompt, insist, before the stop. A session is counted as 1M only when its model ID"
+        + " carries the [1m] tag, so anything else uses this ladder. A ladder for one model beats"
+        + " both window ladders."
     case .contextMillionThresholds:
       return
-        "The context sizes, in tokens, at which the soft, status and insist checkpoints fire for"
-        + " a session on the 1M window, lowest first, and an optional fourth, the stop: there"
-        + " Countersign tells Claude, without asking, to stop and write the handoff file. Leave"
-        + " out the fourth number to turn the stop off. Countersign tells 1M from 200K by the"
-        + " [1m] tag in the model ID. A ladder for one model beats both window ladders."
+        "The context sizes, in tokens, at which the checkpoints fire for a session on the 1M"
+        + " window, two to four numbers, lowest first. With three or four, the last is the stop:"
+        + " there Countersign tells Claude, without asking, to finish the task in hand, keep what"
+        + " is unfinished as it is and hand off. Two numbers turn the stop off; four add a third"
+        + " prompt, insist, before the stop. Countersign tells 1M from 200K by the [1m] tag in the"
+        + " model ID. A ladder for one model beats both window ladders."
     case .contextModelThresholds:
       return
         "A checkpoint ladder for every model whose ID starts with a prefix you give, such as"
@@ -278,6 +291,13 @@ extension PreferenceName {
         + " When the reading drops to this fraction of the highest one seen, the checkpoints"
         + " start over and can fire again. Raise it to re-arm sooner; lower it to require a"
         + " bigger drop."
+    case .contextMaxCompactions:
+      return
+        "After this many compactions in one session, a checkpoint stops offering Compact: a"
+        + " summary of a summary keeps too little. 0 never offers it."
+    case .contextSoftChoices, .contextStatusChoices, .contextInsistChoices:
+      return
+        "The choices this checkpoint's panel shows. The first is highlighted, so Return picks it."
     case .contextHandoffFile:
       return
         "The file, relative to the project, that Claude is asked to write when you hand off and"
@@ -302,9 +322,10 @@ extension PreferenceName {
     case .contextNoteStop:
       return
         "The note Countersign sends on its own when a session reaches the stop checkpoint, the"
-        + " optional fourth number of a ladder. It asks Claude to stop starting new work, gather"
-        + " what its running subagents have, write the handoff file and tell you it is ready for"
-        + " /clear. Use {tokens} for the context size and {handoffFile} for the handoff file."
+        + " last number of a ladder of three or four. It asks Claude to finish the task in hand,"
+        + " keep what is unfinished as it is and hand off, then tell you it is"
+        + " ready for /clear. Use {tokens} for the context size and {handoffFile} for the"
+        + " handoff file."
     case .contextNoteCompact:
       return
         "The text sent to Claude when you choose Compact after this step on a checkpoint panel."
@@ -315,6 +336,12 @@ extension PreferenceName {
         "The text sent to Claude when you choose Hand off & start fresh on a checkpoint panel."
         + " {tokens} is filled in with the session's current context size and {handoffFile} with"
         + " the handoff file. Reset it to get the built-in wording back."
+    case .contextNoteLimit:
+      return
+        "The note Countersign sends on its own, in silent mode, when a session that has been"
+        + " compacted as many times as the limit reaches a checkpoint. Use {tokens} for the context"
+        + " size, {compactions} for the number of compactions and {handoffFile} for the"
+        + " handoff file."
     case .contextMenuBarMeter:
       return
         "Adds each live Claude Code session's context size to the menu-bar menu, so you can see"
@@ -365,10 +392,16 @@ extension PreferenceName {
     case .contextModelThresholds: return "No models"
     case .contextRearmBelow:
       return PreferenceReset.percentText(ContextCheckpointSettings.defaultRearmBelow)
+    case .contextMaxCompactions: return String(ContextCheckpointSettings.defaultMaxCompactions)
+    case .contextSoftChoices:
+      return PreferenceReset.choicesText(ContextCheckpointChoices.default.soft)
+    case .contextStatusChoices:
+      return PreferenceReset.choicesText(ContextCheckpointChoices.default.status)
+    case .contextInsistChoices:
+      return PreferenceReset.choicesText(ContextCheckpointChoices.default.insist)
     case .contextHandoffFile: return ContextCheckpointSettings.defaultHandoffFile
     case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteStop,
-      .contextNoteCompact,
-      .contextNoteHandoff:
+      .contextNoteCompact, .contextNoteHandoff, .contextNoteLimit:
       return "Built-in wording"
     case .contextMenuBarMeter: return Self.boolText(ContextCheckpointSettings.default.menuBarMeter)
     case .contextColdCacheCard:

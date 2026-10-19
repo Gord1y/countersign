@@ -469,15 +469,18 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
 
   @Test func namesTheKeyPathOfEveryContextRow() {
     #expect(
-      PreferenceName.allCases.suffix(15).map { $0.keyPath.joined(separator: ".") } == [
+      PreferenceName.allCases.suffix(20).map { $0.keyPath.joined(separator: ".") } == [
         "contextCheckpoints.enabled", "contextCheckpoints.mode",
         "contextCheckpoints.thresholds.200k", "contextCheckpoints.thresholds.1m",
         "contextCheckpoints.modelThresholds", "contextCheckpoints.rearmBelow",
+        "contextCheckpoints.maxCompactions", "contextCheckpoints.choices.soft",
+        "contextCheckpoints.choices.status", "contextCheckpoints.choices.insist",
         "contextCheckpoints.handoffFile", "contextCheckpoints.notes.soft",
         "contextCheckpoints.notes.status", "contextCheckpoints.notes.insist",
         "contextCheckpoints.notes.stop",
         "contextCheckpoints.notes.compact", "contextCheckpoints.notes.handoff",
-        "contextCheckpoints.menuBarMeter", "contextCheckpoints.coldCacheCard",
+        "contextCheckpoints.notes.limit", "contextCheckpoints.menuBarMeter",
+        "contextCheckpoints.coldCacheCard",
       ])
   }
 
@@ -517,6 +520,49 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
       try editing(config, .contextNote(.contextNoteInsist, "d"))
         == "{\n  \"contextCheckpoints\": {\n    \"notes\": {\n      \"soft\": \"a\",\n      \"status\": \"b\",\n      \"insist\": \"d\"\n    }\n  }\n}\n"
     )
+  }
+
+  @Test func writesTheLimitNoteUnderNotes() throws {
+    #expect(
+      try editing(nil, .contextNote(.contextNoteLimit, "x"))
+        == "{\n  \"$schema\": \"\(schema)\",\n  \"contextCheckpoints\": {\n    \"notes\": {\n      \"limit\": \"x\"\n    }\n  }\n}\n"
+    )
+  }
+
+  @Test func writesTheCompactionLimitAsAWholeNumber() throws {
+    #expect(
+      try editing(
+        "{\n  \"contextCheckpoints\": {\n    \"maxCompactions\": 5\n  }\n}\n",
+        .contextMaxCompactions(2))
+        == "{\n  \"contextCheckpoints\": {\n    \"maxCompactions\": 2\n  }\n}\n")
+    #expect(
+      try editing(nil, .contextMaxCompactions(0)).contains("\"maxCompactions\": 0"))
+  }
+
+  @Test func writesAChoiceListAsAnArrayOfConfigNames() throws {
+    let written = try editing(
+      "{\n  \"contextCheckpoints\": {\n    \"choices\": {\n      \"soft\": [\"mute\"]\n    }\n  }\n}\n",
+      .contextChoices(.contextStatusChoices, [.handOff, .continueWorking]))
+    let (file, logLines) = ConfigFileParser.parse(Data(written.utf8))
+    #expect(logLines.isEmpty)
+    #expect(file.contextCheckpoints?.choices["soft"] == [.notThisSession])
+    #expect(file.contextCheckpoints?.choices["status"] == [.handOff, .continueWorking])
+    #expect(written.contains("\"handoff\""))
+  }
+
+  @Test func ignoresAChoiceEditForAnyOtherName() throws {
+    let config = "{\n  \"armDelay\": 1\n}\n"
+    #expect(try editing(config, .contextChoices(.armDelay, [.handOff])) == config)
+  }
+
+  @Test func resetRemovesTheNewContextKeys() throws {
+    let config =
+      "{\n  \"contextCheckpoints\": {\n    \"enabled\": true,\n    \"maxCompactions\": 2,\n    \"choices\": {\n      \"soft\": [\"mute\"],\n      \"status\": [\"mute\"]\n    }\n  }\n}\n"
+    let afterLimit = try editing(config, .reset(.contextMaxCompactions))
+    #expect(!afterLimit.contains("maxCompactions"))
+    let afterSoft = try editing(config, .reset(.contextSoftChoices))
+    #expect(!afterSoft.contains("\"soft\""))
+    #expect(afterSoft.contains("\"status\""))
   }
 
   @Test func ignoresANoteEditForAnyOtherName() throws {

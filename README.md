@@ -202,7 +202,8 @@ writes and sends: [Safety and privacy](docs/safety-and-privacy.md).
 ## Using it
 
 While a panel is on screen it owns the keyboard. Switch apps or type a key it has no use for, and
-it steps aside, swallowing that one key, until your next pause. ⌘ shortcuts such as ⌘C still work.
+it steps aside, swallowing that one key, until your next pause. It comes back as you left it: what
+you typed, picked and scrolled to is still there. ⌘ shortcuts such as ⌘C still work.
 
 | To | Do |
 | --- | --- |

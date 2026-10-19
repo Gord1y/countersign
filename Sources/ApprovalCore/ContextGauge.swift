@@ -40,7 +40,9 @@ public struct ContextGauge: Sendable, Equatable {
     let ladder = ContextLadder.thresholds(
       modelID: modelID, hasMillionTokenWindow: hasMillionWindow,
       settings: ContextLadderSettings(settings))
-    let passed = zip(ContextLevel.allCases, ladder).filter { tokens >= $0.1 }.map(\.0)
+    let passed = zip(ContextLevel.levels(forRungCount: ladder.count), ladder).filter {
+      tokens >= $0.1
+    }.map(\.0)
     return ContextGauge(
       tokens: tokens, windowTokens: windowTokens,
       windowPercent: Int((Double(tokens) * 100 / Double(windowTokens)).rounded()),

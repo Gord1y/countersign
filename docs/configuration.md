@@ -487,27 +487,44 @@ but two: `enabled` is the switch in Settings ▸ Panels, and `hosts` is set in t
   whose default window is 1M (Opus 4.7 and later, every Claude 5 model) and to any model id with
   `[1m]`; the `200k` ladder applies to older models, an unknown model, or when
   `CLAUDE_CODE_DISABLE_1M_CONTEXT` is set. `200k` defaults to
-  `[100000, 120000, 140000, 160000]` and `1m` to `[200000, 300000, 400000, 600000]`. Each is three
-  or four whole numbers of 1 or more, strictly ascending. The fourth is the stop: there Countersign
-  tells Claude, without asking and in either mode, to stop, collect what its subagents have found,
-  write the handoff file and wait for `/clear`. Leave the fourth number out to turn the stop off.
+  `[100000, 130000, 160000]` and `1m` to `[200000, 300000, 500000]`. Each is two to four whole
+  numbers of 1 or more, strictly ascending. With three or four, the last is the stop: there
+  Countersign tells Claude, without asking and in either mode, to finish the task in hand and hand
+  off. Two numbers turn the stop off; four add a third prompt, insist, before the stop.
 - `modelThresholds`: an object from a model identifier, as Claude Code reports it, to a ladder of
-  three or four ascending whole numbers. It wins over `thresholds`. A bad entry is dropped.
+  two to four ascending whole numbers. It wins over `thresholds`. A bad entry is dropped.
 - `rearmBelow`: a number from `0.1` to `0.95`. Default `0.6`. A checkpoint fires again only once
   the context has fallen below this fraction of its size, for example after `/compact`.
-- `handoffFile`: a non-empty path. Default `"notes/handoff.md"`.
-- `notes`: the text of `soft`, `status`, `insist`, `stop`, `compact` and `handoff`, each 1 to 4000
-  characters. Two placeholders work in every note: `{tokens}` becomes the context size (`212K`, or
-  `1.3M` from 999,500 tokens up) and `{handoffFile}` becomes `handoffFile`.
+- `maxCompactions`: a whole number from `0` to `50`. Default `5`. Once a session has been
+  compacted this many times, a checkpoint no longer offers Compact (a summary of a summary keeps too
+  little), and in `silent` mode the `limit` note replaces the `soft`, `status` and `insist` notes.
+  `0` never offers Compact, and in `silent` mode sends `limit` from the first checkpoint. Claude
+  Code only.
+- `choices`: an object with `soft`, `status` and `insist`, each a list of 1 to 4 different names
+  from `"compact"`, `"handoff"`, `"continue"` and `"mute"` (`"mute"` is Not this session): the
+  choices that checkpoint's panel shows. The first is highlighted, so Return picks it. Defaults:
+  `soft` is `["continue", "compact", "mute"]`; `status` and `insist` are
+  `["handoff", "compact", "continue"]`. `insist` is used only with a four-number ladder. When
+  `maxCompactions` is passed, `"compact"` is left out, and a list that held only it becomes
+  `["handoff", "continue"]`. The stop checkpoint never shows a panel. Claude Code only.
+- `handoffFile`: a non-empty path, used when the project's instructions name no way to hand off.
+  Default `"notes/handoff.md"`.
+- `notes`: the text of `soft`, `status`, `insist`, `stop`, `compact`, `handoff` and `limit`, each 1
+  to 4000 characters. Three placeholders work in every note: `{tokens}` becomes the context size
+  (`212K`, or `1.3M` from 999,500 tokens up), `{handoffFile}` becomes `handoffFile` and
+  `{compactions}` becomes the number of compactions so far, as a plain number. `limit` is sent in
+  `silent` mode once `maxCompactions` is reached.
 - `menuBarMeter`: `true` or `false`. Default `false`.
 - `coldCacheCard`: `true` or `false`. Default `true`. While the menu-bar app runs, shows a card
   10 minutes before an idle Claude Code session past its first checkpoint loses its 1-hour prompt
   cache.
 - `hosts.claude`: any of the keys above except `hosts`, winning over the top-level value, note by
-  note.
+  note and, for `choices`, list by list and level by level. The cold-cache card renders the
+  `handoff` note with `{compactions}` as `0`.
 - `hosts.codex`: `enabled`, `rearmBelow`, `handoffFile` and `notes`, winning over the top-level
-  value. `mode`, `thresholds`, `modelThresholds`, `menuBarMeter` and `coldCacheCard` are logged and
-  ignored for Codex. `hosts.cursor` and `hosts.antigravity` are ignored with a log line.
+  value. `mode`, `thresholds`, `modelThresholds`, `maxCompactions`, `choices`, `menuBarMeter` and
+  `coldCacheCard` are logged and ignored for Codex. `hosts.cursor` and `hosts.antigravity` are
+  ignored with a log line.
 
 A key with a mistake uses its default and the rest of the block is read as usual, like every other
 key on this page.

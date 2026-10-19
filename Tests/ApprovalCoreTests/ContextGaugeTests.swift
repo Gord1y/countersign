@@ -69,7 +69,9 @@ import Testing
   }
 
   @Test func passedRungsOnAFourRungLadder() {
-    let result = gauge(reading: reading(125_000))
+    var settings = ContextCheckpointSettings.default
+    settings.standardThresholds = [100_000, 120_000, 140_000, 160_000]
+    let result = gauge(reading: reading(125_000), settings: settings)
     #expect(result?.ladder == [100_000, 120_000, 140_000, 160_000])
     #expect(result?.passed == [.soft, .status])
   }

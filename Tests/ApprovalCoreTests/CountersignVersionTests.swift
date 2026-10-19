@@ -4,6 +4,6 @@ import Testing
 
 @Suite struct CountersignVersionTests {
   @Test func currentIsTheReleasedVersion() {
-    #expect(CountersignVersion.current == "0.4.1")
+    #expect(CountersignVersion.current == "0.5.0")
   }
 }

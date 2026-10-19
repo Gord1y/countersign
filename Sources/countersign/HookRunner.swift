@@ -498,6 +498,7 @@ private final class DisplayWatch: NSObject {
   private var contextGauge: ContextGauge?
   private var hasReadContextGauge = false
   private let paths: AppPaths
+  private lazy var draft = PanelDraft(request: request, modeAfterPlan: settings.modeAfterPlan)
 
   init(
     app: PanelApplication, request: ApprovalRequest, mode: PanelRunMode, queue: TicketQueue,
@@ -820,7 +821,8 @@ private final class DisplayWatch: NSObject {
       modeAfterPlan: settings.modeAfterPlan, panelSound: settings.panelSound,
       appearance: settings.appearance, accentColor: settings.accentColor,
       chatTrackingDrift: chatTrackingDrift, subagentChain: subagentChain,
-      contextGauge: contextGauge, isTestPanel: mode.isTest, handoffBackdrop: handoffBackdrop,
+      contextGauge: contextGauge, isTestPanel: mode.isTest, draft: draft,
+      handoffBackdrop: handoffBackdrop,
       afterHandoff: afterHandoff,
       onFinish: { [weak self] outcome in self?.finish(outcome) },
       onSnooze: { [weak self] seconds in self?.handleSnooze(seconds) },
@@ -1314,7 +1316,7 @@ private final class DisplayWatch: NSObject {
   private func handleStepAside(_ reason: StepAsideReason) {
     guard case .shown(let controller) = state else { return }
     closeShownPanel(controller)
-    waitAfterStepAside(reason.rawValue)
+    waitAfterStepAside(reason.logText)
   }
 
   private func waitAfterStepAside(_ reason: String) {

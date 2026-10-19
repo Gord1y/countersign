@@ -2,19 +2,19 @@ import AppKit
 import ApprovalCore
 import SwiftUI
 
-private enum PermissionFooterState: Sendable, Equatable {
-  case `default`
-  case deny
-}
-
 struct PermissionView: View {
   let model: PanelModel
   let prompt: PermissionPrompt
   let availableHeight: CGFloat
 
-  @State private var footerState: PermissionFooterState = .default
-  @State private var reasonText = ""
   @FocusState private var isReasonFieldFocused: Bool
+
+  private var footerState: PermissionFooterState {
+    get { model.draft.permissionFooter }
+    nonmutating set { model.draft.permissionFooter = newValue }
+  }
+
+  private var reasonText: String { model.draft.denyReason }
 
   private var host: ApprovalCore.Host { model.request.host }
   private var fileDiffs: [FileDiff]? { model.fileDiffs }
@@ -92,6 +92,15 @@ struct PermissionView: View {
       if hasApproveMenu, model.dropdown.takeRequest(for: .approve) {
         toggleApproveDropdown()
       }
+    }
+    .onChange(of: model.isOnScreen) { _, isOnScreen in
+      if isOnScreen, model.draft.focusedField == .denyReason {
+        isReasonFieldFocused = true
+        model.onFieldFocusRestored?()
+      }
+    }
+    .onChange(of: isReasonFieldFocused) { _, isFocused in
+      model.noteFocus(isFocused ? .denyReason : nil)
     }
   }
 
@@ -239,13 +248,20 @@ struct PermissionView: View {
 
   private func loadedFileDiffsView(_ diffs: [FileDiff]) -> some View {
     VStack(alignment: .leading, spacing: 12) {
-      ForEach(Array(diffs.enumerated()), id: \.offset) { _, diff in
+      ForEach(Array(diffs.enumerated()), id: \.offset) { index, diff in
         VStack(alignment: .leading, spacing: 6) {
           fileHeaderRow(diff)
-          NumberedDiffCard(segments: diff.segments)
+          NumberedDiffCard(segments: diff.segments, revealed: revealedGaps(file: index))
         }
       }
     }
+  }
+
+  private func revealedGaps(file index: Int) -> Binding<[Int: GapRevealState]> {
+    Binding(
+      get: { model.draft.revealedGaps[index] ?? [:] },
+      set: { model.draft.revealedGaps[index] = $0 }
+    )
   }
 
   private func fileHeaderRow(_ diff: FileDiff) -> some View {
@@ -390,7 +406,7 @@ struct PermissionView: View {
       .buttonStyle(LinkButtonStyle())
       .disabled(!model.isArmed)
 
-      TextField(reasonPlaceholder, text: $reasonText, axis: .vertical)
+      TextField(reasonPlaceholder, text: Bindable(model.draft).denyReason, axis: .vertical)
         .lineLimit(1...4)
         .textFieldStyle(.plain)
         .font(PanelTypography.body)

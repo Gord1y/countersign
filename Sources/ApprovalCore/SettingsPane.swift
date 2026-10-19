@@ -78,9 +78,11 @@ public enum SettingsPane: String, CaseIterable, Sendable {
     case .context:
       return [
         .contextMode, .contextStandardThresholds, .contextMillionThresholds,
-        .contextModelThresholds, .contextRearmBelow, .contextHandoffFile, .contextNoteSoft,
+        .contextModelThresholds, .contextMaxCompactions, .contextSoftChoices,
+        .contextStatusChoices, .contextInsistChoices, .contextRearmBelow, .contextHandoffFile,
+        .contextNoteSoft,
         .contextNoteStatus, .contextNoteInsist, .contextNoteStop, .contextNoteCompact,
-        .contextNoteHandoff,
+        .contextNoteHandoff, .contextNoteLimit,
         .contextMenuBarMeter,
         .contextColdCacheCard,
       ]

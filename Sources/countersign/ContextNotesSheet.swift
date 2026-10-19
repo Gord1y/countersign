@@ -28,6 +28,7 @@ enum ContextNotesSheet {
     case .contextNoteStop: return notes.stop
     case .contextNoteCompact: return notes.compact
     case .contextNoteHandoff: return notes.handoff
+    case .contextNoteLimit: return notes.limit
     default: return ""
     }
   }
@@ -36,7 +37,8 @@ enum ContextNotesSheet {
 struct ContextNotesSheetView: View {
   static let title = "Context notes"
   static let placeholders =
-    "Use {tokens} for the context size and {handoffFile} for the handoff file."
+    "Use {tokens} for the context size, {handoffFile} for the handoff file and {compactions} for"
+    + " the number of compactions."
   static let restoreTitle = "Restore Default"
   static let width: CGFloat = 560
   static let height: CGFloat = 620

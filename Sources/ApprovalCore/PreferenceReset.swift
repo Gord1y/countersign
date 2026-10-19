@@ -67,12 +67,20 @@ public enum PreferenceReset {
     case .contextRearmBelow:
       return changed(
         file.contextCheckpoints?.rearmBelow, from: ContextCheckpointSettings.defaultRearmBelow)
+    case .contextMaxCompactions:
+      return changed(
+        file.contextCheckpoints?.maxCompactions,
+        from: ContextCheckpointSettings.defaultMaxCompactions)
+    case .contextSoftChoices, .contextStatusChoices, .contextInsistChoices:
+      return changed(
+        name.choiceLevelName.flatMap { file.contextCheckpoints?.choices[$0] },
+        from: name.choiceLevelName.flatMap { ContextCheckpointChoices.default.list(named: $0) }
+          ?? [])
     case .contextHandoffFile:
       return changed(
         file.contextCheckpoints?.handoffFile, from: ContextCheckpointSettings.defaultHandoffFile)
     case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteStop,
-      .contextNoteCompact,
-      .contextNoteHandoff:
+      .contextNoteCompact, .contextNoteHandoff, .contextNoteLimit:
       return changed(
         name.noteName.flatMap { file.contextCheckpoints?.notes[$0] },
         from: ContextCheckpointNotes.default.text(for: name) ?? "")
@@ -142,10 +150,16 @@ public enum PreferenceReset {
     case .contextModelThresholds:
       return modelsCountText(values.contextCheckpoints.modelThresholds.count)
     case .contextRearmBelow: return percentText(values.contextCheckpoints.rearmBelow)
+    case .contextMaxCompactions: return String(values.contextCheckpoints.maxCompactions)
+    case .contextSoftChoices:
+      return choicesText(values.contextCheckpoints.choices.soft)
+    case .contextStatusChoices:
+      return choicesText(values.contextCheckpoints.choices.status)
+    case .contextInsistChoices:
+      return choicesText(values.contextCheckpoints.choices.insist)
     case .contextHandoffFile: return values.contextCheckpoints.handoffFile
     case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteStop,
-      .contextNoteCompact,
-      .contextNoteHandoff:
+      .contextNoteCompact, .contextNoteHandoff, .contextNoteLimit:
       let text = values.contextCheckpoints.notes.text(for: name)
       return text == ContextCheckpointNotes.default.text(for: name) ? "Default" : "Custom"
     case .contextMenuBarMeter: return values.contextCheckpoints.menuBarMeter ? "On" : "Off"
@@ -155,6 +169,10 @@ public enum PreferenceReset {
 
   static func ladderText(_ ladder: [Int]) -> String {
     ladder.map(ContextCheckpointNotes.tokenText).joined(separator: ", ")
+  }
+
+  static func choicesText(_ choices: [ContextCheckpointChoice]) -> String {
+    choices.map(\.listText).joined(separator: ", ")
   }
 
   static func percentText(_ ratio: Double) -> String {
@@ -193,9 +211,10 @@ public enum PreferenceReset {
       .accentColor, .showSkills,
       .editorApp, .contextCheckpointsEnabled, .contextMode, .contextStandardThresholds,
       .contextMillionThresholds, .contextModelThresholds,
-      .contextRearmBelow, .contextHandoffFile, .contextNoteSoft, .contextNoteStatus,
+      .contextRearmBelow, .contextMaxCompactions, .contextSoftChoices, .contextStatusChoices,
+      .contextInsistChoices, .contextHandoffFile, .contextNoteSoft, .contextNoteStatus,
       .contextNoteInsist, .contextNoteStop, .contextNoteCompact, .contextNoteHandoff,
-      .contextMenuBarMeter, .contextColdCacheCard:
+      .contextNoteLimit, .contextMenuBarMeter, .contextColdCacheCard:
       return false
     }
   }

@@ -1,3 +1,3 @@
 public enum CountersignVersion {
-  public static let current = "0.4.1"
+  public static let current = "0.5.0"
 }

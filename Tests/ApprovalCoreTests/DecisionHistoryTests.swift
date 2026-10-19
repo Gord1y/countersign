@@ -184,7 +184,7 @@ import Testing
   @Test func aCheckpointTitleNamesTheContextSize() {
     let prompt = ContextCheckpointPrompt(
       tokens: 240_000, level: .soft, ladder: [100_000], modelID: nil,
-      handoffFile: "notes/handoff.md", notes: .default)
+      handoffFile: "notes/handoff.md", notes: .default, choices: [.continueWorking])
     let checkpoint = request(tool: "Context checkpoint", kind: .contextCheckpoint(prompt))
     #expect(DecisionTitle.title(for: checkpoint) == "Context at 240K")
   }

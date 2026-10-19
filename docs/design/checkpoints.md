@@ -101,23 +101,31 @@ reading as an estimate that is at most one turn old, never as the exact state.
 ## Levels and re-arming
 
 A checkpoint ladder has four levels, `soft`, `status`, `insist` and `stop`, each tied to a token
-count. A ladder is three or four ascending positive token counts, and the fourth is the stop rung.
-A ladder of three has no stop: the planner zips the levels with the ladder, so a level without a
-count can never be crossed.
+count. A ladder is two to four ascending positive token counts. The last of three or four is the
+stop; two rungs are soft and status with no stop; four add insist between status and stop.
+`ContextLevel.levels(forRungCount:)` is the one mapping every reader uses (the planner, the gauge,
+the chip, the panel's ladder caption), so a level without a count can never be crossed.
 
 Defaults:
 
 | Window | soft | status | insist | stop |
 | --- | --- | --- | --- | --- |
-| Standard (200K) | 100,000 | 120,000 | 140,000 | 160,000 |
-| 1M | 200,000 | 300,000 | 400,000 | 600,000 |
+| Standard (200K) | 100,000 | 130,000 |  | 160,000 |
+| 1M | 200,000 | 300,000 |  | 500,000 |
 
 The stop exists because long sessions grow huge and then sit idle. Once the prompt cache has
 expired, a `/compact` or a handoff re-reads the whole context uncached, which is slow and costly.
-The stop rung makes Countersign tell Claude, without asking, to stop, gather what its running
-subagents have found, write the handoff file and wait for `/clear`, while the cache is still warm.
-The user chose these ladders on 2026-10-13: the 1M stop sits at 60% of the window, and the 200K
-ladder was re-spaced (it used to be 100,000 / 130,000 / 160,000) so that all four rungs fit.
+The stop rung makes Countersign tell Claude, without asking, to finish the task in hand, start
+nothing new, keep every unfinished piece (worktrees, branches, uncommitted work, run folders) where
+it is, and hand off, then wait for `/clear`, while the cache is still warm. A stop that tears state
+down makes the next session research it again, which costs more than the context it saves (the
+user's call, 2026-10-19). Every handoff note defers to the project's own way of handing off and
+falls back to `handoffFile` when the instructions name none.
+The user chose these ladders on 2026-10-19: a prompt to compact or continue at the first rung, a
+prompt to compact or hand off at the second, and the stop at the third as the backstop when the
+second goes unanswered; the 1M stop sits at 50% of the window, well before Claude Code's own
+auto-compact at about 967K. Until 0.5.0 the defaults had four rungs (`[100000, 120000, 140000,
+160000]` and `[200000, 300000, 400000, 600000]`) and three rungs meant no stop.
 
 A `modelThresholds` entry maps a model-id prefix to a ladder. The longest matching prefix wins,
 and it beats both defaults. Model ids carry a `[1m]` suffix only on models whose default window is 200K (`claude-opus-4-6[1m]`), and a
@@ -135,6 +143,11 @@ A session re-arms (fired levels cleared, peak reset to the current tokens) in tw
   compaction whose id was not seen.
 
 "Not this session" mutes the session. A muted session never fires again, even after a re-arm.
+
+State files also count compactions (`compactions`, 0 for a fresh session or an older file). It
+goes up by one each time the compaction id changes, the first id seen included, and not on the
+`rearmBelow` collapse, which cannot tell a compaction from a `/clear`. The count is what
+`maxCompactions` is compared with (see "Choices and what Claude receives").
 
 State is one small JSON file per session, `<session id>.json`, in
 `~/Library/Application Support/Countersign/context/`. Session ids may contain only
@@ -225,21 +238,34 @@ time hold the card: nothing shows and an open card closes (logged as hidden). Th
 
 ## Choices and what Claude receives
 
-A panel offers four choices. **Continue** and **Not this session** send nothing; the second also
+There are four choices. **Continue** and **Not this session** send nothing; the second also
 mutes the session. **Compact after this step** sends the `compact` note and **Hand off & start
-fresh** sends the `handoff` note, each with `{tokens}` and `{handoffFile}` filled in, as
-`additionalContext` (the exact JSON is in "A context checkpoint" in [answers.md](answers.md)). The
-highlighted choice follows the level: `soft` and `status` highlight **Compact after this step**,
-`insist` highlights **Hand off & start fresh**. Esc, a click outside, and a closed or abandoned
-panel send nothing.
+fresh** sends the `handoff` note, each with `{tokens}`, `{handoffFile}` and `{compactions}` filled
+in, as `additionalContext` (the exact JSON is in "A context checkpoint" in
+[answers.md](answers.md)). Esc, a click outside, and a closed or abandoned panel send nothing.
+
+Each level's panel offers its own configured list (`choices.soft`, `choices.status`,
+`choices.insist`), and the first in the list is the highlighted one, so Return picks it. The
+defaults are `soft` Continue, Compact, Not this session; `status` and `insist` Hand off, Compact,
+Continue. **Not this session** is off the second checkpoint by default so that an answer there can
+never mute the session before the stop, which would otherwise never fire (the owner's call,
+2026-10-19). `ContextCheckpointChoices.offered` builds the list a prompt carries.
+
+Past `maxCompactions` (default 5) compactions in one session, Compact is never offered: a summary
+of a summary keeps too little. A list that held only Compact falls back to Hand off and Continue,
+and `0` removes Compact from every panel; in `silent` mode `0` sends the `limit` note from the
+first checkpoint. An empty list (the stop's) stays empty. `ContextCheckpointChoices.ordered` is the
+one place that turns a set plus a highlighted choice into a list, in the order Compact, Hand off,
+Continue, Not this session after the highlighted one.
 
 `silent` mode skips the panel and sends the note of the level that fired (`soft`, `status`,
-`insist` or `stop`) straight away.
+`insist` or `stop`) straight away. Once the session has been compacted `maxCompactions` times, a
+silent `soft`, `status` or `insist` sends the `limit` note instead, which asks Claude to write the
+handoff and stop for `/clear` and names the count through `{compactions}`.
 
-The `stop` level never shows a panel. In both modes it sends the `stop` note as
-`additionalContext`, and the hook logs `outcome: context note (stop)` instead of
-`outcome: context note (silent, <level>)`. Its highlighted choice (**Hand off & start fresh**)
-exists only because the mapping is an exhaustive switch.
+The `stop` level never shows a panel and offers no choices. In both modes it sends the `stop` note
+as `additionalContext`, and the hook logs `outcome: context note (stop)` instead of
+`outcome: context note (silent, <level>)`. It never swaps in the `limit` note.
 
 `ContextCheckpointPlanner.plan` and `ContextLadder.step` take a `levels` parameter that limits
 which levels can count as crossed; everything else, including the fired set, behaves as before.

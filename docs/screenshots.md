@@ -183,7 +183,7 @@ The images in `docs/images/` are rendered by this tooling. Regenerate them from 
 | `tile-antigravity.jpg` | `compose-tile.swift` over `antigravity-command-dark.png` |
 | `tile-settings.jpg` | `compose-tile.swift` over `settings-dark-readme.png` |
 | `tile-rules.jpg` | `compose-tile.swift` over `settings-rules-dark-readme.png` |
-| `tile-checkpoint.jpg` | `compose-tile.swift` over `context-insist-dark.png` |
+| `tile-checkpoint.jpg` | `compose-tile.swift` over `context-status-dark.png` |
 | `tile-cards.jpg` | `compose-tile.swift` over the stack of `notice-dark.png` and `approval-card-dark.png` |
 
 `tile-cards.jpg` is one tile for both corner cards. A card alone is about 40% of a tile's width and
