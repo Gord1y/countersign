@@ -469,7 +469,7 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
 
   @Test func namesTheKeyPathOfEveryContextRow() {
     #expect(
-      PreferenceName.allCases.suffix(19).map { $0.keyPath.joined(separator: ".") } == [
+      PreferenceName.allCases.suffix(20).map { $0.keyPath.joined(separator: ".") } == [
         "contextCheckpoints.enabled", "contextCheckpoints.mode",
         "contextCheckpoints.thresholds.200k", "contextCheckpoints.thresholds.1m",
         "contextCheckpoints.modelThresholds", "contextCheckpoints.rearmBelow",
@@ -479,7 +479,8 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
         "contextCheckpoints.notes.status", "contextCheckpoints.notes.insist",
         "contextCheckpoints.notes.stop",
         "contextCheckpoints.notes.compact", "contextCheckpoints.notes.handoff",
-        "contextCheckpoints.menuBarMeter", "contextCheckpoints.coldCacheCard",
+        "contextCheckpoints.notes.limit", "contextCheckpoints.menuBarMeter",
+        "contextCheckpoints.coldCacheCard",
       ])
   }
 
@@ -518,6 +519,13 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
     #expect(
       try editing(config, .contextNote(.contextNoteInsist, "d"))
         == "{\n  \"contextCheckpoints\": {\n    \"notes\": {\n      \"soft\": \"a\",\n      \"status\": \"b\",\n      \"insist\": \"d\"\n    }\n  }\n}\n"
+    )
+  }
+
+  @Test func writesTheLimitNoteUnderNotes() throws {
+    #expect(
+      try editing(nil, .contextNote(.contextNoteLimit, "x"))
+        == "{\n  \"$schema\": \"\(schema)\",\n  \"contextCheckpoints\": {\n    \"notes\": {\n      \"limit\": \"x\"\n    }\n  }\n}\n"
     )
   }
 

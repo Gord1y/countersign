@@ -11,7 +11,7 @@ struct ContextCheckpointView: View {
     nonmutating set { model.draft.checkpointChoice = newValue }
   }
 
-  private static let choices = ContextCheckpointChoice.allCases
+  private var choices: [ContextCheckpointChoice] { prompt.choices }
 
   var body: some View {
     PanelScaffold(model: model, availableHeight: availableHeight) {
@@ -24,6 +24,12 @@ struct ContextCheckpointView: View {
             .font(PanelTypography.secondary)
             .foregroundStyle(.secondary)
             .fixedSize(horizontal: false, vertical: true)
+          if prompt.compactions > 0 {
+            Text(compactionsLine)
+              .font(PanelTypography.secondary)
+              .foregroundStyle(.secondary)
+              .fixedSize(horizontal: false, vertical: true)
+          }
           if model.sessionIdle {
             Text("Claude is idle: this reaches it with your next message.")
               .font(PanelTypography.caption)
@@ -32,7 +38,7 @@ struct ContextCheckpointView: View {
           }
         }
         VStack(alignment: .leading, spacing: 6) {
-          ForEach(Array(Self.choices.enumerated()), id: \.offset) { index, choice in
+          ForEach(Array(choices.enumerated()), id: \.offset) { index, choice in
             choiceCard(index: index, choice: choice)
           }
         }
@@ -97,6 +103,12 @@ struct ContextCheckpointView: View {
     }
   }
 
+  private var compactionsLine: String {
+    let count = "Compacted \(prompt.compactions)× in this session"
+    return prompt.compactions >= prompt.maxCompactions
+      ? "\(count), so Compact is no longer offered." : "\(count)."
+  }
+
   private func description(for choice: ContextCheckpointChoice) -> String {
     switch choice {
     case .continueWorking:
@@ -105,7 +117,7 @@ struct ContextCheckpointView: View {
       return
         "Claude finishes the current step, then lists what the summary must keep, so you can run /compact."
     case .handOff:
-      return "Claude writes \(prompt.handoffFile) and stops, ready for /clear."
+      return "Claude keeps unfinished work as it is, writes a handoff and stops, ready for /clear."
     case .notThisSession:
       return "No more checkpoints until this session ends."
     }
@@ -145,7 +157,7 @@ struct ContextCheckpointView: View {
     case .alternate, .secondary, .left, .right:
       return false
     case .digit(let digit):
-      return Self.choices.indices.contains(digit - 1)
+      return choices.indices.contains(digit - 1)
     }
   }
 
@@ -159,16 +171,16 @@ struct ContextCheckpointView: View {
     case .down:
       moveHighlight(by: 1)
     case .digit(let digit):
-      highlighted = Self.choices[digit - 1]
+      highlighted = choices[digit - 1]
     case .alternate, .secondary, .left, .right:
       break
     }
   }
 
   private func moveHighlight(by step: Int) {
-    guard let current = Self.choices.firstIndex(of: highlighted) else { return }
+    guard let current = choices.firstIndex(of: highlighted) else { return }
     let next = current + step
-    guard Self.choices.indices.contains(next) else { return }
-    highlighted = Self.choices[next]
+    guard choices.indices.contains(next) else { return }
+    highlighted = choices[next]
   }
 }

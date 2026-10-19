@@ -21,6 +21,7 @@ import Testing
     values = values.applying(.contextNote(.contextNoteStop, "s"))
     values = values.applying(.contextNote(.contextNoteCompact, "d"))
     values = values.applying(.contextNote(.contextNoteHandoff, "e"))
+    values = values.applying(.contextNote(.contextNoteLimit, "f"))
     values = values.applying(.contextMaxCompactions(2))
     values = values.applying(.contextChoices(.contextSoftChoices, [.notThisSession]))
     values = values.applying(.contextChoices(.contextStatusChoices, [.handOff, .continueWorking]))
@@ -38,7 +39,7 @@ import Testing
           handoffFile: "h.md",
           notes: ContextCheckpointNotes(
             soft: "a", status: "b", insist: "c", stop: "s", compact: "d", handoff: "e",
-            limit: ContextCheckpointNotes.default.limit),
+            limit: "f"),
           menuBarMeter: true, coldCacheCard: false))
   }
 

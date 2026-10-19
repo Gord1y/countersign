@@ -13,6 +13,7 @@ extension ContextCheckpointNotes {
     case .contextNoteStop: stop = text
     case .contextNoteCompact: compact = text
     case .contextNoteHandoff: handoff = text
+    case .contextNoteLimit: limit = text
     default: break
     }
   }
@@ -269,8 +270,7 @@ public struct PreferenceValues: Sendable, Equatable {
     case .contextHandoffFile:
       values.contextCheckpoints.handoffFile = ContextCheckpointSettings.defaultHandoffFile
     case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteStop,
-      .contextNoteCompact,
-      .contextNoteHandoff:
+      .contextNoteCompact, .contextNoteHandoff, .contextNoteLimit:
       values.contextCheckpoints.notes.set(
         ContextCheckpointNotes.default.text(for: name) ?? "", named: name)
     case .contextMenuBarMeter:

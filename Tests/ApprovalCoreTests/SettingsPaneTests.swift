@@ -111,10 +111,11 @@ import Testing
     #expect(
       SettingsPane.context.preferenceNames == [
         .contextMode, .contextStandardThresholds, .contextMillionThresholds,
-        .contextModelThresholds, .contextRearmBelow, .contextMaxCompactions, .contextSoftChoices,
-        .contextStatusChoices, .contextInsistChoices, .contextHandoffFile, .contextNoteSoft,
+        .contextModelThresholds, .contextMaxCompactions, .contextSoftChoices,
+        .contextStatusChoices, .contextInsistChoices, .contextRearmBelow, .contextHandoffFile,
+        .contextNoteSoft,
         .contextNoteStatus, .contextNoteInsist, .contextNoteStop, .contextNoteCompact,
-        .contextNoteHandoff,
+        .contextNoteHandoff, .contextNoteLimit,
         .contextMenuBarMeter,
         .contextColdCacheCard,
       ])

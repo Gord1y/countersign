@@ -80,8 +80,7 @@ public enum PreferenceReset {
       return changed(
         file.contextCheckpoints?.handoffFile, from: ContextCheckpointSettings.defaultHandoffFile)
     case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteStop,
-      .contextNoteCompact,
-      .contextNoteHandoff:
+      .contextNoteCompact, .contextNoteHandoff, .contextNoteLimit:
       return changed(
         name.noteName.flatMap { file.contextCheckpoints?.notes[$0] },
         from: ContextCheckpointNotes.default.text(for: name) ?? "")
@@ -160,8 +159,7 @@ public enum PreferenceReset {
       return choicesText(values.contextCheckpoints.choices.insist)
     case .contextHandoffFile: return values.contextCheckpoints.handoffFile
     case .contextNoteSoft, .contextNoteStatus, .contextNoteInsist, .contextNoteStop,
-      .contextNoteCompact,
-      .contextNoteHandoff:
+      .contextNoteCompact, .contextNoteHandoff, .contextNoteLimit:
       let text = values.contextCheckpoints.notes.text(for: name)
       return text == ContextCheckpointNotes.default.text(for: name) ? "Default" : "Custom"
     case .contextMenuBarMeter: return values.contextCheckpoints.menuBarMeter ? "On" : "Off"
@@ -216,7 +214,7 @@ public enum PreferenceReset {
       .contextRearmBelow, .contextMaxCompactions, .contextSoftChoices, .contextStatusChoices,
       .contextInsistChoices, .contextHandoffFile, .contextNoteSoft, .contextNoteStatus,
       .contextNoteInsist, .contextNoteStop, .contextNoteCompact, .contextNoteHandoff,
-      .contextMenuBarMeter, .contextColdCacheCard:
+      .contextNoteLimit, .contextMenuBarMeter, .contextColdCacheCard:
       return false
     }
   }

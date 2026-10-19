@@ -1510,19 +1510,23 @@ in the accent and the other two are secondary, so the person sees how far along 
 session is. One line per level says why the panel appeared. When `PanelModel.sessionIdle` is true a
 caption adds that Claude is idle and the choice reaches it with the next message: a note added to
 an idle session is only delivered when the person types again, and the panel says so instead of
-implying an immediate reaction. Four cards follow, numbered 1 to 4 (Continue, Compact after this
-step, Hand off & start fresh, Not this session), each with a one-line description. The footer is one
+implying an immediate reaction. When the session has been compacted (`prompt.compactions > 0`) a
+caption in the level line's font reads "Compacted n× in this session."; once `compactions` reaches
+`maxCompactions` it ends "so Compact is no longer offered." instead. One card per entry of
+`prompt.choices` follows, numbered from 1 in that order (any of Continue, Compact after this step,
+Hand off & start fresh, Not this session), each with a one-line description. The footer is one
 primary button titled with the highlighted choice.
 
-**Keys.** 1 to 4 and ↑/↓ move the highlight; Return performs the highlighted choice (⌘Return has
+**Keys.** The digits 1 to n, where n is the number of cards, and ↑/↓ move the highlight; a digit
+beyond n is not used; Return performs the highlighted choice (⌘Return has
 no menu here, so it does nothing); Esc and a click outside answer "no
 decision", which is Continue. Delete is not used. Digits move the highlight rather than performing
 the choice, so a mistyped digit is never an answer; a click on a card performs it. The arm lock
 applies as for every panel: `chooseCheckpoint` is guarded the way `finish` is.
 
-**The highlight rule.** The starting highlight is the first choice of the prompt's `choices`, the list the level is
-configured to offer (see "Choices and what Claude receives" in [checkpoints.md](checkpoints.md)).
-The highlighted card is what Return does, so the default follows how urgent the level is.
+**The highlight rule.** The starting highlight is the first choice of the prompt's `choices`, the
+list the level is configured to offer (see "Choices and what Claude receives" in
+[checkpoints.md](checkpoints.md)). The highlighted card is what Return does, so the default follows how urgent the level is.
 
 **Why choices go through `chooseCheckpoint`.** Not this session must mute the session, yet its
 outcome is `.noDecision`, the same as Continue and Esc; the outcome alone cannot tell them apart.
@@ -1539,8 +1543,10 @@ at the first million-window threshold plus 12,345 tokens, on the configured 1M l
 configured handoff file and notes. `countersign snapshot --test-panel context` builds the same
 sample from the defaults, never the config file, and `--checkpoint-level soft|status|insist` picks
 the level (tokens are that level's million-window threshold plus 12,345, and the highlight follows
-the level). A context test panel logs `test panel: chose a context note` when a note was chosen and
-`test panel: continued` for no decision.
+the level) and `--compactions N` (0 to 50) sets how often the sample session has been compacted,
+so `--compactions 5` shows the caption and no Compact card. A context test panel logs
+`test panel: chose a context note` when a note was chosen and `test panel: continued` for no
+decision.
 
 ## Size limits
 

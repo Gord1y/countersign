@@ -12,7 +12,7 @@ enum SnapshotCommand {
     + "       countersign snapshot --test-panel command|question|plan|context"
     + " [--waiting N] [--appearance light|dark] [--accent #RRGGBB] [--unarmed] [--question-notes]"
     + " [--open-menu approve|snooze|mode] [--checkpoint-level soft|status|insist]"
-    + " -o <out.png>\n"
+    + " [--compactions N] -o <out.png>\n"
     + "       countersign snapshot --settings"
     + " [--home <dir>] [--show-copies]"
     + " [--status active|paused|paused-until-open|quiet] [--size <width>x<height>]"
@@ -82,7 +82,8 @@ enum SnapshotCommand {
     }
     guard let options = parse(arguments) else { CommandLineOutput.fail(usage) }
 
-    let request = loadRequest(options.source, checkpointLevel: options.checkpointLevel)
+    let request = loadRequest(
+      options.source, checkpointLevel: options.checkpointLevel, compactions: options.compactions)
     let isTestPanel = options.source.isTestPanel
 
     NSApplication.shared.setActivationPolicy(.prohibited)
@@ -145,9 +146,9 @@ enum SnapshotCommand {
     write(png, to: options.outputPath)
   }
 
-  private static func loadRequest(_ source: RequestSource, checkpointLevel: ContextLevel?)
-    -> ApprovalRequest
-  {
+  private static func loadRequest(
+    _ source: RequestSource, checkpointLevel: ContextLevel?, compactions: Int
+  ) -> ApprovalRequest {
     switch source {
     case .file(let path, let host):
       let data: Data
@@ -163,7 +164,8 @@ enum SnapshotCommand {
       }
     case .testPanel(let kind):
       if kind == .context, let checkpointLevel {
-        return TestPanelSample.contextRequest(level: checkpointLevel, settings: .default)
+        return TestPanelSample.contextRequest(
+          level: checkpointLevel, settings: .default, compactions: compactions)
       }
       do {
         return try TestPanelSample.request(for: kind)
@@ -691,6 +693,7 @@ enum SnapshotCommand {
     let openMenu: PanelDropdownID?
     let opensContextCard: Bool
     let checkpointLevel: ContextLevel?
+    let compactions: Int
     let escapeKeepsWaiting: Bool
   }
 
@@ -716,6 +719,7 @@ enum SnapshotCommand {
     var openMenu: PanelDropdownID?
     var opensContextCard = false
     var checkpointLevel: ContextLevel?
+    var compactions = 0
     var escapeKeepsWaiting = false
     var index = arguments.startIndex
 
@@ -771,6 +775,12 @@ enum SnapshotCommand {
         guard index < arguments.count, let level = contextLevel(named: arguments[index])
         else { return nil }
         checkpointLevel = level
+      case "--compactions":
+        index += 1
+        guard index < arguments.count, let count = Int(arguments[index]),
+          ContextCheckpointSettings.maxCompactionsRange.contains(count)
+        else { return nil }
+        compactions = count
       case "-o":
         index += 1
         guard index < arguments.count else { return nil }
@@ -795,7 +805,7 @@ enum SnapshotCommand {
       source: source, outputPath: outputPath, waitingCount: waitingCount,
       appearance: appearance, accentColor: accentColor, isArmed: isArmed,
       questionNotes: questionNotes, openMenu: openMenu, opensContextCard: opensContextCard,
-      checkpointLevel: checkpointLevel,
+      checkpointLevel: checkpointLevel, compactions: compactions,
       escapeKeepsWaiting: escapeKeepsWaiting)
   }
 

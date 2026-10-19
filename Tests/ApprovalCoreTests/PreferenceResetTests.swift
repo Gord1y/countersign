@@ -45,6 +45,15 @@ import Testing
         .contextNoteStatus, in: file(ContextCheckpointFileValues(notes: ["soft": "mine"]))))
     #expect(
       PreferenceReset.isChanged(
+        .contextNoteLimit, in: file(ContextCheckpointFileValues(notes: ["limit": "mine"]))))
+    #expect(
+      !PreferenceReset.isChanged(
+        .contextNoteLimit,
+        in: file(
+          ContextCheckpointFileValues(notes: ["limit": ContextCheckpointNotes.default.limit]))
+      ))
+    #expect(
+      PreferenceReset.isChanged(
         .contextModelThresholds,
         in: file(ContextCheckpointFileValues(modelThresholds: ["claude-opus": [1, 2, 3]]))))
     #expect(
@@ -131,6 +140,7 @@ import Testing
     #expect(PreferenceName.contextInsistChoices.defaultText == "Hand off, Compact, Continue")
     #expect(PreferenceReset.valueText(.contextHandoffFile, in: values) == "notes/handoff.md")
     #expect(PreferenceReset.valueText(.contextNoteSoft, in: values) == "Default")
+    #expect(PreferenceReset.valueText(.contextNoteLimit, in: values) == "Default")
     #expect(PreferenceReset.valueText(.contextMenuBarMeter, in: values) == "Off")
     #expect(PreferenceReset.valueText(.contextColdCacheCard, in: values) == "On")
     values = values.applying(.contextCheckpointsEnabled(true)).applying(.contextMode(.silent))
