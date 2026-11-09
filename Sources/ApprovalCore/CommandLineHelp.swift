@@ -30,6 +30,8 @@ public enum CommandLineHelp {
         "test-panel [kind]",
         "Show a test panel (command, question, plan or context); nothing is sent"
       ),
+      entry(
+        "test-card <kind>", "Show a test corner card (notice or approval); nothing is sent"),
       entry("help", "Show this help"),
       entry("--version", "Print the installed version"),
       "",

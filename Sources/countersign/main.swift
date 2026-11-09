@@ -28,6 +28,7 @@ func usage(ofCommand command: String?) -> String? {
   case "pending": PendingCommand.usage
   case "update-check": UpdateCheckCommand.usage
   case "context": ContextCommand.usage
+  case "test-card": TestCardCommand.usage
   default: nil
   }
 }
@@ -74,6 +75,8 @@ case "update-check":
   UpdateCheckCommand.run(Array(arguments.dropFirst()))
 case "context":
   ContextCommand.run(Array(arguments.dropFirst()))
+case "test-card":
+  TestCardCommand.run(Array(arguments.dropFirst()))
 case "help", "--help", "-h":
   print(CommandLineHelp.text(version: CountersignVersion.current))
 case "--version":
@@ -81,7 +84,7 @@ case "--version":
 default:
   CommandLineOutput.fail(
     "usage: countersign"
-      + " <hook|setup|settings|doctor|preview|test-panel|snapshot|pause|resume|snooze|keep-awake|decisions|pending|update-check|context|status"
+      + " <hook|setup|settings|doctor|preview|test-panel|snapshot|pause|resume|snooze|keep-awake|decisions|pending|update-check|context|test-card|status"
       + "|help|--version>\n"
       + "run countersign help for the commands and links"
   )

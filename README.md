@@ -237,6 +237,7 @@ you typed, picked and scrolled to is still there. ⌘ shortcuts such as ⌘C sti
 | `countersign update-check` | Checks for a newer release now, whatever the update-check setting, and prints the upgrade command and release notes link when there is one |
 | `countersign context` | Lists the context used by live Claude Code sessions, like the menu's Context in live sessions |
 | `countersign test-panel` | Shows a test panel with your settings; add `question`, `plan` or `context` for those. Nothing reaches an agent |
+| `countersign test-card notice\|approval` | Shows a test corner card in a free spot, like Settings' test card buttons; it exits when the card goes. Nothing reaches an agent |
 | `countersign --version` | Prints the installed version |
 | `countersign help` | Lists every command, with the help and support links |
 

@@ -506,7 +506,10 @@ is up does nothing. A test card takes a real slot (see "The shared corner card" 
 one), a test approval card after 20 seconds, and both when the Settings window
 closes, rather than hold the slot for a long time: Settings can stay open in the menu-bar app
 while real agents need the spots. With no free slot the row shows one red line, "Both card spots
-are taken; close a card first."
+are taken; close a card first." `countersign test-card notice|approval` shows the same card from
+the terminal in its own short-lived process, which exits when the card closes (and, after an
+approval card's Show, when the Command test panel it opened has closed); with no free slot it
+prints that message as an error.
 
 "When Countersign quits" is a menu-style `Picker` over `QuitBehavior.allCases`, titled by
 `QuitBehavior.title`, right after "Check for updates" and inside the same config-backed rows, so a
