@@ -24,6 +24,7 @@ public enum CommandLineHelp {
         "Recent answers, newest first; --limit <n> for more; clear empties them"),
       entry("pending", "Waiting requests and what you can answer here: show|deny|chat <id>;"),
       entry("", "never approves"),
+      entry("rules list|deny", "Your allow and deny rules; deny adds one, allow is Settings only"),
       entry("update-check", "Check for a newer release now"),
       entry("context", "Context used by live Claude Code sessions"),
       entry(

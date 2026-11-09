@@ -27,7 +27,8 @@ How each answer plays out, agent by agent, is in [agents.md](agents.md); the des
   Antigravity doesn't document what it does on a hook timeout, so its requests are handed back the
   same way.
 - An agent can run the `countersign` command, so the command line can show a waiting request,
-  deny it or send it to its chat (`countersign pending`), but it can never approve one or add an
+  deny it or send it to its chat (`countersign pending`), and add a deny rule
+  (`countersign rules deny`), which can only block more. It can never approve a request or add an
   allow rule.
 - The panel takes the keyboard, but its app never becomes the active app, and a guard hands
   activation straight back if macOS ever tries. It never grabs the keyboard back: when focus leaves

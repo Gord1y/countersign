@@ -964,9 +964,7 @@ final class SettingsModel {
   var rules: [ApprovalRule] { configFileContents.rules ?? [] }
 
   var unreadableRuleCount: Int {
-    configLogLines.filter {
-      $0.hasPrefix("rules") && !$0.contains("only used by deny rules")
-    }.count
+    ApprovalRule.unreadableCount(in: configLogLines)
   }
 
   func projectText(for rule: ApprovalRule) -> String {

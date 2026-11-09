@@ -366,9 +366,10 @@ rule blocks it and tells the agent why. They apply to all four agents and live i
 panel as usual. You can also add rules from a panel: on a Codex request, **Approve ▾ → Always
 allow** saves a rule for Codex and that project (see [What each agent gets](agents.md)) and shows
 up under Settings ▸ Rules, where you can also add a rule with **Add Rule…** and edit or remove any
-listed rule. Cursor and Antigravity currently ignore an approval from a hook and decide by their own
-settings, so for them an allow rule only keeps Countersign's panel away; a deny rule blocks as for
-every agent.
+listed rule. `countersign rules list` prints them, and `countersign rules deny` adds a deny rule
+with the same checks; allow rules can only be added in Settings or the file. Cursor and Antigravity
+currently ignore an approval from a hook and decide by their own settings, so for them an allow
+rule only keeps Countersign's panel away; a deny rule blocks as for every agent.
 
 Each rule is an object. Only `decision` is required; every other field narrows the rule, and a rule
 applies only when all the fields it sets match.
