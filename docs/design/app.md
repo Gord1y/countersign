@@ -582,6 +582,15 @@ the bundle is a new signature, and a registration points at the bundle's path, s
 after registering leaves a login item behind for a path that no longer holds it. Whether macOS asks
 for approval again after a rebuild has not been checked on a real login yet.
 
+`countersign launch-at-login on|off` reaches the running companion with a distributed notification
+(`launchAtLoginOn` or `launchAtLoginOff`, posted with `deliverImmediately`), because
+`SMAppService.mainApp` only works from inside the app bundle. The companion runs the same change
+the menu does, then writes `LaunchAtLoginReply` (the state, and the error text when the change
+threw) atomically to `launch-at-login-reply` in the support directory. The command line polls for
+that file every 100 ms for up to 5 seconds instead of listening for a reply notification, because
+a short-lived process has no run loop to receive one on. It deletes any stale reply first and the
+fresh one after reading it.
+
 ### Quit
 
 The companion holds no ticket, no display lease and no child processes but the test panels it
@@ -619,6 +628,15 @@ and none pauses: a logout that silently switched panels off for the next session
 nobody chose. The companion does not implement `applicationShouldTerminate`, so once a quit starts
 nothing asks anything more: the settings window has no unsaved changes to ask about (see "Writing a
 change" in [settings.md](settings.md)).
+
+#### Quitting from the command line
+
+`countersign quit [--pause]` posts a distributed notification (`quit` or `quitPausing`, with
+`deliverImmediately`) and polls `CompanionProbe.isRunning` every 100 ms for up to 5 seconds, since
+the lock goes when the app exits. The companion skips the question and `quitBehavior`: the person
+running the command has already said what they want, and the command never writes `quitBehavior`.
+`QuitQuestion.commandOutcome(pausing:pause:)` still keeps an existing pause, the same as the menu,
+and the quit goes through `pendingQuit` and `terminate` exactly as `quitFromMenu()` does.
 
 #### Applying the answer when the quit is certain
 

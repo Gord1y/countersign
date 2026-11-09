@@ -26,6 +26,8 @@ public enum CommandLineHelp {
       entry("", "never approves"),
       entry("rules list|deny", "Your allow and deny rules; deny adds one, allow is Settings only"),
       entry("config", "get [key]|set <key> <value>|reset <key>|open: read or change settings"),
+      entry("quit [--pause]", "Quit the menu-bar app, with no prompt; --pause stops panels too"),
+      entry("launch-at-login", "on|off: open the menu-bar app at login; it must be running"),
       entry("update-check", "Check for a newer release now"),
       entry("context", "Context used by live Claude Code sessions"),
       entry(

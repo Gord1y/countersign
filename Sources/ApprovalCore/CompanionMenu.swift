@@ -26,7 +26,7 @@ public enum CompanionIcon: Sendable, Equatable {
   }
 }
 
-public enum LaunchAtLoginState: Sendable, Equatable {
+public enum LaunchAtLoginState: String, Sendable, Equatable {
   case enabled
   case notRegistered
   case requiresApproval

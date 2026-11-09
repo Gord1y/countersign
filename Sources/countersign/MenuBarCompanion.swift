@@ -132,6 +132,17 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     DistributedNotificationCenter.default().addObserver(
       self, selector: #selector(openSetupRequested(_:)), name: Self.openSetupNotification,
       object: nil, suspensionBehavior: .deliverImmediately)
+    let commandObservers: [(Selector, String)] = [
+      (#selector(quitRequested(_:)), CompanionLaunch.quitNotificationName),
+      (#selector(quitPausingRequested(_:)), CompanionLaunch.quitPausingNotificationName),
+      (#selector(launchAtLoginOnRequested(_:)), CompanionLaunch.launchAtLoginOnNotificationName),
+      (#selector(launchAtLoginOffRequested(_:)), CompanionLaunch.launchAtLoginOffNotificationName),
+    ]
+    for (selector, name) in commandObservers {
+      DistributedNotificationCenter.default().addObserver(
+        self, selector: selector, name: Notification.Name(name), object: nil,
+        suspensionBehavior: .deliverImmediately)
+    }
     let opensSettingsForUpgrade = opensSettingsAfterUpgrade()
     let relaunch = takeFreshCopyRefreshRelaunch()
     if opensSettingsForUpgrade { return }
@@ -183,6 +194,30 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     Task { @MainActor [weak self] in
       self?.log.write("companion: another launch asked to open setup")
       self?.openSetup()
+    }
+  }
+
+  @objc nonisolated private func quitRequested(_ notification: Notification) {
+    Task { @MainActor [weak self] in
+      self?.quitForCommandLine(pausing: false)
+    }
+  }
+
+  @objc nonisolated private func quitPausingRequested(_ notification: Notification) {
+    Task { @MainActor [weak self] in
+      self?.quitForCommandLine(pausing: true)
+    }
+  }
+
+  @objc nonisolated private func launchAtLoginOnRequested(_ notification: Notification) {
+    Task { @MainActor [weak self] in
+      self?.changeLaunchAtLoginForCommandLine(on: true)
+    }
+  }
+
+  @objc nonisolated private func launchAtLoginOffRequested(_ notification: Notification) {
+    Task { @MainActor [weak self] in
+      self?.changeLaunchAtLoginForCommandLine(on: false)
     }
   }
 
@@ -622,13 +657,37 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     }
   }
 
-  private func changeLaunchAtLogin(_ done: String, _ change: () throws -> Void) {
+  @discardableResult
+  private func changeLaunchAtLogin(_ done: String, _ change: () throws -> Void) -> String? {
     do {
       try change()
       log.write("companion: \(done)")
+      return nil
     } catch {
       isLaunchAtLoginUnavailable = true
       log.write("companion: launch at login unavailable: \(error)")
+      return SetupRun.describe(error)
+    }
+  }
+
+  private func quitForCommandLine(pausing: Bool) {
+    guard pendingQuit == nil else { return }
+    pendingQuit = QuitQuestion.commandOutcome(pausing: pausing, pause: pauseSwitch.state)
+    log.write("companion: quitting for the command line")
+    NSApplication.shared.terminate(nil)
+    pendingQuit = nil
+  }
+
+  private func changeLaunchAtLoginForCommandLine(on: Bool) {
+    let error =
+      on
+      ? changeLaunchAtLogin("launch at login registered") { try LaunchAtLogin.register() }
+      : changeLaunchAtLogin("launch at login unregistered") { try LaunchAtLogin.unregister() }
+    let reply = LaunchAtLoginReply(state: LaunchAtLogin.state, error: error)
+    do {
+      try Data(reply.encoded.utf8).write(to: paths.launchAtLoginReplyFile, options: .atomic)
+    } catch {
+      log.write("companion: could not write the launch at login reply: \(error)")
     }
   }
 

@@ -188,7 +188,8 @@ written to the log, `~/Library/Logs/Countersign/countersign.log`, on a line star
 agent, so it starts in the menu bar when you log in. When macOS wants your approval first, the item
 says so and takes you to System Settings > General > Login Items. The login item points at the app
 where it was when you turned this on, so check that list after moving the app. The Settings window
-has the same switch under **App** when it runs from Countersign.app.
+has the same switch under **App** when it runs from Countersign.app. `countersign launch-at-login
+on|off` turns it on or off from a terminal; the menu-bar app must be running.
 
 ## After an upgrade
 
@@ -269,3 +270,7 @@ or opening the app: it lasts until you resume. While it is on, **Quit Countersig
 all, since neither answer would change anything: the app quits straight away, whatever **When
 Countersign quits** says, and nothing is saved. Quiet time stays as it is too. The Settings window
 saves each change as you make it, so quitting never asks about settings.
+
+`countersign quit [--pause]` quits the running menu-bar app from a terminal and never asks: panels
+keep appearing unless you add `--pause`. It needs the app running, and a pause already on stays as
+it is.

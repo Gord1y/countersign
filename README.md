@@ -240,6 +240,8 @@ you typed, picked and scrolled to is still there. ⌘ shortcuts such as ⌘C sti
 | `countersign config set <key> <value>` | Changes a setting with the same limits as Settings; the keep-awake opt-in and the two settings that change your agents' hook files stay in Settings |
 | `countersign config reset <key>\|--pane panels\|app\|context` | Puts one setting or a whole Settings pane back to its default, with no prompt |
 | `countersign config open` | Opens config.json in your editor |
+| `countersign quit [--pause]` | Quits the menu-bar app with no prompt. Panels keep appearing unless you add `--pause`, which pauses them until the app opens again |
+| `countersign launch-at-login on\|off` | Opens the menu-bar app at login, or stops doing so. The menu-bar app must be running |
 | `countersign update-check` | Checks for a newer release now, whatever the update-check setting, and prints the upgrade command and release notes link when there is one |
 | `countersign context` | Lists the context used by live Claude Code sessions, like the menu's Context in live sessions |
 | `countersign test-panel` | Shows a test panel with your settings; add `question`, `plan` or `context` for those. Nothing reaches an agent |
