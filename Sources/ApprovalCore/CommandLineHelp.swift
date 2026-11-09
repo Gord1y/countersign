@@ -22,6 +22,8 @@ public enum CommandLineHelp {
       entry(
         "decisions [clear]",
         "Recent answers, newest first; --limit <n> for more; clear empties them"),
+      entry("pending", "Waiting requests and what you can answer here: show|deny|chat <id>;"),
+      entry("", "never approves"),
       entry(
         "test-panel [kind]",
         "Show a test panel (command, question, plan or context); nothing is sent"

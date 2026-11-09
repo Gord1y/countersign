@@ -5,7 +5,7 @@ import Testing
 @Suite struct CommandLineHelpTests {
   static let commands = [
     "setup", "settings", "doctor", "status", "pause", "resume", "snooze", "keep-awake",
-    "decisions", "test-panel", "help",
+    "decisions", "pending", "test-panel", "help",
     "--version",
   ]
 

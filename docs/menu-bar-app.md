@@ -67,6 +67,10 @@ panel shows up in the icon within two seconds.
   - **Answer in Chat** hands it to the agent's own prompt, exactly like <kbd>Esc</kbd> in the
     panel.
 
+  In a terminal, `countersign pending` prints the same list with an ID per request and the answers
+  it offers, and `countersign pending show|deny|chat <id>` sends one of them. It offers exactly
+  what the submenu offers, and it has no way to approve.
+
   A context checkpoint offers only **Show Now**, and so does a request Countersign can't read. A
   Cursor request in Auto-review or Run Everything mode offers **Show Now** and **Deny** but not
   **Answer in Chat**, because there Cursor would run the command without asking you. When you put
