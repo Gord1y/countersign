@@ -7,6 +7,8 @@ public enum KeepAwakeCommandText {
     "usage: countersign keep-awake on --for <time>, where <time> is 1m to 24h, such as 90m or 4h"
   public static let notOptedIn =
     "error: Keep Mac Awake is off; turn it on first in Countersign.app, Settings, App"
+  public static let configProblem =
+    "error: config.json has a problem; fix it before starting Keep Mac Awake"
   public static let appNotRunning =
     "error: the menu-bar app keeps this Mac awake and it is not running; open Countersign.app first"
   public static let stopped = "stopped"

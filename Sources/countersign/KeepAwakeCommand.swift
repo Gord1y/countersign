@@ -15,10 +15,17 @@ enum KeepAwakeCommand {
   }
 
   static func statusLine(paths: AppPaths) -> String {
-    let file = ConfigFileLoader.load(paths: paths).file
-    let optedIn = file.keepAwake ?? Settings.defaultKeepAwake
-    let cutoff = file.keepAwakeBatteryCutoff ?? Settings.defaultKeepAwakeBatteryCutoff
     let session = KeepAwakeSession(paths: paths).current()
+    let optedIn: Bool
+    let cutoff: Int
+    switch KeepAwakeConfigRead.current(paths: paths) {
+    case .usable(let configuredOptIn, let configuredCutoff):
+      optedIn = configuredOptIn
+      cutoff = configuredCutoff
+    case .problem:
+      optedIn = session != nil
+      cutoff = Settings.defaultKeepAwakeBatteryCutoff
+    }
     let state = KeepAwakePolicy.state(
       optedIn: optedIn, session: session, power: KeepAwakePowerSource.current(), cutoff: cutoff)
     return KeepAwakeCommandText.statusLine(
@@ -43,7 +50,10 @@ enum KeepAwakeCommand {
     default:
       CommandLineOutput.fail(usage)
     }
-    guard file.keepAwake ?? Settings.defaultKeepAwake else {
+    guard case .usable(let optedIn, _) = KeepAwakeConfigRead.current(paths: paths) else {
+      CommandLineOutput.fail(KeepAwakeCommandText.configProblem)
+    }
+    guard optedIn else {
       CommandLineOutput.fail(KeepAwakeCommandText.notOptedIn)
     }
     guard CompanionProbe.isRunning(paths: paths) else {

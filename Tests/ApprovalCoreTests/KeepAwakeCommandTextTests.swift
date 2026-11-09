@@ -7,6 +7,13 @@ import Testing
   private let utc = TimeZone(identifier: "UTC") ?? .gmt
   private let evening = Date(timeIntervalSince1970: 1_800_000_000)
 
+  @Test func aBrokenConfigRefusesWithItsOwnReasonNotTheOptInOne() {
+    #expect(
+      KeepAwakeCommandText.configProblem
+        == "error: config.json has a problem; fix it before starting Keep Mac Awake")
+    #expect(KeepAwakeCommandText.configProblem != KeepAwakeCommandText.notOptedIn)
+  }
+
   private var evening22h34: Date {
     var components = DateComponents()
     components.year = 2026
