@@ -17,6 +17,8 @@ public enum CommandLineHelp {
       entry("resume", "Turn panels back on"),
       entry(
         "snooze <time>|off", "Quiet time for every prompt: 90s, 15m, 1h or minutes; off ends it"),
+      entry("keep-awake", "on|off|status: keep this Mac awake while agents work;"),
+      entry("", "turn it on first in Settings"),
       entry(
         "test-panel [kind]",
         "Show a test panel (command, question, plan or context); nothing is sent"

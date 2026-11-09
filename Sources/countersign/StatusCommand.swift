@@ -51,6 +51,7 @@ enum StatusCommand {
     } else {
       print("quiet: off")
     }
+    print("keep awake: \(KeepAwakeCommand.statusLine(paths: paths))")
     print("log: \(paths.logFile.path)")
   }
 

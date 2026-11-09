@@ -227,6 +227,9 @@ you typed, picked and scrolled to is still there. ⌘ shortcuts such as ⌘C sti
 | `countersign pause` / `resume` | Turn the panel off and on. While paused, every prompt goes to its chat |
 | `countersign snooze 15m` | Quiet time for all prompts. Accepts `90s`, `15m`, `1h` or plain minutes, up to 24 hours |
 | `countersign snooze off` | End quiet time early |
+| `countersign keep-awake on [--for 4h\|--forever]` | Keep this Mac awake while agents work. Turn it on first in Settings, and keep the menu-bar app open. Accepts `90m` or `4h`, from 1 minute to 24 hours; without a flag it uses your Settings duration |
+| `countersign keep-awake off` | Stop keeping this Mac awake |
+| `countersign keep-awake status` | Shows whether it is holding, until when, or released at the battery cutoff |
 | `countersign test-panel` | Shows a test panel with your settings; add `question`, `plan` or `context` for those. Nothing reaches an agent |
 | `countersign --version` | Prints the installed version |
 | `countersign help` | Lists every command, with the help and support links |
