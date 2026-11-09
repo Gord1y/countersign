@@ -62,7 +62,9 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   private var updateCheckTimer: Timer?
   private var coldCacheTimer: Timer?
   private let coldCacheCard: ColdCacheCardController
-  private var shownIcon: CompanionIcon?
+  private let keepAwake: KeepAwakeController
+  private var keepAwakeState: KeepAwakeState = .notRunning
+  private var shownIcon: (icon: CompanionIcon, keepingAwake: Bool)?
   private var menuActions: [CompanionMenuAction] = []
   private var isLaunchAtLoginUnavailable = false
   private var lastConfigLogLines: [String] = []
@@ -84,6 +86,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     stateSwitches = StateSwitches(pauseSwitch: pauseSwitch, quietTime: quietTime)
     queue = TicketQueue(directory: paths.queueDirectory, lockFile: paths.displayLockFile)
     coldCacheCard = ColdCacheCardController(paths: paths, log: log)
+    keepAwake = KeepAwakeController(paths: paths, log: log)
     super.init()
     reloadUpdateCheckState()
   }
@@ -98,6 +101,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   }
 
   private func finishLaunching(opensSettings launchOpensSettings: Bool) {
+    keepAwake.clearAtLaunch()
     resumePauseSetAtQuit()
     let menu = NSMenu()
     menu.autoenablesItems = false
@@ -187,17 +191,18 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     if let pendingQuit {
       apply(pendingQuit)
     }
+    keepAwake.endForQuit()
     log.write("companion: quit")
   }
 
   func menuNeedsUpdate(_ menu: NSMenu) {
     reloadUpdateCheckState()
+    refreshIcon()
     menu.removeAllItems()
     menuActions = []
     for item in CompanionMenu.items(for: currentInput()) {
       menu.addItem(makeMenuItem(item))
     }
-    refreshIcon()
   }
 
   func menuWillOpen(_ menu: NSMenu) {
@@ -235,7 +240,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   }
 
   private func refreshApplicationsCopy(opensSettingsAfter: Bool) -> Bool {
-    guard !isAnythingOnScreen,
+    guard !isAnythingOnScreen, !keepAwake.hasSession,
       let refresh = AppBundleCopy.refresh(
         runningBundle: Bundle.main.bundlePath,
         home: FileManager.default.homeDirectoryForCurrentUser, fileSystem: .local)
@@ -315,9 +320,13 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   private func refreshIcon() {
     let icon = CompanionMenu.icon(
       isPaused: pauseSwitch.isPaused, quietUntil: QuietState(paths: paths).activeUntil())
-    guard icon != shownIcon, let button = statusItem?.button else { return }
-    button.image = MenuBarIcon.image(for: icon)
-    shownIcon = icon
+    keepAwakeState = keepAwake.tick()
+    let keepingAwake = keepAwakeState.holdsIdleSleep
+    guard shownIcon?.icon != icon || shownIcon?.keepingAwake != keepingAwake,
+      let button = statusItem?.button
+    else { return }
+    button.image = MenuBarIcon.image(for: icon, keepingAwake: keepingAwake)
+    shownIcon = (icon, keepingAwake)
   }
 
   private func currentInput() -> CompanionMenuInput {
@@ -342,7 +351,10 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
       manualCheckResult: manualCheckResult,
       contextRows: contextRows,
       recentDecisions: DecisionHistory(paths: paths).recent(
-        limit: CompanionMenu.recentDecisionLimit))
+        limit: CompanionMenu.recentDecisionLimit),
+      keepAwakeOptedIn: (configFile.keepAwake ?? Settings.defaultKeepAwake)
+        || keepAwakeState.isRunning,
+      keepAwakeState: keepAwakeState)
   }
 
   private func loadConfigFile() -> ConfigFile {
@@ -497,6 +509,14 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     case .endQuietTime:
       attempt("quiet time ended", failure: "failed to end quiet time") {
         try QuietState(paths: paths).endNow()
+      }
+    case .startKeepAwake(let duration):
+      attempt("keep awake started", failure: "failed to start keep awake") {
+        try keepAwake.start(duration)
+      }
+    case .stopKeepAwake:
+      attempt("keep awake stopped", failure: "failed to stop keep awake") {
+        try keepAwake.stop()
       }
     case .openSettings:
       openSettings()

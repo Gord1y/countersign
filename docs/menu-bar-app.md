@@ -101,6 +101,29 @@ copies the handoff note, so you can paste it into that session and hand off whil
 warm. It shows once per idle stretch, and pause and quiet time hold it. Turn it off in Settings,
 Context.
 
+## Keep Mac Awake
+
+Keep Mac Awake stops the Mac from going to sleep on its own while your agents work. It is off until
+you turn it on in Settings, App, **Keep Mac awake**; only then does the menu show it, in its own
+group right below **Snooze**.
+
+- **Keep Mac Awake** opens a submenu: **For 1 Hour**, **For 4 Hours**, **For 8 Hours**, **For 12
+  Hours** and **Until I Turn It Off**.
+- While it holds, the menu shows **Stop Keeping Awake (until 22:34)**, or **Stop Keeping Awake** for
+  a hold with no end. The icon gains a small dot in its top-left corner.
+- If the Mac runs on battery and the charge falls to the cutoff you set in Settings (15% by
+  default), the hold is released: the menu shows `Released at 15% battery` above **Stop Keeping
+  Awake**, and the dot goes away. Plug the Mac in and it holds again, until the time you chose.
+  Plugged in, it holds at any charge.
+
+The display still turns off and the screen locks as you have configured them: only idle sleep is
+held. A closed lid still sleeps the Mac. Quitting or restarting the app ends the hold, and every
+launch starts with it off.
+
+From the terminal, `countersign keep-awake on [--for <time>|--forever]`, `countersign keep-awake
+off` and `countersign keep-awake status` do the same while the app runs. The design is in
+[design/keep-awake.md](design/keep-awake.md).
+
 ## Settings
 
 **Settings…** (<kbd>⌘</kbd><kbd>,</kbd> while the menu is open) opens the Settings window. Under

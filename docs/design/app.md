@@ -263,6 +263,11 @@ modes) or the open menu (`menuWillOpen` to `menuDidClose`). Approval panels neve
 run in hook processes, and a copied app's hooks point at `<prefix>/bin/countersign`, never into
 the copy, so relaunching the companion never takes a panel down.
 
+A keep-awake session file defers it as well (`KeepAwakeController.hasSession`, read fresh from the
+file): a relaunch would end the hold silently, since every launch starts with no hold (see
+[keep-awake.md](keep-awake.md)). The launch check runs before the launch clears the session file, so
+a session file left by a crash defers the launch check to the next hourly tick.
+
 The order, and why:
 
 1. `AppBundleCopy.perform` copies the keg app to a hidden sibling and swaps it in with

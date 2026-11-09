@@ -27,7 +27,7 @@ enum SnapshotCommand {
     + " [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --setup no-agents|needs-wiring|write-failed|done|all-set"
     + " [--home <dir>] [--expanded] [--appearance light|dark] -o <out.png>\n"
-    + "       countersign snapshot --menu-bar-icon active|paused|quiet"
+    + "       countersign snapshot --menu-bar-icon active|paused|quiet [--keep-awake]"
     + " [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --waiting-notice claude|codex|cursor|antigravity"
     + " [--project <name>] [--no-app] [--appearance light|dark] -o <out.png>\n"
@@ -512,14 +512,17 @@ enum SnapshotCommand {
     guard let options = parseMenuBarIcon(arguments) else { CommandLineOutput.fail(usage) }
 
     guard
-      let png = renderMenuBarIcon(options.icon, appearance: options.appearance ?? .light)
+      let png = renderMenuBarIcon(
+        options.icon, keepingAwake: options.keepingAwake, appearance: options.appearance ?? .light)
     else {
       CommandLineOutput.fail("error: could not render the menu-bar icon")
     }
     write(png, to: options.outputPath)
   }
 
-  private static func renderMenuBarIcon(_ icon: CompanionIcon, appearance: Appearance) -> Data? {
+  private static func renderMenuBarIcon(
+    _ icon: CompanionIcon, keepingAwake: Bool, appearance: Appearance
+  ) -> Data? {
     let canvas = CGSize(width: MenuBarIcon.canvasSize, height: MenuBarIcon.canvasSize)
     let strip = CGSize(
       width: canvas.width + menuBarIconStripPadding * 2,
@@ -534,7 +537,8 @@ enum SnapshotCommand {
     context.setFillColor(appearance.menuBarColor)
     context.fill(CGRect(origin: .zero, size: strip))
     context.translateBy(x: menuBarIconStripPadding, y: menuBarIconStripPadding)
-    MenuBarIcon.draw(icon, in: context, color: appearance.menuBarTintColor)
+    MenuBarIcon.draw(
+      icon, keepingAwake: keepingAwake, in: context, color: appearance.menuBarTintColor)
     guard let cgImage = context.makeImage() else { return nil }
     let bitmap = NSBitmapImageRep(cgImage: cgImage)
     bitmap.size = strip
@@ -635,12 +639,14 @@ enum SnapshotCommand {
 
   private struct MenuBarIconOptions {
     let icon: CompanionIcon
+    let keepingAwake: Bool
     let appearance: Appearance?
     let outputPath: String
   }
 
   private static func parseMenuBarIcon(_ arguments: [String]) -> MenuBarIconOptions? {
     var state: MenuBarIconState?
+    var keepingAwake = false
     var appearance: Appearance?
     var outputPath: String?
     var index = arguments.startIndex
@@ -652,6 +658,8 @@ enum SnapshotCommand {
         guard index < arguments.count, let parsed = MenuBarIconState(rawValue: arguments[index])
         else { return nil }
         state = parsed
+      case "--keep-awake":
+        keepingAwake = true
       case "--appearance":
         index += 1
         guard index < arguments.count, let parsed = Appearance(rawValue: arguments[index]) else {
@@ -669,7 +677,9 @@ enum SnapshotCommand {
     }
 
     guard let state, let outputPath else { return nil }
-    return MenuBarIconOptions(icon: state.icon, appearance: appearance, outputPath: outputPath)
+    return MenuBarIconOptions(
+      icon: state.icon, keepingAwake: keepingAwake, appearance: appearance,
+      outputPath: outputPath)
   }
 
   private enum RequestSource {

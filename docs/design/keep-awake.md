@@ -64,5 +64,57 @@ cannot be read (an unknown power state, a missing capacity or a maximum capacity
 as no battery; a capacity of 0 is a real reading, 0%, and an over-full reading is clamped to 100%.
 So a broken reading never stops a hold that the user asked for.
 
+## The tick
+
+`KeepAwakeController.tick` runs on every `refreshIcon()` of the menu-bar app: the 2-second timer,
+each menu opening and after every menu action. It is the only place that creates or releases the
+power assertion; the menu and the session file only change what the next tick sees.
+
+1. It reads the session file. With no session it releases any assertion, removes a leftover file
+   only when an assertion was held or an earlier tick saw a session, logs the end once, and returns
+   `not running`. This path loads no config: the idle tick, which is nearly every tick, stays a
+   single small file read.
+2. With a session it loads the config for `keepAwake` and `keepAwakeBatteryCutoff`. Switched off in
+   Settings clears the session, releases the hold and logs `keep awake ended, switched off in
+   Settings`.
+3. `KeepAwakePolicy.state` decides from the opt-in, the session, the power source and the cutoff.
+   `holding` creates the assertion if none is held; any other state releases it.
+4. It logs only a change of state: `holding until 22:34`, `holding until turned off`, `released at
+   15% battery`, `ended`.
+5. A failed `IOPMAssertionCreateWithName` is logged once per streak of failures, with its
+   `IOReturn` code, and retried on the next tick. The tick still returns the policy's state, so the
+   menu keeps showing what the user asked for.
+
+Starting and stopping from the menu only write or clear the session file, and `menuItemChosen`
+refreshes the icon right after, so the hold follows within the same run-loop turn. Quitting clears
+the session and releases the hold.
+
+### A config that cannot be read keeps a hold
+
+`KeepAwakeConfigRead.current` reads only `keepAwake` and `keepAwakeBatteryCutoff`, and tells an
+unusable `config.json` (unreadable, not valid JSON, or not an object) apart from a usable one. An
+unusable file keeps a running hold, applying the last cutoff the tick saw (the default before any),
+because a typo is not the user switching it off; the log says `keep awake kept running, config.json
+has a problem`, once per streak, and the menu keeps **Stop Keeping Awake** reachable. An absent file
+or `{}` is usable and opted out, so it ends the hold, which is how Restore Defaults works.
+
+### A released hold still blocks a relaunch
+
+Releasing at the cutoff keeps the session file, because the hold resumes when the Mac is plugged
+in. So the copy refresh, which relaunches the app and would end the session at the next launch,
+waits for as long as the file exists, released or not. The window between the relaunch guard and
+the termination is narrow and accepted: a hold started inside it ends with the old process, the
+same way [app.md](app.md) accepts a menu opened in that gap.
+
+### The dot
+
+The icon gets a small dot in its top-left corner, drawn in the template colour, only while the hold
+is actually in force (`KeepAwakeState.holdsIdleSleep`). A hold released at the cutoff shows no dot,
+because the Mac is no longer being kept awake; the menu says why. The dot sits where neither the
+pause bars nor the moon do, so it combines with every icon state, and the icon's spoken label gains
+`, keeping this Mac awake`.
+
+## Limits
+
 The cutoff is a whole number from 5 to 95 in steps of 5, default 15. Durations are 1, 4, 8 or 12
 hours, or until turned off, default 12 hours.

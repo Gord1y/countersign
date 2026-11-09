@@ -20,6 +20,10 @@ public enum CompanionIcon: Sendable, Equatable {
     case .quiet: return "Countersign, quiet time"
     }
   }
+
+  public func accessibilityLabel(keepingAwake: Bool) -> String {
+    keepingAwake ? "\(accessibilityLabel), keeping this Mac awake" : accessibilityLabel
+  }
 }
 
 public enum LaunchAtLoginState: Sendable, Equatable {
@@ -34,6 +38,8 @@ public enum CompanionMenuAction: Sendable, Equatable {
   case resume
   case snooze(seconds: TimeInterval)
   case endQuietTime
+  case startKeepAwake(KeepAwakeDuration)
+  case stopKeepAwake
   case openSettings
   case showTestPanel(TestPanelKind)
   case enableLaunchAtLogin
@@ -109,6 +115,8 @@ public struct CompanionMenuInput: Sendable, Equatable {
   public var manualCheckResult: ManualUpdateCheckResult?
   public var contextRows: [ContextMeterRow]
   public var recentDecisions: [DecisionHistoryEntry]
+  public var keepAwakeOptedIn: Bool
+  public var keepAwakeState: KeepAwakeState
 
   public init(
     isPaused: Bool,
@@ -122,8 +130,12 @@ public struct CompanionMenuInput: Sendable, Equatable {
     updateAvailable: UpdateAvailability? = nil,
     manualCheckResult: ManualUpdateCheckResult? = nil,
     contextRows: [ContextMeterRow] = [],
-    recentDecisions: [DecisionHistoryEntry] = []
+    recentDecisions: [DecisionHistoryEntry] = [],
+    keepAwakeOptedIn: Bool = false,
+    keepAwakeState: KeepAwakeState = .notRunning
   ) {
+    self.keepAwakeOptedIn = keepAwakeOptedIn
+    self.keepAwakeState = keepAwakeState
     self.contextRows = contextRows
     self.recentDecisions = recentDecisions
     self.isPaused = isPaused
@@ -174,6 +186,12 @@ public enum CompanionMenu {
         snoozeEntry(
           presets: input.snoozePresets, isPaused: input.isPaused, quietUntil: input.quietUntil,
           timeZone: timeZone)),
+    ]
+    if input.keepAwakeOptedIn {
+      items.append(.separator)
+      items += keepAwakeItems(input.keepAwakeState, timeZone: timeZone)
+    }
+    items += [
       .separator,
       .entry(CompanionMenuEntry(title: "Settings…", keyEquivalent: ",", action: .openSettings)),
       .entry(CompanionMenuEntry(title: "Show a Test Panel", action: .showTestPanel(.command))),
@@ -314,6 +332,38 @@ public enum CompanionMenu {
           action: .snooze(seconds: value)))
     }
     return CompanionMenuEntry(title: "Snooze", isEnabled: !submenu.isEmpty, submenu: submenu)
+  }
+
+  private static func keepAwakeItems(
+    _ state: KeepAwakeState, timeZone: TimeZone
+  ) -> [CompanionMenuItem] {
+    switch state {
+    case .notRunning:
+      let durations: [CompanionMenuItem] = KeepAwakeDuration.allCases.map { duration in
+        .entry(CompanionMenuEntry(title: duration.menuTitle, action: .startKeepAwake(duration)))
+      }
+      return [.entry(CompanionMenuEntry(title: "Keep Mac Awake", submenu: durations))]
+    case .holding(let end):
+      return [.entry(stopKeepAwakeEntry(end: end, timeZone: timeZone))]
+    case .releasedAtCutoff(let end, _):
+      return [
+        .entry(CompanionMenuEntry(title: state.statusTitle, isEnabled: false)),
+        .entry(stopKeepAwakeEntry(end: end, timeZone: timeZone)),
+      ]
+    }
+  }
+
+  private static func stopKeepAwakeEntry(
+    end: KeepAwakeEnd, timeZone: TimeZone
+  ) -> CompanionMenuEntry {
+    switch end {
+    case .at(let date):
+      return CompanionMenuEntry(
+        title: "Stop Keeping Awake (until \(TimeOfDayText.describe(date, timeZone: timeZone)))",
+        action: .stopKeepAwake)
+    case .untilTurnedOff:
+      return CompanionMenuEntry(title: "Stop Keeping Awake", action: .stopKeepAwake)
+    }
   }
 
   private static func launchAtLoginEntry(_ state: LaunchAtLoginState) -> CompanionMenuEntry {
