@@ -370,12 +370,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   }
 
   private func runningStablePath() -> String {
-    guard let resolved = Bundle.main.executableURL?.resolvingSymlinksInPath().path else {
-      return "(unresolved)"
-    }
-    return StableExecutablePath.stable(
-      forResolved: resolved, home: FileManager.default.homeDirectoryForCurrentUser,
-      isExecutable: FileManager.default.isExecutableFile(atPath:))
+    RunningExecutable.runningStablePath()
   }
 
   private func currentUpdateAvailability() -> UpdateAvailability? {

@@ -137,9 +137,10 @@ came from, and what became of the request. Commands, file contents, answers and 
 
 ## The network
 
-Countersign makes one kind of network request, and only from the menu-bar app: the
+Countersign makes one kind of network request, and only from the menu-bar app, Settings or
+`countersign update-check`: the
 [update check](menu-bar-app.md#check-for-updates). It is off unless you turn it on, or choose
-**Check for Updates…**. It fetches
+**Check for Updates…** or run `countersign update-check`, which makes the same single request. It fetches
 `https://raw.githubusercontent.com/Gord1y/countersign/main/releases/index.json` with no cookies, no
 query and no body, and never downloads or installs anything. The hook, setup, doctor and the
 panel never touch the network.

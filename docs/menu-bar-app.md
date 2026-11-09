@@ -89,7 +89,8 @@ panel shows up in the icon within two seconds.
   be told, for example right after a compaction. Sessions whose Claude Code process has ended are
   left out. Countersign reads each session's transcript when you open the menu, not in the
   background; if a transcript cannot be read, the size from that session's last prompt is shown
-  without the warmth.
+  without the warmth. In a terminal, `countersign context` prints the same lines whenever context
+  checkpoints are on, whether or not the menu-bar meter is.
 - **Recent Decisions** lists your last ten answers, newest first, one read-only line each, such as
   `✓ Bash · shop-api · 14:05 — git status`. The mark says what happened: ✓ approved, ✕ denied,
   ↩ answered in the chat or resolved there before you got to it, • a choice on a context
@@ -220,6 +221,10 @@ Settings ▸ **Help** also has a **Check for Updates** button, for checking with
 running at all. It runs the same check and shows the same release notes and upgrade command. It records its
 result in `update-check.json`, and the menu-bar app rereads that file each time you open the menu,
 so a check started in Settings also updates the menu's update line.
+
+In a terminal, `countersign update-check` makes the same single request, whatever the setting, prints
+the result and, for a newer release, the upgrade command and release notes link. It records the
+result in `update-check.json` like the menu does, and exits 1 when the check fails.
 
 ## Help
 
