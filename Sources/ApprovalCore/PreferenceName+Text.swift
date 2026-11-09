@@ -23,6 +23,9 @@ extension PreferenceName {
     case .appearance: return "Appearance"
     case .accentColor: return "Accent colour"
     case .showSkills: return "Skills in the sidebar"
+    case .keepAwake: return "Keep Mac awake"
+    case .keepAwakeDuration: return "Turn off after"
+    case .keepAwakeBatteryCutoff: return "Stop at battery"
     case .editorApp: return "Open with"
     case .contextCheckpointsEnabled: return "Context checkpoints (Claude Code and Codex)"
     case .contextMode: return "Checkpoint style"
@@ -73,6 +76,10 @@ extension PreferenceName {
     case .appearance: return "Light or dark for panels and Settings, or follow macOS."
     case .accentColor: return "The colour of Approve and highlights on panels and in Settings."
     case .showSkills: return "Show the Skills group in the sidebar."
+    case .keepAwake:
+      return "Stop this Mac idle-sleeping while agents work. Off until you turn it on."
+    case .keepAwakeDuration: return "How long each hold lasts."
+    case .keepAwakeBatteryCutoff: return "On battery, stop holding at or below this level."
     case .editorApp: return "The app Open in Editor uses for config.json."
     case .contextCheckpointsEnabled:
       return "Nudge long Claude Code and Codex sessions toward a deliberate compaction."
@@ -234,6 +241,18 @@ extension PreferenceName {
       return
         "Show the Skills group, which lists what countersign-skills installed. Turn it off to hide"
         + " the group."
+    case .keepAwake:
+      return
+        "Adds a Keep Mac Awake item to the menu bar menu. Countersign installs nothing for this."
+    case .keepAwakeDuration:
+      return
+        "How long a hold lasts when you start it in Settings or with countersign keep-awake on."
+        + " The menu bar menu asks each time."
+    case .keepAwakeBatteryCutoff:
+      return
+        "On battery power, Countersign stops holding when the charge is at or below this level,"
+        + " and holds again if you plug in. On power, or on a Mac with no battery, it holds at"
+        + " any level."
     case .accentColor:
       return
         "The colour of Approve and the other filled buttons, and of highlights such as a selected"
@@ -382,6 +401,9 @@ extension PreferenceName {
     case .appearance: return Settings.defaultAppearance.title
     case .accentColor: return AccentPreset.name(of: Settings.defaultAccentColor)
     case .showSkills: return Self.boolText(Settings.defaultShowSkills)
+    case .keepAwake: return Self.boolText(Settings.defaultKeepAwake)
+    case .keepAwakeDuration: return Settings.defaultKeepAwakeDuration.settingsTitle
+    case .keepAwakeBatteryCutoff: return "\(Settings.defaultKeepAwakeBatteryCutoff)%"
     case .editorApp: return "Ask every time"
     case .contextCheckpointsEnabled: return Self.boolText(ContextCheckpointSettings.defaultEnabled)
     case .contextMode: return ContextCheckpointSettings.defaultMode.rawValue.capitalized

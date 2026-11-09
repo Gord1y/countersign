@@ -59,6 +59,9 @@ public struct ConfigFile: Sendable, Equatable {
   public var appearance: AppearanceChoice?
   public var accentColor: HexColor?
   public var showSkills: Bool?
+  public var keepAwake: Bool?
+  public var keepAwakeDuration: KeepAwakeDuration?
+  public var keepAwakeBatteryCutoff: Int?
   public var editorApp: String?
   public var claude: HostOverrides?
   public var codex: HostOverrides?
@@ -91,6 +94,9 @@ public struct ConfigFile: Sendable, Equatable {
     appearance: AppearanceChoice? = nil,
     accentColor: HexColor? = nil,
     showSkills: Bool? = nil,
+    keepAwake: Bool? = nil,
+    keepAwakeDuration: KeepAwakeDuration? = nil,
+    keepAwakeBatteryCutoff: Int? = nil,
     editorApp: String? = nil,
     claude: HostOverrides? = nil,
     codex: HostOverrides? = nil,
@@ -122,6 +128,9 @@ public struct ConfigFile: Sendable, Equatable {
     self.appearance = appearance
     self.accentColor = accentColor
     self.showSkills = showSkills
+    self.keepAwake = keepAwake
+    self.keepAwakeDuration = keepAwakeDuration
+    self.keepAwakeBatteryCutoff = keepAwakeBatteryCutoff
     self.editorApp = editorApp
     self.claude = claude
     self.codex = codex
@@ -167,8 +176,8 @@ public enum ConfigFileParser {
     "snoozeMinutes", "quietHours", "checkForUpdates", "quitBehavior", "modeAfterPlan",
     "panelSound", "waitingNotices", "waitingNoticeDelay", "waitingNoticeDuration", "approvalCard",
     "approvalCardDelay", "includeHeadlessSessions", "questionNotes", "editorApp", "hosts",
-    "appearance", "accentColor", "showSkills", "contextCheckpoints", "rules",
-    "$schema",
+    "appearance", "accentColor", "showSkills", "keepAwake", "keepAwakeDuration",
+    "keepAwakeBatteryCutoff", "contextCheckpoints", "rules", "$schema",
   ]
   static let contextCheckpointKeys: Set<String> = [
     "enabled", "mode", "thresholds", "modelThresholds", "rearmBelow", "maxCompactions", "choices",
@@ -251,6 +260,13 @@ public enum ConfigFileParser {
     file.showSkills = readBool(
       root["showSkills"], path: "showSkills",
       defaultValue: Settings.defaultShowSkills, logLines: &logLines)
+    file.keepAwake = readBool(
+      root["keepAwake"], path: "keepAwake",
+      defaultValue: Settings.defaultKeepAwake, logLines: &logLines)
+    file.keepAwakeDuration = readKeepAwakeDuration(
+      root["keepAwakeDuration"], path: "keepAwakeDuration", logLines: &logLines)
+    file.keepAwakeBatteryCutoff = readKeepAwakeBatteryCutoff(
+      root["keepAwakeBatteryCutoff"], path: "keepAwakeBatteryCutoff", logLines: &logLines)
     file.editorApp = readEditorApp(root["editorApp"], path: "editorApp", logLines: &logLines)
     file.rules = readRules(root["rules"], path: "rules", logLines: &logLines)
 
@@ -675,6 +691,35 @@ public enum ConfigFileParser {
       return nil
     }
     return bool
+  }
+
+  private static func readKeepAwakeDuration(
+    _ value: JSONValue?, path: String, logLines: inout [String]
+  ) -> KeepAwakeDuration? {
+    guard let value else { return nil }
+    guard let duration = value.stringValue.flatMap(KeepAwakeDuration.init(rawValue:)) else {
+      logLines.append(
+        "\(path): expected \"1h\", \"4h\", \"8h\", \"12h\" or \"forever\", using default"
+          + " \"\(Settings.defaultKeepAwakeDuration.rawValue)\"")
+      return nil
+    }
+    return duration
+  }
+
+  private static func readKeepAwakeBatteryCutoff(
+    _ value: JSONValue?, path: String, logLines: inout [String]
+  ) -> Int? {
+    guard let value else { return nil }
+    guard let percent = integerValue(value),
+      Settings.keepAwakeBatteryCutoffRange.contains(percent),
+      percent % Settings.keepAwakeBatteryCutoffStep == 0
+    else {
+      logLines.append(
+        "\(path): expected a whole number from 5 to 95 in steps of 5, using default"
+          + " \(Settings.defaultKeepAwakeBatteryCutoff)")
+      return nil
+    }
+    return percent
   }
 
   private static func readQuitBehavior(

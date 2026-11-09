@@ -74,7 +74,11 @@ public enum SettingsPane: String, CaseIterable, Sendable {
         .panelSound, .waitingNoticeDelay, .waitingNoticeDuration,
         .approvalCard, .approvalCardDelay,
       ]
-    case .app: return [.checkForUpdates, .quitBehavior, .appearance, .accentColor, .showSkills]
+    case .app:
+      return [
+        .checkForUpdates, .quitBehavior, .keepAwake, .keepAwakeDuration, .keepAwakeBatteryCutoff,
+        .appearance, .accentColor, .showSkills,
+      ]
     case .context:
       return [
         .contextMode, .contextStandardThresholds, .contextMillionThresholds,

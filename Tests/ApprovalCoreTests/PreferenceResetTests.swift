@@ -157,6 +157,34 @@ import Testing
         == "Checkpoint style: Silent → Panel")
   }
 
+  @Test func detectsAChangedKeepAwakeKey() {
+    #expect(PreferenceReset.isChanged(.keepAwake, in: ConfigFile(keepAwake: true)))
+    #expect(!PreferenceReset.isChanged(.keepAwake, in: ConfigFile(keepAwake: false)))
+    #expect(!PreferenceReset.isChanged(.keepAwake, in: ConfigFile()))
+    #expect(
+      PreferenceReset.isChanged(.keepAwakeDuration, in: ConfigFile(keepAwakeDuration: .oneHour)))
+    #expect(
+      !PreferenceReset.isChanged(
+        .keepAwakeDuration, in: ConfigFile(keepAwakeDuration: .twelveHours)))
+    #expect(
+      PreferenceReset.isChanged(.keepAwakeBatteryCutoff, in: ConfigFile(keepAwakeBatteryCutoff: 30))
+    )
+    #expect(
+      !PreferenceReset.isChanged(
+        .keepAwakeBatteryCutoff, in: ConfigFile(keepAwakeBatteryCutoff: 15)))
+    #expect(
+      PreferenceReset.line(for: .keepAwake, current: PreferenceValues(keepAwake: true))
+        == "Keep Mac awake: On → Off")
+    #expect(
+      PreferenceReset.line(
+        for: .keepAwakeDuration, current: PreferenceValues(keepAwakeDuration: .untilTurnedOff))
+        == "Turn off after: Until I turn it off → 12 hours")
+    #expect(
+      PreferenceReset.line(
+        for: .keepAwakeBatteryCutoff, current: PreferenceValues(keepAwakeBatteryCutoff: 30))
+        == "Stop at battery: 30% → 15%")
+  }
+
   @Test func detectsAChangedBoolAndQuitBehavior() {
     #expect(PreferenceReset.isChanged(.checkForUpdates, in: ConfigFile(checkForUpdates: true)))
     #expect(!PreferenceReset.isChanged(.checkForUpdates, in: ConfigFile(checkForUpdates: false)))

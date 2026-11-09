@@ -526,6 +526,25 @@
       "default": true,
       "description": "Show the Skills group, which lists what countersign-skills installed. Turn it off to hide the group; top level only."
     },
+    "keepAwake": {
+      "type": "boolean",
+      "default": false,
+      "description": "Whether the menu bar menu offers Keep Mac Awake, which stops this Mac idle-sleeping while agents work; top level only."
+    },
+    "keepAwakeDuration": {
+      "type": "string",
+      "enum": ["1h", "4h", "8h", "12h", "forever"],
+      "default": "12h",
+      "description": "How long a hold lasts when you start it in Settings or with countersign keep-awake on; top level only."
+    },
+    "keepAwakeBatteryCutoff": {
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 95,
+      "multipleOf": 5,
+      "default": 15,
+      "description": "On battery power, stop holding at or below this charge percentage and hold again when plugged in; top level only."
+    },
     "quitBehavior": {
       "type": "string",
       "enum": ["ask", "keepShowing", "pause"],

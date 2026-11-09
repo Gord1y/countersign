@@ -447,6 +447,50 @@ import Testing
     #expect(logLines == ["showSkills: not a boolean, using default true"])
   }
 
+  @Test func readsKeepAwakeKeys() {
+    let (file, logLines) = parse(
+      #"{ "keepAwake": true, "keepAwakeDuration": "forever", "keepAwakeBatteryCutoff": 30 }"#)
+    #expect(file.keepAwake == true)
+    #expect(file.keepAwakeDuration == .untilTurnedOff)
+    #expect(file.keepAwakeBatteryCutoff == 30)
+    #expect(logLines.isEmpty)
+  }
+
+  @Test func keepAwakeKeysAreAbsentWhenNotWritten() {
+    let (file, logLines) = parse("{}")
+    #expect(file.keepAwake == nil)
+    #expect(file.keepAwakeDuration == nil)
+    #expect(file.keepAwakeBatteryCutoff == nil)
+    #expect(logLines.isEmpty)
+  }
+
+  @Test func keepAwakeWrongTypeFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "keepAwake": "yes" }"#)
+    #expect(file.keepAwake == nil)
+    #expect(logLines == ["keepAwake: not a boolean, using default false"])
+  }
+
+  @Test func keepAwakeDurationOutsideTheListFallsBackToDefault() {
+    let (file, logLines) = parse(#"{ "keepAwakeDuration": "2h" }"#)
+    #expect(file.keepAwakeDuration == nil)
+    #expect(
+      logLines == [
+        #"keepAwakeDuration: expected "1h", "4h", "8h", "12h" or "forever", using default "12h""#
+      ])
+  }
+
+  @Test func keepAwakeBatteryCutoffRejectsEveryOffGridValue() {
+    let message =
+      "keepAwakeBatteryCutoff: expected a whole number from 5 to 95 in steps of 5, using default 15"
+    for written in [#""20""#, "20.5", "0", "100", "7", "-5"] {
+      let (file, logLines) = parse(#"{ "keepAwakeBatteryCutoff": \#(written) }"#)
+      #expect(file.keepAwakeBatteryCutoff == nil)
+      #expect(logLines == [message])
+    }
+    #expect(parse(#"{ "keepAwakeBatteryCutoff": 5 }"#).0.keepAwakeBatteryCutoff == 5)
+    #expect(parse(#"{ "keepAwakeBatteryCutoff": 95 }"#).0.keepAwakeBatteryCutoff == 95)
+  }
+
   @Test func includeHeadlessSessionsWrongTypeFallsBackToDefault() {
     let (file, logLines) = parse(#"{ "includeHeadlessSessions": 1 }"#)
     #expect(file.includeHeadlessSessions == nil)

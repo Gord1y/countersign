@@ -104,7 +104,8 @@ minutes in seconds (`90 seconds`), because `DurationText.describe` rounds to the
 ## Precedence
 
 For a hook of host X, in order: `hosts.X` in the config file beats the top-level value, which
-beats the built-in default. `checkForUpdates`, `questionNotes`, `quitBehavior` and `showSkills` have no
+beats the built-in default. `checkForUpdates`, `questionNotes`, `quitBehavior`, `showSkills`, `keepAwake`,
+`keepAwakeDuration` and `keepAwakeBatteryCutoff` have no
 per-host value, so for them the order starts at the top level. A `hosts.X` list, such as `handoffApps`,
 replaces the top-level list for that host rather than adding to it.
 
@@ -404,6 +405,9 @@ The window edits top-level keys only:
 | App | Launch at login, a switch | none, `SMAppService.mainApp` | see below |
 | App | Check for updates, a switch | `checkForUpdates` | on or off |
 | App | When Countersign quits, a menu | `quitBehavior` | "Ask", "Keep showing panels" or "Pause panels" |
+| App | Keep Mac awake, a switch | `keepAwake` | on or off; top level only |
+| App | Turn off after, a menu | `keepAwakeDuration` | "1 hour", "4 hours", "8 hours", "12 hours" or "Until I turn it off"; top level only |
+| App | Stop at battery, a stepper | `keepAwakeBatteryCutoff` | 5% to 95% in steps of 5; top level only |
 | App | Appearance, a segmented control | `appearance` | "System", "Light" or "Dark" |
 | App | Accent colour, six swatches and a color well | `accentColor` | Amber, Blue, Green, Purple, Pink, Graphite, or any color as `#RRGGBB` |
 | App | Skills in the sidebar, a switch | `showSkills` | on or off; top level only |

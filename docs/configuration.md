@@ -215,6 +215,9 @@ What the menu-bar app does, and how panels and the Settings window look:
 | Launch at login | none | off |
 | Check for updates | `checkForUpdates` | `false` |
 | When Countersign quits | `quitBehavior` | `"ask"` |
+| Keep Mac awake | `keepAwake` | `false` |
+| Turn off after | `keepAwakeDuration` | `"12h"` |
+| Stop at battery | `keepAwakeBatteryCutoff` | `15` |
 | Appearance | `appearance` | `"system"` |
 | Accent colour | `accentColor` | `"#E6B04A"` (Amber) |
 | Skills in the sidebar | `showSkills` | `true` |
@@ -230,6 +233,16 @@ What the menu-bar app does, and how panels and the Settings window look:
   appearing; `"pause"` quits without asking and pauses panels until you open the app again.
   Ticking **Don't ask again** in the question writes your answer here. See
   [menu-bar-app.md](menu-bar-app.md#quit).
+- **Keep Mac awake** (`keepAwake`): the opt-in for stopping this Mac idle-sleeping while agents
+  work. Set it in Settings, not by hand: Settings shows what the feature does before you turn it
+  on. Turning it on adds a Keep Mac Awake item to the menu bar menu; Countersign installs nothing
+  for it, and every app launch starts with no hold running. Top level only.
+- **Turn off after** (`keepAwakeDuration`): how long a hold lasts when you start it in Settings or
+  with `countersign keep-awake on`: `"1h"`, `"4h"`, `"8h"`, `"12h"` or `"forever"` (until you turn
+  it off). The menu bar menu asks each time. Top level only.
+- **Stop at battery** (`keepAwakeBatteryCutoff`): a whole number from 5 to 95 in steps of 5. On
+  battery power, Countersign stops holding when the charge is at or below it and holds again when
+  you plug in. On power, or on a Mac with no battery, it holds at any level. Top level only.
 - **Appearance** (`appearance`): `"system"` follows the light or dark appearance chosen in macOS;
   `"light"` and `"dark"` keep every panel and the Settings window that way whatever macOS uses.
 - **Accent colour** (`accentColor`): the color of Approve and the other filled buttons, and of
@@ -301,8 +314,9 @@ profile. If you set `XDG_CONFIG_HOME` only there, its Settings window edits
 
 Every key except `quietHours`, `checkForUpdates`, `quitBehavior`, `modeAfterPlan`, `panelSound`,
 `waitingNotices`, `waitingNoticeDuration`, `questionNotes`, `editorApp`, `appearance`, `accentColor`,
-`showSkills`, `contextCheckpoints`, `rules`, `hosts` and `$schema` can also be set for one agent,
-under `hosts.claude`, `hosts.codex`, `hosts.cursor` or `hosts.antigravity`:
+`showSkills`, `keepAwake`, `keepAwakeDuration`, `keepAwakeBatteryCutoff`, `contextCheckpoints`,
+`rules`, `hosts` and `$schema` can also be set for one agent, under `hosts.claude`, `hosts.codex`,
+`hosts.cursor` or `hosts.antigravity`:
 
 ```json
 {
