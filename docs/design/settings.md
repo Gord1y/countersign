@@ -754,6 +754,29 @@ top-level value, even while "Same delays for all agents" is off, and Show notice
 per-agent form at all. They are ordinary rows. Restore Defaults for Panels resets both fields
 and never the switch, since flipping it needs the popup; the switch has no reset button.
 
+### Keep Mac awake
+
+The block sits in the App pane between General and Appearance (`SettingsKeepAwakeView.swift`). The
+switch is on only after the opt-in sheet's Turn On: `requestKeepAwake(true)` only raises
+`isKeepAwakePromptShown`, the presenter shows the sheet, `confirmKeepAwake()` writes
+`keepAwake: true` and Cancel or Esc writes nothing. Switching off writes `false` and clears the
+session file with no prompt; the menu-bar app's own tick also ends a hold once the config says off,
+which covers Restore Defaults. Once on, the block adds the duration menu, the cutoff stepper and a
+status row with Start or Stop, redrawn every 2 seconds by a `TimelineView` so it follows the app's
+tick without a model timer.
+
+The sheet is custom, not an `NSAlert`, because it carries five labelled facts (what it adds,
+installs, does while it runs, leaves unchanged and when it ends) that an alert's one plain
+paragraph reads as a wall of text. It uses the rule sheet's presentation through
+`SettingsSheetWindow`; there is no Launch at Login offer in it.
+
+`countersign settings` from a terminal has no app: `launchAtLoginAvailable` is false, so the block is
+read-only with the caption "Available in Countersign.app". A config problem disables it like General.
+
+`KeepAwakeBlockMode` is a snapshot seam only. `countersign snapshot --settings --keep-awake <state>`
+passes a fixed mode so every state draws without a session file or a battery; the real pane always
+uses `.live`, which derives the mode from the model.
+
 ### Resetting to defaults
 
 Every Panels and App row backed by a `PreferenceName` can be reset on its own, and so can

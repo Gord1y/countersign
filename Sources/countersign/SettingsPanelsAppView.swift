@@ -210,6 +210,17 @@ private struct WaitingHookPromptPresenter: ViewModifier {
   }
 }
 
+private struct KeepAwakePromptPresenter: ViewModifier {
+  let model: SettingsModel
+
+  func body(content: Content) -> some View {
+    content.onChange(of: model.isKeepAwakePromptShown) { _, isShown in
+      guard isShown else { return }
+      KeepAwakeSheet.present(model: model, on: NSApp.keyWindow)
+    }
+  }
+}
+
 private struct SameDelaysPromptPresenter: ViewModifier {
   let model: SettingsModel
 
@@ -342,6 +353,8 @@ struct AppSection: View {
           }
           .disabled(model.configProblem != nil)
         }
+        KeepAwakeBlock(model: model)
+          .modifier(KeepAwakePromptPresenter(model: model))
         SettingsBlock("Appearance") {
           VStack(alignment: .leading, spacing: 0) {
             PreferenceRow(.appearance, model: model, problem: model.writeErrors[.appearance]) {

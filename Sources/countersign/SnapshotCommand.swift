@@ -19,6 +19,7 @@ enum SnapshotCommand {
     + " [--tab agents|panels|app|rules|skills|context|help|advanced] [--restore-prompt panels|app]"
     + " [--app-copy add|replace-link|update|copied|failed]"
     + " [--explanation <preferenceName>] [--editor-choice ask|missing] [--rule-sheet new|edit]"
+    + " [--keep-awake off|idle|holding|forever|released|app-only|broken] [--keep-awake-sheet]"
     + " [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --quit-prompt [--appearance light|dark] -o <out.png>\n"
     + "       countersign snapshot --hook-prompt claude|codex|cursor|antigravity [--expanded]"
@@ -181,6 +182,10 @@ enum SnapshotCommand {
 
     NSApplication.shared.setActivationPolicy(.prohibited)
 
+    if let kind = options.keepAwake {
+      runKeepAwake(kind: kind, appearance: options.appearance, outputPath: options.outputPath)
+    }
+
     if let name = options.explanation {
       runExplanation(name: name, appearance: options.appearance, outputPath: options.outputPath)
     }
@@ -275,6 +280,71 @@ enum SnapshotCommand {
     hostingView.setFrameSize(size)
     guard let png = render(hostingView, background: .windowBackgroundColor) else {
       CommandLineOutput.fail("error: could not render the rule sheet")
+    }
+    write(png, to: outputPath)
+  }
+
+  enum KeepAwakeSnapshot: String {
+    case off
+    case idle
+    case holding
+    case forever
+    case released
+    case appOnly = "app-only"
+    case broken
+    case sheet
+
+    var mode: KeepAwakeBlockMode {
+      let endDate =
+        Calendar.current.date(bySettingHour: 22, minute: 34, second: 0, of: Date()) ?? Date()
+      let end = KeepAwakeEnd.at(endDate)
+      switch self {
+      case .off, .sheet: return .off
+      case .idle: return .on(.notRunning)
+      case .holding: return .on(.holding(end))
+      case .forever: return .on(.holding(.untilTurnedOff))
+      case .released: return .on(.releasedAtCutoff(end, cutoff: 15))
+      case .appOnly: return .appOnly
+      case .broken: return .broken
+      }
+    }
+  }
+
+  @MainActor
+  private static func runKeepAwake(
+    kind: KeepAwakeSnapshot, appearance: Appearance?, outputPath: String
+  ) -> Never {
+    let home = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent(
+      "keep-awake-snapshot-\(getpid())", isDirectory: true)
+    let hostingView: NSHostingView<AnyView>
+    if kind == .sheet {
+      hostingView = NSHostingView(rootView: AnyView(KeepAwakeSheetView(confirm: {}, cancel: {})))
+    } else {
+      try? FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+      let model = SettingsModel(
+        environment: SettingsEnvironment.current(home: home), savesLearnedCodexTrust: false)
+      model.setKeepAwakeDuration(.twelveHours)
+      model.setKeepAwakeBatteryCutoff(15)
+      hostingView = NSHostingView(
+        rootView: AnyView(
+          KeepAwakeBlock(model: model, mode: kind.mode)
+            .frame(width: 540)
+            .background(Color(nsColor: .windowBackgroundColor))))
+    }
+    hostingView.appearance = appearance?.appearance
+    var size = hostingView.fittingSize
+    for _ in 0..<settleTurnLimit {
+      hostingView.layoutSubtreeIfNeeded()
+      RunLoop.main.run(until: Date(timeIntervalSinceNow: 0.02))
+      let measured = hostingView.fittingSize
+      if measured == size { break }
+      size = measured
+    }
+    hostingView.setFrameSize(size)
+    let png = render(hostingView, background: .windowBackgroundColor)
+    try? FileManager.default.removeItem(at: home)
+    guard let png else {
+      CommandLineOutput.fail("error: could not render the keep-awake snapshot")
     }
     write(png, to: outputPath)
   }
@@ -1127,6 +1197,7 @@ enum SnapshotCommand {
     let explanation: PreferenceName?
     let editorChoice: EditorChoice?
     let ruleSheet: RuleSheetKind?
+    let keepAwake: KeepAwakeSnapshot?
   }
 
   private static func parseSettings(_ arguments: [String]) -> SettingsOptions? {
@@ -1142,6 +1213,7 @@ enum SnapshotCommand {
     var explanation: PreferenceName?
     var editorChoice: EditorChoice?
     var ruleSheet: RuleSheetKind?
+    var keepAwake: KeepAwakeSnapshot?
     var index = arguments.startIndex
 
     while index < arguments.count {
@@ -1208,6 +1280,14 @@ enum SnapshotCommand {
         guard index < arguments.count, let parsed = RuleSheetKind(rawValue: arguments[index])
         else { return nil }
         ruleSheet = parsed
+      case "--keep-awake":
+        index += 1
+        guard index < arguments.count, let parsed = KeepAwakeSnapshot(rawValue: arguments[index]),
+          parsed != .sheet
+        else { return nil }
+        keepAwake = parsed
+      case "--keep-awake-sheet":
+        keepAwake = .sheet
       case "-o":
         index += 1
         guard index < arguments.count else { return nil }
@@ -1224,7 +1304,7 @@ enum SnapshotCommand {
       home: home, size: size, pane: pane,
       restorePrompt: restorePrompt, appCopy: appCopy, explanation: explanation,
       editorChoice: editorChoice,
-      ruleSheet: ruleSheet)
+      ruleSheet: ruleSheet, keepAwake: keepAwake)
   }
 
   private static func parseSettingsSize(_ text: String) -> CGSize? {
