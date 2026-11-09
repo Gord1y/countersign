@@ -173,6 +173,16 @@ not with the Command Line Tools. The same Command Line Tools with the macOS 26.5
 (`SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk`) build it, and so does Xcode
 26.0.1 (Swift 6.2, macOS 26.0 SDK).
 
+Checked on 2026-11-09, the Command Line Tools alone can still run the tests, with a different SDK
+per step: the app needs the macOS 26.5 SDK, while the tests need the default SDK, because under 26.5
+the `TestingMacros` plugin is not found. Swift 6.4 builds with `swiftbuild`, which puts
+`ticket-probe` in `.build/out/Products/Debug/`, not next to the test bundle, so the queue tests find
+it by walking up from the bundle. Run, in order, `swift build --sdk
+/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk`, `swift build --product ticket-probe`,
+`swift build --target ApprovalCoreTests` and `swift test --skip-build`. `scripts/check.sh` still
+needs Xcode, because it runs plain `swift build` and `swift test`, and `swift test` builds the app
+target with the default SDK.
+
 ## Repository settings
 
 These GitHub settings live outside the tree, so this section is their record: change a setting
