@@ -20,6 +20,9 @@ public enum CommandLineHelp {
       entry("keep-awake", "on|off|status: keep this Mac awake while agents work;"),
       entry("", "turn it on first in Settings"),
       entry(
+        "decisions [clear]",
+        "Recent answers, newest first; --limit <n> for more; clear empties them"),
+      entry(
         "test-panel [kind]",
         "Show a test panel (command, question, plan or context); nothing is sent"
       ),

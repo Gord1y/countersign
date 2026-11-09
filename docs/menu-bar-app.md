@@ -92,7 +92,9 @@ panel shows up in the icon within two seconds.
   checkpoint. A request answered by one of your [rules](configuration.md#allow-and-deny-rules)
   shows ✓ or ✕ with `rule` after the project, such as
   `✓ Bash · shop-api · rule · 14:05 — pnpm lint`. Below a separator, **Clear History** empties the list and deletes the stored
-  history. With nothing recorded, the submenu shows a single `No decisions yet`. What is stored,
+  history. With nothing recorded, the submenu shows a single `No decisions yet`. In a terminal,
+  `countersign decisions [--limit <1-200>]` prints the same lines and `countersign decisions clear`
+  empties the history. What is stored,
   and for how long, is in [safety-and-privacy.md](safety-and-privacy.md#what-it-writes).
 
 While the menu-bar app runs, a card appears in the top-right corner 10 minutes before an idle Claude
