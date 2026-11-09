@@ -8,7 +8,7 @@ enum RulesCommand {
       CommandLineOutput.fail(usage)
     }
     let paths = AppPaths.standard
-    failOnUnusableConfig(paths: paths)
+    CommandLineOutput.failOnUnusableConfig(paths: paths)
     let loaded = ConfigFileLoader.load(paths: paths)
     let rules = loaded.file.rules ?? []
     switch command {
@@ -44,16 +44,6 @@ enum RulesCommand {
         CommandLineOutput.fail("error: \(SetupRun.describe(error))")
       }
       print(RulesCommandLine.added(rule))
-    }
-  }
-
-  private static func failOnUnusableConfig(paths: AppPaths) {
-    do {
-      if let problem = ConfigEdit.problem(in: try ConfigFileStore.read(paths.configFile)) {
-        CommandLineOutput.fail("error: config.json has a problem: \(problem)")
-      }
-    } catch {
-      CommandLineOutput.fail("error: config.json has a problem: \(SetupRun.describe(error))")
     }
   }
 }

@@ -29,7 +29,9 @@ How each answer plays out, agent by agent, is in [agents.md](agents.md); the des
 - An agent can run the `countersign` command, so the command line can show a waiting request,
   deny it or send it to its chat (`countersign pending`), and add a deny rule
   (`countersign rules deny`), which can only block more. It can never approve a request or add an
-  allow rule.
+  allow rule. It can also change settings with `countersign config set`, within the limits Settings
+  has, except the three it refuses: the keep-awake opt-in and the two settings that change your
+  agents' hook files.
 - The panel takes the keyboard, but its app never becomes the active app, and a guard hands
   activation straight back if macOS ever tries. It never grabs the keyboard back: when focus leaves
   it, for another app or the lock screen, it steps aside until your next pause.

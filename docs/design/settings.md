@@ -1130,6 +1130,37 @@ so the card stops every form of it. The deny cards catch the common
 spellings and nothing more: `rm -r -f`, `sudo` behind `env` and `git -C dir push -f` are not matched,
 and a miss is not an allow, so that command gets its panel as before.
 
+## The command line
+
+`countersign config get`, `set`, `reset` and `open` are a second route to the same keys Settings
+writes. Both routes validate with `PreferenceRules` and the types' own initialisers, and both write
+through `PreferenceEdit` and `ConfigEdit`, so a key cannot accept a value on one route that the
+other would reject. `ConfigValue` holds the grammar of the text forms; its round-trip test
+(print a key's value, parse it back, apply it, get the same `PreferenceValues`) fails when a key's
+printed form and its grammar disagree.
+
+An invalid value is an error and is never moved into range. A slider cannot be dragged past its
+end, so Settings never needs to decide what an out-of-range value means; a command line can be
+handed one by a script or an agent, and nobody is watching to notice that `31s` became `30s`.
+`rearmBelow` follows the same rule: a percent off its step of 5 is an error, not a nearer value.
+
+Three keys refuse `set`: `keepAwake`, the opt-in, which must be switched on with its explanation in
+front of you, and `waitingNotices` and `contextCheckpoints.enabled`, which rewrite the hook files of
+your agents. The refusal names the Settings row. `reset` refuses only the two hook-file keys:
+`config reset keepAwake` can only turn the feature off, as Restore Defaults does. A pane reset never
+includes the hook-file keys, because no pane lists them.
+
+Values under `hosts` stay as they are when a top-level key is set or reset, exactly as in Restore
+Defaults, and `PreferenceReset.hostsNote` is printed when the file has any. Every subcommand except
+`open` first refuses a `config.json` that does not parse, because `ConfigFileLoader.load` returns
+defaults for a broken file and a write on top of that would look like a success. The menu-bar app
+and hooks re-read the file, so a write needs no signal.
+
+`open` runs `/usr/bin/open` with `-b <editorApp>` or `-t` rather than calling `NSWorkspace`: the
+command is a short-lived process, and `NSWorkspace` opens asynchronously, so the process could exit
+before the open completed. Waiting for `open` to exit and checking its status also gives a real
+error when the editor cannot be found.
+
 ## Why snapshot never reads the file
 
 `countersign snapshot` renders `PanelModel`/`PanelRootView` directly, with no `PanelController`

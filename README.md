@@ -236,6 +236,10 @@ you typed, picked and scrolled to is still there. ⌘ shortcuts such as ⌘C sti
 | `countersign pending show\|deny\|chat <id>` | Answers one like the menu does: show it now, deny it, or hand it to the agent's chat. It never approves |
 | `countersign rules list` | Lists your allow and deny rules, numbered as the log names them, and says if an entry could not be read |
 | `countersign rules deny --command "git push"` | Adds a deny rule; `--agent`, `--project`, `--tool`, `--message` narrow or explain it. At least one of `--agent`, `--project`, `--tool` or `--command` is required. The command line can never add an allow rule |
+| `countersign config get [key]` | Prints one setting, or every setting with its config.json name |
+| `countersign config set <key> <value>` | Changes a setting with the same limits as Settings; the keep-awake opt-in and the two settings that change your agents' hook files stay in Settings |
+| `countersign config reset <key>\|--pane panels\|app\|context` | Puts one setting or a whole Settings pane back to its default, with no prompt |
+| `countersign config open` | Opens config.json in your editor |
 | `countersign update-check` | Checks for a newer release now, whatever the update-check setting, and prints the upgrade command and release notes link when there is one |
 | `countersign context` | Lists the context used by live Claude Code sessions, like the menu's Context in live sessions |
 | `countersign test-panel` | Shows a test panel with your settings; add `question`, `plan` or `context` for those. Nothing reaches an agent |

@@ -358,6 +358,51 @@ with `config: `, and `countersign doctor` lists them as `warn` lines.
 as in the example above, and an editor that understands JSON Schema completes and checks keys as
 you type. `$schema` itself is ignored by Countersign; it only lets your editor validate the file.
 
+### From the command line
+
+`countersign config` reads and changes the same settings as the file and Settings, using the names
+the file uses:
+
+- `countersign config get` prints every setting as `name = value`; `countersign config get <key>`
+  prints just the value, so a script can use it. A key inside a block is written with dots, like
+  `contextCheckpoints.thresholds.200k`.
+- `countersign config set <key> <value>` checks the value against the same limits as Settings and
+  writes it. A value outside them is an error, never moved into range. Quote a value that contains
+  spaces.
+- `countersign config reset <key>` puts one setting back to its default;
+  `countersign config reset --pane panels`, `app` or `context` does it for a whole Settings pane and
+  lists what changed. Neither asks first.
+- `countersign config open` opens `config.json` in the editor set by `editorApp`, or in your default
+  text editor, creating the file first if it does not exist.
+
+Value forms for `set`:
+
+- On or off settings take `true`, `false`, `on` or `off`.
+- Durations take `500ms`, `5s`, `2m` or `1h`, and a bare number is seconds. Snooze presets are a
+  comma list, and a bare number there is minutes.
+- Quiet hours are windows joined by `;`, each a comma list of days and a time range:
+  `mon,tue 22:00-07:00; sat 9-12`. Days are `mon` to `sun`.
+- Hand-off apps are a comma list of bundle IDs. `approvalCard` is `on`, `off` or a comma list of
+  agents (`claude`, `codex`, `cursor`, `antigravity`).
+- Context checkpoint model thresholds are entries joined by `;`, each `<model prefix>=<ladder>`, like
+  `claude-opus-5=200,400`. Choices are a comma list of `compact`, `handoff`, `continue` and `mute`,
+  the first one highlighted. A model prefix may be listed only once.
+- `contextCheckpoints.rearmBelow` is a percent from 10 to 95 in steps of 5; `%` is optional.
+- `none` clears a list, and for `editorApp` goes back to asking every time.
+
+The value `set` prints is read back from the file, so its order can differ from what you typed:
+`handoffApps` keeps the list's existing order and appends new apps, and choices print the
+highlighted one first, then the rest in their fixed order.
+
+Three settings stay in Settings, because changing them has consequences a one-line command should
+not carry: `keepAwake`, the opt-in, needs its explanation first; `waitingNotices` and
+`contextCheckpoints.enabled` change your agents' hook files. `set` refuses all three and names the
+Settings row. `reset` refuses the two hook-file settings; `countersign config reset keepAwake` is
+allowed, because it can only turn the feature off.
+
+Values you set for one agent under `hosts` stay as they are when you set or reset a top-level key,
+and the command says so when there are any.
+
 ## Allow and deny rules
 
 Countersign's own rules answer a request before a panel shows: an allow rule lets it through, a deny
