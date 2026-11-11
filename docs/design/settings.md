@@ -104,7 +104,8 @@ minutes in seconds (`90 seconds`), because `DurationText.describe` rounds to the
 ## Precedence
 
 For a hook of host X, in order: `hosts.X` in the config file beats the top-level value, which
-beats the built-in default. `checkForUpdates`, `questionNotes`, `quitBehavior` and `showSkills` have no
+beats the built-in default. `checkForUpdates`, `questionNotes`, `quitBehavior`, `showSkills`, `keepAwake`,
+`keepAwakeDuration` and `keepAwakeBatteryCutoff` have no
 per-host value, so for them the order starts at the top level. A `hosts.X` list, such as `handoffApps`,
 replaces the top-level list for that host rather than adding to it.
 
@@ -404,6 +405,9 @@ The window edits top-level keys only:
 | App | Launch at login, a switch | none, `SMAppService.mainApp` | see below |
 | App | Check for updates, a switch | `checkForUpdates` | on or off |
 | App | When Countersign quits, a menu | `quitBehavior` | "Ask", "Keep showing panels" or "Pause panels" |
+| App | Keep Mac awake, a switch | `keepAwake` | on or off; top level only |
+| App | Turn off after, a menu | `keepAwakeDuration` | "1 hour", "4 hours", "8 hours", "12 hours" or "Until I turn it off"; top level only |
+| App | Stop at battery, a percent field and a stepper | `keepAwakeBatteryCutoff` | 5% to 95% in steps of 5, typed with or without `%`; top level only |
 | App | Appearance, a segmented control | `appearance` | "System", "Light" or "Dark" |
 | App | Accent colour, six swatches and a color well | `accentColor` | Amber, Blue, Green, Purple, Pink, Graphite, or any color as `#RRGGBB` |
 | App | Skills in the sidebar, a switch | `showSkills` | on or off; top level only |
@@ -502,7 +506,10 @@ is up does nothing. A test card takes a real slot (see "The shared corner card" 
 one), a test approval card after 20 seconds, and both when the Settings window
 closes, rather than hold the slot for a long time: Settings can stay open in the menu-bar app
 while real agents need the spots. With no free slot the row shows one red line, "Both card spots
-are taken; close a card first."
+are taken; close a card first." `countersign test-card notice|approval` shows the same card from
+the terminal in its own short-lived process, which exits when the card closes (and, after an
+approval card's Show, when the Command test panel it opened has closed); with no free slot it
+prints that message as an error.
 
 "When Countersign quits" is a menu-style `Picker` over `QuitBehavior.allCases`, titled by
 `QuitBehavior.title`, right after "Check for updates" and inside the same config-backed rows, so a
@@ -749,6 +756,35 @@ itself; see "Closing by itself" in [notice.md](notice.md)). Both always show and
 top-level value, even while "Same delays for all agents" is off, and Show notice for has no
 per-agent form at all. They are ordinary rows. Restore Defaults for Panels resets both fields
 and never the switch, since flipping it needs the popup; the switch has no reset button.
+
+### Keep Mac awake
+
+The block sits in the App pane between General and Appearance (`SettingsKeepAwakeView.swift`). The
+switch is on only after the opt-in sheet's Turn On: `requestKeepAwake(true)` only raises
+`isKeepAwakePromptShown`, the presenter shows the sheet, `confirmKeepAwake()` writes
+`keepAwake: true` and Cancel or Esc writes nothing. Switching off writes `false` and clears the
+session file with no prompt; the menu-bar app's own tick also ends a hold once the config says off,
+which covers Restore Defaults. Once on, the block adds the duration menu, the cutoff field and a
+status row with Start or Stop, redrawn every 2 seconds by a `TimelineView` so it follows the app's
+tick without a model timer.
+
+The cutoff field works like a duration field: a typed value is a draft, checked on each keystroke
+by `PreferenceRules.batteryCutoff(from:)`, the same parser `config set` uses, and written on Return
+or when the field loses focus. A value off the 5% step shows `PreferenceRules.batteryCutoffHint`
+under the row and is never rounded to the nearest step, for the reason `rearmBelow` refuses one on
+the command line. The stepper beside it writes at once and drops any draft.
+
+The sheet is custom, not an `NSAlert`, because it carries five labelled facts (what it adds,
+installs, does while it runs, leaves unchanged and when it ends) that an alert's one plain
+paragraph reads as a wall of text. It uses the rule sheet's presentation through
+`SettingsSheetWindow`; there is no Launch at Login offer in it.
+
+`countersign settings` from a terminal has no app: `launchAtLoginAvailable` is false, so the block is
+read-only with the caption "Available in Countersign.app". A config problem disables it like General.
+
+`KeepAwakeBlockMode` is a snapshot seam only. `countersign snapshot --settings --keep-awake <state>`
+passes a fixed mode so every state draws without a session file or a battery; the real pane always
+uses `.live`, which derives the mode from the model.
 
 ### Resetting to defaults
 
@@ -1099,6 +1135,40 @@ plain prefix: short of a dry run (`-n`), it deletes untracked files that no comm
 so the card stops every form of it. The deny cards catch the common
 spellings and nothing more: `rm -r -f`, `sudo` behind `env` and `git -C dir push -f` are not matched,
 and a miss is not an allow, so that command gets its panel as before.
+
+## The command line
+
+`countersign config get`, `set`, `reset` and `open` are a second route to the same keys Settings
+writes. Both routes validate with `PreferenceRules` and the types' own initialisers, and both write
+through `PreferenceEdit` and `ConfigEdit`, so a key cannot accept a value on one route that the
+other would reject. `ConfigValue` holds the grammar of the text forms; its round-trip test
+(print a key's value, parse it back, apply it, get the same `PreferenceValues`) fails when a key's
+printed form and its grammar disagree.
+
+An invalid value is an error and is never moved into range. A slider cannot be dragged past its
+end, so Settings never needs to decide what an out-of-range value means; a command line can be
+handed one by a script or an agent, and nobody is watching to notice that `31s` became `30s`.
+`rearmBelow` follows the same rule: a percent off its step of 5 is an error, not a nearer value.
+
+Four keys refuse `set`: `keepAwake`, the opt-in, which must be switched on with its explanation in
+front of you; `waitingNotices` and `contextCheckpoints.enabled`, which rewrite the hook files of
+your agents; and `modeAfterPlan`, because an agent can run the command and `auto` would let it
+widen what your next plan approval allows, the nearest thing to approving a request. The refusal
+names the Settings row. `reset` refuses only the two hook-file keys: `config reset keepAwake` can
+only turn the feature off, as Restore Defaults does, and `config reset modeAfterPlan` returns to
+`default`, the strictest mode. A pane reset never
+includes the hook-file keys, because no pane lists them.
+
+Values under `hosts` stay as they are when a top-level key is set or reset, exactly as in Restore
+Defaults, and `PreferenceReset.hostsNote` is printed when the file has any. Every subcommand except
+`open` first refuses a `config.json` that does not parse, because `ConfigFileLoader.load` returns
+defaults for a broken file and a write on top of that would look like a success. The menu-bar app
+and hooks re-read the file, so a write needs no signal.
+
+`open` runs `/usr/bin/open` with `-b <editorApp>` or `-t` rather than calling `NSWorkspace`: the
+command is a short-lived process, and `NSWorkspace` opens asynchronously, so the process could exit
+before the open completed. Waiting for `open` to exit and checking its status also gives a real
+error when the editor cannot be found.
 
 ## Why snapshot never reads the file
 

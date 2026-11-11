@@ -23,6 +23,16 @@ func usage(ofCommand command: String?) -> String? {
   case "resume": StatusCommand.resumeUsage
   case "status": StatusCommand.statusUsage
   case "snooze": StatusCommand.snoozeUsage
+  case "keep-awake": KeepAwakeCommand.usage
+  case "decisions": DecisionsCommand.usage
+  case "pending": PendingCommand.usage
+  case "rules": RulesCommand.usage
+  case "config": ConfigCommand.usage
+  case "quit": AppControlCommandLine.quitUsage
+  case "launch-at-login": AppControlCommandLine.launchAtLoginUsage
+  case "update-check": UpdateCheckCommand.usage
+  case "context": ContextCommand.usage
+  case "test-card": TestCardCommand.usage
   default: nil
   }
 }
@@ -59,6 +69,26 @@ case "status":
   StatusCommand.status(Array(arguments.dropFirst()))
 case "snooze":
   StatusCommand.snooze(Array(arguments.dropFirst()))
+case "keep-awake":
+  KeepAwakeCommand.run(Array(arguments.dropFirst()))
+case "decisions":
+  DecisionsCommand.run(Array(arguments.dropFirst()))
+case "pending":
+  PendingCommand.run(Array(arguments.dropFirst()))
+case "rules":
+  RulesCommand.run(Array(arguments.dropFirst()))
+case "config":
+  ConfigCommand.run(Array(arguments.dropFirst()))
+case "quit":
+  AppControlCommand.quit(Array(arguments.dropFirst()))
+case "launch-at-login":
+  AppControlCommand.launchAtLogin(Array(arguments.dropFirst()))
+case "update-check":
+  UpdateCheckCommand.run(Array(arguments.dropFirst()))
+case "context":
+  ContextCommand.run(Array(arguments.dropFirst()))
+case "test-card":
+  TestCardCommand.run(Array(arguments.dropFirst()))
 case "help", "--help", "-h":
   print(CommandLineHelp.text(version: CountersignVersion.current))
 case "--version":
@@ -66,7 +96,7 @@ case "--version":
 default:
   CommandLineOutput.fail(
     "usage: countersign"
-      + " <hook|setup|settings|doctor|preview|test-panel|snapshot|pause|resume|snooze|status"
+      + " <hook|setup|settings|doctor|preview|test-panel|snapshot|pause|resume|snooze|keep-awake|decisions|pending|rules|config|quit|launch-at-login|update-check|context|test-card|status"
       + "|help|--version>\n"
       + "run countersign help for the commands and links"
   )

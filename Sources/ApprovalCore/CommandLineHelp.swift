@@ -17,10 +17,25 @@ public enum CommandLineHelp {
       entry("resume", "Turn panels back on"),
       entry(
         "snooze <time>|off", "Quiet time for every prompt: 90s, 15m, 1h or minutes; off ends it"),
+      entry("keep-awake", "on|off|status: keep this Mac awake while agents work;"),
+      entry("", "turn it on first in Settings"),
+      entry(
+        "decisions [clear]",
+        "Recent answers, newest first; --limit <n> for more; clear empties them"),
+      entry("pending", "Waiting requests and what you can answer here: show|deny|chat <id>;"),
+      entry("", "never approves"),
+      entry("rules list|deny", "Your allow and deny rules; deny adds one, allow is Settings only"),
+      entry("config", "get [key]|set <key> <value>|reset <key>|open: read or change settings"),
+      entry("quit [--pause]", "Quit the menu-bar app, with no prompt; --pause stops panels too"),
+      entry("launch-at-login", "on|off: open the menu-bar app at login; it must be running"),
+      entry("update-check", "Check for a newer release now"),
+      entry("context", "Context used by live Claude Code sessions"),
       entry(
         "test-panel [kind]",
         "Show a test panel (command, question, plan or context); nothing is sent"
       ),
+      entry(
+        "test-card <kind>", "Show a test corner card (notice or approval); nothing is sent"),
       entry("help", "Show this help"),
       entry("--version", "Print the installed version"),
       "",

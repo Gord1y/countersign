@@ -102,7 +102,8 @@ import Testing
       ])
     #expect(
       SettingsPane.app.preferenceNames == [
-        .checkForUpdates, .quitBehavior, .appearance, .accentColor, .showSkills,
+        .checkForUpdates, .quitBehavior, .keepAwake, .keepAwakeDuration, .keepAwakeBatteryCutoff,
+        .appearance, .accentColor, .showSkills,
       ])
     #expect(SettingsPane.app.preferenceNames.contains(.showSkills))
     #expect(SettingsPane.agents.preferenceNames == [])

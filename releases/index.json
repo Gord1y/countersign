@@ -2,6 +2,29 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.6.0",
+      "date": "2026-11-09",
+      "title": "Countersign 0.6.0: keep your Mac awake while agents work, and more from the terminal",
+      "summary": "An opt-in Keep Mac Awake holds off idle sleep from the menu-bar app for a time you choose and lets go at a battery level you set. The command line can now do most of what the app does: recent decisions, waiting requests, deny rules, every setting, quitting the app and more. It can never approve a request or add an allow rule.",
+      "type": "minor",
+      "breaking": false,
+      "highlights": [
+        "Keep Mac Awake: opt in once, pick how long, and it lets go at your battery cutoff",
+        "New commands for decisions, waiting requests, rules, settings, updates and context",
+        "The command line can deny a request but never approve one"
+      ],
+      "tags": [
+        "menu-bar",
+        "command-line",
+        "settings"
+      ],
+      "testedWith": {
+        "claudeCode": "2.1.318",
+        "codex": "0.159.3"
+      },
+      "notes": "releases/release-0.6.0.md"
+    },
+    {
       "version": "0.5.0",
       "date": "2026-10-19",
       "title": "Countersign 0.5.0: checkpoints that ask before they stop, and keep your work",

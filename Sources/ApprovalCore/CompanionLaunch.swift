@@ -3,6 +3,12 @@ import CoreServices
 public enum CompanionLaunch {
   public static let openSettingsNotificationName = "\(AppLaunchMode.bundleIdentifier).openSettings"
   public static let openSetupNotificationName = "\(AppLaunchMode.bundleIdentifier).openSetup"
+  public static let quitNotificationName = "\(AppLaunchMode.bundleIdentifier).quit"
+  public static let quitPausingNotificationName = "\(AppLaunchMode.bundleIdentifier).quitPausing"
+  public static let launchAtLoginOnNotificationName =
+    "\(AppLaunchMode.bundleIdentifier).launchAtLoginOn"
+  public static let launchAtLoginOffNotificationName =
+    "\(AppLaunchMode.bundleIdentifier).launchAtLoginOff"
   public static let setupArgument = "--setup"
 
   public static func opensSettings(launchEventID: AEEventID?, launchedAs: OSType?) -> Bool {

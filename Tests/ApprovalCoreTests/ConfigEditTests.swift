@@ -433,6 +433,33 @@ private func editing(_ text: String?, _ edits: PreferenceEdit...) throws -> Stri
       try editing("{\n  \"showSkills\": false\n}\n", .reset(.showSkills)) == "{}\n")
   }
 
+  @Test func writesAndResetsTheKeepAwakeKeys() throws {
+    #expect(
+      try editing("{\n  \"keepAwake\": false\n}\n", .keepAwake(true))
+        == "{\n  \"keepAwake\": true\n}\n")
+    #expect(
+      try editing("{\n  \"keepAwakeDuration\": \"4h\"\n}\n", .keepAwakeDuration(.untilTurnedOff))
+        == "{\n  \"keepAwakeDuration\": \"forever\"\n}\n")
+    #expect(
+      try editing("{\n  \"keepAwakeBatteryCutoff\": 15\n}\n", .keepAwakeBatteryCutoff(40))
+        == "{\n  \"keepAwakeBatteryCutoff\": 40\n}\n")
+    #expect(
+      try editing(" \n", .keepAwakeBatteryCutoff(40))
+        == "{\n  \"$schema\": \"\(schema)\",\n  \"keepAwakeBatteryCutoff\": 40\n}\n")
+    #expect(try editing("{\n  \"keepAwake\": true\n}\n", .reset(.keepAwake)) == "{}\n")
+    #expect(
+      try editing("{\n  \"keepAwakeDuration\": \"1h\"\n}\n", .reset(.keepAwakeDuration)) == "{}\n")
+    #expect(
+      try editing("{\n  \"keepAwakeBatteryCutoff\": 40\n}\n", .reset(.keepAwakeBatteryCutoff))
+        == "{}\n")
+  }
+
+  @Test func namesTheKeyEachKeepAwakeEditWrites() {
+    #expect(PreferenceEdit.keepAwake(true).key == .keepAwake)
+    #expect(PreferenceEdit.keepAwakeDuration(.oneHour).key == .keepAwakeDuration)
+    #expect(PreferenceEdit.keepAwakeBatteryCutoff(20).key == .keepAwakeBatteryCutoff)
+  }
+
   @Test func namesTheKeyEachEditWrites() {
     #expect(PreferenceEdit.armDelay(1).key == .armDelay)
     #expect(PreferenceEdit.chainedArmDelay(1).key == .chainedArmDelay)

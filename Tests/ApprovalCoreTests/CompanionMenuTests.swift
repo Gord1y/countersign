@@ -13,7 +13,9 @@ import Testing
     sponsorURL: URL? = CompanionMenu.sponsorURL,
     buyMeACoffeeURL: URL? = nil,
     updateAvailable: UpdateAvailability? = nil,
-    manualCheckResult: ManualUpdateCheckResult? = nil
+    manualCheckResult: ManualUpdateCheckResult? = nil,
+    keepAwakeOptedIn: Bool = false,
+    keepAwakeState: KeepAwakeState = .notRunning
   ) -> CompanionMenuInput {
     CompanionMenuInput(
       isPaused: isPaused,
@@ -25,7 +27,29 @@ import Testing
       buyMeACoffeeURL: buyMeACoffeeURL,
       version: "0.1.0",
       updateAvailable: updateAvailable,
-      manualCheckResult: manualCheckResult)
+      manualCheckResult: manualCheckResult,
+      keepAwakeOptedIn: keepAwakeOptedIn,
+      keepAwakeState: keepAwakeState)
+  }
+
+  private static let keepAwakeEnd = Date(timeIntervalSince1970: TimeInterval(22 * 3600 + 34 * 60))
+
+  private func keepAwakeRows(
+    _ state: KeepAwakeState
+  ) -> [CompanionMenuEntry] {
+    let items = CompanionMenu.items(
+      for: input(keepAwakeOptedIn: true, keepAwakeState: state), timeZone: .gmt)
+    let snoozeIndex = items.firstIndex { item in
+      guard case .entry(let entry) = item else { return false }
+      return entry.title == "Snooze"
+    }
+    guard let snoozeIndex, items[snoozeIndex + 1] == .separator else { return [] }
+    var rows: [CompanionMenuEntry] = []
+    for item in items[(snoozeIndex + 2)...] {
+      guard case .entry(let entry) = item else { break }
+      rows.append(entry)
+    }
+    return rows
   }
 
   private func entries(
@@ -588,6 +612,88 @@ import Testing
     #expect(!titles.contains("Support the Developer"))
     #expect(titles.last == "Quit Countersign")
     #expect(titles.count == entries(input()).count - 1)
+  }
+
+  @Test func keepAwakeIsAbsentUntilOptedIn() {
+    let titles = CompanionMenu.items(for: input(keepAwakeState: .holding(.untilTurnedOff)))
+      .compactMap { item -> String? in
+        guard case .entry(let entry) = item else { return nil }
+        return entry.title
+      }
+    let separators = { (items: [CompanionMenuItem]) in items.filter { $0 == .separator }.count }
+    let optedOut = CompanionMenu.items(for: input(keepAwakeState: .holding(.untilTurnedOff)))
+    let optedIn = CompanionMenu.items(
+      for: input(keepAwakeOptedIn: true, keepAwakeState: .holding(.untilTurnedOff)))
+
+    #expect(!titles.contains("Keep Mac Awake"))
+    #expect(!titles.contains("Stop Keeping Awake"))
+    #expect(separators(optedOut) == separators(CompanionMenu.items(for: input())))
+    #expect(separators(optedIn) == separators(optedOut) + 1)
+  }
+
+  @Test func keepAwakeOffersFiveDurationsAfterSnoozeWhenNotRunning() throws {
+    let rows = keepAwakeRows(.notRunning)
+
+    let row = try #require(rows.first)
+    #expect(rows.count == 1)
+    #expect(row.title == "Keep Mac Awake")
+    #expect(row.action == nil)
+    let submenu = row.submenu.compactMap { item -> CompanionMenuEntry? in
+      guard case .entry(let entry) = item else { return nil }
+      return entry
+    }
+    #expect(
+      submenu.map(\.title) == [
+        "For 1 Hour", "For 4 Hours", "For 8 Hours", "For 12 Hours", "Until I Turn It Off",
+      ])
+    #expect(submenu.map(\.action) == KeepAwakeDuration.allCases.map { .startKeepAwake($0) })
+  }
+
+  @Test func keepAwakeHoldingUntilADateOffersStopWithTheTime() {
+    let rows = keepAwakeRows(.holding(.at(Self.keepAwakeEnd)))
+
+    #expect(
+      rows == [
+        CompanionMenuEntry(
+          title: "Stop Keeping Awake (until 22:34)", action: .stopKeepAwake)
+      ])
+  }
+
+  @Test func keepAwakeHoldingForeverOffersPlainStop() {
+    #expect(
+      keepAwakeRows(.holding(.untilTurnedOff)) == [
+        CompanionMenuEntry(title: "Stop Keeping Awake", action: .stopKeepAwake)
+      ])
+  }
+
+  @Test func keepAwakeReleasedAtCutoffShowsWhyThenStopWithTheTime() {
+    let rows = keepAwakeRows(.releasedAtCutoff(.at(Self.keepAwakeEnd), cutoff: 15))
+
+    #expect(
+      rows == [
+        CompanionMenuEntry(title: "Released at 15% battery", isEnabled: false),
+        CompanionMenuEntry(title: "Stop Keeping Awake (until 22:34)", action: .stopKeepAwake),
+      ])
+  }
+
+  @Test func keepAwakeReleasedForeverShowsWhyThenPlainStop() {
+    let rows = keepAwakeRows(.releasedAtCutoff(.untilTurnedOff, cutoff: 15))
+
+    #expect(
+      rows == [
+        CompanionMenuEntry(title: "Released at 15% battery", isEnabled: false),
+        CompanionMenuEntry(title: "Stop Keeping Awake", action: .stopKeepAwake),
+      ])
+  }
+
+  @Test func keepAwakeAppendsToTheSpokenIconLabel() {
+    #expect(
+      CompanionIcon.active.accessibilityLabel(keepingAwake: true)
+        == "Countersign, keeping this Mac awake")
+    #expect(CompanionIcon.active.accessibilityLabel(keepingAwake: false) == "Countersign")
+    #expect(
+      CompanionIcon.paused.accessibilityLabel(keepingAwake: true)
+        == "Countersign, paused, keeping this Mac awake")
   }
 
   @Test func iconsAreTheAgreedSymbolsWithSpokenLabels() {

@@ -62,7 +62,9 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   private var updateCheckTimer: Timer?
   private var coldCacheTimer: Timer?
   private let coldCacheCard: ColdCacheCardController
-  private var shownIcon: CompanionIcon?
+  private let keepAwake: KeepAwakeController
+  private var keepAwakeState: KeepAwakeState = .notRunning
+  private var shownIcon: (icon: CompanionIcon, keepingAwake: Bool)?
   private var menuActions: [CompanionMenuAction] = []
   private var isLaunchAtLoginUnavailable = false
   private var lastConfigLogLines: [String] = []
@@ -84,6 +86,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     stateSwitches = StateSwitches(pauseSwitch: pauseSwitch, quietTime: quietTime)
     queue = TicketQueue(directory: paths.queueDirectory, lockFile: paths.displayLockFile)
     coldCacheCard = ColdCacheCardController(paths: paths, log: log)
+    keepAwake = KeepAwakeController(paths: paths, log: log)
     super.init()
     reloadUpdateCheckState()
   }
@@ -98,6 +101,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   }
 
   private func finishLaunching(opensSettings launchOpensSettings: Bool) {
+    keepAwake.clearAtLaunch()
     resumePauseSetAtQuit()
     let menu = NSMenu()
     menu.autoenablesItems = false
@@ -128,6 +132,17 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     DistributedNotificationCenter.default().addObserver(
       self, selector: #selector(openSetupRequested(_:)), name: Self.openSetupNotification,
       object: nil, suspensionBehavior: .deliverImmediately)
+    let commandObservers: [(Selector, String)] = [
+      (#selector(quitRequested(_:)), CompanionLaunch.quitNotificationName),
+      (#selector(quitPausingRequested(_:)), CompanionLaunch.quitPausingNotificationName),
+      (#selector(launchAtLoginOnRequested(_:)), CompanionLaunch.launchAtLoginOnNotificationName),
+      (#selector(launchAtLoginOffRequested(_:)), CompanionLaunch.launchAtLoginOffNotificationName),
+    ]
+    for (selector, name) in commandObservers {
+      DistributedNotificationCenter.default().addObserver(
+        self, selector: selector, name: Notification.Name(name), object: nil,
+        suspensionBehavior: .deliverImmediately)
+    }
     let opensSettingsForUpgrade = opensSettingsAfterUpgrade()
     let relaunch = takeFreshCopyRefreshRelaunch()
     if opensSettingsForUpgrade { return }
@@ -182,22 +197,47 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     }
   }
 
+  @objc nonisolated private func quitRequested(_ notification: Notification) {
+    Task { @MainActor [weak self] in
+      self?.quitForCommandLine(pausing: false)
+    }
+  }
+
+  @objc nonisolated private func quitPausingRequested(_ notification: Notification) {
+    Task { @MainActor [weak self] in
+      self?.quitForCommandLine(pausing: true)
+    }
+  }
+
+  @objc nonisolated private func launchAtLoginOnRequested(_ notification: Notification) {
+    Task { @MainActor [weak self] in
+      self?.changeLaunchAtLoginForCommandLine(on: true)
+    }
+  }
+
+  @objc nonisolated private func launchAtLoginOffRequested(_ notification: Notification) {
+    Task { @MainActor [weak self] in
+      self?.changeLaunchAtLoginForCommandLine(on: false)
+    }
+  }
+
   func applicationWillTerminate(_ notification: Notification) {
     settingsWindow?.model.commitEditing()
     if let pendingQuit {
       apply(pendingQuit)
     }
+    keepAwake.endForQuit()
     log.write("companion: quit")
   }
 
   func menuNeedsUpdate(_ menu: NSMenu) {
     reloadUpdateCheckState()
+    refreshIcon()
     menu.removeAllItems()
     menuActions = []
     for item in CompanionMenu.items(for: currentInput()) {
       menu.addItem(makeMenuItem(item))
     }
-    refreshIcon()
   }
 
   func menuWillOpen(_ menu: NSMenu) {
@@ -235,7 +275,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   }
 
   private func refreshApplicationsCopy(opensSettingsAfter: Bool) -> Bool {
-    guard !isAnythingOnScreen,
+    guard !isAnythingOnScreen, !keepAwake.hasSession,
       let refresh = AppBundleCopy.refresh(
         runningBundle: Bundle.main.bundlePath,
         home: FileManager.default.homeDirectoryForCurrentUser, fileSystem: .local)
@@ -315,9 +355,13 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   private func refreshIcon() {
     let icon = CompanionMenu.icon(
       isPaused: pauseSwitch.isPaused, quietUntil: QuietState(paths: paths).activeUntil())
-    guard icon != shownIcon, let button = statusItem?.button else { return }
-    button.image = MenuBarIcon.image(for: icon)
-    shownIcon = icon
+    keepAwakeState = keepAwake.tick()
+    let keepingAwake = keepAwakeState.holdsIdleSleep
+    guard shownIcon?.icon != icon || shownIcon?.keepingAwake != keepingAwake,
+      let button = statusItem?.button
+    else { return }
+    button.image = MenuBarIcon.image(for: icon, keepingAwake: keepingAwake)
+    shownIcon = (icon, keepingAwake)
   }
 
   private func currentInput() -> CompanionMenuInput {
@@ -342,7 +386,10 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
       manualCheckResult: manualCheckResult,
       contextRows: contextRows,
       recentDecisions: DecisionHistory(paths: paths).recent(
-        limit: CompanionMenu.recentDecisionLimit))
+        limit: CompanionMenu.recentDecisionLimit),
+      keepAwakeOptedIn: (configFile.keepAwake ?? Settings.defaultKeepAwake)
+        || keepAwakeState.isRunning,
+      keepAwakeState: keepAwakeState)
   }
 
   private func loadConfigFile() -> ConfigFile {
@@ -358,12 +405,7 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
   }
 
   private func runningStablePath() -> String {
-    guard let resolved = Bundle.main.executableURL?.resolvingSymlinksInPath().path else {
-      return "(unresolved)"
-    }
-    return StableExecutablePath.stable(
-      forResolved: resolved, home: FileManager.default.homeDirectoryForCurrentUser,
-      isExecutable: FileManager.default.isExecutableFile(atPath:))
+    RunningExecutable.runningStablePath()
   }
 
   private func currentUpdateAvailability() -> UpdateAvailability? {
@@ -498,6 +540,14 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
       attempt("quiet time ended", failure: "failed to end quiet time") {
         try QuietState(paths: paths).endNow()
       }
+    case .startKeepAwake(let duration):
+      attempt("keep awake started", failure: "failed to start keep awake") {
+        try keepAwake.start(duration)
+      }
+    case .stopKeepAwake:
+      attempt("keep awake stopped", failure: "failed to stop keep awake") {
+        try keepAwake.stop()
+      }
     case .openSettings:
       openSettings()
     case .showTestPanel(let kind):
@@ -607,13 +657,37 @@ private final class CompanionController: NSObject, NSApplicationDelegate, NSMenu
     }
   }
 
-  private func changeLaunchAtLogin(_ done: String, _ change: () throws -> Void) {
+  @discardableResult
+  private func changeLaunchAtLogin(_ done: String, _ change: () throws -> Void) -> String? {
     do {
       try change()
       log.write("companion: \(done)")
+      return nil
     } catch {
       isLaunchAtLoginUnavailable = true
       log.write("companion: launch at login unavailable: \(error)")
+      return SetupRun.describe(error)
+    }
+  }
+
+  private func quitForCommandLine(pausing: Bool) {
+    guard pendingQuit == nil else { return }
+    pendingQuit = QuitQuestion.commandOutcome(pausing: pausing, pause: pauseSwitch.state)
+    log.write("companion: quitting for the command line")
+    NSApplication.shared.terminate(nil)
+    pendingQuit = nil
+  }
+
+  private func changeLaunchAtLoginForCommandLine(on: Bool) {
+    let error =
+      on
+      ? changeLaunchAtLogin("launch at login registered") { try LaunchAtLogin.register() }
+      : changeLaunchAtLogin("launch at login unregistered") { try LaunchAtLogin.unregister() }
+    let reply = LaunchAtLoginReply(state: LaunchAtLogin.state, error: error)
+    do {
+      try Data(reply.encoded.utf8).write(to: paths.launchAtLoginReplyFile, options: .atomic)
+    } catch {
+      log.write("companion: could not write the launch at login reply: \(error)")
     }
   }
 

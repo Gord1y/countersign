@@ -53,6 +53,8 @@ final class TestCornerCards {
   private var expiries: [TestCornerCardKind: Task<Void, Never>] = [:]
   private var noticeIsHovered = false
 
+  var isEmpty: Bool { cards.isEmpty }
+
   func show(
     _ kind: TestCornerCardKind, store: WaitingStore, appearance: AppearanceChoice,
     noticeDuration: TimeInterval, onShowTestPanel: @escaping @MainActor () -> Void
