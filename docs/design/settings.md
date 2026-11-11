@@ -1144,10 +1144,13 @@ end, so Settings never needs to decide what an out-of-range value means; a comma
 handed one by a script or an agent, and nobody is watching to notice that `31s` became `30s`.
 `rearmBelow` follows the same rule: a percent off its step of 5 is an error, not a nearer value.
 
-Three keys refuse `set`: `keepAwake`, the opt-in, which must be switched on with its explanation in
-front of you, and `waitingNotices` and `contextCheckpoints.enabled`, which rewrite the hook files of
-your agents. The refusal names the Settings row. `reset` refuses only the two hook-file keys:
-`config reset keepAwake` can only turn the feature off, as Restore Defaults does. A pane reset never
+Four keys refuse `set`: `keepAwake`, the opt-in, which must be switched on with its explanation in
+front of you; `waitingNotices` and `contextCheckpoints.enabled`, which rewrite the hook files of
+your agents; and `modeAfterPlan`, because an agent can run the command and `auto` would let it
+widen what your next plan approval allows, the nearest thing to approving a request. The refusal
+names the Settings row. `reset` refuses only the two hook-file keys: `config reset keepAwake` can
+only turn the feature off, as Restore Defaults does, and `config reset modeAfterPlan` returns to
+`default`, the strictest mode. A pane reset never
 includes the hook-file keys, because no pane lists them.
 
 Values under `hosts` stay as they are when a top-level key is set or reset, exactly as in Restore

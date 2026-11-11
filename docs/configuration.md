@@ -394,11 +394,13 @@ The value `set` prints is read back from the file, so its order can differ from 
 `handoffApps` keeps the list's existing order and appends new apps, and choices print the
 highlighted one first, then the rest in their fixed order.
 
-Three settings stay in Settings, because changing them has consequences a one-line command should
+Four settings stay in Settings, because changing them has consequences a one-line command should
 not carry: `keepAwake`, the opt-in, needs its explanation first; `waitingNotices` and
-`contextCheckpoints.enabled` change your agents' hook files. `set` refuses all three and names the
-Settings row. `reset` refuses the two hook-file settings; `countersign config reset keepAwake` is
-allowed, because it can only turn the feature off.
+`contextCheckpoints.enabled` change your agents' hook files; `modeAfterPlan` sets how much Claude
+Code may do after you approve a plan, and an agent could otherwise raise it to `auto` for itself.
+`set` refuses all four and names the Settings row. `reset` refuses the two hook-file settings;
+`countersign config reset keepAwake` is allowed, because it can only turn the feature off, and
+`countersign config reset modeAfterPlan` is allowed, because it returns to the strictest mode.
 
 Values you set for one agent under `hosts` stay as they are when you set or reset a top-level key,
 and the command says so when there are any.

@@ -59,7 +59,7 @@ testedWith:
 ## Notes
 
 - An agent can run `countersign`, so no command approves a request or adds an allow rule.
-  `config set` also leaves the Keep Mac Awake opt-in and the two settings that change your agents'
-  hook files to Settings.
+  `config set` also leaves the Keep Mac Awake opt-in, the mode after a plan and the two settings
+  that change your agents' hook files to Settings.
 - A closed lid still sleeps the Mac. Every launch of the app starts with Keep Mac Awake off, and
   quitting the app ends it.

@@ -19,7 +19,8 @@ public enum ConfigValueError: Error, Sendable, Equatable, CustomStringConvertibl
 public enum ConfigValue {
   public static func refusal(_ name: PreferenceName) -> ConfigValueError? {
     switch name {
-    case .keepAwake, .waitingNotices, .contextCheckpointsEnabled: return .refused(name)
+    case .keepAwake, .waitingNotices, .contextCheckpointsEnabled, .modeAfterPlan:
+      return .refused(name)
     default: return nil
     }
   }
@@ -32,8 +33,11 @@ public enum ConfigValue {
   }
 
   static func refusalReason(_ name: PreferenceName) -> String {
-    name == .keepAwake
-      ? "it needs its explanation first" : "it changes your agents' hook files"
+    switch name {
+    case .keepAwake: return "it needs its explanation first"
+    case .modeAfterPlan: return "it sets how much your agent may do after you approve a plan"
+    default: return "it changes your agents' hook files"
+    }
   }
 
   public static func edits(

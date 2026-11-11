@@ -124,11 +124,12 @@ import Testing
     #expect(message(edits(.contextSoftChoices, "compact, compact")) == shape)
   }
 
-  @Test func theThreeHookAndOptInKeysAreRefusedWithTheirReasons() {
+  @Test func theHookOptInAndPlanModeKeysAreRefusedWithTheirReasons() {
     let reasons: [PreferenceName: String] = [
       .keepAwake: "it needs its explanation first",
       .waitingNotices: "it changes your agents' hook files",
       .contextCheckpointsEnabled: "it changes your agents' hook files",
+      .modeAfterPlan: "it sets how much your agent may do after you approve a plan",
     ]
     for (name, reason) in reasons {
       #expect(edits(name, "true") == .failure(.refused(name)))
@@ -141,6 +142,8 @@ import Testing
     #expect(
       ConfigValue.resetRefusal(.contextCheckpointsEnabled) == .refused(.contextCheckpointsEnabled))
     #expect(ConfigValue.resetRefusal(.keepAwake) == nil)
+    #expect(ConfigValue.resetRefusal(.modeAfterPlan) == nil)
+    #expect(edits(.modeAfterPlan, "auto") == .failure(.refused(.modeAfterPlan)))
   }
 
   @Test func approvalCardTakesOnOffOrAListOfAgents() {
