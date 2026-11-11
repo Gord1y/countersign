@@ -15,6 +15,18 @@ public final class ExclusiveFileLock: Sendable {
     try acquire(file, afterOpen: {})
   }
 
+  public static let briefHoldRetries = 5
+
+  public static func acquireOutlastingBriefHolds(
+    _ file: URL, pause: () -> Void = { usleep(20_000) }
+  ) throws -> ExclusiveFileLock? {
+    for retry in 0...briefHoldRetries {
+      if let lock = try acquire(file) { return lock }
+      if retry < briefHoldRetries { pause() }
+    }
+    return nil
+  }
+
   static func acquire(_ file: URL, afterOpen: () -> Void) throws -> ExclusiveFileLock? {
     try? FileManager.default.createDirectory(
       at: file.deletingLastPathComponent(), withIntermediateDirectories: true)
