@@ -407,7 +407,7 @@ The window edits top-level keys only:
 | App | When Countersign quits, a menu | `quitBehavior` | "Ask", "Keep showing panels" or "Pause panels" |
 | App | Keep Mac awake, a switch | `keepAwake` | on or off; top level only |
 | App | Turn off after, a menu | `keepAwakeDuration` | "1 hour", "4 hours", "8 hours", "12 hours" or "Until I turn it off"; top level only |
-| App | Stop at battery, a stepper | `keepAwakeBatteryCutoff` | 5% to 95% in steps of 5; top level only |
+| App | Stop at battery, a percent field and a stepper | `keepAwakeBatteryCutoff` | 5% to 95% in steps of 5, typed with or without `%`; top level only |
 | App | Appearance, a segmented control | `appearance` | "System", "Light" or "Dark" |
 | App | Accent colour, six swatches and a color well | `accentColor` | Amber, Blue, Green, Purple, Pink, Graphite, or any color as `#RRGGBB` |
 | App | Skills in the sidebar, a switch | `showSkills` | on or off; top level only |
@@ -764,9 +764,15 @@ switch is on only after the opt-in sheet's Turn On: `requestKeepAwake(true)` onl
 `isKeepAwakePromptShown`, the presenter shows the sheet, `confirmKeepAwake()` writes
 `keepAwake: true` and Cancel or Esc writes nothing. Switching off writes `false` and clears the
 session file with no prompt; the menu-bar app's own tick also ends a hold once the config says off,
-which covers Restore Defaults. Once on, the block adds the duration menu, the cutoff stepper and a
+which covers Restore Defaults. Once on, the block adds the duration menu, the cutoff field and a
 status row with Start or Stop, redrawn every 2 seconds by a `TimelineView` so it follows the app's
 tick without a model timer.
+
+The cutoff field works like a duration field: a typed value is a draft, checked on each keystroke
+by `PreferenceRules.batteryCutoff(from:)`, the same parser `config set` uses, and written on Return
+or when the field loses focus. A value off the 5% step shows `PreferenceRules.batteryCutoffHint`
+under the row and is never rounded to the nearest step, for the reason `rearmBelow` refuses one on
+the command line. The stepper beside it writes at once and drops any draft.
 
 The sheet is custom, not an `NSAlert`, because it carries five labelled facts (what it adds,
 installs, does while it runs, leaves unchanged and when it ends) that an alert's one plain

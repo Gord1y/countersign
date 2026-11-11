@@ -217,6 +217,8 @@ final class SettingsModel {
   private(set) var writeErrors: [PreferenceName: String] = [:]
   private(set) var durationTexts: [PreferenceName: String] = [:]
   private(set) var durationErrors: [PreferenceName: String] = [:]
+  private(set) var batteryCutoffText: String?
+  private(set) var batteryCutoffError: String?
   private(set) var visit = SettingsVisit()
   private(set) var launchAtLogin = LaunchAtLoginState.unavailable
   private(set) var launchAtLoginError: String?
@@ -1027,7 +1029,35 @@ final class SettingsModel {
 
   func setKeepAwakeBatteryCutoff(_ percent: Int) {
     let range = Settings.keepAwakeBatteryCutoffRange
+    dropBatteryCutoffText()
     write(.keepAwakeBatteryCutoff(min(max(percent, range.lowerBound), range.upperBound)))
+  }
+
+  var shownBatteryCutoffText: String {
+    batteryCutoffText ?? "\(keepAwakeBatteryCutoff)%"
+  }
+
+  var batteryCutoffProblem: String? {
+    batteryCutoffError ?? writeErrors[.keepAwakeBatteryCutoff]
+  }
+
+  func setBatteryCutoffText(_ text: String) {
+    guard text != shownBatteryCutoffText else { return }
+    batteryCutoffText = text
+    batteryCutoffError =
+      PreferenceRules.batteryCutoff(from: text) == nil ? PreferenceRules.batteryCutoffHint : nil
+  }
+
+  func commitBatteryCutoff() {
+    guard let text = batteryCutoffText,
+      let percent = PreferenceRules.batteryCutoff(from: text)
+    else { return }
+    setKeepAwakeBatteryCutoff(percent)
+  }
+
+  private func dropBatteryCutoffText() {
+    batteryCutoffText = nil
+    batteryCutoffError = nil
   }
 
   func currentKeepAwakeState() -> KeepAwakeState {
@@ -1483,6 +1513,9 @@ final class SettingsModel {
     }
     if names.contains(.accentColor) {
       discardCustomAccentColor()
+    }
+    if names.contains(.keepAwakeBatteryCutoff) {
+      dropBatteryCutoffText()
     }
     for name in names {
       durationTexts[name] = nil

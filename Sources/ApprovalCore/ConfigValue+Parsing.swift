@@ -144,9 +144,7 @@ extension ConfigValue {
   static func batteryCutoff(_ text: String) -> Result<Int, ConfigValueError> {
     let range = Settings.keepAwakeBatteryCutoffRange
     let step = Settings.keepAwakeBatteryCutoffStep
-    guard let percent = Int(text.trimmingCharacters(in: .whitespaces)),
-      range.contains(percent), percent % step == 0
-    else {
+    guard let percent = PreferenceRules.batteryCutoff(from: text) else {
       return .failure(
         .invalid("expected \(range.lowerBound) to \(range.upperBound) in steps of \(step)"))
     }

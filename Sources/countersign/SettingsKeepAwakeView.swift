@@ -101,11 +101,10 @@ struct KeepAwakeBlock: View {
 
   private var cutoffRow: some View {
     PreferenceRow(
-      .keepAwakeBatteryCutoff, model: model,
-      problem: model.writeErrors[.keepAwakeBatteryCutoff]
+      .keepAwakeBatteryCutoff, model: model, problem: model.batteryCutoffProblem
     ) {
       HStack(spacing: 6) {
-        ValueText("\(model.keepAwakeBatteryCutoff)%")
+        BatteryCutoffField(model: model)
         Stepper(
           PreferenceName.keepAwakeBatteryCutoff.title,
           value: Binding(
@@ -250,4 +249,29 @@ struct KeepAwakeFact {
   let symbol: String
   let title: String
   let text: String
+}
+
+private struct BatteryCutoffField: View {
+  let model: SettingsModel
+
+  @FocusState private var isFocused: Bool
+
+  var body: some View {
+    TextField(
+      PreferenceName.keepAwakeBatteryCutoff.title,
+      text: Binding(
+        get: { model.shownBatteryCutoffText }, set: { model.setBatteryCutoffText($0) })
+    )
+    .textFieldStyle(.roundedBorder)
+    .labelsHidden()
+    .font(PanelTypography.body.monospacedDigit())
+    .multilineTextAlignment(.trailing)
+    .frame(width: 72)
+    .focused($isFocused)
+    .onChange(of: isFocused) { _, focused in
+      guard !focused else { return }
+      model.commitBatteryCutoff()
+    }
+    .onSubmit { model.commitBatteryCutoff() }
+  }
 }
