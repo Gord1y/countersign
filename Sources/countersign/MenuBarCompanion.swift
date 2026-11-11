@@ -10,7 +10,9 @@ enum MenuBarCompanion {
 
     let instanceLock: ExclusiveFileLock
     do {
-      guard let acquired = try ExclusiveFileLock.acquire(paths.companionLockFile) else {
+      guard
+        let acquired = try ExclusiveFileLock.acquireOutlastingBriefHolds(paths.companionLockFile)
+      else {
         let asksForSetup = CommandLine.arguments.contains(CompanionLaunch.setupArgument)
         DistributedNotificationCenter.default().postNotificationName(
           asksForSetup
