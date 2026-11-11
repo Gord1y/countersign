@@ -3,6 +3,17 @@ import Testing
 @testable import ApprovalCore
 
 @Suite struct PreferenceRulesTests {
+  @Test func batteryCutoffTakesAStepOfFiveWithOrWithoutThePercentSign() {
+    #expect(PreferenceRules.batteryCutoff(from: "20") == 20)
+    #expect(PreferenceRules.batteryCutoff(from: " 20% ") == 20)
+    #expect(PreferenceRules.batteryCutoff(from: "5 %") == 5)
+    #expect(PreferenceRules.batteryCutoff(from: "95%") == 95)
+    for text in ["", "%", "17", "0", "100", "20.0", "twenty", "20%%"] {
+      #expect(PreferenceRules.batteryCutoff(from: text) == nil)
+    }
+    #expect(PreferenceRules.batteryCutoffHint == "Enter 5% to 95% in steps of 5")
+  }
+
   @Test func boundsMatchTheWindowsControls() {
     #expect(PreferenceRules.armDelayRange == 0...3)
     #expect(PreferenceRules.armDelayStepsPerSecond == 10)

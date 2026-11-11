@@ -215,6 +215,9 @@ What the menu-bar app does, and how panels and the Settings window look:
 | Launch at login | none | off |
 | Check for updates | `checkForUpdates` | `false` |
 | When Countersign quits | `quitBehavior` | `"ask"` |
+| Keep Mac awake | `keepAwake` | `false` |
+| Turn off after | `keepAwakeDuration` | `"12h"` |
+| Stop at battery | `keepAwakeBatteryCutoff` | `15` |
 | Appearance | `appearance` | `"system"` |
 | Accent colour | `accentColor` | `"#E6B04A"` (Amber) |
 | Skills in the sidebar | `showSkills` | `true` |
@@ -230,6 +233,16 @@ What the menu-bar app does, and how panels and the Settings window look:
   appearing; `"pause"` quits without asking and pauses panels until you open the app again.
   Ticking **Don't ask again** in the question writes your answer here. See
   [menu-bar-app.md](menu-bar-app.md#quit).
+- **Keep Mac awake** (`keepAwake`): the opt-in for stopping this Mac idle-sleeping while agents
+  work. Set it in Settings, not by hand: Settings shows what the feature does before you turn it
+  on. Turning it on adds a Keep Mac Awake item to the menu bar menu; Countersign installs nothing
+  for it, and every app launch starts with no hold running. Top level only.
+- **Turn off after** (`keepAwakeDuration`): how long a hold lasts when you start it in Settings or
+  with `countersign keep-awake on`: `"1h"`, `"4h"`, `"8h"`, `"12h"` or `"forever"` (until you turn
+  it off). The menu bar menu asks each time. Top level only.
+- **Stop at battery** (`keepAwakeBatteryCutoff`): a whole number from 5 to 95 in steps of 5. On
+  battery power, Countersign stops holding when the charge is at or below it and holds again when
+  you plug in. On power, or on a Mac with no battery, it holds at any level. Top level only.
 - **Appearance** (`appearance`): `"system"` follows the light or dark appearance chosen in macOS;
   `"light"` and `"dark"` keep every panel and the Settings window that way whatever macOS uses.
 - **Accent colour** (`accentColor`): the color of Approve and the other filled buttons, and of
@@ -301,8 +314,9 @@ profile. If you set `XDG_CONFIG_HOME` only there, its Settings window edits
 
 Every key except `quietHours`, `checkForUpdates`, `quitBehavior`, `modeAfterPlan`, `panelSound`,
 `waitingNotices`, `waitingNoticeDuration`, `questionNotes`, `editorApp`, `appearance`, `accentColor`,
-`showSkills`, `contextCheckpoints`, `rules`, `hosts` and `$schema` can also be set for one agent,
-under `hosts.claude`, `hosts.codex`, `hosts.cursor` or `hosts.antigravity`:
+`showSkills`, `keepAwake`, `keepAwakeDuration`, `keepAwakeBatteryCutoff`, `contextCheckpoints`,
+`rules`, `hosts` and `$schema` can also be set for one agent, under `hosts.claude`, `hosts.codex`,
+`hosts.cursor` or `hosts.antigravity`:
 
 ```json
 {
@@ -344,6 +358,53 @@ with `config: `, and `countersign doctor` lists them as `warn` lines.
 as in the example above, and an editor that understands JSON Schema completes and checks keys as
 you type. `$schema` itself is ignored by Countersign; it only lets your editor validate the file.
 
+### From the command line
+
+`countersign config` reads and changes the same settings as the file and Settings, using the names
+the file uses:
+
+- `countersign config get` prints every setting as `name = value`; `countersign config get <key>`
+  prints just the value, so a script can use it. A key inside a block is written with dots, like
+  `contextCheckpoints.thresholds.200k`.
+- `countersign config set <key> <value>` checks the value against the same limits as Settings and
+  writes it. A value outside them is an error, never moved into range. Quote a value that contains
+  spaces.
+- `countersign config reset <key>` puts one setting back to its default;
+  `countersign config reset --pane panels`, `app` or `context` does it for a whole Settings pane and
+  lists what changed. Neither asks first.
+- `countersign config open` opens `config.json` in the editor set by `editorApp`, or in your default
+  text editor, creating the file first if it does not exist.
+
+Value forms for `set`:
+
+- On or off settings take `true`, `false`, `on` or `off`.
+- Durations take `500ms`, `5s`, `2m` or `1h`, and a bare number is seconds. Snooze presets are a
+  comma list, and a bare number there is minutes.
+- Quiet hours are windows joined by `;`, each a comma list of days and a time range:
+  `mon,tue 22:00-07:00; sat 9-12`. Days are `mon` to `sun`.
+- Hand-off apps are a comma list of bundle IDs. `approvalCard` is `on`, `off` or a comma list of
+  agents (`claude`, `codex`, `cursor`, `antigravity`).
+- Context checkpoint model thresholds are entries joined by `;`, each `<model prefix>=<ladder>`, like
+  `claude-opus-5=200,400`. Choices are a comma list of `compact`, `handoff`, `continue` and `mute`,
+  the first one highlighted. A model prefix may be listed only once.
+- `contextCheckpoints.rearmBelow` is a percent from 10 to 95 in steps of 5; `%` is optional.
+- `none` clears a list, and for `editorApp` goes back to asking every time.
+
+The value `set` prints is read back from the file, so its order can differ from what you typed:
+`handoffApps` keeps the list's existing order and appends new apps, and choices print the
+highlighted one first, then the rest in their fixed order.
+
+Four settings stay in Settings, because changing them has consequences a one-line command should
+not carry: `keepAwake`, the opt-in, needs its explanation first; `waitingNotices` and
+`contextCheckpoints.enabled` change your agents' hook files; `modeAfterPlan` sets how much Claude
+Code may do after you approve a plan, and an agent could otherwise raise it to `auto` for itself.
+`set` refuses all four and names the Settings row. `reset` refuses the two hook-file settings;
+`countersign config reset keepAwake` is allowed, because it can only turn the feature off, and
+`countersign config reset modeAfterPlan` is allowed, because it returns to the strictest mode.
+
+Values you set for one agent under `hosts` stay as they are when you set or reset a top-level key,
+and the command says so when there are any.
+
 ## Allow and deny rules
 
 Countersign's own rules answer a request before a panel shows: an allow rule lets it through, a deny
@@ -352,9 +413,10 @@ rule blocks it and tells the agent why. They apply to all four agents and live i
 panel as usual. You can also add rules from a panel: on a Codex request, **Approve ▾ → Always
 allow** saves a rule for Codex and that project (see [What each agent gets](agents.md)) and shows
 up under Settings ▸ Rules, where you can also add a rule with **Add Rule…** and edit or remove any
-listed rule. Cursor and Antigravity currently ignore an approval from a hook and decide by their own
-settings, so for them an allow rule only keeps Countersign's panel away; a deny rule blocks as for
-every agent.
+listed rule. `countersign rules list` prints them, and `countersign rules deny` adds a deny rule
+with the same checks; allow rules can only be added in Settings or the file. Cursor and Antigravity
+currently ignore an approval from a hook and decide by their own settings, so for them an allow
+rule only keeps Countersign's panel away; a deny rule blocks as for every agent.
 
 Each rule is an object. Only `decision` is required; every other field narrows the rule, and a rule
 applies only when all the fields it sets match.

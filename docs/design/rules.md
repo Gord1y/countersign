@@ -26,6 +26,19 @@ the log line and the Settings list agree.
 Settings ▸ Rules shows that parsed array and removes from it; see "Rules" in
 [settings.md](settings.md#rules).
 
+## The command line adds only deny rules
+
+An agent can run the `countersign` command, so an allow route there would let it approve its own
+requests. `countersign rules deny` is the only way to add a rule from the command line, and a deny
+rule can only block more. There is no `allow` subcommand and no flag that sets the decision: the
+single route to a rule is `RulesCommandLine.denyRule`, which forces `.deny` whatever the draft held.
+
+The form without `--agent`, `--project`, `--tool` or `--command` is refused. One call would block
+every request for every agent. Settings still allows that, because a person is choosing it there.
+
+`countersign rules list` numbers rules like the log does (`rules[<index>]`, zero-based, parsed rules
+only), so a log line can be matched to its rule.
+
 ## Deny on any segment, allow on every segment
 
 A compound command runs all its parts, so the two answers need opposite quantifiers. Blocking

@@ -67,6 +67,14 @@ public struct AppPaths: Sendable, Equatable {
     supportDirectory.appendingPathComponent("quiet-until")
   }
 
+  public var keepAwakeSessionFile: URL {
+    supportDirectory.appendingPathComponent("keep-awake-session")
+  }
+
+  public var launchAtLoginReplyFile: URL {
+    supportDirectory.appendingPathComponent("launch-at-login-reply")
+  }
+
   public var quietHoursSkippedFile: URL {
     supportDirectory.appendingPathComponent("quiet-hours-skipped-until")
   }

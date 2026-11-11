@@ -217,9 +217,12 @@ final class SettingsModel {
   private(set) var writeErrors: [PreferenceName: String] = [:]
   private(set) var durationTexts: [PreferenceName: String] = [:]
   private(set) var durationErrors: [PreferenceName: String] = [:]
+  private(set) var batteryCutoffText: String?
+  private(set) var batteryCutoffError: String?
   private(set) var visit = SettingsVisit()
   private(set) var launchAtLogin = LaunchAtLoginState.unavailable
   private(set) var launchAtLoginError: String?
+  private(set) var isKeepAwakePromptShown = false
   private(set) var ownValueNotes: [ApprovalCore.Host: String] = [:]
   private(set) var configProblem: String?
   private(set) var editorOpenFailure: EditorOpenFailure?
@@ -323,6 +326,9 @@ final class SettingsModel {
   var checkForUpdates: Bool { preferences.checkForUpdates }
   var showSkills: Bool { preferences.showSkills }
   var quitBehavior: QuitBehavior { preferences.quitBehavior }
+  var keepAwake: Bool { preferences.keepAwake }
+  var keepAwakeDuration: KeepAwakeDuration { preferences.keepAwakeDuration }
+  var keepAwakeBatteryCutoff: Int { preferences.keepAwakeBatteryCutoff }
   var modeAfterPlan: PlanApprovalMode { preferences.modeAfterPlan }
   var panelSound: String { preferences.panelSound }
   var waitingNotices: Bool { preferences.waitingNotices }
@@ -960,9 +966,7 @@ final class SettingsModel {
   var rules: [ApprovalRule] { configFileContents.rules ?? [] }
 
   var unreadableRuleCount: Int {
-    configLogLines.filter {
-      $0.hasPrefix("rules") && !$0.contains("only used by deny rules")
-    }.count
+    ApprovalRule.unreadableCount(in: configLogLines)
   }
 
   func projectText(for rule: ApprovalRule) -> String {
@@ -997,6 +1001,97 @@ final class SettingsModel {
 
   func setQuitBehavior(_ behavior: QuitBehavior) {
     write(.quitBehavior(behavior))
+  }
+
+  func requestKeepAwake(_ on: Bool) {
+    guard on != keepAwake else { return }
+    guard on else {
+      if write(.keepAwake(false)) {
+        clearKeepAwakeSession()
+      }
+      return
+    }
+    isKeepAwakePromptShown = true
+  }
+
+  func confirmKeepAwake() {
+    isKeepAwakePromptShown = false
+    write(.keepAwake(true))
+  }
+
+  func cancelKeepAwake() {
+    isKeepAwakePromptShown = false
+  }
+
+  func setKeepAwakeDuration(_ duration: KeepAwakeDuration) {
+    write(.keepAwakeDuration(duration))
+  }
+
+  func setKeepAwakeBatteryCutoff(_ percent: Int) {
+    let range = Settings.keepAwakeBatteryCutoffRange
+    dropBatteryCutoffText()
+    write(.keepAwakeBatteryCutoff(min(max(percent, range.lowerBound), range.upperBound)))
+  }
+
+  var shownBatteryCutoffText: String {
+    batteryCutoffText ?? "\(keepAwakeBatteryCutoff)%"
+  }
+
+  var batteryCutoffProblem: String? {
+    batteryCutoffError ?? writeErrors[.keepAwakeBatteryCutoff]
+  }
+
+  func setBatteryCutoffText(_ text: String) {
+    guard text != shownBatteryCutoffText else { return }
+    batteryCutoffText = text
+    batteryCutoffError =
+      PreferenceRules.batteryCutoff(from: text) == nil ? PreferenceRules.batteryCutoffHint : nil
+  }
+
+  func commitBatteryCutoff() {
+    guard let text = batteryCutoffText,
+      let percent = PreferenceRules.batteryCutoff(from: text)
+    else { return }
+    setKeepAwakeBatteryCutoff(percent)
+  }
+
+  private func dropBatteryCutoffText() {
+    batteryCutoffText = nil
+    batteryCutoffError = nil
+  }
+
+  func currentKeepAwakeState() -> KeepAwakeState {
+    KeepAwakePolicy.state(
+      optedIn: keepAwake, session: keepAwakeSession.current(now: now()),
+      power: KeepAwakePowerSource.current(), cutoff: keepAwakeBatteryCutoff)
+  }
+
+  func startKeepAwake() {
+    do {
+      try keepAwakeSession.start(keepAwakeDuration.end(from: now()))
+      writeErrors[.keepAwake] = nil
+    } catch {
+      writeErrors[.keepAwake] =
+        "\(environment.paths.keepAwakeSessionFile.path): error: \(SetupRun.describe(error))"
+    }
+  }
+
+  func stopKeepAwake() {
+    clearKeepAwakeSession()
+  }
+
+  private var keepAwakeSession: KeepAwakeSession {
+    KeepAwakeSession(paths: environment.paths)
+  }
+
+  private func clearKeepAwakeSession() {
+    do {
+      try keepAwakeSession.clear()
+      writeErrors[.keepAwake] = nil
+    } catch {
+      writeErrors[.keepAwake] =
+        "\(environment.paths.keepAwakeSessionFile.path): error: \(SetupRun.describe(error))"
+    }
   }
 
   func setModeAfterPlan(_ mode: PlanApprovalMode) {
@@ -1418,6 +1513,9 @@ final class SettingsModel {
     }
     if names.contains(.accentColor) {
       discardCustomAccentColor()
+    }
+    if names.contains(.keepAwakeBatteryCutoff) {
+      dropBatteryCutoffText()
     }
     for name in names {
       durationTexts[name] = nil

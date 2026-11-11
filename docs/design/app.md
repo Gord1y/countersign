@@ -128,7 +128,13 @@ second time, or opening it by hand after a login launch, never adds a second ico
 cannot be opened at all is logged (`companion: could not open companion.lock: <error>, exiting`)
 and also exits 0, asking nothing, since no companion is known to be running. A lock file replaced
 between opening and locking it is retried, up to three attempts in all, so a companion starting
-while the previous one quits does not exit thinking another instance runs. Otherwise it keeps the
+while the previous one quits does not exit thinking another instance runs. A lock that is taken is
+tried again five times, 20 ms apart (`ExclusiveFileLock.acquireOutlastingBriefHolds`), because the
+command line probes it: `CompanionProbe.isRunning`, behind `countersign status`, `keep-awake`,
+`quit` and `launch-at-login`, takes the lock for a moment and releases it at once, and a companion
+launching in that moment must not exit thinking another instance runs. A real companion holds the
+lock through every retry, so a second launch only waits about 100 ms longer before deferring to it.
+Otherwise it keeps the
 descriptor for the rest of the process's life, unless it hands over to a refreshed copy of itself
 (see "Keeping the ~/Applications copy current" below), runs `NSApplication` with the `.accessory`
 activation policy, and once launching has finished, before anything reads the pause switch, ends a
@@ -142,8 +148,8 @@ Why a lock file and not a scan of running apps: a hook that shows a panel builds
 of its own, and once hook entries point at the bundle's binary, `Contents/MacOS/countersign`, that
 hook process is registered under the same bundle identifier, `dev.gord1y.countersign`. A scan with
 `NSRunningApplication.runningApplications(withBundleIdentifier:)` would count it as a second
-companion and quit the real one whenever a panel is up. Only the companion ever touches
-`companion.lock`, so the lock cannot be confused with a hook. It also removes the launch race a scan
+companion and quit the real one whenever a panel is up. Only the companion holds `companion.lock`,
+and the command line's probe only tests it, so the lock cannot be confused with a hook. It also removes the launch race a scan
 has, where two instances opened in the same instant each see the other and both exit: the kernel
 grants the lock to exactly one of them. And it leaves no stale state behind, since the kernel drops
 the lock when the holder exits or crashes; the next launch simply takes it. Like `display.lock`,
@@ -262,6 +268,11 @@ check's answer, both run with `runModal` while the hourly timer still fires in t
 modes) or the open menu (`menuWillOpen` to `menuDidClose`). Approval panels never defer it: they
 run in hook processes, and a copied app's hooks point at `<prefix>/bin/countersign`, never into
 the copy, so relaunching the companion never takes a panel down.
+
+A keep-awake session file defers it as well (`KeepAwakeController.hasSession`, read fresh from the
+file): a relaunch would end the hold silently, since every launch starts with no hold (see
+[keep-awake.md](keep-awake.md)). The launch check runs before the launch clears the session file, so
+a session file left by a crash defers the launch check to the next hourly tick.
 
 The order, and why:
 
@@ -577,6 +588,15 @@ the bundle is a new signature, and a registration points at the bundle's path, s
 after registering leaves a login item behind for a path that no longer holds it. Whether macOS asks
 for approval again after a rebuild has not been checked on a real login yet.
 
+`countersign launch-at-login on|off` reaches the running companion with a distributed notification
+(`launchAtLoginOn` or `launchAtLoginOff`, posted with `deliverImmediately`), because
+`SMAppService.mainApp` only works from inside the app bundle. The companion runs the same change
+the menu does, then writes `LaunchAtLoginReply` (the state, and the error text when the change
+threw) atomically to `launch-at-login-reply` in the support directory. The command line polls for
+that file every 100 ms for up to 5 seconds instead of listening for a reply notification, because
+a short-lived process has no run loop to receive one on. It deletes any stale reply first and the
+fresh one after reading it.
+
 ### Quit
 
 The companion holds no ticket, no display lease and no child processes but the test panels it
@@ -614,6 +634,15 @@ and none pauses: a logout that silently switched panels off for the next session
 nobody chose. The companion does not implement `applicationShouldTerminate`, so once a quit starts
 nothing asks anything more: the settings window has no unsaved changes to ask about (see "Writing a
 change" in [settings.md](settings.md)).
+
+#### Quitting from the command line
+
+`countersign quit [--pause]` posts a distributed notification (`quit` or `quitPausing`, with
+`deliverImmediately`) and polls `CompanionProbe.isRunning` every 100 ms for up to 5 seconds, since
+the lock goes when the app exits. The companion skips the question and `quitBehavior`: the person
+running the command has already said what they want, and the command never writes `quitBehavior`.
+`QuitQuestion.commandOutcome(pausing:pause:)` still keeps an existing pause, the same as the menu,
+and the quit goes through `pendingQuit` and `terminate` exactly as `quitFromMenu()` does.
 
 #### Applying the answer when the quit is certain
 

@@ -227,7 +227,25 @@ you typed, picked and scrolled to is still there. ⌘ shortcuts such as ⌘C sti
 | `countersign pause` / `resume` | Turn the panel off and on. While paused, every prompt goes to its chat |
 | `countersign snooze 15m` | Quiet time for all prompts. Accepts `90s`, `15m`, `1h` or plain minutes, up to 24 hours |
 | `countersign snooze off` | End quiet time early |
+| `countersign keep-awake on [--for 4h\|--forever]` | Keep this Mac awake while agents work. Turn it on first in Settings, and keep the menu-bar app open. Accepts `90m` or `4h`, from 1 minute to 24 hours; without a flag it uses your Settings duration |
+| `countersign keep-awake off` | Stop keeping this Mac awake |
+| `countersign keep-awake status` | Shows whether it is holding, until when, or released at the battery cutoff |
+| `countersign decisions [--limit 50]` | Lists your recent answers, newest first: the last ten, or up to 200 with `--limit` |
+| `countersign decisions clear` | Empties the decision history, with no prompt, like Clear History in the menu |
+| `countersign pending` | Lists the requests waiting for a panel, each with its ID and what you can answer from here |
+| `countersign pending show\|deny\|chat <id>` | Answers one like the menu does: show it now, deny it, or hand it to the agent's chat. It never approves |
+| `countersign rules list` | Lists your allow and deny rules, numbered as the log names them, and says if an entry could not be read |
+| `countersign rules deny --command "git push"` | Adds a deny rule; `--agent`, `--project`, `--tool`, `--message` narrow or explain it. At least one of `--agent`, `--project`, `--tool` or `--command` is required. The command line can never add an allow rule |
+| `countersign config get [key]` | Prints one setting, or every setting with its config.json name |
+| `countersign config set <key> <value>` | Changes a setting with the same limits as Settings; the keep-awake opt-in, the mode after a plan and the two settings that change your agents' hook files stay in Settings |
+| `countersign config reset <key>\|--pane panels\|app\|context` | Puts one setting or a whole Settings pane back to its default, with no prompt |
+| `countersign config open` | Opens config.json in your editor |
+| `countersign quit [--pause]` | Quits the menu-bar app with no prompt. Panels keep appearing unless you add `--pause`, which pauses them until the app opens again |
+| `countersign launch-at-login on\|off` | Opens the menu-bar app at login, or stops doing so. The menu-bar app must be running |
+| `countersign update-check` | Checks for a newer release now, whatever the update-check setting, and prints the upgrade command and release notes link when there is one |
+| `countersign context` | Lists the context used by live Claude Code sessions, like the menu's Context in live sessions |
 | `countersign test-panel` | Shows a test panel with your settings; add `question`, `plan` or `context` for those. Nothing reaches an agent |
+| `countersign test-card notice\|approval` | Shows a test corner card in a free spot, like Settings' test card buttons; it exits when the card goes. Nothing reaches an agent |
 | `countersign --version` | Prints the installed version |
 | `countersign help` | Lists every command, with the help and support links |
 

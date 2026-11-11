@@ -47,6 +47,12 @@ public enum PreferenceReset {
       return changed(file.accentColor, from: Settings.defaultAccentColor)
     case .showSkills:
       return changed(file.showSkills, from: Settings.defaultShowSkills)
+    case .keepAwake:
+      return changed(file.keepAwake, from: Settings.defaultKeepAwake)
+    case .keepAwakeDuration:
+      return changed(file.keepAwakeDuration, from: Settings.defaultKeepAwakeDuration)
+    case .keepAwakeBatteryCutoff:
+      return changed(file.keepAwakeBatteryCutoff, from: Settings.defaultKeepAwakeBatteryCutoff)
     case .editorApp:
       return file.editorApp != nil
     case .contextCheckpointsEnabled:
@@ -142,6 +148,9 @@ public enum PreferenceReset {
     case .appearance: return values.appearance.title
     case .accentColor: return AccentPreset.name(of: values.accentColor)
     case .showSkills: return values.showSkills ? "On" : "Off"
+    case .keepAwake: return values.keepAwake ? "On" : "Off"
+    case .keepAwakeDuration: return values.keepAwakeDuration.settingsTitle
+    case .keepAwakeBatteryCutoff: return "\(values.keepAwakeBatteryCutoff)%"
     case .editorApp: return values.editorApp ?? PreferenceName.editorApp.defaultText
     case .contextCheckpointsEnabled: return values.contextCheckpoints.enabled ? "On" : "Off"
     case .contextMode: return values.contextCheckpoints.mode.rawValue.capitalized
@@ -208,7 +217,7 @@ public enum PreferenceReset {
     case .handoffApps: return overrides.handoffApps != nil
     case .quietHours, .checkForUpdates, .questionNotes, .quitBehavior, .modeAfterPlan,
       .panelSound, .waitingNotices, .waitingNoticeDuration, .approvalCard, .appearance,
-      .accentColor, .showSkills,
+      .accentColor, .showSkills, .keepAwake, .keepAwakeDuration, .keepAwakeBatteryCutoff,
       .editorApp, .contextCheckpointsEnabled, .contextMode, .contextStandardThresholds,
       .contextMillionThresholds, .contextModelThresholds,
       .contextRearmBelow, .contextMaxCompactions, .contextSoftChoices, .contextStatusChoices,

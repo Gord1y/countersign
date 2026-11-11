@@ -67,6 +67,10 @@ panel shows up in the icon within two seconds.
   - **Answer in Chat** hands it to the agent's own prompt, exactly like <kbd>Esc</kbd> in the
     panel.
 
+  In a terminal, `countersign pending` prints the same list with an ID per request and the answers
+  it offers, and `countersign pending show|deny|chat <id>` sends one of them. It offers exactly
+  what the submenu offers, and it has no way to approve.
+
   A context checkpoint offers only **Show Now**, and so does a request Countersign can't read. A
   Cursor request in Auto-review or Run Everything mode offers **Show Now** and **Deny** but not
   **Answer in Chat**, because there Cursor would run the command without asking you. When you put
@@ -85,14 +89,17 @@ panel shows up in the icon within two seconds.
   be told, for example right after a compaction. Sessions whose Claude Code process has ended are
   left out. Countersign reads each session's transcript when you open the menu, not in the
   background; if a transcript cannot be read, the size from that session's last prompt is shown
-  without the warmth.
+  without the warmth. In a terminal, `countersign context` prints the same lines whenever context
+  checkpoints are on, whether or not the menu-bar meter is.
 - **Recent Decisions** lists your last ten answers, newest first, one read-only line each, such as
   `✓ Bash · shop-api · 14:05 — git status`. The mark says what happened: ✓ approved, ✕ denied,
   ↩ answered in the chat or resolved there before you got to it, • a choice on a context
   checkpoint. A request answered by one of your [rules](configuration.md#allow-and-deny-rules)
   shows ✓ or ✕ with `rule` after the project, such as
   `✓ Bash · shop-api · rule · 14:05 — pnpm lint`. Below a separator, **Clear History** empties the list and deletes the stored
-  history. With nothing recorded, the submenu shows a single `No decisions yet`. What is stored,
+  history. With nothing recorded, the submenu shows a single `No decisions yet`. In a terminal,
+  `countersign decisions [--limit <1-200>]` prints the same lines and `countersign decisions clear`
+  empties the history. What is stored,
   and for how long, is in [safety-and-privacy.md](safety-and-privacy.md#what-it-writes).
 
 While the menu-bar app runs, a card appears in the top-right corner 10 minutes before an idle Claude
@@ -100,6 +107,29 @@ Code session past its first context checkpoint loses its prompt cache. **Copy ha
 copies the handoff note, so you can paste it into that session and hand off while the cache is still
 warm. It shows once per idle stretch, and pause and quiet time hold it. Turn it off in Settings,
 Context.
+
+## Keep Mac Awake
+
+Keep Mac Awake stops the Mac from going to sleep on its own while your agents work. It is off until
+you turn it on in Settings, App, **Keep Mac awake**; only then does the menu show it, in its own
+group right below **Snooze**.
+
+- **Keep Mac Awake** opens a submenu: **For 1 Hour**, **For 4 Hours**, **For 8 Hours**, **For 12
+  Hours** and **Until I Turn It Off**.
+- While it holds, the menu shows **Stop Keeping Awake (until 22:34)**, or **Stop Keeping Awake** for
+  a hold with no end. The icon gains a small dot in its top-left corner.
+- If the Mac runs on battery and the charge falls to the cutoff you set in Settings (15% by
+  default), the hold is released: the menu shows `Released at 15% battery` above **Stop Keeping
+  Awake**, and the dot goes away. Plug the Mac in and it holds again, until the time you chose.
+  Plugged in, it holds at any charge.
+
+The display still turns off and the screen locks as you have configured them: only idle sleep is
+held. A closed lid still sleeps the Mac. Quitting or restarting the app ends the hold, and every
+launch starts with it off.
+
+From the terminal, `countersign keep-awake on [--for <time>|--forever]`, `countersign keep-awake
+off` and `countersign keep-awake status` do the same while the app runs. The design is in
+[design/keep-awake.md](design/keep-awake.md).
 
 ## Settings
 
@@ -158,7 +188,8 @@ written to the log, `~/Library/Logs/Countersign/countersign.log`, on a line star
 agent, so it starts in the menu bar when you log in. When macOS wants your approval first, the item
 says so and takes you to System Settings > General > Login Items. The login item points at the app
 where it was when you turned this on, so check that list after moving the app. The Settings window
-has the same switch under **App** when it runs from Countersign.app.
+has the same switch under **App** when it runs from Countersign.app. `countersign launch-at-login
+on|off` turns it on or off from a terminal; the menu-bar app must be running.
 
 ## After an upgrade
 
@@ -191,6 +222,10 @@ Settings ▸ **Help** also has a **Check for Updates** button, for checking with
 running at all. It runs the same check and shows the same release notes and upgrade command. It records its
 result in `update-check.json`, and the menu-bar app rereads that file each time you open the menu,
 so a check started in Settings also updates the menu's update line.
+
+In a terminal, `countersign update-check` makes the same single request, whatever the setting, prints
+the result and, for a newer release, the upgrade command and release notes link. It records the
+result in `update-check.json` like the menu does, and exits 1 when the check fails.
 
 ## Help
 
@@ -235,3 +270,7 @@ or opening the app: it lasts until you resume. While it is on, **Quit Countersig
 all, since neither answer would change anything: the app quits straight away, whatever **When
 Countersign quits** says, and nothing is saved. Quiet time stays as it is too. The Settings window
 saves each change as you make it, so quitting never asks about settings.
+
+`countersign quit [--pause]` quits the running menu-bar app from a terminal and never asks: panels
+keep appearing unless you add `--pause`. It needs the app running, and a pause already on stays as
+it is.

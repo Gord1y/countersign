@@ -26,6 +26,12 @@ How each answer plays out, agent by agent, is in [agents.md](agents.md); the des
   denied instead ("No answer in Countersign within an hour, so Cursor did not run this.").
   Antigravity doesn't document what it does on a hook timeout, so its requests are handed back the
   same way.
+- An agent can run the `countersign` command, so the command line can show a waiting request,
+  deny it or send it to its chat (`countersign pending`), and add a deny rule
+  (`countersign rules deny`), which can only block more. It can never approve a request or add an
+  allow rule. It can also change settings with `countersign config set`, within the limits Settings
+  has, except the four it refuses: the keep-awake opt-in, the two settings that change your
+  agents' hook files, and the mode Claude Code continues in after you approve a plan.
 - The panel takes the keyboard, but its app never becomes the active app, and a guard hands
   activation straight back if macOS ever tries. It never grabs the keyboard back: when focus leaves
   it, for another app or the lock screen, it steps aside until your next pause.
@@ -134,9 +140,10 @@ came from, and what became of the request. Commands, file contents, answers and 
 
 ## The network
 
-Countersign makes one kind of network request, and only from the menu-bar app: the
+Countersign makes one kind of network request, and only from the menu-bar app, Settings or
+`countersign update-check`: the
 [update check](menu-bar-app.md#check-for-updates). It is off unless you turn it on, or choose
-**Check for Updates…**. It fetches
+**Check for Updates…** or run `countersign update-check`, which makes the same single request. It fetches
 `https://raw.githubusercontent.com/Gord1y/countersign/main/releases/index.json` with no cookies, no
 query and no body, and never downloads or installs anything. The hook, setup, doctor and the
 panel never touch the network.

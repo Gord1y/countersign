@@ -77,6 +77,27 @@ import Testing
     #expect(values.snoozePresets == Settings.defaultSnoozePresets)
     #expect(values.handoffApps == Settings.defaultHandoffApps)
     #expect(values.checkForUpdates == Settings.defaultCheckForUpdates)
+    #expect(values.keepAwake == false)
+    #expect(values.keepAwakeDuration == .twelveHours)
+    #expect(values.keepAwakeBatteryCutoff == 15)
+    let keepAwakeValues = PreferenceValues(
+      file: ConfigFile(
+        keepAwake: true, keepAwakeDuration: .oneHour, keepAwakeBatteryCutoff: 50))
+    #expect(keepAwakeValues.keepAwake)
+    #expect(keepAwakeValues.keepAwakeDuration == .oneHour)
+    #expect(keepAwakeValues.keepAwakeBatteryCutoff == 50)
+    #expect(keepAwakeValues.applying(.keepAwake(false)).keepAwake == false)
+    #expect(
+      keepAwakeValues.applying(.keepAwakeDuration(.fourHours)).keepAwakeDuration == .fourHours)
+    #expect(keepAwakeValues.applying(.keepAwakeBatteryCutoff(25)).keepAwakeBatteryCutoff == 25)
+    #expect(
+      keepAwakeValues.applying(.reset(.keepAwake)).keepAwake == Settings.defaultKeepAwake)
+    #expect(
+      keepAwakeValues.applying(.reset(.keepAwakeDuration)).keepAwakeDuration
+        == Settings.defaultKeepAwakeDuration)
+    #expect(
+      keepAwakeValues.applying(.reset(.keepAwakeBatteryCutoff)).keepAwakeBatteryCutoff
+        == Settings.defaultKeepAwakeBatteryCutoff)
     #expect(values.showSkills == Settings.defaultShowSkills)
     #expect(PreferenceValues(file: ConfigFile(showSkills: false)).showSkills == false)
     #expect(PreferenceValues(file: ConfigFile()).showSkills == true)

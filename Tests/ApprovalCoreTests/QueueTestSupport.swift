@@ -82,7 +82,20 @@ final class ProbeProcess {
   private let input = Pipe()
 
   static var binary: URL {
-    Bundle.module.bundleURL.deletingLastPathComponent().appendingPathComponent("ticket-probe")
+    let bundleParent = Bundle.module.bundleURL.deletingLastPathComponent()
+    var directory = bundleParent
+    while true {
+      let candidate = directory.appendingPathComponent("ticket-probe")
+      if FileManager.default.isExecutableFile(atPath: candidate.path) {
+        return candidate
+      }
+      let parent = directory.deletingLastPathComponent()
+      if parent.path == directory.path {
+        break
+      }
+      directory = parent
+    }
+    return bundleParent.appendingPathComponent("ticket-probe")
   }
 
   static func requireBinary() throws {

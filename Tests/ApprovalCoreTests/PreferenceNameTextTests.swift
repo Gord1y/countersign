@@ -118,6 +118,32 @@ import Testing
     #expect(PreferenceName.snoozeMinutes.defaultText == "1, 5, 15 and 30 minutes")
     #expect(PreferenceName.handoffApps.defaultText == "No apps")
     #expect(PreferenceName.checkForUpdates.defaultText == "Off")
+    #expect(PreferenceName.keepAwake.title == "Keep Mac awake")
+    #expect(
+      PreferenceName.keepAwake.caption
+        == "Stop this Mac idle-sleeping while agents work. Off until you turn it on.")
+    #expect(PreferenceName.keepAwake.defaultText == "Off")
+    #expect(
+      PreferenceName.keepAwake.explanation
+        == "Adds a Keep Mac Awake item to the menu bar menu. Countersign installs nothing for this."
+    )
+    #expect(PreferenceName.keepAwakeDuration.title == "Turn off after")
+    #expect(PreferenceName.keepAwakeDuration.caption == "How long each hold lasts.")
+    #expect(PreferenceName.keepAwakeDuration.defaultText == "12 hours")
+    #expect(
+      PreferenceName.keepAwakeDuration.explanation
+        == "How long a hold lasts when you start it in Settings or with countersign keep-awake on."
+        + " The menu bar menu asks each time.")
+    #expect(PreferenceName.keepAwakeBatteryCutoff.title == "Stop at battery")
+    #expect(
+      PreferenceName.keepAwakeBatteryCutoff.caption
+        == "On battery, stop holding at or below this level.")
+    #expect(PreferenceName.keepAwakeBatteryCutoff.defaultText == "15%")
+    #expect(
+      PreferenceName.keepAwakeBatteryCutoff.explanation
+        == "On battery power, Countersign stops holding when the charge is at or below this level,"
+        + " and holds again if you plug in. On power, or on a Mac with no battery, it holds at"
+        + " any level.")
     #expect(PreferenceName.showSkills.defaultText == "On")
     #expect(PreferenceName.showSkills.title == "Skills in the sidebar")
     #expect(

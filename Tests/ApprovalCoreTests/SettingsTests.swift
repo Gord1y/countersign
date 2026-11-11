@@ -99,6 +99,23 @@ import Testing
     #expect(settings.checkForUpdates == true)
   }
 
+  @Test func keepAwakeDefaultsAndResolvesFromTheFileOnly() {
+    let defaults = Settings.resolve(file: ConfigFile(), host: .claude)
+    #expect(defaults.keepAwake == false)
+    #expect(defaults.keepAwakeDuration == .twelveHours)
+    #expect(defaults.keepAwakeBatteryCutoff == 15)
+    #expect(Settings.keepAwakeBatteryCutoffRange == 5...95)
+    #expect(Settings.keepAwakeBatteryCutoffStep == 5)
+    let file = ConfigFile(
+      keepAwake: true, keepAwakeDuration: .eightHours, keepAwakeBatteryCutoff: 40)
+    for host in Host.allCases {
+      let settings = Settings.resolve(file: file, host: host)
+      #expect(settings.keepAwake)
+      #expect(settings.keepAwakeDuration == .eightHours)
+      #expect(settings.keepAwakeBatteryCutoff == 40)
+    }
+  }
+
   @Test func showSkillsIsTopLevelOnlyAndIgnoresHostOverrides() {
     let file = ConfigFile(showSkills: false)
     let settings = Settings.resolve(file: file, host: .claude)

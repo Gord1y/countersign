@@ -22,6 +22,9 @@ public struct Settings: Sendable, Equatable {
   public var appearance: AppearanceChoice
   public var accentColor: HexColor
   public var showSkills: Bool
+  public var keepAwake: Bool
+  public var keepAwakeDuration: KeepAwakeDuration
+  public var keepAwakeBatteryCutoff: Int
   public var contextCheckpoints: ContextCheckpointSettings
   public var rules: [ApprovalRule]
 
@@ -47,6 +50,9 @@ public struct Settings: Sendable, Equatable {
     appearance: AppearanceChoice,
     accentColor: HexColor,
     showSkills: Bool = Settings.defaultShowSkills,
+    keepAwake: Bool = Settings.defaultKeepAwake,
+    keepAwakeDuration: KeepAwakeDuration = Settings.defaultKeepAwakeDuration,
+    keepAwakeBatteryCutoff: Int = Settings.defaultKeepAwakeBatteryCutoff,
     contextCheckpoints: ContextCheckpointSettings = .default,
     rules: [ApprovalRule] = Settings.defaultRules
   ) {
@@ -71,6 +77,9 @@ public struct Settings: Sendable, Equatable {
     self.appearance = appearance
     self.accentColor = accentColor
     self.showSkills = showSkills
+    self.keepAwake = keepAwake
+    self.keepAwakeDuration = keepAwakeDuration
+    self.keepAwakeBatteryCutoff = keepAwakeBatteryCutoff
     self.contextCheckpoints = contextCheckpoints
     self.rules = rules
   }
@@ -89,6 +98,11 @@ public struct Settings: Sendable, Equatable {
   public static let defaultRules: [ApprovalRule] = []
   public static let defaultCheckForUpdates = false
   public static let defaultShowSkills = true
+  public static let defaultKeepAwake = false
+  public static let defaultKeepAwakeDuration = KeepAwakeDuration.twelveHours
+  public static let defaultKeepAwakeBatteryCutoff = 15
+  public static let keepAwakeBatteryCutoffRange: ClosedRange<Int> = 5...95
+  public static let keepAwakeBatteryCutoffStep = 5
   public static let defaultQuitBehavior = QuitBehavior.ask
   public static let defaultModeAfterPlan = PlanApprovalMode.default
   public static let defaultPanelSound = PanelSound.none
@@ -142,6 +156,9 @@ public struct Settings: Sendable, Equatable {
     let appearance = file.appearance ?? defaultAppearance
     let accentColor = file.accentColor ?? defaultAccentColor
     let showSkills = file.showSkills ?? defaultShowSkills
+    let keepAwake = file.keepAwake ?? defaultKeepAwake
+    let keepAwakeDuration = file.keepAwakeDuration ?? defaultKeepAwakeDuration
+    let keepAwakeBatteryCutoff = file.keepAwakeBatteryCutoff ?? defaultKeepAwakeBatteryCutoff
 
     return Settings(
       armDelay: armDelay,
@@ -165,6 +182,9 @@ public struct Settings: Sendable, Equatable {
       appearance: appearance,
       accentColor: accentColor,
       showSkills: showSkills,
+      keepAwake: keepAwake,
+      keepAwakeDuration: keepAwakeDuration,
+      keepAwakeBatteryCutoff: keepAwakeBatteryCutoff,
       contextCheckpoints: ContextCheckpointSettings.resolve(
         top: file.contextCheckpoints,
         host: host == .codex ? file.contextCheckpointsCodex : file.contextCheckpointsClaude,

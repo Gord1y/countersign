@@ -22,6 +22,9 @@ public enum PreferenceName: String, Sendable, Equatable, Hashable, CaseIterable 
   case waitingNoticeDuration
   case approvalCard
   case approvalCardDelay
+  case keepAwake
+  case keepAwakeDuration
+  case keepAwakeBatteryCutoff
   case contextCheckpointsEnabled
   case contextMode
   case contextStandardThresholds
@@ -113,6 +116,9 @@ public enum PreferenceEdit: Sendable, Equatable {
   case appearance(AppearanceChoice)
   case accentColor(HexColor)
   case showSkills(Bool)
+  case keepAwake(Bool)
+  case keepAwakeDuration(KeepAwakeDuration)
+  case keepAwakeBatteryCutoff(Int)
   case addHandoffApp(String)
   case removeHandoffApp(String)
   case removeRule(ApprovalRule)
@@ -157,6 +163,9 @@ public enum PreferenceEdit: Sendable, Equatable {
     case .appearance: return .appearance
     case .accentColor: return .accentColor
     case .showSkills: return .showSkills
+    case .keepAwake: return .keepAwake
+    case .keepAwakeDuration: return .keepAwakeDuration
+    case .keepAwakeBatteryCutoff: return .keepAwakeBatteryCutoff
     case .addHandoffApp, .removeHandoffApp: return .handoffApps
     case .editorApp: return .editorApp
     case .contextCheckpointsEnabled: return .contextCheckpointsEnabled
@@ -340,6 +349,14 @@ public enum ConfigEdit {
       try set(path, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
     case .showSkills(let shown):
       try set(path, to: .bool(shown), in: &document) { $0.content == .bool(shown) }
+    case .keepAwake(let enabled):
+      try set(path, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
+    case .keepAwakeDuration(let duration):
+      try set(path, to: .string(duration.rawValue), in: &document) {
+        $0.stringValue == duration.rawValue
+      }
+    case .keepAwakeBatteryCutoff(let percent):
+      try set(path, to: .integer(percent), in: &document) { $0.numberValue == Double(percent) }
     case .questionNotes(let enabled):
       try set(path, to: .bool(enabled), in: &document) { $0.content == .bool(enabled) }
     case .appearance(let appearance):

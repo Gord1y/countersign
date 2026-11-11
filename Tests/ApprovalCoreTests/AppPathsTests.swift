@@ -10,6 +10,9 @@ import Testing
     #expect(
       paths.supportDirectory.path == "/Users/dev/Library/Application Support/Countersign"
     )
+    #expect(
+      paths.keepAwakeSessionFile.path
+        == "/Users/dev/Library/Application Support/Countersign/keep-awake-session")
     #expect(paths.logsDirectory.path == "/Users/dev/Library/Logs/Countersign")
     #expect(paths.claudeSessionsDirectory.path == "/Users/dev/.claude/sessions")
     #expect(paths.queueDirectory.path == "/Users/dev/Library/Application Support/Countersign/queue")

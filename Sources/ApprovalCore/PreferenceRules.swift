@@ -114,6 +114,21 @@ public enum PreferenceRules {
   public static let idleSecondsRange = Settings.idleSecondsRange
   public static let graceSecondsRange = Settings.graceSecondsRange
   public static let snoozePresetCount: ClosedRange<Int> = 1...6
+  public static let batteryCutoffHint =
+    "Enter \(Settings.keepAwakeBatteryCutoffRange.lowerBound)% to"
+    + " \(Settings.keepAwakeBatteryCutoffRange.upperBound)% in steps of"
+    + " \(Settings.keepAwakeBatteryCutoffStep)"
+
+  public static func batteryCutoff(from text: String) -> Int? {
+    var trimmed = text.trimmingCharacters(in: .whitespaces)
+    if trimmed.hasSuffix("%") {
+      trimmed = String(trimmed.dropLast()).trimmingCharacters(in: .whitespaces)
+    }
+    guard let percent = Int(trimmed), Settings.keepAwakeBatteryCutoffRange.contains(percent),
+      percent % Settings.keepAwakeBatteryCutoffStep == 0
+    else { return nil }
+    return percent
+  }
 
   public static func armDelay(_ value: Double) -> Double {
     thousandths(clamp(value, to: armDelayRange))

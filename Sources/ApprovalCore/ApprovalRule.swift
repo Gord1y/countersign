@@ -8,6 +8,12 @@ public struct ApprovalRule: Sendable, Equatable {
 
   public static let defaultDenyMessage = "Denied by a Countersign rule."
 
+  public static func unreadableCount(in logLines: [String]) -> Int {
+    logLines.filter {
+      $0.hasPrefix("rules") && !$0.contains("only used by deny rules")
+    }.count
+  }
+
   public var decision: Decision
   public var agent: Host?
   public var project: String?

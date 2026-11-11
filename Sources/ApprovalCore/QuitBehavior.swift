@@ -50,6 +50,13 @@ public enum QuitQuestion {
     }
   }
 
+  public static func commandOutcome(pausing: Bool, pause: PauseState) -> QuitOutcome {
+    guard pause == .active else {
+      return QuitOutcome(pausesPanels: false, keepsExistingPause: true)
+    }
+    return QuitOutcome(pausesPanels: pausing)
+  }
+
   public static func decision(for answer: QuitAnswer, dontAskAgain: Bool) -> QuitDecision {
     switch answer {
     case .cancel:

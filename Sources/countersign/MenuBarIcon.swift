@@ -22,19 +22,23 @@ enum MenuBarIcon {
   private static let moonKnockoutCenter = CGPoint(x: 16.28, y: 12.72)
   private static let moonKnockoutRadius: CGFloat = 2.64
 
-  static func image(for icon: CompanionIcon) -> NSImage {
+  private static let keepAwakeDot = CGRect(x: 0.1, y: 13.7, width: 4.2, height: 4.2)
+
+  static func image(for icon: CompanionIcon, keepingAwake: Bool = false) -> NSImage {
     let canvas = CGSize(width: canvasSize, height: canvasSize)
     let image = NSImage(size: canvas, flipped: false) { _ in
       guard let context = NSGraphicsContext.current?.cgContext else { return false }
-      draw(icon, in: context, color: NSColor.black.cgColor)
+      draw(icon, keepingAwake: keepingAwake, in: context, color: NSColor.black.cgColor)
       return true
     }
     image.isTemplate = true
-    image.accessibilityDescription = icon.accessibilityLabel
+    image.accessibilityDescription = icon.accessibilityLabel(keepingAwake: keepingAwake)
     return image
   }
 
-  static func draw(_ icon: CompanionIcon, in context: CGContext, color: CGColor) {
+  static func draw(
+    _ icon: CompanionIcon, keepingAwake: Bool = false, in context: CGContext, color: CGColor
+  ) {
     context.saveGState()
     context.translateBy(x: 0, y: canvasSize)
     context.scaleBy(x: 1, y: -1)
@@ -59,6 +63,10 @@ enum MenuBarIcon {
       context.setBlendMode(.normal)
     }
     context.restoreGState()
+    if keepingAwake {
+      context.setFillColor(color)
+      context.fillEllipse(in: keepAwakeDot)
+    }
   }
 
   private static var nibTransform: CGAffineTransform {

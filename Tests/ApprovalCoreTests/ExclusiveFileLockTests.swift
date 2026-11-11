@@ -24,6 +24,34 @@ import Testing
     second.release()
   }
 
+  @Test func outlastsAHoldReleasedWhileItPauses() throws {
+    let root = temporaryRoot()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let file = root.appendingPathComponent("companion.lock")
+    let probe = try #require(try ExclusiveFileLock.acquire(file))
+    var pauses = 0
+
+    let lock = try #require(
+      try ExclusiveFileLock.acquireOutlastingBriefHolds(file) {
+        pauses += 1
+        probe.release()
+      })
+    #expect(pauses == 1)
+    lock.release()
+  }
+
+  @Test func givesUpOnAHoldThatOutlastsEveryRetry() throws {
+    let root = temporaryRoot()
+    defer { try? FileManager.default.removeItem(at: root) }
+    let file = root.appendingPathComponent("companion.lock")
+    let owner = try #require(try ExclusiveFileLock.acquire(file))
+    var pauses = 0
+
+    #expect(try ExclusiveFileLock.acquireOutlastingBriefHolds(file) { pauses += 1 } == nil)
+    #expect(pauses == ExclusiveFileLock.briefHoldRetries)
+    owner.release()
+  }
+
   @Test func retriesWhenTheLockFileIsReplacedBetweenOpeningAndLockingIt() throws {
     let root = temporaryRoot()
     defer { try? FileManager.default.removeItem(at: root) }

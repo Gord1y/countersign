@@ -51,6 +51,9 @@ public struct PreferenceValues: Sendable, Equatable {
   public var appearance: AppearanceChoice
   public var accentColor: HexColor
   public var showSkills: Bool
+  public var keepAwake: Bool
+  public var keepAwakeDuration: KeepAwakeDuration
+  public var keepAwakeBatteryCutoff: Int
   public var editorApp: String?
   public var contextCheckpoints: ContextCheckpointSettings
 
@@ -75,6 +78,9 @@ public struct PreferenceValues: Sendable, Equatable {
     appearance: AppearanceChoice = Settings.defaultAppearance,
     accentColor: HexColor = Settings.defaultAccentColor,
     showSkills: Bool = Settings.defaultShowSkills,
+    keepAwake: Bool = Settings.defaultKeepAwake,
+    keepAwakeDuration: KeepAwakeDuration = Settings.defaultKeepAwakeDuration,
+    keepAwakeBatteryCutoff: Int = Settings.defaultKeepAwakeBatteryCutoff,
     editorApp: String? = nil,
     contextCheckpoints: ContextCheckpointSettings = .default
   ) {
@@ -98,6 +104,9 @@ public struct PreferenceValues: Sendable, Equatable {
     self.appearance = appearance
     self.accentColor = accentColor
     self.showSkills = showSkills
+    self.keepAwake = keepAwake
+    self.keepAwakeDuration = keepAwakeDuration
+    self.keepAwakeBatteryCutoff = keepAwakeBatteryCutoff
     self.editorApp = editorApp
     self.contextCheckpoints = contextCheckpoints
   }
@@ -130,6 +139,9 @@ public struct PreferenceValues: Sendable, Equatable {
       appearance: file.appearance ?? Settings.defaultAppearance,
       accentColor: file.accentColor ?? Settings.defaultAccentColor,
       showSkills: file.showSkills ?? Settings.defaultShowSkills,
+      keepAwake: file.keepAwake ?? Settings.defaultKeepAwake,
+      keepAwakeDuration: file.keepAwakeDuration ?? Settings.defaultKeepAwakeDuration,
+      keepAwakeBatteryCutoff: file.keepAwakeBatteryCutoff ?? Settings.defaultKeepAwakeBatteryCutoff,
       editorApp: file.editorApp,
       contextCheckpoints: ContextCheckpointSettings.resolve(
         top: file.contextCheckpoints, host: nil, for: .claude))
@@ -182,6 +194,12 @@ public struct PreferenceValues: Sendable, Equatable {
       values.accentColor = color
     case .showSkills(let shown):
       values.showSkills = shown
+    case .keepAwake(let enabled):
+      values.keepAwake = enabled
+    case .keepAwakeDuration(let duration):
+      values.keepAwakeDuration = duration
+    case .keepAwakeBatteryCutoff(let percent):
+      values.keepAwakeBatteryCutoff = percent
     case .addHandoffApp(let bundleID):
       if !values.handoffApps.contains(bundleID) {
         values.handoffApps.append(bundleID)
@@ -248,6 +266,10 @@ public struct PreferenceValues: Sendable, Equatable {
     case .appearance: values.appearance = Settings.defaultAppearance
     case .accentColor: values.accentColor = Settings.defaultAccentColor
     case .showSkills: values.showSkills = Settings.defaultShowSkills
+    case .keepAwake: values.keepAwake = Settings.defaultKeepAwake
+    case .keepAwakeDuration: values.keepAwakeDuration = Settings.defaultKeepAwakeDuration
+    case .keepAwakeBatteryCutoff:
+      values.keepAwakeBatteryCutoff = Settings.defaultKeepAwakeBatteryCutoff
     case .editorApp: values.editorApp = nil
     case .contextCheckpointsEnabled:
       values.contextCheckpoints.enabled = ContextCheckpointSettings.defaultEnabled
